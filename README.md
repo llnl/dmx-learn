@@ -5,7 +5,7 @@ DMixLearn - (Distributed Mixture Learning) A package for distributed heterogeneo
 ## 📚 Documentation
 View the full documentation on **Read the Docs**:
 
-👉 [https://pysparkplug-read-the-docs.readthedocs.io/en/develop/](https://pysparkplug-read-the-docs.readthedocs.io/en/develop/)
+👉 [https://dmixlearn.readthedocs.io/en/latest/](https://dmixlearn.readthedocs.io/en/latest/)
 
 ## Installation
 
