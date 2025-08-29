@@ -2,8 +2,8 @@
 Note that Numba is set for use here. """
 USE_NUMBA = True 
 import numpy as np
-from dml.stats import *
-from dml.utils.estimation import best_of, partition_data
+from dmx.stats import *
+from dmx.utils.estimation import best_of, partition_data
 
 if __name__ == '__main__':
     n = int(1e4)

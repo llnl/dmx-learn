@@ -1,11 +1,11 @@
 #import copyreg, copy, pickle, dill
 from typing import Optional, Any, Dict
-from dml.arithmetic import *
+from dmx.arithmetic import *
 from numpy.random import RandomState
-from dml.bstats.pdist import ParameterEstimator, ProbabilityDistribution, StatisticAccumulator
-from dml.bstats.gamma import GammaDistribution
-from dml.bstats.nulldist import NullDistribution, null_dist
-from dml.utils.special import stirling2
+from dmx.bstats.pdist import ParameterEstimator, ProbabilityDistribution, StatisticAccumulator
+from dmx.bstats.gamma import GammaDistribution
+from dmx.bstats.nulldist import NullDistribution, null_dist
+from dmx.utils.special import stirling2
 import numpy as np
 from scipy.special import gammaln, digamma, exp1
 from scipy.optimize import minimize_scalar

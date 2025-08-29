@@ -1,7 +1,7 @@
 """Test cases for Spearman Ranking Distribution and related classes."""
-from dml.tests.stats.stats_tests import * 
-from dml.stats import *
-from dml.stats.spearman_rho import *
+from dmx.tests.stats.stats_tests import * 
+from dmx.stats import *
+from dmx.stats.spearman_rho import *
 import numpy as np
 import pytest 
 

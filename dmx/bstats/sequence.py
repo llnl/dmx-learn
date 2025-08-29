@@ -2,10 +2,10 @@ from typing import Optional, Tuple, TypeVar, List
 import numpy as np
 import pandas as pd
 from numpy.random import RandomState
-from dml.arithmetic import maxint
-from dml.bstats.nulldist import null_dist, null_estimator
-from dml.bstats.composite import CompositeDistribution
-from dml.bstats.pdist import ProbabilityDistribution, SequenceEncodableAccumulator, ParameterEstimator
+from dmx.arithmetic import maxint
+from dmx.bstats.nulldist import null_dist, null_estimator
+from dmx.bstats.composite import CompositeDistribution
+from dmx.bstats.pdist import ProbabilityDistribution, SequenceEncodableAccumulator, ParameterEstimator
 
 X  = TypeVar('X') # Observation type
 P1 = TypeVar('P1') # Sequence parameter type

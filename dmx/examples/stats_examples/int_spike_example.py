@@ -1,7 +1,7 @@
 """Integer Spike and Slab  example on generated data."""
 import numpy as np
-from dml.stats import *
-from dml.utils.estimation import optimize
+from dmx.stats import *
+from dmx.utils.estimation import optimize
 
 if __name__ == '__main__':
     n = int(1e4)

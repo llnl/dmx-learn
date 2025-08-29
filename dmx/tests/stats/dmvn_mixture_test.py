@@ -1,7 +1,7 @@
 """Tests for the Diagonal Gaussian Mixture Distribution."""
-from dml.tests.stats.stats_tests import * 
-from dml.stats import *
-from dml.stats.dmvn_mixture import *
+from dmx.tests.stats.stats_tests import * 
+from dmx.stats import *
+from dmx.stats.dmvn_mixture import *
 import numpy as np
 import pytest 
 

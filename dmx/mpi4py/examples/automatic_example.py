@@ -10,8 +10,8 @@ os.environ['NUMBA_DISABLE_JIT'] =  '1'
 from mpi4py import MPI
 from numpy.random import RandomState
 
-from dml.mpi4py.utils.automatic import get_dpm_mixture_mpi, get_estimator
-from dml.mpi4py.utils.optsutil import pickle_on_master
+from dmx.mpi4py.utils.automatic import get_dpm_mixture_mpi, get_estimator
+from dmx.mpi4py.utils.optsutil import pickle_on_master
 
 
 comm = MPI.COMM_WORLD

@@ -1,9 +1,9 @@
 from typing import Optional, List, Iterable, TypeVar, Tuple, Union
-from dml.arithmetic import *
-from dml.bstats.normgamma import NormalGammaDistribution
-from dml.bstats.pdist import ProbabilityDistribution, StatisticAccumulator, ParameterEstimator
+from dmx.arithmetic import *
+from dmx.bstats.normgamma import NormalGammaDistribution
+from dmx.bstats.pdist import ProbabilityDistribution, StatisticAccumulator, ParameterEstimator
 from numpy.random import RandomState
-from dml.utils.special import digamma, gammaln
+from dmx.utils.special import digamma, gammaln
 import numpy as np
 
 default_prior = NormalGammaDistribution(0.0, 1.0e-8, 0.500001, 1.0)

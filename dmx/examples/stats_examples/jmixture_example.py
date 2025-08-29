@@ -1,7 +1,7 @@
 """Fit a joint mixture model to simulated data. Joint mixture is f(x) = sum_k pi_k*sum_j pi_{k,j} f_{k,j}(x)."""
 import numpy as np
-from dml.stats import *
-from dml.utils.estimation import partition_data, best_of, empirical_kl_divergence
+from dmx.stats import *
+from dmx.utils.estimation import partition_data, best_of, empirical_kl_divergence
 
 if __name__ == '__main__':
     rng = np.random.RandomState(1)

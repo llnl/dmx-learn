@@ -23,10 +23,10 @@ The multinomial is assumed to have data type: Sequence[Tuple[T, float]], where T
 from __future__ import annotations
 import numpy as np
 from numpy.random import RandomState
-from dml.stats.pdist import SequenceEncodableStatisticAccumulator, SequenceEncodableProbabilityDistribution, \
+from dmx.stats.pdist import SequenceEncodableStatisticAccumulator, SequenceEncodableProbabilityDistribution, \
     ParameterEstimator, DistributionSampler, DataSequenceEncoder, StatisticAccumulatorFactory, EncodedDataSequence
-from dml.arithmetic import maxrandint
-from dml.stats.null_dist import NullDistribution, NullEstimator, NullAccumulator, NullAccumulatorFactory
+from dmx.arithmetic import maxrandint
+from dmx.stats.null_dist import NullDistribution, NullEstimator, NullAccumulator, NullAccumulatorFactory
 from typing import Optional, Sequence, Tuple, Any, Union, Dict, TypeVar
 
 T = TypeVar('T') ## Generic data type for value.

@@ -1,8 +1,8 @@
 from typing import Optional
-from dml.arithmetic import *
-from dml.bstats.pdist import StatisticAccumulator, ParameterEstimator, ProbabilityDistribution
+from dmx.arithmetic import *
+from dmx.bstats.pdist import StatisticAccumulator, ParameterEstimator, ProbabilityDistribution
 from numpy.random import RandomState
-from dml.bstats.nulldist import NullDistribution
+from dmx.bstats.nulldist import NullDistribution
 import numpy as np
 
 null_dist = NullDistribution()

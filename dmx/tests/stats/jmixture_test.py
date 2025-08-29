@@ -1,10 +1,10 @@
 """Test cases for Joint Mixture Distribution and related classes."""
-from dml.tests.stats.stats_tests import * 
-from dml.stats import *
-from dml.stats.categorical import *
-from dml.stats.binomial import * 
-from dml.stats.gaussian import * 
-from dml.stats.jmixture import * 
+from dmx.tests.stats.stats_tests import * 
+from dmx.stats import *
+from dmx.stats.categorical import *
+from dmx.stats.binomial import * 
+from dmx.stats.gaussian import * 
+from dmx.stats.jmixture import * 
 import numpy as np
 
 

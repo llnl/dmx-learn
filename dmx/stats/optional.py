@@ -10,7 +10,7 @@ The OptionalDistribution allows for potentially missing data. The value p (the p
 must be specified to sample from the distribution.
 
 """
-from dml.stats.pdist import SequenceEncodableProbabilityDistribution, SequenceEncodableStatisticAccumulator, \
+from dmx.stats.pdist import SequenceEncodableProbabilityDistribution, SequenceEncodableStatisticAccumulator, \
     ParameterEstimator, DistributionSampler, DataSequenceEncoder, StatisticAccumulatorFactory, EncodedDataSequence
 import numpy as np
 from numpy.random import RandomState

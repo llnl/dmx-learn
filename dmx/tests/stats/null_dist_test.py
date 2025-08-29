@@ -1,7 +1,7 @@
 """Test cases for Null Distribution and related classes."""
-from dml.tests.stats.stats_tests import * 
-from dml.stats import *
-from dml.stats.null_dist import NullDistribution, NullAccumulator, NullAccumulatorFactory, NullDataEncoder, NullEstimator
+from dmx.tests.stats.stats_tests import * 
+from dmx.stats import *
+from dmx.stats.null_dist import NullDistribution, NullAccumulator, NullAccumulatorFactory, NullDataEncoder, NullEstimator
 import numpy as np
 import unittest
 import pytest 

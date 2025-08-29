@@ -1,11 +1,11 @@
-from dml.arithmetic import *
+from dmx.arithmetic import *
 from numpy.random import RandomState
 from collections import defaultdict
-from dml.bstats.pdist import ProbabilityDistribution, SequenceEncodableAccumulator, ParameterEstimator
+from dmx.bstats.pdist import ProbabilityDistribution, SequenceEncodableAccumulator, ParameterEstimator
 import numpy as np
-from dml.bstats.beta import BetaDistribution
-from dml.bstats.mixture import MixtureDistribution
-from dml.utils.special import gammaln
+from dmx.bstats.beta import BetaDistribution
+from dmx.bstats.mixture import MixtureDistribution
+from dmx.utils.special import gammaln
 
 
 default_prior = BetaDistribution(1,1)

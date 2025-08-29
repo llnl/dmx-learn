@@ -3,9 +3,9 @@ represented by edges in a graph."""
 import json
 import os
 import numpy as np
-from dml.stats import *
-from dml.utils.estimation import optimize
-from dml.utils.optsutil import get_parent_directory
+from dmx.stats import *
+from dmx.utils.estimation import optimize
+from dmx.utils.optsutil import get_parent_directory
 
 if __name__ == '__main__':
 

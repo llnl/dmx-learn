@@ -16,10 +16,10 @@ for an observation x of data type Sequence[T] having length n.
 """
 import numpy as np
 from numpy.random import RandomState
-from dml.arithmetic import maxrandint
-from dml.stats.pdist import SequenceEncodableProbabilityDistribution, ParameterEstimator, DistributionSampler, \
+from dmx.arithmetic import maxrandint
+from dmx.stats.pdist import SequenceEncodableProbabilityDistribution, ParameterEstimator, DistributionSampler, \
     StatisticAccumulatorFactory, SequenceEncodableStatisticAccumulator, DataSequenceEncoder, EncodedDataSequence
-from dml.stats.null_dist import NullDistribution, NullAccumulator, NullEstimator, NullDataEncoder, \
+from dmx.stats.null_dist import NullDistribution, NullAccumulator, NullEstimator, NullDataEncoder, \
     NullAccumulatorFactory
 
 from typing import Optional, List, Any, Tuple, Sequence, TypeVar, Dict

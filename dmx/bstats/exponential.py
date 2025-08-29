@@ -1,11 +1,11 @@
 from typing import Dict, Tuple, Sequence, Optional
 
-from dml.arithmetic import *
-from dml.bstats.pdist import ParameterEstimator, ProbabilityDistribution, StatisticAccumulator
+from dmx.arithmetic import *
+from dmx.bstats.pdist import ParameterEstimator, ProbabilityDistribution, StatisticAccumulator
 import numpy as np
 from scipy.special import gammaln, digamma
 
-from dml.bstats.gamma import GammaDistribution
+from dmx.bstats.gamma import GammaDistribution
 
 default_prior = GammaDistribution(1.0001, 1.0e6)
 

@@ -5,9 +5,9 @@ Run with mpiexec -n 4 pytest test_humap.py
 """
 import os
 import pickle
-from dml.bstats import *
-from dml.mpi4py.bstats import *
-from dml.mpi4py.utils.humap import humap_mpi
+from dmx.bstats import *
+from dmx.mpi4py.bstats import *
+from dmx.mpi4py.utils.humap import humap_mpi
 import numpy as np
 from mpi4py import MPI
 

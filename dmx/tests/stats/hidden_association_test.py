@@ -1,12 +1,12 @@
 "Tests for the Hidden Association Distribution and its related classes."
-from dml.tests.stats.stats_tests import * 
-from dml.stats import *
-from dml.stats.categorical import *
-from dml.stats.binomial import * 
-from dml.stats.gaussian import * 
-from dml.stats.conditional import * 
-from dml.stats.catmultinomial import * 
-from dml.stats.hidden_association import *
+from dmx.tests.stats.stats_tests import * 
+from dmx.stats import *
+from dmx.stats.categorical import *
+from dmx.stats.binomial import * 
+from dmx.stats.gaussian import * 
+from dmx.stats.conditional import * 
+from dmx.stats.catmultinomial import * 
+from dmx.stats.hidden_association import *
 import numpy as np
 
 class HiddenAssociationDistributionTestCase(StatsTestClass):

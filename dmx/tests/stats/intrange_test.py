@@ -1,7 +1,7 @@
 """Test cases for Integer Categorical Distribution and related classes."""
-from dml.tests.stats.stats_tests import * 
-from dml.stats import *
-from dml.stats.intrange import *
+from dmx.tests.stats.stats_tests import * 
+from dmx.stats import *
+from dmx.stats.intrange import *
 import numpy as np
 import pytest 
 

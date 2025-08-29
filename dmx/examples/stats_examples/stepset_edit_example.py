@@ -1,8 +1,8 @@
 """Example of Bernoulli step set edit distribution. Transition probabilities for sets are printed out for fit.
 This is similar to step_edit_example.py"""
 import numpy as np
-from dml.stats import *
-from dml.utils.estimation import optimize
+from dmx.stats import *
+from dmx.utils.estimation import optimize
 
 if __name__ == '__main__':
 

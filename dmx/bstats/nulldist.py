@@ -1,6 +1,6 @@
 from typing import Optional, Any
-from dml.bstats.pdist import StatisticAccumulator, ParameterEstimator, ProbabilityDistribution
-from dml.bstats.pdist import EncodedDataSequence, DataSequenceEncoder
+from dmx.bstats.pdist import StatisticAccumulator, ParameterEstimator, ProbabilityDistribution
+from dmx.bstats.pdist import EncodedDataSequence, DataSequenceEncoder
 import numpy as np
 
 

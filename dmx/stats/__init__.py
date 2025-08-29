@@ -108,69 +108,69 @@ __all__ = [
 
 # Abstract Classes
 import pyspark.rdd
-from dml.stats.pdist import SequenceEncodableProbabilityDistribution, ParameterEstimator, DataSequenceEncoder, \
+from dmx.stats.pdist import SequenceEncodableProbabilityDistribution, ParameterEstimator, DataSequenceEncoder, \
     EncodedDataSequence
 
 # Discrete base distributions
-from dml.stats.binomial import BinomialDistribution, BinomialEstimator
-from dml.stats.categorical import CategoricalDistribution, CategoricalEstimator
-from dml.stats.poisson import PoissonDistribution, PoissonEstimator
-from dml.stats.geometric import GeometricDistribution, GeometricEstimator
-from dml.stats.int_spike import SpikeAndSlabDistribution, SpikeAndSlabEstimator
-from dml.stats.intrange import IntegerCategoricalDistribution, IntegerCategoricalEstimator
-from dml.stats.catmultinomial import MultinomialDistribution, MultinomialEstimator
-from dml.stats.intmultinomial import IntegerMultinomialDistribution, IntegerMultinomialEstimator
+from dmx.stats.binomial import BinomialDistribution, BinomialEstimator
+from dmx.stats.categorical import CategoricalDistribution, CategoricalEstimator
+from dmx.stats.poisson import PoissonDistribution, PoissonEstimator
+from dmx.stats.geometric import GeometricDistribution, GeometricEstimator
+from dmx.stats.int_spike import SpikeAndSlabDistribution, SpikeAndSlabEstimator
+from dmx.stats.intrange import IntegerCategoricalDistribution, IntegerCategoricalEstimator
+from dmx.stats.catmultinomial import MultinomialDistribution, MultinomialEstimator
+from dmx.stats.intmultinomial import IntegerMultinomialDistribution, IntegerMultinomialEstimator
 
 # Continuous base distributions
-from dml.stats.exponential import ExponentialDistribution, ExponentialEstimator
-from dml.stats.gamma import GammaDistribution, GammaEstimator
-from dml.stats.gaussian import GaussianDistribution, GaussianEstimator
-from dml.stats.dirichlet import DirichletDistribution, DirichletEstimator
-from dml.stats.vmf import VonMisesFisherDistribution, VonMisesFisherEstimator
-from dml.stats.log_gaussian import LogGaussianDistribution, LogGaussianEstimator
-from dml.stats.gmm import GaussianMixtureDistribution, GaussianMixtureEstimator
+from dmx.stats.exponential import ExponentialDistribution, ExponentialEstimator
+from dmx.stats.gamma import GammaDistribution, GammaEstimator
+from dmx.stats.gaussian import GaussianDistribution, GaussianEstimator
+from dmx.stats.dirichlet import DirichletDistribution, DirichletEstimator
+from dmx.stats.vmf import VonMisesFisherDistribution, VonMisesFisherEstimator
+from dmx.stats.log_gaussian import LogGaussianDistribution, LogGaussianEstimator
+from dmx.stats.gmm import GaussianMixtureDistribution, GaussianMixtureEstimator
 
 
 # combinators distributions
-from dml.stats.composite import CompositeDistribution, CompositeEstimator
-from dml.stats.conditional import ConditionalDistribution, ConditionalDistributionEstimator
-from dml.stats.sequence import SequenceDistribution, SequenceEstimator
-from dml.stats.ignored import IgnoredDistribution, IgnoredEstimator
-from dml.stats.optional import OptionalDistribution, OptionalEstimator
-from dml.stats.weighted import WeightedDistribution, WeightedEstimator
+from dmx.stats.composite import CompositeDistribution, CompositeEstimator
+from dmx.stats.conditional import ConditionalDistribution, ConditionalDistributionEstimator
+from dmx.stats.sequence import SequenceDistribution, SequenceEstimator
+from dmx.stats.ignored import IgnoredDistribution, IgnoredEstimator
+from dmx.stats.optional import OptionalDistribution, OptionalEstimator
+from dmx.stats.weighted import WeightedDistribution, WeightedEstimator
 
 # Generic Distributions
-from dml.stats.categorical import CategoricalDistribution, CategoricalEstimator
-from dml.stats.mixture import MixtureDistribution, MixtureEstimator
-from dml.stats.heterogeneous_mixture import HeterogeneousMixtureDistribution, HeterogeneousMixtureEstimator
-from dml.stats.markovchain import MarkovChainDistribution, MarkovChainEstimator
-from dml.stats.null_dist import NullDistribution, NullEstimator
-from dml.stats.hidden_association import HiddenAssociationDistribution, HiddenAssociationEstimator
-from dml.stats.hidden_markov import HiddenMarkovModelDistribution, HiddenMarkovEstimator
-from dml.stats.jmixture import JointMixtureDistribution, JointMixtureEstimator
-from dml.stats.tree_hmm import TreeHiddenMarkovModelDistribution, TreeHiddenMarkovEstimator
+from dmx.stats.categorical import CategoricalDistribution, CategoricalEstimator
+from dmx.stats.mixture import MixtureDistribution, MixtureEstimator
+from dmx.stats.heterogeneous_mixture import HeterogeneousMixtureDistribution, HeterogeneousMixtureEstimator
+from dmx.stats.markovchain import MarkovChainDistribution, MarkovChainEstimator
+from dmx.stats.null_dist import NullDistribution, NullEstimator
+from dmx.stats.hidden_association import HiddenAssociationDistribution, HiddenAssociationEstimator
+from dmx.stats.hidden_markov import HiddenMarkovModelDistribution, HiddenMarkovEstimator
+from dmx.stats.jmixture import JointMixtureDistribution, JointMixtureEstimator
+from dmx.stats.tree_hmm import TreeHiddenMarkovModelDistribution, TreeHiddenMarkovEstimator
 # from dml.stats.lda import LDADistribution, LDAEstimator
-from dml.stats.markovchain import MarkovChainDistribution, MarkovChainEstimator
-from dml.stats.setdist import BernoulliSetDistribution, BernoulliSetEstimator
-from dml.stats.spearman_rho import SpearmanRankingDistribution, SpearmanRankingEstimator
-from dml.stats.look_back_hmm import LookbackHiddenMarkovDistribution, LookbackHiddenMarkovEstimator
-from dml.stats.lda import LDADistribution, LDAEstimator
+from dmx.stats.markovchain import MarkovChainDistribution, MarkovChainEstimator
+from dmx.stats.setdist import BernoulliSetDistribution, BernoulliSetEstimator
+from dmx.stats.spearman_rho import SpearmanRankingDistribution, SpearmanRankingEstimator
+from dmx.stats.look_back_hmm import LookbackHiddenMarkovDistribution, LookbackHiddenMarkovEstimator
+from dmx.stats.lda import LDADistribution, LDAEstimator
 
 # Reduced Generic Distributions
-from dml.stats.hmixture import HierarchicalMixtureDistribution, HierarchicalMixtureEstimator
-from dml.stats.int_edit_setdist import IntegerBernoulliEditDistribution, IntegerBernoulliEditEstimator
-from dml.stats.int_edit_stepsetdist import IntegerStepBernoulliEditDistribution, IntegerStepBernoulliEditEstimator
-from dml.stats.int_markovchain import IntegerMarkovChainDistribution, IntegerMarkovChainEstimator
-from dml.stats.int_plsi import IntegerPLSIDistribution, IntegerPLSIEstimator
-from dml.stats.icltree import ICLTreeDistribution, ICLTreeEstimator
-from dml.stats.intsetdist import IntegerBernoulliSetDistribution, IntegerBernoulliSetEstimator
-from dml.stats.mvn import MultivariateGaussianDistribution, MultivariateGaussianEstimator
-from dml.stats.int_hidden_association import IntegerHiddenAssociationDistribution, IntegerHiddenAssociationEstimator
-from dml.stats.sparse_markov_transform import SparseMarkovAssociationDistribution, SparseMarkovAssociationEstimator
-from dml.stats.dmvn import DiagonalGaussianDistribution, DiagonalGaussianEstimator
-from dml.stats.ss_mixture import SemiSupervisedMixtureDistribution, SemiSupervisedMixtureEstimator
-from dml.stats.dirac_length import DiracMixtureDistribution, DiracMixtureEstimator
-from dml.stats.dmvn_mixture import DiagonalGaussianMixtureDistribution, DiagonalGaussianMixtureEstimator
+from dmx.stats.hmixture import HierarchicalMixtureDistribution, HierarchicalMixtureEstimator
+from dmx.stats.int_edit_setdist import IntegerBernoulliEditDistribution, IntegerBernoulliEditEstimator
+from dmx.stats.int_edit_stepsetdist import IntegerStepBernoulliEditDistribution, IntegerStepBernoulliEditEstimator
+from dmx.stats.int_markovchain import IntegerMarkovChainDistribution, IntegerMarkovChainEstimator
+from dmx.stats.int_plsi import IntegerPLSIDistribution, IntegerPLSIEstimator
+from dmx.stats.icltree import ICLTreeDistribution, ICLTreeEstimator
+from dmx.stats.intsetdist import IntegerBernoulliSetDistribution, IntegerBernoulliSetEstimator
+from dmx.stats.mvn import MultivariateGaussianDistribution, MultivariateGaussianEstimator
+from dmx.stats.int_hidden_association import IntegerHiddenAssociationDistribution, IntegerHiddenAssociationEstimator
+from dmx.stats.sparse_markov_transform import SparseMarkovAssociationDistribution, SparseMarkovAssociationEstimator
+from dmx.stats.dmvn import DiagonalGaussianDistribution, DiagonalGaussianEstimator
+from dmx.stats.ss_mixture import SemiSupervisedMixtureDistribution, SemiSupervisedMixtureEstimator
+from dmx.stats.dirac_length import DiracMixtureDistribution, DiracMixtureEstimator
+from dmx.stats.dmvn_mixture import DiagonalGaussianMixtureDistribution, DiagonalGaussianMixtureEstimator
 
 
 ### imports

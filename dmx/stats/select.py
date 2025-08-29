@@ -9,8 +9,8 @@ maps an observation a distribution from the set of distributions.
 """
 import numpy as np
 from numpy.random import RandomState
-from dml.arithmetic import *
-from dml.stats.pdist import SequenceEncodableProbabilityDistribution, SequenceEncodableStatisticAccumulator, \
+from dmx.arithmetic import *
+from dmx.stats.pdist import SequenceEncodableProbabilityDistribution, SequenceEncodableStatisticAccumulator, \
     ParameterEstimator, DistributionSampler, DataSequenceEncoder, StatisticAccumulatorFactory, EncodedDataSequence
 
 from typing import Callable, Dict, Tuple, Any, Optional, Sequence, TypeVar, List

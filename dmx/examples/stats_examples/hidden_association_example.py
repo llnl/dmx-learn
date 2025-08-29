@@ -3,8 +3,8 @@ generate data, estimate, and evaluate likelihoods.
 """ 
 from numpy.random import RandomState
 import numpy as np
-from dml.stats import *
-from dml.utils.estimation import optimize
+from dmx.stats import *
+from dmx.utils.estimation import optimize
 
 
 if __name__ == '__main__':

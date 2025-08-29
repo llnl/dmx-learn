@@ -2,10 +2,10 @@ from typing import Optional
 import numpy as np
 from numpy.random import RandomState
 
-from dml.arithmetic import *
-from dml.bstats.pdist import ProbabilityDistribution, StatisticAccumulator, ParameterEstimator
-from dml.utils.special import gammaln, digamma, trigamma
-from dml.bstats.nulldist import null_dist
+from dmx.arithmetic import *
+from dmx.bstats.pdist import ProbabilityDistribution, StatisticAccumulator, ParameterEstimator
+from dmx.utils.special import gammaln, digamma, trigamma
+from dmx.bstats.nulldist import null_dist
 import scipy.integrate
 
 class GammaDistribution(ProbabilityDistribution):

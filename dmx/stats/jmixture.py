@@ -15,14 +15,14 @@ sampling X_2 from g_j() (data type T1) given X_1 was sampled from f_i().
 
 
 """
-from dml.arithmetic import *
+from dmx.arithmetic import *
 from numpy.random import RandomState
-from dml.stats.pdist import SequenceEncodableProbabilityDistribution, StatisticAccumulatorFactory, \
+from dmx.stats.pdist import SequenceEncodableProbabilityDistribution, StatisticAccumulatorFactory, \
     SequenceEncodableStatisticAccumulator, DataSequenceEncoder, DistributionSampler, ParameterEstimator, \
     EncodedDataSequence
 import numpy as np
-import dml.utils.vector as vec
-from dml.arithmetic import maxrandint
+import dmx.utils.vector as vec
+from dmx.arithmetic import maxrandint
 
 from typing import Tuple, Union, Any, Optional, TypeVar, Sequence, List, Dict
 

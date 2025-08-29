@@ -7,8 +7,8 @@ two component mixture with one of the topics fixed.
 
 """ 
 from numpy.random import RandomState
-from dml.stats import *
-from dml.utils.estimation import optimize
+from dmx.stats import *
+from dmx.utils.estimation import optimize
 
 if __name__ == '__main__':
     n = int(1e4)

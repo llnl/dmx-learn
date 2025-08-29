@@ -6,8 +6,8 @@ Tests were run with mpiexec -n 4 pytest test_estimation
 import os
 import pickle
 import pytest
-from dml.stats import *
-from dml.mpi4py.utils.estimation import optimize_mpi, best_of_mpi
+from dmx.stats import *
+from dmx.mpi4py.utils.estimation import optimize_mpi, best_of_mpi
 import numpy as np
 from mpi4py import MPI
 

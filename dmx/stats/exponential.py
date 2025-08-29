@@ -5,8 +5,8 @@ ExponentialEstimator, and the ExponentialDataEncoder classes for use with dmx-le
 """
 
 from typing import Optional, Tuple, List, Union, Dict, Any
-from dml.arithmetic import *
-from dml.stats.pdist import (
+from dmx.arithmetic import *
+from dmx.stats.pdist import (
     SequenceEncodableProbabilityDistribution,
     ParameterEstimator,
     DistributionSampler,

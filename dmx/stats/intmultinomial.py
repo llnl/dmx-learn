@@ -16,12 +16,12 @@ where P_len(N) is a distribution for the number of trials in the multinomial.
 """
 import numpy as np
 from numpy.random import RandomState
-import dml.utils.vector as vec
-from dml.arithmetic import *
-from dml.stats.pdist import SequenceEncodableStatisticAccumulator, SequenceEncodableProbabilityDistribution, \
+import dmx.utils.vector as vec
+from dmx.arithmetic import *
+from dmx.stats.pdist import SequenceEncodableStatisticAccumulator, SequenceEncodableProbabilityDistribution, \
     ParameterEstimator, DistributionSampler, DataSequenceEncoder, StatisticAccumulatorFactory, EncodedDataSequence
-from dml.arithmetic import maxrandint
-from dml.stats.null_dist import NullDistribution, NullEstimator, NullDataEncoder, NullAccumulator, \
+from dmx.arithmetic import maxrandint
+from dmx.stats.null_dist import NullDistribution, NullEstimator, NullDataEncoder, NullAccumulator, \
     NullAccumulatorFactory
 
 from typing import Optional, Sequence, Tuple, Any, TypeVar, Union, List, Dict

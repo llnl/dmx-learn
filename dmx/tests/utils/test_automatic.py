@@ -3,8 +3,8 @@ import os
 import pytest
 import pickle
 import numpy as np
-from dml.utils.automatic import get_dpm_mixture, get_estimator
-from dml.bstats import *
+from dmx.utils.automatic import get_dpm_mixture, get_estimator
+from dmx.bstats import *
 
 DATA_DIR = "dml/tests/data"
 ANSWER_DIR = "dml/tests/answerkeys"

@@ -1,7 +1,7 @@
 """Example of semi-supervised mixture example. Note that None is included for obs with no known labels."""
-from dml.stats import *
-from dml.stats.ss_mixture import *
-from dml.utils.estimation import best_of
+from dmx.stats import *
+from dmx.stats.ss_mixture import *
+from dmx.utils.estimation import best_of
 
 
 if __name__ == '__main__':

@@ -1,7 +1,7 @@
 """Tests for the Gaussian Mixture Model (GMM) distribution and its related classes."""
-from dml.tests.stats.stats_tests import * 
-from dml.stats import *
-from dml.stats.gmm import *
+from dmx.tests.stats.stats_tests import * 
+from dmx.stats import *
+from dmx.stats.gmm import *
 import numpy as np
 import pytest 
 

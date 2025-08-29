@@ -1,7 +1,7 @@
 from typing import Generic, TypeVar, Optional, Any
 from collections.abc import Iterable
 from abc import abstractmethod
-from dml.arithmetic import exp, one
+from dmx.arithmetic import exp, one
 import numpy as np
 import pandas as pd
 

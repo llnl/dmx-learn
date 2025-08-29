@@ -1,8 +1,8 @@
 """LDA example of fake data ranking top words in each document for model fits."""
 import sys
 import numpy as np
-import dml.utils.optsutil as ops
-from dml.stats import *
+import dmx.utils.optsutil as ops
+from dmx.stats import *
 
 
 def make_fake_data(num_topics: int, num_docs: int, snr: float, p_alpha: float,

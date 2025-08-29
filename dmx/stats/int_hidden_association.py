@@ -28,13 +28,13 @@ import math
 import numba
 import numpy as np
 
-from dml.arithmetic import *
-from dml.arithmetic import maxrandint
-from dml.stats.pdist import SequenceEncodableProbabilityDistribution, SequenceEncodableStatisticAccumulator, \
+from dmx.arithmetic import *
+from dmx.arithmetic import maxrandint
+from dmx.stats.pdist import SequenceEncodableProbabilityDistribution, SequenceEncodableStatisticAccumulator, \
     ParameterEstimator, DistributionSampler, DataSequenceEncoder, StatisticAccumulatorFactory, EncodedDataSequence
-from dml.stats.null_dist import NullDistribution, NullAccumulator, NullEstimator, NullDataEncoder, \
+from dmx.stats.null_dist import NullDistribution, NullAccumulator, NullEstimator, NullDataEncoder, \
     NullAccumulatorFactory
-from dml.utils.optsutil import count_by_value
+from dmx.utils.optsutil import count_by_value
 
 from typing import Optional, List, Tuple, Optional, Any, Dict, Union, Sequence, TypeVar
 

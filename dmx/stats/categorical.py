@@ -7,7 +7,7 @@ CategoricalEstimator, and the CategoricalDataEncoder classes for use with dmx-le
 import numpy as np
 import math
 from typing import Dict, Optional, Tuple, Any, TypeVar, Union, List, Sequence
-from dml.stats.pdist import SequenceEncodableProbabilityDistribution, ParameterEstimator, DistributionSampler, \
+from dmx.stats.pdist import SequenceEncodableProbabilityDistribution, ParameterEstimator, DistributionSampler, \
     StatisticAccumulatorFactory, SequenceEncodableStatisticAccumulator, DataSequenceEncoder, EncodedDataSequence
 from numpy.random import RandomState
 

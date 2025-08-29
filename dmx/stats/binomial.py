@@ -8,8 +8,8 @@ Data type: int.
 
 import numpy as np
 from numpy.random import RandomState
-from dml.utils.vector import gammaln
-from dml.stats.pdist import (
+from dmx.utils.vector import gammaln
+from dmx.stats.pdist import (
     SequenceEncodableProbabilityDistribution,
     ParameterEstimator,
     DistributionSampler,

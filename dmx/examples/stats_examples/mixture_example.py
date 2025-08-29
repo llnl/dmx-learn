@@ -2,8 +2,8 @@
 This example demonstrates the use of keys for mixture comps 
 as well as the use of composite mixtures. """
 import numpy as np
-from dml.stats import *
-from dml.utils.estimation import optimize, partition_data
+from dmx.stats import *
+from dmx.utils.estimation import optimize, partition_data
 
 if __name__ == '__main__':
     rng = np.random.RandomState(1)

@@ -1,8 +1,8 @@
 """Tests for heterogenous SNE functionality"""
 import os
 import pickle
-from dml.stats import *
-from dml.utils.htsne import htsne
+from dmx.stats import *
+from dmx.utils.htsne import htsne
 import numpy as np
 
 DATA_DIR = "dml/tests/data"

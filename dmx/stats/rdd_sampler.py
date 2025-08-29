@@ -1,10 +1,10 @@
 from pyspark import SparkContext
 from numpy.random import RandomState
-from dml.arithmetic import *
+from dmx.arithmetic import *
 import numpy as np
 import pickle
-from dml.arithmetic import maxrandint
-from dml.stats.pdist import SequenceEncodableProbabilityDistribution
+from dmx.arithmetic import maxrandint
+from dmx.stats.pdist import SequenceEncodableProbabilityDistribution
 from typing import Optional
 
 

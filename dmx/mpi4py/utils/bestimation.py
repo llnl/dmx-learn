@@ -6,8 +6,8 @@ import numpy as np
 from numpy.random import RandomState
 from mpi4py import MPI
 
-from dml.bstats.pdist import ParameterEstimator, ProbabilityDistribution
-from dml.mpi4py.bstats import * 
+from dmx.bstats.pdist import ParameterEstimator, ProbabilityDistribution
+from dmx.mpi4py.bstats import * 
 
 DATUM_TYPE = TypeVar('DATUM_TYPE')
 ENCODED_SEQ = TypeVar('ENCODED_SEQ')

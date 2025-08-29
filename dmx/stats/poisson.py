@@ -16,9 +16,9 @@ else.
 """
 import numpy as np
 from numpy.random import RandomState
-from dml.stats.pdist import SequenceEncodableProbabilityDistribution, ParameterEstimator, DistributionSampler, \
+from dmx.stats.pdist import SequenceEncodableProbabilityDistribution, ParameterEstimator, DistributionSampler, \
     StatisticAccumulatorFactory, SequenceEncodableStatisticAccumulator, DataSequenceEncoder, EncodedDataSequence
-from dml.utils.vector import gammaln
+from dmx.utils.vector import gammaln
 from math import log
 from typing import Tuple, List, Union, Optional, Any, Dict, Sequence
 

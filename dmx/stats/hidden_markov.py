@@ -31,15 +31,15 @@ import numba
 import numpy as np
 import math
 from numpy.random import RandomState
-import dml.utils.vector as vec
-from dml.arithmetic import *
-from dml.stats.pdist import SequenceEncodableProbabilityDistribution, SequenceEncodableStatisticAccumulator, \
+import dmx.utils.vector as vec
+from dmx.arithmetic import *
+from dmx.stats.pdist import SequenceEncodableProbabilityDistribution, SequenceEncodableStatisticAccumulator, \
     ParameterEstimator, DataSequenceEncoder, DistributionSampler, StatisticAccumulatorFactory, EncodedDataSequence
-from dml.stats.markovchain import MarkovChainDistribution
-from dml.stats.mixture import MixtureDistribution
-from dml.stats.null_dist import NullDistribution, NullAccumulatorFactory, NullEstimator, NullDataEncoder, \
+from dmx.stats.markovchain import MarkovChainDistribution
+from dmx.stats.mixture import MixtureDistribution
+from dmx.stats.null_dist import NullDistribution, NullAccumulatorFactory, NullEstimator, NullDataEncoder, \
     NullAccumulator
-from dml.arithmetic import maxrandint
+from dmx.arithmetic import maxrandint
 
 from typing import List, Any, Tuple, Sequence, Union, Optional, TypeVar, Set, Dict
 

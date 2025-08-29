@@ -6,11 +6,11 @@ and the IgnoredDataEncoder classes for use with dmx-learn.
 Ignored distribution is simply a distribution that is ignored in estimation and treated as fixed.
 
 """
-from dml.stats.pdist import SequenceEncodableProbabilityDistribution, SequenceEncodableStatisticAccumulator, \
+from dmx.stats.pdist import SequenceEncodableProbabilityDistribution, SequenceEncodableStatisticAccumulator, \
     ParameterEstimator, DataSequenceEncoder, DistributionSampler, StatisticAccumulatorFactory, EncodedDataSequence
 from numpy.random import RandomState
 import numpy as np
-from dml.stats.null_dist import NullDistribution, NullDataEncoder, NullSampler
+from dmx.stats.null_dist import NullDistribution, NullDataEncoder, NullSampler
 from typing import Dict, Any, Sequence, TypeVar, Optional, Union
 
 T = TypeVar('T')

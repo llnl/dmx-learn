@@ -6,8 +6,8 @@ score/weight is assigned to the data. This simply passes the weights and data do
 Likelihood evals are equivalent to normal likelihood calls to the base distribution.
 
 """
-from dml.arithmetic import *
-from dml.stats.pdist import SequenceEncodableProbabilityDistribution, ParameterEstimator, DistributionSampler, \
+from dmx.arithmetic import *
+from dmx.stats.pdist import SequenceEncodableProbabilityDistribution, ParameterEstimator, DistributionSampler, \
     StatisticAccumulatorFactory, SequenceEncodableStatisticAccumulator, DataSequenceEncoder, EncodedDataSequence
 from numpy.random import RandomState
 import numpy as np

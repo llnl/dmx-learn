@@ -17,11 +17,11 @@ where dot is a dot product and
 log(B_{p/2-1}(kappa)) = denotes the modified Bessel function of the first kind at order p/2-1.
 
 """
-from dml.arithmetic import *
-from dml.stats.pdist import SequenceEncodableProbabilityDistribution, SequenceEncodableStatisticAccumulator, \
+from dmx.arithmetic import *
+from dmx.stats.pdist import SequenceEncodableProbabilityDistribution, SequenceEncodableStatisticAccumulator, \
     ParameterEstimator, DistributionSampler, DataSequenceEncoder, StatisticAccumulatorFactory, EncodedDataSequence
 from numpy.random import RandomState
-import dml.utils.vector as vec
+import dmx.utils.vector as vec
 import numpy as np
 import scipy.linalg
 import scipy.special

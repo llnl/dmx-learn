@@ -1,11 +1,11 @@
 """Tests for the Heterogeneous Mixture Distribution and its related classes."""
-from dml.tests.stats.stats_tests import * 
-from dml.stats import *
-from dml.stats.geometric import *
-from dml.stats.binomial import * 
-from dml.stats.gaussian import * 
-from dml.stats.exponential import *
-from dml.stats.heterogeneous_mixture import * 
+from dmx.tests.stats.stats_tests import * 
+from dmx.stats import *
+from dmx.stats.geometric import *
+from dmx.stats.binomial import * 
+from dmx.stats.gaussian import * 
+from dmx.stats.exponential import *
+from dmx.stats.heterogeneous_mixture import * 
 import numpy as np
 
 def component_log_density_test(dist, encoder):

@@ -13,7 +13,7 @@ P_given(X0).
 
 import numpy as np
 import math
-from dml.stats.pdist import (
+from dmx.stats.pdist import (
     SequenceEncodableProbabilityDistribution,
     ParameterEstimator,
     DistributionSampler,
@@ -23,7 +23,7 @@ from dml.stats.pdist import (
     ConditionalSampler,
     EncodedDataSequence,
 )
-from dml.stats.null_dist import (
+from dmx.stats.null_dist import (
     NullDistribution,
     NullAccumulator,
     NullDataEncoder,
@@ -31,7 +31,7 @@ from dml.stats.null_dist import (
     NullEstimator,
 )
 from typing import Optional, List, Union, Any, Tuple, Sequence, TypeVar, Dict
-from dml.arithmetic import maxrandint
+from dmx.arithmetic import maxrandint
 from numpy.random import RandomState
 
 T0 = TypeVar('T0')

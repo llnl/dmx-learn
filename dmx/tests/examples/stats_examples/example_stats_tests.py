@@ -2,7 +2,7 @@
 import subprocess
 import os 
 from pathlib import Path
-from dml.utils.optsutil import get_parent_directory
+from dmx.utils.optsutil import get_parent_directory
 
 file_path = get_parent_directory(__file__, 4)
 examples_path = os.path.join(file_path, 'examples/stats_examples')

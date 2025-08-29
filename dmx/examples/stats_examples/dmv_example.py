@@ -1,8 +1,8 @@
 """Example for DiagonalGaussianDistribution. Define distribution, generate data,
 estimate, and evaluate likelihoods.""" 
 from numpy.random import RandomState
-from dml.stats import *
-from dml.utils.estimation import optimize
+from dmx.stats import *
+from dmx.utils.estimation import optimize
 
 if __name__ == '__main__':
     n = int(1e4)

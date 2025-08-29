@@ -17,7 +17,7 @@ import numpy as np
 from numpy.random import RandomState
 from scipy.sparse.csgraph import minimum_spanning_tree, breadth_first_order
 
-from dml.stats.pdist import SequenceEncodableProbabilityDistribution, SequenceEncodableStatisticAccumulator, \
+from dmx.stats.pdist import SequenceEncodableProbabilityDistribution, SequenceEncodableStatisticAccumulator, \
     ParameterEstimator, DataSequenceEncoder, DistributionSampler, StatisticAccumulatorFactory, EncodedDataSequence
 
 from typing import Sequence, Tuple, Any, List, Dict, Union, Optional

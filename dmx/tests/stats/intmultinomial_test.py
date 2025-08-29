@@ -1,9 +1,9 @@
 """Test cases for Integer Multinomial Distribution and related classes."""
-from dml.tests.stats.stats_tests import * 
-from dml.stats import *
-from dml.stats.intmultinomial import *
-from dml.stats.categorical import *
-from dml.stats.poisson import * 
+from dmx.tests.stats.stats_tests import * 
+from dmx.stats import *
+from dmx.stats.intmultinomial import *
+from dmx.stats.categorical import *
+from dmx.stats.poisson import * 
 import numpy as np
 import pytest 
 

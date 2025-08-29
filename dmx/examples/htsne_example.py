@@ -1,7 +1,7 @@
 """A detailed example of heterogenous SNE embeddings."""
 import numpy as np
-from dml.stats import *
-from dml.utils.htsne import htsne
+from dmx.stats import *
+from dmx.utils.htsne import htsne
 
 def sample_with_labels(size, mixture_comps, mixture_weights, rng):
     seeds = rng.randint(low=0, high=2**32, size=len(mixture_comps))

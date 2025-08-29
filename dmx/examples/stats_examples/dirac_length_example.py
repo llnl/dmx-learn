@@ -8,8 +8,8 @@ are zero-inflated.
 f(x) = p*F(X=x) + (1-p) * Delta(v)
 
 """
-from dml.stats import *
-from dml.utils.estimation import optimize
+from dmx.stats import *
+from dmx.utils.estimation import optimize
 from numpy.random import RandomState
 
 if __name__ == '__main__':

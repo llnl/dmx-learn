@@ -17,7 +17,7 @@ elements an observation sequence. For this reason, we need not state the support
 import numpy as np
 from numpy.random import RandomState
 from collections import defaultdict, OrderedDict
-from dml.stats.pdist import SequenceEncodableProbabilityDistribution, SequenceEncodableStatisticAccumulator, \
+from dmx.stats.pdist import SequenceEncodableProbabilityDistribution, SequenceEncodableStatisticAccumulator, \
     ParameterEstimator, DataSequenceEncoder, StatisticAccumulatorFactory, DistributionSampler, EncodedDataSequence
 
 from typing import Optional, Dict, Tuple, Any, Dict, List, Sequence, TypeVar, Union

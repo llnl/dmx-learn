@@ -1,9 +1,9 @@
 """Tests for DiracMixtureDistribution and related classes."""
-from dml.tests.stats.stats_tests import * 
-from dml.stats import *
-from dml.stats.categorical import *
-from dml.stats.binomial import * 
-from dml.stats.dirac_length import * 
+from dmx.tests.stats.stats_tests import * 
+from dmx.stats import *
+from dmx.stats.categorical import *
+from dmx.stats.binomial import * 
+from dmx.stats.dirac_length import * 
 import numpy as np
 
 def component_log_density_test(dist: DiracMixtureDistribution, encoder: DiracMixtureDataEncoder):

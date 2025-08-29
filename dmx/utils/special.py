@@ -3,7 +3,7 @@ from typing import Union, Optional, List, Iterable
 from scipy.special import digamma, zeta, gamma, gammaln, betaln, beta
 import numpy as np
 import math
-from dml.arithmetic import *
+from dmx.arithmetic import *
 
 D1 = digamma(1.0)
 

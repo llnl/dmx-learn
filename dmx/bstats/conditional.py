@@ -1,11 +1,11 @@
 from typing import Dict, Optional, Tuple, Sequence, TypeVar
-from dml.arithmetic import maxint
-from dml.bstats.pdist import ProbabilityDistribution, SequenceEncodableAccumulator, \
+from dmx.arithmetic import maxint
+from dmx.bstats.pdist import ProbabilityDistribution, SequenceEncodableAccumulator, \
     ParameterEstimator, EncodedDataSequence, DataSequenceEncoder
-from dml.bstats.nulldist import NullDataEncoder, NullDistribution
+from dmx.bstats.nulldist import NullDataEncoder, NullDistribution
 from numpy.random import RandomState
 import numpy as np
-from dml.bstats.nulldist import null_dist
+from dmx.bstats.nulldist import null_dist
 T1, T0 = TypeVar('T1'), TypeVar('T0')
 
 

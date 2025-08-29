@@ -1,10 +1,10 @@
 """Tests for Hierarchical Mixture Distribution and related classes."""
-from dml.tests.stats.stats_tests import * 
-from dml.stats import *
-from dml.stats.geometric import *
-from dml.stats.gaussian import * 
-from dml.stats.hmixture import * 
-from dml.stats.categorical import * 
+from dmx.tests.stats.stats_tests import * 
+from dmx.stats import *
+from dmx.stats.geometric import *
+from dmx.stats.gaussian import * 
+from dmx.stats.hmixture import * 
+from dmx.stats.categorical import * 
 import numpy as np
 
 def component_log_density_test(dist, encoder):

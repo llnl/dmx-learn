@@ -3,9 +3,9 @@ import sys
 from numpy.random import RandomState
 from scipy.special import gammaln
 
-import dml.utils.vector as vec
-from dml.bstats.pdist import ProbabilityDistribution, SequenceEncodableAccumulator, ParameterEstimator
-from dml.utils.special import *
+import dmx.utils.vector as vec
+from dmx.bstats.pdist import ProbabilityDistribution, SequenceEncodableAccumulator, ParameterEstimator
+from dmx.utils.special import *
 
 
 def dirichlet_param_solve(alpha, meanLogP, delta):

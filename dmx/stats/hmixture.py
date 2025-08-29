@@ -25,15 +25,15 @@ Further,
 
 """
 import numpy as np
-from dml.stats.pdist import SequenceEncodableProbabilityDistribution, ParameterEstimator, DistributionSampler, \
+from dmx.stats.pdist import SequenceEncodableProbabilityDistribution, ParameterEstimator, DistributionSampler, \
     StatisticAccumulatorFactory, SequenceEncodableStatisticAccumulator, DataSequenceEncoder, EncodedDataSequence
 
-from dml.stats.null_dist import NullDistribution, NullAccumulator, NullAccumulatorFactory, NullEstimator
-from dml.arithmetic import maxrandint
-import dml.utils.vector as vec
+from dmx.stats.null_dist import NullDistribution, NullAccumulator, NullAccumulatorFactory, NullEstimator
+from dmx.arithmetic import maxrandint
+import dmx.utils.vector as vec
 from numpy.random import RandomState
-from dml.stats.mixture import MixtureDistribution
-from dml.stats.sequence import SequenceDistribution
+from dmx.stats.mixture import MixtureDistribution
+from dmx.stats.sequence import SequenceDistribution
 
 from typing import Optional, List, Union, Any, Tuple, Sequence, TypeVar, Dict
 

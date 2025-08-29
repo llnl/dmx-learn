@@ -1,7 +1,7 @@
 """Test cases for Poisson Distribution and related classes."""
-from dml.tests.stats.stats_tests import * 
-from dml.stats import *
-from dml.stats.poisson import *
+from dmx.tests.stats.stats_tests import * 
+from dmx.stats import *
+from dmx.stats.poisson import *
 import numpy as np
 import pytest 
 

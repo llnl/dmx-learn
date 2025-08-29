@@ -23,32 +23,32 @@ __all__ = ['BernoulliDistribution', 'BernoulliEstimator', 'BernoulliSampler',
 
 from typing import Any, Tuple, Sequence, Dict, Optional, Union, List
 
-from dml.arithmetic import *
+from dmx.arithmetic import *
 
-from dml.bstats.pdist import ParameterEstimator, DataSequenceEncoder, EncodedDataSequence, ProbabilityDistribution
+from dmx.bstats.pdist import ParameterEstimator, DataSequenceEncoder, EncodedDataSequence, ProbabilityDistribution
 
-from dml.bstats.beta         import BetaDistribution, BetaSampler
-from dml.bstats.bernoulli    import BernoulliDistribution, BernoulliEstimator, BernoulliSampler
-from dml.bstats.categorical  import CategoricalDistribution, CategoricalEstimator, CategoricalSampler
-from dml.bstats.composite    import CompositeDistribution, CompositeEstimator, CompositeSampler
-from dml.bstats.catdirichlet import DictDirichletDistribution
-from dml.bstats.dirichlet    import DirichletDistribution, DirichletEstimator, DirichletSampler
-from dml.bstats.dmvn         import DiagonalGaussianDistribution, DiagonalGaussianEstimator, DiagonalGaussianSampler
-from dml.bstats.exponential  import ExponentialDistribution, ExponentialEstimator, ExponentialSampler
-from dml.bstats.gaussian     import GaussianDistribution, GaussianEstimator, GaussianSampler
-from dml.bstats.gamma        import GammaDistribution, GammaEstimator, GammaSampler
-from dml.bstats.geometric    import GeometricDistribution, GeometricEstimator, GeometricSampler
-from dml.bstats.ignored      import IgnoredDistribution, IgnoredEstimator, IgnoredSampler
-from dml.bstats.intrange     import IntegerCategoricalDistribution, IntegerCategoricalEstimator, IntegerCategoricalSampler
-from dml.bstats.mixture      import MixtureDistribution, MixtureEstimator, MixtureSampler
-from dml.bstats.mvngamma     import MultivariateNormalGammaDistribution, MultivariateNormalGammaSampler
-from dml.bstats.nulldist     import NullDistribution, NullEstimator, NullSampler
-from dml.bstats.optional     import OptionalDistribution, OptionalEstimator, OptionalSampler
-from dml.bstats.poisson      import PoissonDistribution, PoissonEstimator, PoissonSampler
-from dml.bstats.sequence     import SequenceDistribution, SequenceEstimator, SequenceSampler
-from dml.bstats.setdist      import BernoulliSetDistribution, BernoulliSetEstimator, BernoulliSetSampler
+from dmx.bstats.beta         import BetaDistribution, BetaSampler
+from dmx.bstats.bernoulli    import BernoulliDistribution, BernoulliEstimator, BernoulliSampler
+from dmx.bstats.categorical  import CategoricalDistribution, CategoricalEstimator, CategoricalSampler
+from dmx.bstats.composite    import CompositeDistribution, CompositeEstimator, CompositeSampler
+from dmx.bstats.catdirichlet import DictDirichletDistribution
+from dmx.bstats.dirichlet    import DirichletDistribution, DirichletEstimator, DirichletSampler
+from dmx.bstats.dmvn         import DiagonalGaussianDistribution, DiagonalGaussianEstimator, DiagonalGaussianSampler
+from dmx.bstats.exponential  import ExponentialDistribution, ExponentialEstimator, ExponentialSampler
+from dmx.bstats.gaussian     import GaussianDistribution, GaussianEstimator, GaussianSampler
+from dmx.bstats.gamma        import GammaDistribution, GammaEstimator, GammaSampler
+from dmx.bstats.geometric    import GeometricDistribution, GeometricEstimator, GeometricSampler
+from dmx.bstats.ignored      import IgnoredDistribution, IgnoredEstimator, IgnoredSampler
+from dmx.bstats.intrange     import IntegerCategoricalDistribution, IntegerCategoricalEstimator, IntegerCategoricalSampler
+from dmx.bstats.mixture      import MixtureDistribution, MixtureEstimator, MixtureSampler
+from dmx.bstats.mvngamma     import MultivariateNormalGammaDistribution, MultivariateNormalGammaSampler
+from dmx.bstats.nulldist     import NullDistribution, NullEstimator, NullSampler
+from dmx.bstats.optional     import OptionalDistribution, OptionalEstimator, OptionalSampler
+from dmx.bstats.poisson      import PoissonDistribution, PoissonEstimator, PoissonSampler
+from dmx.bstats.sequence     import SequenceDistribution, SequenceEstimator, SequenceSampler
+from dmx.bstats.setdist      import BernoulliSetDistribution, BernoulliSetEstimator, BernoulliSetSampler
 
-from dml.bstats.dpm import DirichletProcessMixtureDistribution, DirichletProcessMixtureEstimator, DirichletProcessMixtureSampler
+from dmx.bstats.dpm import DirichletProcessMixtureDistribution, DirichletProcessMixtureEstimator, DirichletProcessMixtureSampler
 
 
 import numpy as np

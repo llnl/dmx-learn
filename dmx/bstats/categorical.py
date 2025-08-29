@@ -1,18 +1,18 @@
 from typing import Sequence, Optional, Union, Any, Tuple
 from typing import TypeVar, NoReturn, Dict, List
-from dml.arithmetic import *
-from dml.bstats.pdist import (SequenceEncodableAccumulator,
+from dmx.arithmetic import *
+from dmx.bstats.pdist import (SequenceEncodableAccumulator,
                                ParameterEstimator,
                                DataFrameEncodableAccumulator,
                                ProbabilityDistribution,
                                EncodedDataSequence,
                                DataSequenceEncoder)
-from dml.bstats.catdirichlet import DictDirichletDistribution
-from dml.bstats.symdirichlet import SymmetricDirichletDistribution
-from dml.bstats.dirichlet import DirichletDistribution
+from dmx.bstats.catdirichlet import DictDirichletDistribution
+from dmx.bstats.symdirichlet import SymmetricDirichletDistribution
+from dmx.bstats.dirichlet import DirichletDistribution
 
 from collections import defaultdict
-from dml.bstats.nulldist import null_dist
+from dmx.bstats.nulldist import null_dist
 import numpy as np
 from scipy.special import digamma
 

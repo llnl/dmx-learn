@@ -1,13 +1,13 @@
 from typing import TypeVar, Optional, Generic, List, Mapping
 
-from dml.arithmetic import *
-from dml.bstats.pdist import ProbabilityDistribution, StatisticAccumulator, ParameterEstimator
+from dmx.arithmetic import *
+from dmx.bstats.pdist import ProbabilityDistribution, StatisticAccumulator, ParameterEstimator
 from numpy.random import RandomState
-from dml.bstats.composite import CompositeDistribution
-from dml.bstats.dirichlet import DirichletDistribution
-from dml.bstats.symdirichlet import SymmetricDirichletDistribution
+from dmx.bstats.composite import CompositeDistribution
+from dmx.bstats.dirichlet import DirichletDistribution
+from dmx.bstats.symdirichlet import SymmetricDirichletDistribution
 import numpy as np
-import dml.utils.vector as vec
+import dmx.utils.vector as vec
 from scipy.special import gammaln, digamma
 
 

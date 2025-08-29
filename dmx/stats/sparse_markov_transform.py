@@ -20,16 +20,16 @@ This model is great for problems where one set is given like translations.
 """
 import random
 from typing import Optional, List, Tuple, Union, Sequence, Any, TypeVar, Dict
-from dml.arithmetic import *
-from dml.stats.pdist import SequenceEncodableProbabilityDistribution, SequenceEncodableStatisticAccumulator, \
+from dmx.arithmetic import *
+from dmx.stats.pdist import SequenceEncodableProbabilityDistribution, SequenceEncodableStatisticAccumulator, \
     ParameterEstimator, DistributionSampler, DataSequenceEncoder, StatisticAccumulatorFactory, EncodedDataSequence
-from dml.stats.null_dist import NullDistribution, NullAccumulator, NullEstimator, NullDataEncoder, \
+from dmx.stats.null_dist import NullDistribution, NullAccumulator, NullEstimator, NullDataEncoder, \
     NullAccumulatorFactory
 import numpy as np
 from scipy.sparse import csr_matrix, lil_matrix
-from dml.utils.optsutil import count_by_value
+from dmx.utils.optsutil import count_by_value
 import itertools
-from dml.arithmetic import maxrandint
+from dmx.arithmetic import maxrandint
 
 T = Tuple[List[Tuple[int, float]], List[Tuple[int, float]]]
 SS1 = TypeVar('SS1')

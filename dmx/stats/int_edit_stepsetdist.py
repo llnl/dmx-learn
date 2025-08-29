@@ -2,10 +2,10 @@
 import numpy as np
 from numpy.random import RandomState
 
-from dml.arithmetic import *
-from dml.stats.pdist import SequenceEncodableProbabilityDistribution, SequenceEncodableStatisticAccumulator, \
+from dmx.arithmetic import *
+from dmx.stats.pdist import SequenceEncodableProbabilityDistribution, SequenceEncodableStatisticAccumulator, \
     ParameterEstimator, DistributionSampler, DataSequenceEncoder, StatisticAccumulatorFactory, EncodedDataSequence
-from dml.stats.null_dist import NullDistribution, NullAccumulator, NullEstimator, NullDataEncoder, \
+from dmx.stats.null_dist import NullDistribution, NullAccumulator, NullEstimator, NullDataEncoder, \
     NullAccumulatorFactory
 from typing import Sequence, Optional, Union, Any, Tuple, List, TypeVar, Dict
 

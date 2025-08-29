@@ -21,16 +21,16 @@ import numpy as np
 from numpy.random import RandomState
 from scipy.special import digamma, gammaln
 
-from dml.arithmetic import maxrandint
-from dml.stats.dirichlet import DirichletDistribution
-from dml.utils.special import digammainv
-from dml.stats.null_dist import NullDistribution, NullAccumulator, NullEstimator, NullDataEncoder, \
+from dmx.arithmetic import maxrandint
+from dmx.stats.dirichlet import DirichletDistribution
+from dmx.utils.special import digammainv
+from dmx.stats.null_dist import NullDistribution, NullAccumulator, NullEstimator, NullDataEncoder, \
     NullAccumulatorFactory
-from dml.stats.pdist import SequenceEncodableProbabilityDistribution, SequenceEncodableStatisticAccumulator, \
+from dmx.stats.pdist import SequenceEncodableProbabilityDistribution, SequenceEncodableStatisticAccumulator, \
     ParameterEstimator, DistributionSampler, DataSequenceEncoder, StatisticAccumulatorFactory, EncodedDataSequence
-from dml.utils.optsutil import count_by_value
-from dml.utils.vector import row_choice
-from dml.utils.optsutil import count_by_value
+from dmx.utils.optsutil import count_by_value
+from dmx.utils.vector import row_choice
+from dmx.utils.optsutil import count_by_value
 from typing import TypeVar, Dict, List, Sequence, Any, Optional, Tuple, Union, Callable
 
 E0 = TypeVar('E0')

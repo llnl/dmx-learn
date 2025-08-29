@@ -1,9 +1,9 @@
 """Test cases for IgnoredDistribution and related classes."""
-from dml.tests.stats.stats_tests import * 
-from dml.stats import *
-from dml.stats.geometric import *
-from dml.stats.gaussian import *
-from dml.stats.ignored import *
+from dmx.tests.stats.stats_tests import * 
+from dmx.stats import *
+from dmx.stats.geometric import *
+from dmx.stats.gaussian import *
+from dmx.stats.ignored import *
 import numpy as np
 
 class IgnoredDistributionTestCase(StatsTestClass):

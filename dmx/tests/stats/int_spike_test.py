@@ -1,7 +1,7 @@
 """Test cases for Spike and Slab Distribution and related classes."""
-from dml.tests.stats.stats_tests import * 
-from dml.stats import *
-from dml.stats.int_spike import *
+from dmx.tests.stats.stats_tests import * 
+from dmx.stats import *
+from dmx.stats.int_spike import *
 import numpy as np
 import pytest 
 

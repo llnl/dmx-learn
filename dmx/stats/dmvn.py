@@ -14,8 +14,8 @@ The log-density of an ``n``-dimensional diagonal Gaussian observation :math:`x =
 Data type: ``x`` (List[float], np.ndarray).
 """
 
-from dml.arithmetic import *
-from dml.stats.pdist import (
+from dmx.arithmetic import *
+from dmx.stats.pdist import (
     SequenceEncodableProbabilityDistribution,
     SequenceEncodableStatisticAccumulator,
     ParameterEstimator,
@@ -25,7 +25,7 @@ from dml.stats.pdist import (
     EncodedDataSequence,
 )
 from numpy.random import RandomState
-import dml.utils.vector as vec
+import dmx.utils.vector as vec
 import numpy as np
 from typing import Sequence, Optional, Dict, Any, Tuple, List, Union
 

@@ -6,8 +6,8 @@ LogGaussianEstimator, and the LogGaussianDataEncoder classes for use with dmx-le
 """
 import numpy as np
 from numpy.random import RandomState
-from dml.arithmetic import *
-from dml.stats.pdist import SequenceEncodableProbabilityDistribution, ParameterEstimator, DistributionSampler, \
+from dmx.arithmetic import *
+from dmx.stats.pdist import SequenceEncodableProbabilityDistribution, ParameterEstimator, DistributionSampler, \
     StatisticAccumulatorFactory, SequenceEncodableStatisticAccumulator, DataSequenceEncoder, EncodedDataSequence
 from typing import Optional, Tuple, List, Callable, Dict, Union, Any
 

@@ -1,10 +1,10 @@
 """Tests for the MultinomialDistribution class and related components."""
-from dml.tests.stats.stats_tests import * 
-from dml.stats import *
-from dml.stats.catmultinomial import * 
-from dml.stats.binomial import BinomialDataEncoder, BinomialAccumulator, BinomialAccumulatorFactory
-from dml.stats.categorical import CategoricalDataEncoder, CategoricalAccumulator, CategoricalAccumulatorFactory
-from dml.stats.null_dist import NullDataEncoder, NullAccumulator
+from dmx.tests.stats.stats_tests import * 
+from dmx.stats import *
+from dmx.stats.catmultinomial import * 
+from dmx.stats.binomial import BinomialDataEncoder, BinomialAccumulator, BinomialAccumulatorFactory
+from dmx.stats.categorical import CategoricalDataEncoder, CategoricalAccumulator, CategoricalAccumulatorFactory
+from dmx.stats.null_dist import NullDataEncoder, NullAccumulator
 import numpy as np
 import pytest 
 

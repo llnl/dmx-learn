@@ -1,10 +1,10 @@
 from typing import Optional, Any, Dict, Union
 from numpy.random import RandomState
-from dml.bstats.pdist import ParameterEstimator, ProbabilityDistribution, StatisticAccumulator
-from dml.bstats.beta import BetaDistribution
-from dml.bstats.composite import CompositeDistribution
-from dml.bstats.nulldist import NullDistribution, null_dist
-from dml.utils.special import stirling2
+from dmx.bstats.pdist import ParameterEstimator, ProbabilityDistribution, StatisticAccumulator
+from dmx.bstats.beta import BetaDistribution
+from dmx.bstats.composite import CompositeDistribution
+from dmx.bstats.nulldist import NullDistribution, null_dist
+from dmx.utils.special import stirling2
 import numpy as np
 from scipy.special import gammaln, digamma, exp1
 from scipy.optimize import minimize_scalar

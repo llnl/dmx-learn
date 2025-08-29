@@ -22,11 +22,11 @@ Note: P_len() should be compatible with non-negative integers. P_init() must be 
 """
 import numpy as np
 from numpy.random import RandomState
-from dml.arithmetic import maxrandint
-from dml.stats.pdist import SequenceEncodableProbabilityDistribution, SequenceEncodableStatisticAccumulator, \
+from dmx.arithmetic import maxrandint
+from dmx.stats.pdist import SequenceEncodableProbabilityDistribution, SequenceEncodableStatisticAccumulator, \
     ParameterEstimator, DataSequenceEncoder, DistributionSampler, StatisticAccumulatorFactory, EncodedDataSequence
 
-from dml.stats.null_dist import NullDistribution, NullAccumulator, NullEstimator, NullDataEncoder, \
+from dmx.stats.null_dist import NullDistribution, NullAccumulator, NullEstimator, NullDataEncoder, \
     NullAccumulatorFactory
 from typing import Union, List, Sequence, Any, Optional, TypeVar, Tuple, Dict
 

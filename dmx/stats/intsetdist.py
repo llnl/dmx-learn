@@ -16,9 +16,9 @@ The density for an observed subset of S, x=(x_1,x_2,..,x_m), for m < N) is given
 """
 
 import numpy as np
-from dml.arithmetic import *
+from dmx.arithmetic import *
 from numpy.random import RandomState
-from dml.stats.pdist import SequenceEncodableProbabilityDistribution, SequenceEncodableStatisticAccumulator, \
+from dmx.stats.pdist import SequenceEncodableProbabilityDistribution, SequenceEncodableStatisticAccumulator, \
     ParameterEstimator, DataSequenceEncoder, StatisticAccumulatorFactory, DistributionSampler, EncodedDataSequence
 
 

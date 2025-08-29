@@ -1,7 +1,7 @@
 """Any example of how to use automatic to select an estimator from data."""
 import numpy as np
-from dml.stats import *
-from dml.utils.automatic import get_estimator
+from dmx.stats import *
+from dmx.utils.automatic import get_estimator
 
 if __name__ == '__main__':
     data = [(1, None, 'a', [('a', 1), ('b', 2)]), (3, 2, 'b', [('a', 1), ('b', 2), ('c', 3)]),

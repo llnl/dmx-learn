@@ -1,9 +1,9 @@
 from typing import Optional, Union, Sequence, Tuple, NamedTuple, TypeVar, Any, List
-from dml.bstats.pdist import ProbabilityDistribution, StatisticAccumulator, ParameterEstimator
-from dml.bstats.mvngamma import MultivariateNormalGammaDistribution
-from dml.bstats.nulldist import null_dist
-from dml.utils.special import digamma
-import dml.utils.vector as vec
+from dmx.bstats.pdist import ProbabilityDistribution, StatisticAccumulator, ParameterEstimator
+from dmx.bstats.mvngamma import MultivariateNormalGammaDistribution
+from dmx.bstats.nulldist import null_dist
+from dmx.utils.special import digamma
+import dmx.utils.vector as vec
 import numpy as np
 import scipy.linalg
 

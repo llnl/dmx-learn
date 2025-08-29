@@ -1,11 +1,11 @@
 from typing import Optional, List, Union, Tuple
 from numpy.random import RandomState
 
-import dml.utils.vector as vec
-from dml.arithmetic import *
-from dml.bstats.pdist import ProbabilityDistribution, SequenceEncodableAccumulator, ParameterEstimator
-from dml.bstats.symdirichlet import SymmetricDirichletDistribution
-from dml.bstats.dirichlet import DirichletDistribution
+import dmx.utils.vector as vec
+from dmx.arithmetic import *
+from dmx.bstats.pdist import ProbabilityDistribution, SequenceEncodableAccumulator, ParameterEstimator
+from dmx.bstats.symdirichlet import SymmetricDirichletDistribution
+from dmx.bstats.dirichlet import DirichletDistribution
 import numpy as np
 from scipy.special import gammaln, digamma
 import scipy.sparse as sp

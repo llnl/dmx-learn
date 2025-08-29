@@ -1,8 +1,8 @@
 """Test cases for Integer Step Bernoulli Edit Distribution and related classes."""
-from dml.tests.stats.stats_tests import * 
-from dml.stats import *
-from dml.stats.int_edit_stepsetdist import *
-from dml.stats.intsetdist import *
+from dmx.tests.stats.stats_tests import * 
+from dmx.stats import *
+from dmx.stats.int_edit_stepsetdist import *
+from dmx.stats.intsetdist import *
 import numpy as np
 import pytest 
 

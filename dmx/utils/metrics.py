@@ -1,7 +1,7 @@
 """Functions for classification evaluation. Create ROC curves and search depth rankings. """
 from typing import Sequence, TypeVar, Optional, List, Tuple, Union, Any, Callable
 import numpy as np
-from dml.stats.pdist import SequenceEncodableProbabilityDistribution
+from dmx.stats.pdist import SequenceEncodableProbabilityDistribution
 
 T = TypeVar('T')
 

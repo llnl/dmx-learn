@@ -10,14 +10,14 @@ It includes tests for:
 - Estimation and sequence estimation using empirical KL divergence
 - Initialization and update methods for accumulators
 - Type checking for keys and data"""
-from dml.stats import *
+from dmx.stats import *
 import numpy as np
-from dml.utils.estimation import empirical_kl_divergence
-from dml.stats import SequenceEncodableProbabilityDistribution, DataSequenceEncoder
+from dmx.utils.estimation import empirical_kl_divergence
+from dmx.stats import SequenceEncodableProbabilityDistribution, DataSequenceEncoder
 import abc
 import unittest
 import pytest
-import dml.utils.vector as vec
+import dmx.utils.vector as vec
 
 def str_eval_test(dist):    
     dist2 = eval(str(dist))

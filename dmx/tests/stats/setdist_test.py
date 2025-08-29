@@ -1,7 +1,7 @@
 """Test cases for Bernoulli Set Distribution and related classes."""
-from dml.tests.stats.stats_tests import * 
-from dml.stats import *
-from dml.stats.setdist import *
+from dmx.tests.stats.stats_tests import * 
+from dmx.stats import *
+from dmx.stats.setdist import *
 import numpy as np
 import pytest 
 

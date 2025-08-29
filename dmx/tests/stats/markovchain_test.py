@@ -1,9 +1,9 @@
 """Test cases for Markov Chain Distribution and related classes."""
-from dml.tests.stats.stats_tests import * 
-from dml.stats import *
-from dml.stats.markovchain import *
-from dml.stats.categorical import * 
-from dml.stats.sequence import * 
+from dmx.tests.stats.stats_tests import * 
+from dmx.stats import *
+from dmx.stats.markovchain import *
+from dmx.stats.categorical import * 
+from dmx.stats.sequence import * 
 import numpy as np
 import pytest 
 

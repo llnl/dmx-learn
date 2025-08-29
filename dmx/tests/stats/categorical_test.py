@@ -1,7 +1,7 @@
 """Tests for CategoricalDistribution and related classes."""
-from dml.tests.stats.stats_tests import * 
-from dml.stats import *
-from dml.stats.categorical import CategoricalDistribution, CategoricalAccumulator, CategoricalAccumulatorFactory, CategoricalDataEncoder, CategoricalEstimator
+from dmx.tests.stats.stats_tests import * 
+from dmx.stats import *
+from dmx.stats.categorical import CategoricalDistribution, CategoricalAccumulator, CategoricalAccumulatorFactory, CategoricalDataEncoder, CategoricalEstimator
 import numpy as np
 import pytest 
 

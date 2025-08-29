@@ -1,14 +1,14 @@
-from dml.arithmetic import *
-from dml.bstats.pdist import ProbabilityDistribution, StatisticAccumulator, ParameterEstimator
-from dml.utils.special import digamma, gammaln, betaln
-from dml.bstats.gamma import GammaDistribution
-from dml.bstats.beta import BetaDistribution
-from dml.bstats.sequence import SequenceDistribution
-from dml.bstats.composite import CompositeDistribution
-from dml.bstats.nulldist import null_dist
+from dmx.arithmetic import *
+from dmx.bstats.pdist import ProbabilityDistribution, StatisticAccumulator, ParameterEstimator
+from dmx.utils.special import digamma, gammaln, betaln
+from dmx.bstats.gamma import GammaDistribution
+from dmx.bstats.beta import BetaDistribution
+from dmx.bstats.sequence import SequenceDistribution
+from dmx.bstats.composite import CompositeDistribution
+from dmx.bstats.nulldist import null_dist
 from numpy.random import RandomState
 import numpy as np
-import dml.utils.vector as vec
+import dmx.utils.vector as vec
 
 def cbg(x,s1,s2):
     return np.log(s1) + s1*np.log(s2) - (s1+1)*np.log(s2-np.log1p(-x)) - np.log1p(-x)

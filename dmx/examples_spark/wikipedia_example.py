@@ -3,8 +3,8 @@ import sys
 import time
 import numpy as np
 from pyspark import SparkContext, SparkConf
-from dml.stats import *
-import dml.utils.optsutil as ops
+from dmx.stats import *
+import dmx.utils.optsutil as ops
 
 data_loc = os.path.join(os.path.dirname(os.path.realpath(__file__)), '../../data')
 

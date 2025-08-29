@@ -1,7 +1,7 @@
 """Example of Bernoulli set edit distribution. Transition probabilities for sets are printed out for fit."""
 import numpy as np
-from dml.stats import *
-from dml.utils.estimation import optimize
+from dmx.stats import *
+from dmx.utils.estimation import optimize
 
 if __name__ == '__main__':
 

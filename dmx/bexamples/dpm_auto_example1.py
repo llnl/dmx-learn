@@ -1,6 +1,6 @@
 """Fitting a DPM with an automatic estimator determined from the data."""
-from dml.utils.automatic import get_dpm_mixture, get_estimator
-from dml.bstats import *
+from dmx.utils.automatic import get_dpm_mixture, get_estimator
+from dmx.bstats import *
 import numpy as np
 
 

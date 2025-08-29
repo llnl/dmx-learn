@@ -2,10 +2,10 @@
 from typing import Sequence, Optional, Tuple, TypeVar
 import numpy as np
 from numpy.random import RandomState
-from dml.utils.automatic import get_dpm_mixture
-from dml.bstats import *
-from dml.bstats import MixtureDistribution
-from dml.bstats.pdist import ParameterEstimator
+from dmx.utils.automatic import get_dpm_mixture
+from dmx.bstats import *
+from dmx.bstats import MixtureDistribution
+from dmx.bstats.pdist import ParameterEstimator
 
 T = TypeVar('T')
 

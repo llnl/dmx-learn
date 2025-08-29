@@ -11,9 +11,9 @@ and vector of probabilities p_vec (np.ndarray[float]) that sum to 1.0. The range
 """
 import numpy as np
 from numpy.random import RandomState
-import dml.utils.vector as vec
-from dml.arithmetic import *
-from dml.stats.pdist import SequenceEncodableStatisticAccumulator, SequenceEncodableProbabilityDistribution, \
+import dmx.utils.vector as vec
+from dmx.arithmetic import *
+from dmx.stats.pdist import SequenceEncodableStatisticAccumulator, SequenceEncodableProbabilityDistribution, \
     ParameterEstimator, DistributionSampler, DataSequenceEncoder, StatisticAccumulatorFactory, EncodedDataSequence
 from typing import List, Union, Tuple, Optional, Dict, Any
 

@@ -1,7 +1,7 @@
 """Tests for CategoricalDistribution and related classes."""
-from dml.tests.stats.stats_tests import * 
-from dml.stats import *
-from dml.stats.binomial import BinomialDataEncoder, BinomialAccumulator, BinomialAccumulatorFactory, BinomialDistribution, BinomialEstimator
+from dmx.tests.stats.stats_tests import * 
+from dmx.stats import *
+from dmx.stats.binomial import BinomialDataEncoder, BinomialAccumulator, BinomialAccumulatorFactory, BinomialDistribution, BinomialEstimator
 import numpy as np
 import pytest 
 

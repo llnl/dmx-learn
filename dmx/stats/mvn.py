@@ -8,11 +8,11 @@ with dmx-learn.
 """
 import numpy as np
 import scipy.linalg
-from dml.arithmetic import *
-from dml.stats.pdist import SequenceEncodableProbabilityDistribution, SequenceEncodableStatisticAccumulator, \
+from dmx.arithmetic import *
+from dmx.stats.pdist import SequenceEncodableProbabilityDistribution, SequenceEncodableStatisticAccumulator, \
     ParameterEstimator, DataSequenceEncoder, StatisticAccumulatorFactory, DistributionSampler, EncodedDataSequence
 from numpy.random import RandomState
-import dml.utils.vector as vec
+import dmx.utils.vector as vec
 
 from typing import Union, List, Dict, Optional, Any, Sequence, Tuple
 

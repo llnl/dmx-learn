@@ -9,8 +9,8 @@ import time
 import numpy as np
 from numpy.random import RandomState
 
-from dml.stats import seq_estimate, seq_log_density_sum, seq_encode, seq_log_density, seq_initialize
-from dml.stats.pdist import SequenceEncodableProbabilityDistribution, ParameterEstimator, EncodedDataSequence
+from dmx.stats import seq_estimate, seq_log_density_sum, seq_encode, seq_log_density, seq_initialize
+from dmx.stats.pdist import SequenceEncodableProbabilityDistribution, ParameterEstimator, EncodedDataSequence
 
 from typing import Any, Tuple, List, Union, TypeVar, Optional, IO, Sequence, Callable
 

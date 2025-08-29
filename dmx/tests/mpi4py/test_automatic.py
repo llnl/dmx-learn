@@ -4,8 +4,8 @@ import pytest
 import pickle
 from mpi4py import MPI
 import numpy as np
-from dml.mpi4py.utils.automatic import get_dpm_mixture_mpi
-from dml.bstats import *
+from dmx.mpi4py.utils.automatic import get_dpm_mixture_mpi
+from dmx.bstats import *
 
 DATA_DIR = "dml/tests/data"
 ANSWER_DIR = "dml/tests/answerkeys"

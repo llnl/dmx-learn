@@ -5,8 +5,8 @@ from numpy.random import RandomState
 
 from typing import Tuple, List, TypeVar, Optional, IO, Sequence
 
-from dml.stats.pdist import SequenceEncodableProbabilityDistribution, ParameterEstimator, EncodedDataSequence
-from dml.mpi4py.stats import seq_encode_mpi, seq_estimate_mpi, seq_initialize_mpi, seq_log_density_sum_mpi
+from dmx.stats.pdist import SequenceEncodableProbabilityDistribution, ParameterEstimator, EncodedDataSequence
+from dmx.mpi4py.stats import seq_encode_mpi, seq_estimate_mpi, seq_initialize_mpi, seq_log_density_sum_mpi
 
 T = TypeVar('T')
 

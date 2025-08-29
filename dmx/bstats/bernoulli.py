@@ -1,13 +1,13 @@
 from typing import Optional, Any, Dict, Union, Sequence
 from numpy.random import RandomState
-from dml.bstats.pdist import (ParameterEstimator,
+from dmx.bstats.pdist import (ParameterEstimator,
                                ProbabilityDistribution,
                                StatisticAccumulator,
                                DataSequenceEncoder,
                                EncodedDataSequence)
 
-from dml.bstats.beta import BetaDistribution
-from dml.bstats.nulldist import NullDistribution, null_dist
+from dmx.bstats.beta import BetaDistribution
+from dmx.bstats.nulldist import NullDistribution, null_dist
 import numpy as np
 from scipy.special import gammaln, digamma, exp1
 from scipy.optimize import minimize_scalar

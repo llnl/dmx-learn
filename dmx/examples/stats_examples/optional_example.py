@@ -2,8 +2,8 @@
 generate data, estimate, and evaluate likelihoods.
 """ 
 import numpy as np
-from dml.stats import *
-from dml.utils.estimation import optimize
+from dmx.stats import *
+from dmx.utils.estimation import optimize
 
 if __name__ == '__main__':
     rng = np.random.RandomState(1)

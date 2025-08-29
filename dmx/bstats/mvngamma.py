@@ -1,7 +1,7 @@
 from typing import Optional, Union, Tuple, Sequence
 
-from dml.bstats.pdist import ProbabilityDistribution
-from dml.utils.special import gammaln, digamma
+from dmx.bstats.pdist import ProbabilityDistribution
+from dmx.utils.special import gammaln, digamma
 import numpy as np
 import scipy.integrate
 
