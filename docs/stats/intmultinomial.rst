@@ -17,21 +17,21 @@ For more info see `Multinomial Distribution <https://en.wikipedia.org/wiki/Multi
 IntegerMultinomialDistribution
 ---------------------------------
 
-.. autoclass:: dml.stats.intmultinomial.IntegerMultinomialDistribution
+.. autoclass:: dmx.stats.intmultinomial.IntegerMultinomialDistribution
    :members:
    :special-members: __init__
 
 IntegerMultinomialEstimator
 -----------------------------
 
-.. autoclass:: dml.stats.intmultinomial.IntegerMultinomialEstimator
+.. autoclass:: dmx.stats.intmultinomial.IntegerMultinomialEstimator
    :members:
    :special-members: __init__
 
 IntegerMultinomialSampler
 --------------------------
 
-.. autoclass:: dml.stats.intmultinomial.IntegerMultinomialSampler
+.. autoclass:: dmx.stats.intmultinomial.IntegerMultinomialSampler
    :members:
 
 

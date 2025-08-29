@@ -1,7 +1,7 @@
 from setuptools import setup, Extension, find_packages
 
 setup(
-    name="dmixlearn",
+    name="dmx-learn",
     version="1.0.0.0",
     description="A package for estimating heterogeneous probability density functions.",
     author="Adam Walder",

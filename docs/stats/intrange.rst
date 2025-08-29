@@ -20,21 +20,21 @@ For more info see `Integer Categorical Distribution <https://en.wikipedia.org/wi
 IntegerCategoricalDistribution
 ---------------------------------
 
-.. autoclass:: dml.stats.intrange.IntegerCategoricalDistribution
+.. autoclass:: dmx.stats.intrange.IntegerCategoricalDistribution
    :members:
    :special-members: __init__
 
 IntegerCategoricalEstimator
 -----------------------------
 
-.. autoclass:: dml.stats.intrange.IntegerCategoricalEstimator
+.. autoclass:: dmx.stats.intrange.IntegerCategoricalEstimator
    :members:
    :special-members: __init__
 
 IntegerCategoricalSampler
 --------------------------
 
-.. autoclass:: dml.stats.intrange.IntegerCategoricalSampler
+.. autoclass:: dmx.stats.intrange.IntegerCategoricalSampler
    :members:
 
 

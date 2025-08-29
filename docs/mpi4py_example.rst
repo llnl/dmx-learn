@@ -1,7 +1,7 @@
 MPI4PY Estimation Example
 ======================================
 
-This guide explains how to run `estimation_example.py` to fit statistical models in parallel using `mpi4py` and the DMixLearn package. Each step below includes the relevant Python code snippet. The file is found in `dml/mpi4py/examples`
+This guide explains how to run `estimation_example.py` to fit statistical models in parallel using `mpi4py` and the dmx-learn package. Each step below includes the relevant Python code snippet. The file is found in `dmx/mpi4py/examples`
 
 Running the Script
 ------------------
@@ -23,10 +23,10 @@ Step 1: Import Libraries and Set Up MPI
    from mpi4py import MPI
    from numpy.random import RandomState
    import pickle
-   from dml.stats import *
-   from dml.mpi4py.stats import *
-   from dml.mpi4py.utils.estimation import optimize_mpi
-   from dml.mpi4py.utils.optsutil import pickle_on_master
+   from dmx.stats import *
+   from dmx.mpi4py.stats import *
+   from dmx.mpi4py.utils.estimation import optimize_mpi
+   from dmx.mpi4py.utils.optsutil import pickle_on_master
 
    comm = MPI.COMM_WORLD
    world_rank = comm.Get_rank()
@@ -34,7 +34,7 @@ Step 1: Import Libraries and Set Up MPI
 
 Step 2: Simulate Data on the Master Node
 ----------------------------------------
-Note that the data simulation is only performed on the master node (rank 0). Other nodes will receive `None` for data. We use DMixLearn's DistributionSampler object to sample from the two state composite mixture distribution.
+Note that the data simulation is only performed on the master node (rank 0). Other nodes will receive `None` for data. We use dmx-learn's DistributionSampler object to sample from the two state composite mixture distribution.
 
 .. code-block:: python
 
@@ -103,10 +103,10 @@ Here is the complete script for reference:
    from mpi4py import MPI
    from numpy.random import RandomState
    import pickle
-   from dml.stats import *
-   from dml.mpi4py.stats import *
-   from dml.mpi4py.utils.estimation import optimize_mpi
-   from dml.mpi4py.utils.optsutil import pickle_on_master
+   from dmx.stats import *
+   from dmx.mpi4py.stats import *
+   from dmx.mpi4py.utils.estimation import optimize_mpi
+   from dmx.mpi4py.utils.optsutil import pickle_on_master
 
    comm = MPI.COMM_WORLD
    world_rank = comm.Get_rank()

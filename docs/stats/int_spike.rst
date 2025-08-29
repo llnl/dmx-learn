@@ -19,20 +19,20 @@ In the above we have assumed the length of [*min_val*, *max_val*] is *n*.
 SpikeAndSlabDistribution
 ---------------------------------
 
-.. autoclass:: dml.stats.int_spike.SpikeAndSlabDistribution
+.. autoclass:: dmx.stats.int_spike.SpikeAndSlabDistribution
    :members:
    :special-members: __init__
 
 SpikeAndSlabEstimator
 -----------------------------
 
-.. autoclass:: dml.stats.int_spike.SpikeAndSlabEstimator
+.. autoclass:: dmx.stats.int_spike.SpikeAndSlabEstimator
    :members:
    :special-members: __init__
 
 SpikeAndSlabSampler
 --------------------------
 
-.. autoclass:: dml.stats.int_spike.SpikeAndSlabSampler
+.. autoclass:: dmx.stats.int_spike.SpikeAndSlabSampler
    :members:
 

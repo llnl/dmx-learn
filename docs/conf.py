@@ -8,7 +8,7 @@ sys.path.insert(0, os.path.abspath('..'))
 # -- Project information -----------------------------------------------------
 # https://www.sphinx-doc.org/en/master/usage/configuration.html#project-information
 
-project = 'DMixLearn'
+project = 'dmx-learn'
 copyright = '2025, Adam Walder'
 author = 'Adam Walder'
 release = '1.1.0'

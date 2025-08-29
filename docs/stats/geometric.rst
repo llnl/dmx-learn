@@ -14,20 +14,20 @@ For more info see `Geometric Distribution <https://en.wikipedia.org/wiki/Geometr
 GeometricDistribution
 -----------------------
 
-.. autoclass:: dml.stats.geometric.GeometricDistribution
+.. autoclass:: dmx.stats.geometric.GeometricDistribution
    :members:
    :special-members: __init__
 
 GeometricEstimator
 -------------------
 
-.. autoclass:: dml.stats.geometric.GeometricEstimator
+.. autoclass:: dmx.stats.geometric.GeometricEstimator
    :members:
    :special-members: __init__
 
 GeometricSampler
 ----------------
 
-.. autoclass:: dml.stats.geometric.GeometricSampler
+.. autoclass:: dmx.stats.geometric.GeometricSampler
    :members:
 

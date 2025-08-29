@@ -20,21 +20,21 @@ For more info see `Categorical Distribution <https://en.wikipedia.org/wiki/Categ
 CategoricalDistribution
 ---------------------------------
 
-.. autoclass:: dml.stats.categorical.CategoricalDistribution
+.. autoclass:: dmx.stats.categorical.CategoricalDistribution
    :members:
    :special-members: __init__
 
 CategoricalEstimator
 -----------------------------
 
-.. autoclass:: dml.stats.categorical.CategoricalEstimator
+.. autoclass:: dmx.stats.categorical.CategoricalEstimator
    :members:
    :special-members: __init__
 
 CategoricalSampler
 --------------------------
 
-.. autoclass:: dml.stats.categorical.CategoricalSampler
+.. autoclass:: dmx.stats.categorical.CategoricalSampler
    :members:
 
 

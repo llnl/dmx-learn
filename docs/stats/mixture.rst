@@ -1,7 +1,7 @@
 .. _stats_mixture:
 Mixture Distribution
 =========================
-Mixture distributions are useful when a statistical population contains two or more subpopulations that are unobserved. *DMixLearn* allows for the specification of any model for the *components* of the mixture distribution. Assuming we have an observation *x* of data type *T* (any heterogenous form), the data generating process for a K-component mixture model is given by 
+Mixture distributions are useful when a statistical population contains two or more subpopulations that are unobserved. *dmx-learn* allows for the specification of any model for the *components* of the mixture distribution. Assuming we have an observation *x* of data type *T* (any heterogenous form), the data generating process for a K-component mixture model is given by 
 
 .. math::
 
@@ -15,21 +15,21 @@ where :math:`\pi_k` representing the probability of *x* being drawn from compone
 MixtureDistribution
 ---------------------------------
 
-.. autoclass:: dml.stats.mixture.MixtureDistribution
+.. autoclass:: dmx.stats.mixture.MixtureDistribution
    :members:
    :special-members: __init__
 
 MixtureEstimator
 -----------------------------
 
-.. autoclass:: dml.stats.mixture.MixtureEstimator
+.. autoclass:: dmx.stats.mixture.MixtureEstimator
    :members:
    :special-members: __init__
 
 MixtureSampler
 --------------------------
 
-.. autoclass:: dml.stats.mixture.MixtureSampler
+.. autoclass:: dmx.stats.mixture.MixtureSampler
    :members:
 
 

@@ -14,20 +14,20 @@ For speed, the user can map observed values :math:`v_i \rightarrow i` and use th
 BernoulliSetDistribution
 ---------------------------------
 
-.. autoclass:: dml.stats.setdist.BernoulliSetDistribution
+.. autoclass:: dmx.stats.setdist.BernoulliSetDistribution
    :members:
    :special-members: __init__
 
 BernoulliSetEstimator
 -----------------------------
 
-.. autoclass:: dml.stats.setdist.BernoulliSetEstimator
+.. autoclass:: dmx.stats.setdist.BernoulliSetEstimator
    :members:
    :special-members: __init__
 
 BernoulliSetSampler
 --------------------------------
 
-.. autoclass:: dml.stats.setdist.BernoulliSetSampler
+.. autoclass:: dmx.stats.setdist.BernoulliSetSampler
    :members:
 

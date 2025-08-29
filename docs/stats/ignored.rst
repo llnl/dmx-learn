@@ -5,21 +5,21 @@ The IgnoredDistribution and IgnoredEstimator classes provide a way of either ign
 IgnoredDistribution
 ---------------------------------
 
-.. autoclass:: dml.stats.ignored.IgnoredDistribution
+.. autoclass:: dmx.stats.ignored.IgnoredDistribution
    :members:
    :special-members: __init__
 
 IgnoredEstimator
 -----------------------------
 
-.. autoclass:: dml.stats.ignored.IgnoredEstimator
+.. autoclass:: dmx.stats.ignored.IgnoredEstimator
    :members:
    :special-members: __init__
 
 IgnoredSampler
 --------------------------
 
-.. autoclass:: dml.stats.ignored.IgnoredSampler
+.. autoclass:: dmx.stats.ignored.IgnoredSampler
    :members:
 
 

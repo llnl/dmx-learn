@@ -14,20 +14,20 @@ See :doc:`Bernoulli Set Distribution <setdist>` for a more generic implementatio
 IntegerBernoulliSetDistribution
 ---------------------------------
 
-.. autoclass:: dml.stats.intsetdist.IntegerBernoulliSetDistribution
+.. autoclass:: dmx.stats.intsetdist.IntegerBernoulliSetDistribution
    :members:
    :special-members: __init__
 
 IntegerBernoulliSetEstimator
 -----------------------------
 
-.. autoclass:: dml.stats.intsetdist.IntegerBernoulliSetEstimator
+.. autoclass:: dmx.stats.intsetdist.IntegerBernoulliSetEstimator
    :members:
    :special-members: __init__
 
 IntegerBernoulliSetSampler
 --------------------------------
 
-.. autoclass:: dml.stats.intsetdist.IntegerBernoulliSetSampler
+.. autoclass:: dmx.stats.intsetdist.IntegerBernoulliSetSampler
    :members:
 

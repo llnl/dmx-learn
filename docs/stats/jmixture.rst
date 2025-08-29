@@ -17,20 +17,20 @@ where the initial group membership is drawn :math:`P(Z_1 = k_1) = \pi_{k_1}` and
 JointMixtureDistribution
 ---------------------------------
 
-.. autoclass:: dml.stats.jmixture.JointMixtureDistribution
+.. autoclass:: dmx.stats.jmixture.JointMixtureDistribution
    :members:
    :special-members: __init__
 
 JointMixtureEstimator
 --------------------------------
 
-.. autoclass:: dml.stats.jmixture.JointMixtureEstimator
+.. autoclass:: dmx.stats.jmixture.JointMixtureEstimator
    :members:
    :special-members: __init__
 
 JointMixtureSampler
 -------------------------------
 
-.. autoclass:: dml.stats.jmixture.JointMixtureSampler
+.. autoclass:: dmx.stats.jmixture.JointMixtureSampler
    :members:
 
