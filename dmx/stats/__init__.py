@@ -149,7 +149,7 @@ from dmx.stats.hidden_association import HiddenAssociationDistribution, HiddenAs
 from dmx.stats.hidden_markov import HiddenMarkovModelDistribution, HiddenMarkovEstimator
 from dmx.stats.jmixture import JointMixtureDistribution, JointMixtureEstimator
 from dmx.stats.tree_hmm import TreeHiddenMarkovModelDistribution, TreeHiddenMarkovEstimator
-# from dml.stats.lda import LDADistribution, LDAEstimator
+# from dmx.stats.lda import LDADistribution, LDAEstimator
 from dmx.stats.markovchain import MarkovChainDistribution, MarkovChainEstimator
 from dmx.stats.setdist import BernoulliSetDistribution, BernoulliSetEstimator
 from dmx.stats.spearman_rho import SpearmanRankingDistribution, SpearmanRankingEstimator

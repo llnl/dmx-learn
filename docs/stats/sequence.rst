@@ -11,21 +11,21 @@ Assume :math:`x_i = (x_{i1}, ..., x_{i n_i})` is a sequence of length :math:`n_i
 SequenceDistribution
 ---------------------------------
 
-.. autoclass:: dml.stats.sequence.SequenceDistribution
+.. autoclass:: dmx.stats.sequence.SequenceDistribution
    :members:
    :special-members: __init__
 
 SequenceEstimator
 -----------------------------
 
-.. autoclass:: dml.stats.sequence.SequenceEstimator
+.. autoclass:: dmx.stats.sequence.SequenceEstimator
    :members:
    :special-members: __init__
 
 SequenceSampler
 --------------------------
 
-.. autoclass:: dml.stats.sequence.SequenceSampler
+.. autoclass:: dmx.stats.sequence.SequenceSampler
    :members:
 
 

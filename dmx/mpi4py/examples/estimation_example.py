@@ -1,4 +1,4 @@
-"""Example on how to fit dml/stats models with mpi4py. 
+"""Example on how to fit dmx/stats models with mpi4py. 
 
 In general models are launched with calls like mpiexec -n 4 python3 estimation_example.py
 

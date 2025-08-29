@@ -15,20 +15,20 @@ For more info see `Gaussian Distribution <https://en.wikipedia.org/wiki/Normal_d
 GaussianDistribution
 -----------------------
 
-.. autoclass:: dml.stats.gaussian.GaussianDistribution
+.. autoclass:: dmx.stats.gaussian.GaussianDistribution
    :members:
    :special-members: __init__
 
 GaussianEstimator
 -------------------
 
-.. autoclass:: dml.stats.gaussian.GaussianEstimator
+.. autoclass:: dmx.stats.gaussian.GaussianEstimator
    :members:
    :special-members: __init__
 
 GaussianSampler
 ----------------
 
-.. autoclass:: dml.stats.gaussian.GaussianSampler
+.. autoclass:: dmx.stats.gaussian.GaussianSampler
    :members:
 

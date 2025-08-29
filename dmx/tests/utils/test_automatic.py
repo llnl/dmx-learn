@@ -6,8 +6,8 @@ import numpy as np
 from dmx.utils.automatic import get_dpm_mixture, get_estimator
 from dmx.bstats import *
 
-DATA_DIR = "dml/tests/data"
-ANSWER_DIR = "dml/tests/answerkeys"
+DATA_DIR = "dmx/tests/data"
+ANSWER_DIR = "dmx/tests/answerkeys"
 
 @pytest.mark.parametrize("case_id", [0, 1])
 def test_get_dpm_mixture(case_id: int) -> None:

@@ -5,20 +5,20 @@ The Heterogeneous mixture distribution can be used to assign heterogeneous mixtu
 HeterogeneousMixtureDistribution
 ---------------------------------
 
-.. autoclass:: dml.stats.heterogeneous_mixture.HeterogeneousMixtureDistribution
+.. autoclass:: dmx.stats.heterogeneous_mixture.HeterogeneousMixtureDistribution
    :members:
    :special-members: __init__
 
 HeterogeneousMixtureEstimator
 --------------------------------
 
-.. autoclass:: dml.stats.heterogeneous_mixture.HeterogeneousMixtureEstimator
+.. autoclass:: dmx.stats.heterogeneous_mixture.HeterogeneousMixtureEstimator
    :members:
    :special-members: __init__
 
 HeterogeneousMixtureSampler
 -------------------------------
 
-.. autoclass:: dml.stats.heterogeneous_mixture.HeterogeneousMixtureSampler
+.. autoclass:: dmx.stats.heterogeneous_mixture.HeterogeneousMixtureSampler
    :members:
 

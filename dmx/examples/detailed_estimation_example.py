@@ -51,7 +51,7 @@ if __name__ == '__main__':
     est = MixtureEstimator([CompositeEstimator((e0, e1, e2, e3, e4))] * 2)
 
     # Estimate parameters
-    # Note: Checkout dml.utils.estimation.best_of/optimize for methods that handle this computation
+    # Note: Checkout dmx.utils.estimation.best_of/optimize for methods that handle this computation
 
     mm = initialize(train_data, iest, rng, 0.01)
 

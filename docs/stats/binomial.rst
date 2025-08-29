@@ -13,20 +13,20 @@ The probability mass function is given by
 BinomialDistribution
 ----------------------
 
-.. autoclass:: dml.stats.binomial.BinomialDistribution
+.. autoclass:: dmx.stats.binomial.BinomialDistribution
    :members:
    :special-members: __init__
 
 BinomialEstimator
 --------------------
 
-.. autoclass:: dml.stats.binomial.BinomialEstimator
+.. autoclass:: dmx.stats.binomial.BinomialEstimator
    :members:
    :special-members: __init__
 
 BinomialSampler
 ------------------
 
-.. autoclass:: dml.stats.binomial.BinomialSampler
+.. autoclass:: dmx.stats.binomial.BinomialSampler
    :members:
 

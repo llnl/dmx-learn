@@ -36,7 +36,7 @@ from typing import TypeVar, Dict, List, Sequence, Any, Optional, Tuple, Union, C
 E0 = TypeVar('E0')
 SS0 = TypeVar('SS0')
 
-# import dml.c_ext
+# import dmx.c_ext
 
 class LDADistribution(SequenceEncodableProbabilityDistribution):
     """LDADistribution object for defining a Latent Dirichlet allocation model.
@@ -643,7 +643,7 @@ def seq_posterior2(estimate: LDADistribution, x: Tuple[int, np.ndarray, np.ndarr
     rv4 = np.arange(0, num_samples, dtype=np.intp)
     rv5 = np.zeros(num_documents, dtype=np.float64)
 
-    aa, bb = dml.c_ext.lda_update(idx, document_gammas, rv1, rv2, alpha_loc, per_topic_log_densities, rv3, ccc, rv0,
+    aa, bb = dmx.c_ext.lda_update(idx, document_gammas, rv1, rv2, alpha_loc, per_topic_log_densities, rv3, ccc, rv0,
                                    rv4, rv5, -1, gamma_threshold)
 
     final_gammas = bb + alpha_loc

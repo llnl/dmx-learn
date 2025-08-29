@@ -1,6 +1,6 @@
 """Defines abstract classes for SequenceEncodableProbabilityDistribution, SequenceEncodableStatisticAccumulator,
 ProbabilityDistribution, StatisticAccumulator, StatisticAccumulatorFactory, DataSequenceEncoder, ParameterEstimator,
-ConditionalSampler, and DistributionSampler for classes of the dml.stats.
+ConditionalSampler, and DistributionSampler for classes of the dmx.stats.
 
 """
 import math

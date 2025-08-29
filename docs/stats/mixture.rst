@@ -15,21 +15,21 @@ where :math:`\pi_k` representing the probability of *x* being drawn from compone
 MixtureDistribution
 ---------------------------------
 
-.. autoclass:: dml.stats.mixture.MixtureDistribution
+.. autoclass:: dmx.stats.mixture.MixtureDistribution
    :members:
    :special-members: __init__
 
 MixtureEstimator
 -----------------------------
 
-.. autoclass:: dml.stats.mixture.MixtureEstimator
+.. autoclass:: dmx.stats.mixture.MixtureEstimator
    :members:
    :special-members: __init__
 
 MixtureSampler
 --------------------------
 
-.. autoclass:: dml.stats.mixture.MixtureSampler
+.. autoclass:: dmx.stats.mixture.MixtureSampler
    :members:
 
 

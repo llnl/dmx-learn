@@ -15,20 +15,20 @@ The above is the scale parametarization of the exponential distribution. For mor
 ExponentialDistribution
 ------------------------
 
-.. autoclass:: dml.stats.exponential.ExponentialDistribution
+.. autoclass:: dmx.stats.exponential.ExponentialDistribution
    :members:
    :special-members: __init__
 
 ExponentialEstimator
 -----------------------
 
-.. autoclass:: dml.stats.exponential.ExponentialEstimator
+.. autoclass:: dmx.stats.exponential.ExponentialEstimator
    :members:
    :special-members: __init__
 
 ExponentialSampler
 -------------------
 
-.. autoclass:: dml.stats.exponential.ExponentialSampler
+.. autoclass:: dmx.stats.exponential.ExponentialSampler
    :members:
 

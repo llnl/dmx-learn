@@ -17,21 +17,21 @@ For more info see `Multinomial Distribution <https://en.wikipedia.org/wiki/Multi
 MultinomialDistribution
 ---------------------------------
 
-.. autoclass:: dml.stats.catmultinomial.MultinomialDistribution
+.. autoclass:: dmx.stats.catmultinomial.MultinomialDistribution
    :members:
    :special-members: __init__
 
 MultinomialEstimator
 -----------------------------
 
-.. autoclass:: dml.stats.catmultinomial.MultinomialEstimator
+.. autoclass:: dmx.stats.catmultinomial.MultinomialEstimator
    :members:
    :special-members: __init__
 
 MultinomialSampler
 --------------------------
 
-.. autoclass:: dml.stats.catmultinomial.MultinomialSampler
+.. autoclass:: dmx.stats.catmultinomial.MultinomialSampler
    :members:
 
 

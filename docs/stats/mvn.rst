@@ -18,20 +18,20 @@ For more info see `Multivariate Normal Distribution <https://en.wikipedia.org/wi
 MultivariateGaussianDistribution
 ---------------------------------
 
-.. autoclass:: dml.stats.mvn.MultivariateGaussianDistribution
+.. autoclass:: dmx.stats.mvn.MultivariateGaussianDistribution
    :members:
    :special-members: __init__
 
 MultivariateGaussianEstimator
 --------------------------------
 
-.. autoclass:: dml.stats.mvn.MultivariateGaussianEstimator
+.. autoclass:: dmx.stats.mvn.MultivariateGaussianEstimator
    :members:
    :special-members: __init__
 
 MultivariateGaussianSampler
 ------------------------------
 
-.. autoclass:: dml.stats.mvn.MultivariateGaussianSampler
+.. autoclass:: dmx.stats.mvn.MultivariateGaussianSampler
    :members:
 

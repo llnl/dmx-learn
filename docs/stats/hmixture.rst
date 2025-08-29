@@ -39,20 +39,20 @@ The generative process for data :math:`\boldsymbol{X}_i = (X_{i,1}, ..., X_{i, n
 HierarchicalMixtureDistribution
 ---------------------------------
 
-.. autoclass:: dml.stats.hmixture.HierarchicalMixtureDistribution
+.. autoclass:: dmx.stats.hmixture.HierarchicalMixtureDistribution
    :members:
    :special-members: __init__
 
 HierarchicalMixtureEstimator
 --------------------------------
 
-.. autoclass:: dml.stats.hmixture.HierarchicalMixtureEstimator
+.. autoclass:: dmx.stats.hmixture.HierarchicalMixtureEstimator
    :members:
    :special-members: __init__
 
 HierarchicalMixtureSampler
 -------------------------------
 
-.. autoclass:: dml.stats.hmixture.HierarchicalMixtureSampler
+.. autoclass:: dmx.stats.hmixture.HierarchicalMixtureSampler
    :members:
 

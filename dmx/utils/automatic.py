@@ -15,7 +15,7 @@ def get_optional_estimator(est: ParameterEstimator, missing_value: Optional[Any]
     Args:
         est (ParameterEstimator): The base estimator to use.
         missing_value (Optional[Any]): The value to treat as missing.
-        use_bstats (bool): Whether to use the `dml.bstats` module.
+        use_bstats (bool): Whether to use the `dmx.bstats` module.
 
     Returns:
         OptionalEstimator: An estimator that handles missing values.
@@ -33,7 +33,7 @@ def get_sequence_estimator(est: ParameterEstimator, use_bstats=False):
 
     Args:
         est (ParameterEstimator): The base estimator to use.
-        use_bstats (bool): Whether to use the `dml.bstats` module.
+        use_bstats (bool): Whether to use the `dmx.bstats` module.
 
     Returns:
         SequenceEstimator: An estimator for sequences.
@@ -50,7 +50,7 @@ def get_ignored_estimator(use_bstats: bool = False):
     """Gets an ignored estimator.
 
     Args:
-        use_bstats (bool): Whether to use the `dml.bstats` module.
+        use_bstats (bool): Whether to use the `dmx.bstats` module.
 
     Returns:
         IgnoredEstimator: An estimator that ignores input data.
@@ -68,7 +68,7 @@ def get_composite_estimator(ests: Sequence[ParameterEstimator], use_bstats: bool
 
     Args:
         ests (Sequence[ParameterEstimator]): A list of estimators to combine.
-        use_bstats (bool): Whether to use the `dml.bstats` module.
+        use_bstats (bool): Whether to use the `dmx.bstats` module.
 
     Returns:
         CompositeEstimator: An estimator that combines multiple estimators.
@@ -88,7 +88,7 @@ def get_categorical_estimator(vdict: Dict[Any, float], pseudo_count: Optional[fl
         vdict (dict): A dictionary of values and their counts.
         pseudo_count (Optional[float]): A pseudo-count to use for smoothing.
         emp_suff_stat (bool): Whether to use empirical sufficient statistics.
-        use_bstats (bool): Whether to use the `dml.bstats` module.
+        use_bstats (bool): Whether to use the `dmx.bstats` module.
 
     Returns:
         CategoricalEstimator: An estimator for categorical data.
@@ -113,7 +113,7 @@ def get_poisson_estimator(vdict: Dict[Any, float], pseudo_count: Optional[float]
         vdict (Dict[Any, float]): A dictionary of values and their counts.
         pseudo_count (Optional[float]): A pseudo-count to use for smoothing.
         emp_suff_stat (bool): Whether to use empirical sufficient statistics.
-        use_bstats (bool): Whether to use the `dml.bstats` module.
+        use_bstats (bool): Whether to use the `dmx.bstats` module.
 
     Returns:
         PoissonEstimator: An estimator for Poisson-distributed data.
@@ -145,7 +145,7 @@ def get_gaussian_estimator(vdict: Dict[Any, float], pseudo_count: Optional[float
         vdict (Dict[Any, float]): A dictionary of values and their counts.
         pseudo_count (Optional[float]): A pseudo-count to use for smoothing.
         emp_suff_stat (bool): Whether to use empirical sufficient statistics.
-        use_bstats (bool): Whether to use the `dml.bstats` module.
+        use_bstats (bool): Whether to use the `dmx.bstats` module.
 
     Returns:
         GaussianEstimator: An estimator for Gaussian-distributed data.
@@ -324,7 +324,7 @@ class DatumNode(object):
         Args:
             pseudo_count (float): A pseudo-count to use for smoothing.
             emp_suff_stat (bool): Whether to use empirical sufficient statistics.
-            use_bstats (bool): Whether to use the `dml.bstats` module.
+            use_bstats (bool): Whether to use the `dmx.bstats` module.
 
         Returns:
             Estimator: An appropriate estimator for the node's data.
@@ -390,7 +390,7 @@ def get_estimator(data: Sequence[Any], pseudo_count: float = 1.0, emp_suff_stat:
         data (Sequence[Any]): The data to estimate.
         pseudo_count (float): A pseudo-count to use for smoothing.
         emp_suff_stat (bool): Whether to use empirical sufficient statistics.
-        use_bstats (bool): Whether to use the `dml.bstats` module.
+        use_bstats (bool): Whether to use the `dmx.bstats` module.
 
     Returns:
         Estimator: An appropriate estimator for the data.

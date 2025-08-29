@@ -18,20 +18,20 @@ For more info see `Dirichlet Distribution <https://en.wikipedia.org/wiki/Dirichl
 DirichletDistribution
 ---------------------------------
 
-.. autoclass:: dml.stats.dirichlet.DirichletDistribution
+.. autoclass:: dmx.stats.dirichlet.DirichletDistribution
    :members:
    :special-members: __init__
 
 DirichletEstimator
 ---------------------------
 
-.. autoclass:: dml.stats.dirichlet.DirichletEstimator
+.. autoclass:: dmx.stats.dirichlet.DirichletEstimator
    :members:
    :special-members: __init__
 
 DirichletSampler
 ---------------------------
 
-.. autoclass:: dml.stats.dirichlet.DirichletSampler
+.. autoclass:: dmx.stats.dirichlet.DirichletSampler
    :members:
 

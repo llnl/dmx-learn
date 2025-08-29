@@ -20,21 +20,21 @@ We allow for the user to define the *missing value*.
 OptionalDistribution
 ---------------------------------
 
-.. autoclass:: dml.stats.optional.OptionalDistribution
+.. autoclass:: dmx.stats.optional.OptionalDistribution
    :members:
    :special-members: __init__
 
 OptionalEstimator
 -----------------------------
 
-.. autoclass:: dml.stats.optional.OptionalEstimator
+.. autoclass:: dmx.stats.optional.OptionalEstimator
    :members:
    :special-members: __init__
 
 OptionalSampler
 --------------------------
 
-.. autoclass:: dml.stats.optional.OptionalSampler
+.. autoclass:: dmx.stats.optional.OptionalSampler
    :members:
 
 

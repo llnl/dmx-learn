@@ -12,21 +12,21 @@ where :math:`f(x_i \vert \theta_i)` are distributions compatible with component 
 CompositeDistribution
 ---------------------------------
 
-.. autoclass:: dml.stats.composite.CompositeDistribution
+.. autoclass:: dmx.stats.composite.CompositeDistribution
    :members:
    :special-members: __init__
 
 CompositeEstimator
 -----------------------------
 
-.. autoclass:: dml.stats.composite.CompositeEstimator
+.. autoclass:: dmx.stats.composite.CompositeEstimator
    :members:
    :special-members: __init__
 
 CompositeSampler
 --------------------------
 
-.. autoclass:: dml.stats.composite.CompositeSampler
+.. autoclass:: dmx.stats.composite.CompositeSampler
    :members:
 
 

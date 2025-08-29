@@ -23,15 +23,15 @@ User installation with pip
 ```
 
 ## Stats Examples
-Examples using `stats` distributions that run locally are located in ./dml/examples/
+Examples using `stats` distributions that run locally are located in ./dmx/examples/
 
 ```
 > export PYHONPATH=$PYTHONPATH:/path./to/dmx-learn
-> PYTHONPATH=/path/to/package/ python ./dml/examples/stats_examples/mixture_example.py
+> PYTHONPATH=/path/to/package/ python ./dmx/examples/stats_examples/mixture_example.py
 ```
 
 ## Running with Spark
-Examples that run with Apache Spark are located in./dml/examples_spark/
+Examples that run with Apache Spark are located in./dmx/examples_spark/
 
 First build a wheel
 ```
@@ -42,14 +42,14 @@ First build a wheel
 
 Run the example with below
 ```
-> /path/to/spark/bin/spark-submit --master local[*] --py-files /path/to/package/dist/dmx-learn-0.1.8.4-py3-none-any.whl ./dml/examples_spark/mixture_example.py
+> /path/to/spark/bin/spark-submit --master local[*] --py-files /path/to/package/dist/dmx-learn-0.1.8.4-py3-none-any.whl ./dmx/examples_spark/mixture_example.py
 ```
 
 ## Running with MPI4PY
-Examples that run with mpi4py are located in ./dml/mpi4py/examples/
+Examples that run with mpi4py are located in ./dmx/mpi4py/examples/
 
-Below will run the example ./dml/mpi4py/examples/estimation_example.py with 4 cores.
+Below will run the example ./dmx/mpi4py/examples/estimation_example.py with 4 cores.
 ```
 > export PYHONPATH=$PYTHONPATH:/path./to/dmx-learn
-> mpiexec -n 4 python /path/to/package/dml/mpi4py/examples/estimation_example.py
+> mpiexec -n 4 python /path/to/package/dmx/mpi4py/examples/estimation_example.py
 ```

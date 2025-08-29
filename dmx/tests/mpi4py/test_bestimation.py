@@ -12,8 +12,8 @@ from dmx.mpi4py.utils.bestimation import optimize_mpi
 import numpy as np
 from mpi4py import MPI
 
-DATA_DIR = "dml/tests/data"
-ANSWER_DIR = "dml/tests/answerkeys"
+DATA_DIR = "dmx/tests/data"
+ANSWER_DIR = "dmx/tests/answerkeys"
 
 def test_initialize_mpi() -> None:
     """Test initialize with mpi4py using 4 cores."""

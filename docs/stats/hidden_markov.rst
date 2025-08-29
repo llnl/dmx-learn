@@ -39,21 +39,21 @@ for time points 1,2, ..., t-1,
 HiddenMarkovModelDistribution
 ---------------------------------
 
-.. autoclass:: dml.stats.hidden_markov.HiddenMarkovModelDistribution
+.. autoclass:: dmx.stats.hidden_markov.HiddenMarkovModelDistribution
    :members:
    :special-members: __init__
 
 HiddenMarkovEstimator
 -----------------------------
 
-.. autoclass:: dml.stats.hidden_markov.HiddenMarkovEstimator
+.. autoclass:: dmx.stats.hidden_markov.HiddenMarkovEstimator
    :members:
    :special-members: __init__
 
 HiddenMarkovSampler
 --------------------------
 
-.. autoclass:: dml.stats.hidden_markov.HiddenMarkovSampler
+.. autoclass:: dmx.stats.hidden_markov.HiddenMarkovSampler
    :members:
 
 

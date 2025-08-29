@@ -15,21 +15,21 @@ Note that each value of :math:`x_i` emits a distribution over the support of *y*
 ConditionalDistribution
 ---------------------------------
 
-.. autoclass:: dml.stats.conditional.ConditionalDistribution
+.. autoclass:: dmx.stats.conditional.ConditionalDistribution
    :members:
    :special-members: __init__
 
 ConditionalDistributionEstimator
 ----------------------------------
 
-.. autoclass:: dml.stats.conditional.ConditionalDistributionEstimator
+.. autoclass:: dmx.stats.conditional.ConditionalDistributionEstimator
    :members:
    :special-members: __init__
 
 ConditionalDistributionSampler
 -------------------------------
 
-.. autoclass:: dml.stats.conditional.ConditionalDistributionSampler
+.. autoclass:: dmx.stats.conditional.ConditionalDistributionSampler
    :members:
 
 

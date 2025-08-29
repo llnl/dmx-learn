@@ -182,7 +182,7 @@ class HiddenMarkovModelDistribution(SequenceEncodableProbabilityDistribution):
         where P_len(N) is the length distribution 'len_dist', if assigned.
         Note: All calculations are done on the log scale with log-sum-exp used to prevent numerical underflow.
 
-        If 'has_topics' is true, 'weighed_log_sum_exp' and 'log_sum' calls from dml.utils.vector are used to handle
+        If 'has_topics' is true, 'weighed_log_sum_exp' and 'log_sum' calls from dmx.utils.vector are used to handle
         the emission distributions being treated as mixture distributions with weights 'log_taus'.
 
         Args:

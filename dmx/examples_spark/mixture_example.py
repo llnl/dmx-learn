@@ -51,7 +51,7 @@ if __name__ == '__main__':
 
 
 	# Estimate parameters
-	# Note: Checkout dml.utils.estimation.best_of/optimize for methods that handle this computation
+	# Note: Checkout dmx.utils.estimation.best_of/optimize for methods that handle this computation
 
 	mm = initialize(train_data, iest, rng, 0.05)
 

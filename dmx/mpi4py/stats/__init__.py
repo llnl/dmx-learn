@@ -4,7 +4,7 @@ MPI-based sequence encoding and estimation utilities.
 This module provides functions for distributed sequence encoding, parameter
 initialization, estimation, and log density computation using MPI. It is
 designed to work with sequence-encodable probability distributions and
-related estimators/encoders from the dml.stats.pdist module.
+related estimators/encoders from the dmx.stats.pdist module.
 
 Functions:
     seq_encode_mpi: Distributes and encodes sequence data across MPI workers.

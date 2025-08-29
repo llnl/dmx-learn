@@ -15,20 +15,20 @@ For more info see `Poisson Distribution <https://en.wikipedia.org/wiki/Poisson_d
 PoissonDistribution
 -----------------------
 
-.. autoclass:: dml.stats.poisson.PoissonDistribution
+.. autoclass:: dmx.stats.poisson.PoissonDistribution
    :members:
    :special-members: __init__
 
 PoissonEstimator
 -------------------
 
-.. autoclass:: dml.stats.poisson.PoissonEstimator
+.. autoclass:: dmx.stats.poisson.PoissonEstimator
    :members:
    :special-members: __init__
 
 PoissonSampler
 ----------------
 
-.. autoclass:: dml.stats.poisson.PoissonSampler
+.. autoclass:: dmx.stats.poisson.PoissonSampler
    :members:
 

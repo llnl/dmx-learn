@@ -15,20 +15,20 @@ The above is the scale parametarization of the gamma distribution. For more info
 GammaDistribution
 ------------------------
 
-.. autoclass:: dml.stats.gamma.GammaDistribution
+.. autoclass:: dmx.stats.gamma.GammaDistribution
    :members:
    :special-members: __init__
 
 GammaEstimator
 -----------------------
 
-.. autoclass:: dml.stats.gamma.GammaEstimator
+.. autoclass:: dmx.stats.gamma.GammaEstimator
    :members:
    :special-members: __init__
 
 GammaSampler
 -------------------
 
-.. autoclass:: dml.stats.gamma.GammaSampler
+.. autoclass:: dmx.stats.gamma.GammaSampler
    :members:
 

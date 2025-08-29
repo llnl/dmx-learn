@@ -7,8 +7,8 @@ import numpy as np
 from dmx.mpi4py.utils.automatic import get_dpm_mixture_mpi
 from dmx.bstats import *
 
-DATA_DIR = "dml/tests/data"
-ANSWER_DIR = "dml/tests/answerkeys"
+DATA_DIR = "dmx/tests/data"
+ANSWER_DIR = "dmx/tests/answerkeys"
 
 
 @pytest.mark.parametrize("case_id", [0, 1])
