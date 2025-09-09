@@ -1,5 +1,5 @@
 """Test cases for Multivariate Gaussian Distribution and related classes."""
-from .stats_tests import * 
+from tests.stats.stats_tests import * 
 from dmx.stats import *
 from dmx.stats.mvn import *
 import numpy as np

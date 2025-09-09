@@ -1,5 +1,5 @@
 """Test cases for Markov Chain Distribution and related classes."""
-from .stats_tests import * 
+from tests.stats.stats_tests import * 
 from dmx.stats import *
 from dmx.stats.markovchain import *
 from dmx.stats.categorical import * 

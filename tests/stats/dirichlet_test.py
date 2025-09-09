@@ -1,5 +1,5 @@
 """Tests for DirichletDistribution and related classes."""
-from .stats_tests import * 
+from tests.stats.stats_tests import * 
 from dmx.stats import *
 from dmx.stats.dirichlet import *
 import numpy as np

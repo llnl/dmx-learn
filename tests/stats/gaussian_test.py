@@ -1,5 +1,5 @@
 """Tests for the Gaussian distribution and its related classes."""
-from .stats_tests import * 
+from tests.stats.stats_tests import * 
 from dmx.stats import *
 from dmx.stats.gaussian import *
 import numpy as np

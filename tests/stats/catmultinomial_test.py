@@ -1,5 +1,5 @@
 """Tests for the MultinomialDistribution class and related components."""
-from .stats_tests import * 
+from tests.stats.stats_tests import * 
 from dmx.stats import *
 from dmx.stats.catmultinomial import * 
 from dmx.stats.binomial import BinomialDataEncoder, BinomialAccumulator, BinomialAccumulatorFactory

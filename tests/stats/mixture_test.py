@@ -1,5 +1,5 @@
 """Test cases for Mixture Distribution and related classes."""
-from .stats_tests import * 
+from tests.stats.stats_tests import * 
 from dmx.stats import *
 from dmx.stats.categorical import *
 from dmx.stats.binomial import * 
