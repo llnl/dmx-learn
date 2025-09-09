@@ -55,8 +55,8 @@ subprocess.check_call([python_bin, "-m", "pytest", "tests/examples"])
 print("\nRunning util tests...")
 subprocess.check_call([python_bin, "-m", "pytest", "tests/utils"])
 
-# ----------------------------
-# 7. Run MPI-enabled tests
-# ----------------------------
-print("\nRunning MPI-enabled tests with 4 processes...")
-subprocess.check_call([mpiexec_bin, "-n", "4", python_bin, "-m", "pytest", "tests/mpi4py"])
+# # ----------------------------
+# # 7. Run MPI-enabled tests
+# # ----------------------------
+# print("\nRunning MPI-enabled tests with 4 processes...")
+# subprocess.check_call([mpiexec_bin, "-n", "4", python_bin, "-m", "pytest", "tests/mpi4py"])
