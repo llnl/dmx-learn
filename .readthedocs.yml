@@ -8,6 +8,9 @@ build:
 sphinx:
   configuration: docs/conf.py
 
+formats:
+  - epub
+
 python:
   install:
     - method: pip

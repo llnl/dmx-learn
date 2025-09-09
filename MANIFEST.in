@@ -1,2 +1,10 @@
-include README.md
-recursive-include docs *
+# Include package data inside your dmx package (if you have any)
+recursive-include src/dmx *.py *.txt *.md
+
+# Exclude everything else
+exclude README.md
+exclude LICENSE
+exclude requirements.txt
+prune docs
+prune examples
+prune tests
