@@ -6,6 +6,7 @@ __pycache__/
 *$py.class
 .ipynb_checkpoints
 
+generate_notebook_data/
 # C extensions
 *.so
 
