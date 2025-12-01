@@ -310,7 +310,7 @@ class JointMixtureEstimatorAccumulator(SequenceEncodableStatisticAccumulator):
         # idx2 = self._idx2_rng.choice(self.num_components2)
 
         idx = self._idx1_rng.choice(self.num_components1 * self.num_components2)
-        idx1, idx2 = idx // self.num_components1, idx % idx2
+        idx1, idx2 = idx // self.num_components2, idx % self.num_components2
 
         self.joint_counts[idx1, idx2] += 1.0
 
@@ -335,7 +335,7 @@ class JointMixtureEstimatorAccumulator(SequenceEncodableStatisticAccumulator):
         
         idx = self._idx1_rng.choice(self.num_components1 * self.num_components2, size=sz)
         temp = np.bincount(idx, minlength=self.num_components1*self.num_components2)
-        idx1, idx2 = idx // self.num_components1, idx % self.num_components1
+        idx1, idx2 = np.divmod(idx, self.num_components2)
         self.joint_counts += np.reshape(temp, (self.num_components1, self.num_components2))
 
         for i in range(self.num_components1):
