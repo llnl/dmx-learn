@@ -12,6 +12,23 @@ from umap import UMAP
 DATUM_TYPE = TypeVar('DATUM_TYPE')
 
 
+# --- UMAP with fixed seed ---
+umap_model = umap.UMAP(
+    n_components=2,
+    n_neighbors=15,
+    min_dist=0.1,
+    metric='hellinger',
+    random_state=42      # << seed
+)
+
+DEFAULT_UMAP = {
+    "n_components": 2,
+    "n_neighbors": 15,
+    "min_dist": 0.10,
+    "metric": "hellinger"
+}
+
+
 def humap(data: Sequence[DATUM_TYPE], 
           max_components: int = 30, 
           mix_threshold_count: float = 0.5,
@@ -60,8 +77,13 @@ def humap(data: Sequence[DATUM_TYPE],
     # Posterior and log comp density for each point [z | x] and [x | z]
     posteriors = mix_model.seq_posterior(enc_data)
 
-    # Currently only take hellinger
-    umap_kwargs['metric'] = 'hellinger'
+    if umap_kwargs is not None:
+        for k, v in DEFAULT_UMAP.items():
+            if k not in umap_kwargs:
+                umap_kwargs[k] = v
+    else:
+        umap_kwargs = DEFAULT_UMAP
+
 
     fit = umap.UMAP(**umap_kwargs)
     embeddings = fit.fit_transform(posteriors)
