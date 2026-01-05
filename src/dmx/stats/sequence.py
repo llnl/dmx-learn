@@ -95,11 +95,11 @@ class SequenceDistribution(SequenceEncodableProbabilityDistribution):
         for i in range(len(x)):
             rv *= self.dist.density(x[i])
 
-        if not self.null_len_dist:
-            rv *= self.len_dist.density(len(x))
-
         if self.len_normalized and len(x) > 0:
             rv = np.power(rv, 1.0 / len(x))
+
+        if not self.null_len_dist:
+            rv *= self.len_dist.density(len(x))
 
         return rv
 
