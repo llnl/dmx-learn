@@ -56,6 +56,8 @@ __all__ = [
     "IntegerStepBernoulliEditEstimator",
     "IntegerHiddenAssociationDistribution",
     "IntegerHiddenAssociationEstimator",
+    "IntegerHiddenMarkovModelDistribution",
+    "IntegerHiddenMarkovEstimator",
     "IntegerMarkovChainDistribution",
     "IntegerMarkovChainEstimator",
     "IntegerPLSIDistribution",
@@ -166,6 +168,7 @@ from dmx.stats.icltree import ICLTreeDistribution, ICLTreeEstimator
 from dmx.stats.intsetdist import IntegerBernoulliSetDistribution, IntegerBernoulliSetEstimator
 from dmx.stats.mvn import MultivariateGaussianDistribution, MultivariateGaussianEstimator
 from dmx.stats.int_hidden_association import IntegerHiddenAssociationDistribution, IntegerHiddenAssociationEstimator
+from dmx.stats.int_hidden_markov import IntegerHiddenMarkovModelDistribution, IntegerHiddenMarkovEstimator
 from dmx.stats.sparse_markov_transform import SparseMarkovAssociationDistribution, SparseMarkovAssociationEstimator
 from dmx.stats.dmvn import DiagonalGaussianDistribution, DiagonalGaussianEstimator
 from dmx.stats.ss_mixture import SemiSupervisedMixtureDistribution, SemiSupervisedMixtureEstimator
