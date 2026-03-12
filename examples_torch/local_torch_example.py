@@ -8,7 +8,7 @@ import torch as tn
 from dmx.torch_stats import *
 
 # import optimize from torch_utils NOT utils
-from pysp.torch_utils.estimation import optimize
+from dmx.torch_utils.estimation import optimize
 
 device = tn.device('cuda:0') if tn.cuda.is_available() else tn.device('cpu')
 
