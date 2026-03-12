@@ -8,6 +8,28 @@ DINT = tn.int32
 DFLOAT = tn.float64
 
 
+def resolve_device(device=None) -> tn.device:
+    """Convert string or None to torch.device. Auto-detects CUDA > MPS > CPU if None."""
+    if device is None:
+        if tn.cuda.is_available():
+            return tn.device('cuda:0')
+        elif tn.backends.mps.is_available():
+            return tn.device('mps')
+        else:
+            return tn.device('cpu')
+    return tn.device(device) if isinstance(device, str) else device
+
+
+def float_dtype_for_device(device: tn.device) -> tn.dtype:
+    """Return float32 for MPS (no float64 support), float64 for all others."""
+    return tn.float32 if device.type == 'mps' else tn.float64
+
+
+def set_default_float_dtype(dtype: tn.dtype) -> None:
+    global DFLOAT
+    DFLOAT = dtype
+
+
 def seed_tng(seed: int, device: Optional[tn.device] = None):
     return tn.Generator(device=device).manual_seed(int(seed))
 
@@ -19,12 +41,12 @@ def seed_sample(n: int, tng: tn.Generator):
         return tn.randint(0, 2**31, size=(n,), generator=tng, dtype=DINT)
 
 
-def zeros(size: Union[int, Tuple[int, ...]], device: Optional[tn.device] = None, dtype: Optional[tn.dtype] = DFLOAT):
-    return tn.zeros(size, dtype=dtype, device=device)
+def zeros(size: Union[int, Tuple[int, ...]], device: Optional[tn.device] = None, dtype: Optional[tn.dtype] = None):
+    return tn.zeros(size, dtype=dtype if dtype is not None else DFLOAT, device=device)
 
 
-def ones(size: Union[int, Tuple[int, ...]], device: Optional[tn.device] = None, dtype: Optional[tn.dtype] = DFLOAT):
-    return tn.ones(size, dtype=dtype, device=device)
+def ones(size: Union[int, Tuple[int, ...]], device: Optional[tn.device] = None, dtype: Optional[tn.dtype] = None):
+    return tn.ones(size, dtype=dtype if dtype is not None else DFLOAT, device=device)
 
 
 def int_vec(size: Union[int, Tuple[int, ...]], device: Optional[tn.device] = None):
@@ -35,7 +57,8 @@ def zeros_like(x: tn.Tensor):
     return tn.zeros_like(x, dtype=DFLOAT)
 
 
-def tensor(x: Union[Union[List[int], List[float]], tn.Tensor, List[List[int]], List[List[float]], np.ndarray], device: Optional[tn.device] = None, dtype: Optional[tn.dtype] = DFLOAT):
+def tensor(x: Union[Union[List[int], List[float]], tn.Tensor, List[List[int]], List[List[float]], np.ndarray], device: Optional[tn.device] = None, dtype: Optional[tn.dtype] = None):
+    dtype = dtype if dtype is not None else DFLOAT
     if isinstance(x, tn.Tensor):
         y = x.clone().detach().to(dtype)
         y.to(device)

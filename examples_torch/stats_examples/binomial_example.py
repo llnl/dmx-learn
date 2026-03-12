@@ -16,7 +16,7 @@ if __name__ == '__main__':
     # Define estimator
     est = BinomialEstimator()
     # Estimate model
-    model = optimize(data=data, estimator=est, max_its=100, seed=1, print_iter=1)
+    model = optimize(data=data, estimator=est, max_its=100, seed=1, print_iter=1, device="mps")
     print(str(model))
     # Eval likelihood on a an observation 
     ll0 = model.log_density(data[0])

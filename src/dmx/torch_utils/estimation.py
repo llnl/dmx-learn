@@ -9,6 +9,7 @@ import torch.distributed
 
 from dmx.torch_stats import *
 from dmx.torch_stats.pdist import TorchProbabilityDistribution, TorchParameterEstimator, TorchEncodedSequence
+from dmx.torch_utils.vector import resolve_device, float_dtype_for_device, set_default_float_dtype
 
 T = TypeVar('T')
 E0 = TypeVar('E0')
@@ -98,7 +99,8 @@ def optimize(data: Optional[Sequence[T]],
         TorchProbabilityDistribution corresponding to estimator when stopping criteria of EM algorithm is met.
 
     """
-    device = tn.device('cuda:0' if tn.cuda.is_available() else 'cpu') if device is None else device
+    device = resolve_device(device)
+    set_default_float_dtype(float_dtype_for_device(device))
 
     if data is None and enc_data is None:
         raise Exception('Optimization called with empty data or enc_data.')
