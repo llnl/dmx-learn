@@ -100,7 +100,7 @@ class BinomialDistribution(TorchProbabilityDistribution):
             float: Log-probability mass of x for binomial(n,p) with min_val=min_val. -inf if x is not in support.
 
         """
-        return float(self.seq_log_density(self.dist_to_encoder().seq_encode([x])))
+        return float(self.seq_log_density(self.dist_to_encoder().seq_encode([x], device=self.model_device())))
 
     def seq_log_density(self, x: 'BinomialTorchEncodedSequence') -> tn.Tensor:
 
