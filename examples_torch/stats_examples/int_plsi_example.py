@@ -3,8 +3,10 @@ Note: Model fit is significantly faster with numba use.
 """
 import numpy as np
 from dmx.torch_stats import *
+from dmx.torch_utils import detect_device
 from dmx.torch_utils.estimation import optimize
 
+device = detect_device()
 
 if __name__ == '__main__':
     rng = np.random.RandomState(1)
@@ -42,7 +44,8 @@ if __name__ == '__main__':
             init_p=0.10,
             max_its=1000,
             seed=1,
-            print_iter=100)
+            print_iter=100,
+            device=device)
 
     # Eval likelihood on a an observation
     ll0 = model.log_density(data[0])

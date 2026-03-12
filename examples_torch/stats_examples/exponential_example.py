@@ -1,8 +1,10 @@
 """Example for ExponentialDistribution. Define distribution,
 generate data, estimate, and evaluate likelihoods."""
 from dmx.torch_stats import *
+from dmx.torch_utils import detect_device
 from dmx.torch_utils.estimation import optimize
 
+device = detect_device()
 
 if __name__ == '__main__':
     n = int(1e4)
@@ -16,7 +18,7 @@ if __name__ == '__main__':
     # Define estimator
     est = ExponentialEstimator()
     # Estimate model
-    model = optimize(data=data, estimator=est, max_its=100, seed=1, print_iter=1)
+    model = optimize(data=data, estimator=est, max_its=100, seed=1, print_iter=1, device=device)
     print(str(model))
     # Eval likelihood on a an observation
     ll0 = model.log_density(data[0])
