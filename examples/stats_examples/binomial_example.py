@@ -8,7 +8,7 @@ if __name__ == '__main__':
     n = int(1e4)
     rng = RandomState(1)
     # Define the model
-    dist = BinomialDistribution(p=0.4, n=10, min_val=0)
+    dist = BinomialDistribution(p=0.4, n=5, min_val=0)
     # Generate data from sampler
     sampler = dist.sampler(seed=1)
     data = sampler.sample(n)
