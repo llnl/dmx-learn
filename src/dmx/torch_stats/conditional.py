@@ -20,7 +20,7 @@ from dmx.torch_stats.pdist import TorchProbabilityDistribution, TorchParameterEs
 from torch import Generator
 
 import dmx.torch_utils.vector as vec
-from dmx.utils.arithmetic import maxrandint
+from dmx.arithmetic import maxrandint
 from typing import List, Union, Tuple, Any, Optional, TypeVar, Dict
 
 T0 = TypeVar('T0')

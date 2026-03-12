@@ -18,7 +18,7 @@ import numpy as np
 import torch as tn
 from typing import List, Union, Tuple, Optional, Dict, Any
 
-from dmx.utils.arithmetic import *
+from dmx.arithmetic import *
 from dmx.torch_stats.pdist import DistributionSampler
 from dmx.torch_stats.pdist import (
     TorchParameterEstimator,

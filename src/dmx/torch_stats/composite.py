@@ -13,7 +13,7 @@ from dmx.torch_stats.null_dist import *
 from dmx.torch_stats.pdist import TorchProbabilityDistribution, TorchParameterEstimator, TorchSequenceEncoder, \
     TorchStatisticAccumulator, TorchStatisticAccumulatorFactory, DistributionSampler, TorchEncodedSequence
 
-from dmx.utils.arithmetic import maxrandint
+from dmx.arithmetic import maxrandint
 from torch import Generator
 from typing import List, Union, Tuple, Any, Optional, TypeVar, Sequence, Dict
 

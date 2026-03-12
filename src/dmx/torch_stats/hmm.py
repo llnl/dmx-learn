@@ -31,7 +31,7 @@ import torch as tn
 import numpy as np
 from numpy.random import RandomState
 import dmx.torch_utils.vector as vec
-from dmx.utils.arithmetic import *
+from dmx.arithmetic import *
 from dmx.torch_stats.pdist import TorchProbabilityDistribution, TorchParameterEstimator, TorchSequenceEncoder, \
     TorchStatisticAccumulator, TorchStatisticAccumulatorFactory, DistributionSampler, TorchEncodedSequence
 from dmx.stats.markovchain import MarkovChainDistribution
@@ -39,7 +39,7 @@ from dmx.torch_stats.mixture import MixtureDistribution
 from dmx.torch_stats.null_dist import NullDistribution, NullAccumulatorFactory, NullEstimator, NullDataEncoder, \
     NullAccumulator
 
-from dmx.utils.arithmetic import maxrandint
+from dmx.arithmetic import maxrandint
 
 from typing import List, Any, Tuple, Sequence, Union, Optional, TypeVar, Set, Dict
 

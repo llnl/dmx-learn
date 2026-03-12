@@ -10,7 +10,7 @@ import torch as tn
 import numpy as np
 from numpy.random import RandomState
 from dmx.utils.vector import gammaln
-from dmx.utils.arithmetic import *
+from dmx.arithmetic import *
 from dmx.torch_stats.pdist import TorchProbabilityDistribution, TorchParameterEstimator, TorchSequenceEncoder, \
     TorchStatisticAccumulator, TorchStatisticAccumulatorFactory, DistributionSampler, TorchEncodedSequence
 from typing import Optional, Tuple, List, Callable, Dict, Union, Any, Sequence

@@ -15,7 +15,7 @@ Data type: x (List[float], np.ndarray).
 
 import numpy as np
 import torch as tn
-from dmx.utils.arithmetic import *
+from dmx.arithmetic import *
 from dmx.torch_stats.pdist import DistributionSampler
 from dmx.torch_stats.pdist import (
     TorchParameterEstimator,

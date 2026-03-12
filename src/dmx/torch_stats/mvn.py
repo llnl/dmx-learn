@@ -16,7 +16,7 @@ The log-density is given by
 """
 import numpy as np
 import torch as tn
-from dmx.utils.arithmetic import *
+from dmx.arithmetic import *
 from dmx.torch_stats.pdist import DistributionSampler
 from dmx.torch_stats.pdist import (
     TorchParameterEstimator,

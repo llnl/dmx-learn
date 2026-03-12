@@ -25,7 +25,7 @@ from dmx.torch_stats.pdist import TorchProbabilityDistribution, TorchParameterEs
     TorchStatisticAccumulator, TorchStatisticAccumulatorFactory, DistributionSampler, TorchEncodedSequence
 
 import dmx.torch_utils.vector as vec
-from dmx.utils.arithmetic import maxrandint
+from dmx.arithmetic import maxrandint
 from typing import List, Union, Tuple, Any, Optional, TypeVar, Sequence, Dict
 
 T = TypeVar('T')  # Type of Mixture component data.

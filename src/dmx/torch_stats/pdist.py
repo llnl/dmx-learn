@@ -2,7 +2,7 @@ import math
 import numpy as np
 import torch as tn
 from abc import abstractmethod
-from dmx.utils.arithmetic import *
+from dmx.arithmetic import *
 from typing import TypeVar, Optional, Any, Generic, Dict
 
 SS = TypeVar('SS')

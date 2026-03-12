@@ -11,7 +11,7 @@ Data type (int): The geometric distribution with probability of success p, has d
 import torch as tn
 import numpy as np
 from numpy.random import RandomState
-from dmx.utils.arithmetic import *
+from dmx.arithmetic import *
 from dmx.torch_stats.pdist import TorchProbabilityDistribution, TorchParameterEstimator, TorchSequenceEncoder, \
     TorchStatisticAccumulator, TorchStatisticAccumulatorFactory, DistributionSampler, TorchEncodedSequence
 from typing import Optional, Tuple, Dict, Union, Any, Sequence
