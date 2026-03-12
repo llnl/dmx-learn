@@ -7,8 +7,8 @@ import numpy as np
 import torch as tn
 import torch.distributed
 
-from pysp.torch_stats import *
-from pysp.torch_stats.pdist import TorchProbabilityDistribution, TorchParameterEstimator, TorchEncodedSequence
+from dmx.torch_stats import *
+from dmx.torch_stats.pdist import TorchProbabilityDistribution, TorchParameterEstimator, TorchEncodedSequence
 
 T = TypeVar('T')
 E0 = TypeVar('E0')

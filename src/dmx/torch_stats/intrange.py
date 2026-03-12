@@ -18,9 +18,9 @@ import numpy as np
 import torch as tn
 from typing import List, Union, Tuple, Optional, Dict, Any
 
-from pysp.utils.arithmetic import *
-from pysp.torch_stats.pdist import DistributionSampler
-from pysp.torch_stats.pdist import (
+from dmx.utils.arithmetic import *
+from dmx.torch_stats.pdist import DistributionSampler
+from dmx.torch_stats.pdist import (
     TorchParameterEstimator,
     TorchProbabilityDistribution,
     TorchSequenceEncoder,
@@ -28,7 +28,7 @@ from pysp.torch_stats.pdist import (
     TorchStatisticAccumulatorFactory,
     TorchEncodedSequence
 )
-import pysp.torch_utils.vector as vec
+import dmx.torch_utils.vector as vec
 
 
 class IntegerCategoricalDistribution(TorchProbabilityDistribution):

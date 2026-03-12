@@ -17,9 +17,9 @@ The density for an observed subset of S, x=(x_1,x_2,..,x_m), for m < N) is given
 
 import numpy as np
 import torch as tn
-from pysp.utils.arithmetic import *
-from pysp.torch_stats.pdist import DistributionSampler
-from pysp.torch_stats.pdist import (
+from dmx.utils.arithmetic import *
+from dmx.torch_stats.pdist import DistributionSampler
+from dmx.torch_stats.pdist import (
     TorchParameterEstimator,
     TorchProbabilityDistribution,
     TorchSequenceEncoder,
@@ -27,7 +27,7 @@ from pysp.torch_stats.pdist import (
     TorchStatisticAccumulatorFactory,
     TorchEncodedSequence
 )
-import pysp.torch_utils.vector as vec
+import dmx.torch_utils.vector as vec
 
 from typing import Sequence, Optional, Tuple, Union, List, Any, Dict
 

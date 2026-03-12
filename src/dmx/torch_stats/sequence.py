@@ -16,12 +16,12 @@ for an observation x of data type Sequence[T] having length n.
 """
 
 import torch as tn
-from pysp.torch_stats.null_dist import *
-from pysp.torch_stats.pdist import TorchProbabilityDistribution, TorchParameterEstimator, TorchSequenceEncoder, \
+from dmx.torch_stats.null_dist import *
+from dmx.torch_stats.pdist import TorchProbabilityDistribution, TorchParameterEstimator, TorchSequenceEncoder, \
     TorchStatisticAccumulator, TorchStatisticAccumulatorFactory, DistributionSampler, TorchEncodedSequence
 
-import pysp.torch_utils.vector as vec
-from pysp.utils.arithmetic import maxrandint
+import dmx.torch_utils.vector as vec
+from dmx.utils.arithmetic import maxrandint
 from typing import List, Union, Tuple, Any, Optional, TypeVar, Sequence, Dict
 
 

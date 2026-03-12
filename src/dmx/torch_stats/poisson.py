@@ -17,12 +17,12 @@ else.
 import torch as tn
 import numpy as np
 from numpy.random import RandomState
-from pysp.torch_stats.pdist import TorchProbabilityDistribution, TorchParameterEstimator, TorchSequenceEncoder, \
+from dmx.torch_stats.pdist import TorchProbabilityDistribution, TorchParameterEstimator, TorchSequenceEncoder, \
     TorchStatisticAccumulator, TorchStatisticAccumulatorFactory, DistributionSampler, TorchEncodedSequence
 from typing import Optional, Tuple, List, Callable, Dict, Union, Any, Sequence
-import pysp.torch_utils.vector as vec
+import dmx.torch_utils.vector as vec
 
-from pysp.utils.vector import gammaln
+from dmx.utils.vector import gammaln
 from math import log
 from typing import Tuple, List, Union, Optional, Any, Dict, Sequence
 

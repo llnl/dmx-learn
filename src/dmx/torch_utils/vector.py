@@ -2,7 +2,7 @@ import torch as tn
 import numpy as np
 from typing import Optional, Tuple, Union, List, Sequence, Any
 import math
-from pysp.torch_stats.pdist import TorchEncodedSequence
+from dmx.torch_stats.pdist import TorchEncodedSequence
 
 DINT = tn.int32
 DFLOAT = tn.float64

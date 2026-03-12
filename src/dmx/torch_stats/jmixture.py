@@ -16,13 +16,13 @@ sampling X_2 from g_j() (data type T1) given X_1 was sampled from f_i().
 
 """
 import torch as tn
-from pysp.utils.arithmetic import *
+from dmx.utils.arithmetic import *
 from numpy.random import RandomState
-from pysp.torch_stats.pdist import TorchProbabilityDistribution, TorchParameterEstimator, TorchSequenceEncoder, \
+from dmx.torch_stats.pdist import TorchProbabilityDistribution, TorchParameterEstimator, TorchSequenceEncoder, \
     TorchStatisticAccumulator, TorchStatisticAccumulatorFactory, DistributionSampler, TorchEncodedSequence
 import numpy as np
-import pysp.torch_utils.vector as vec
-from pysp.utils.arithmetic import maxrandint
+import dmx.torch_utils.vector as vec
+from dmx.utils.arithmetic import maxrandint
 
 from typing import Tuple, Union, Any, Optional, TypeVar, Sequence, List, Dict
 

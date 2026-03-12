@@ -14,11 +14,11 @@ If component distribution P(Y|Z=k) has data type (T), then the Mixture distribut
 """
 import torch as tn
 import numpy as np
-from pysp.torch_stats.pdist import TorchProbabilityDistribution, TorchParameterEstimator, TorchSequenceEncoder, \
+from dmx.torch_stats.pdist import TorchProbabilityDistribution, TorchParameterEstimator, TorchSequenceEncoder, \
     TorchStatisticAccumulator, TorchStatisticAccumulatorFactory, DistributionSampler, TorchEncodedSequence
 
-import pysp.torch_utils.vector as vec
-from pysp.utils.arithmetic import maxrandint
+import dmx.torch_utils.vector as vec
+from dmx.utils.arithmetic import maxrandint
 from typing import List, Union, Tuple, Any, Optional, TypeVar, Sequence, Dict
 
 
@@ -99,7 +99,7 @@ class MixtureDistribution(TorchProbabilityDistribution):
             log(P(x)) = log(sum_{z=k}^{K} P(x|z=k)*P(z=k)),
 
             where P(x|z=k) is component-k log-density at x, and P(z=k) = w[k]. A log-sum-exp is used to evaluate the
-            sum inside the log of the right-hand side above. (See pysp.utils.vector.log_sum() for details).
+            sum inside the log of the right-hand side above. (See dmx.utils.vector.log_sum() for details).
 
         Args:
             x: (T): Single observation from mixture distribution. T is data type of components.

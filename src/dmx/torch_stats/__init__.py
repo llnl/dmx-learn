@@ -61,37 +61,37 @@ import torch as tn
 import torch.distributed
 
 # abstract classes
-from pysp.torch_stats.pdist import TorchProbabilityDistribution, TorchParameterEstimator, TorchEncodedSequence, TorchSequenceEncoder, TorchDevice
+from dmx.torch_stats.pdist import TorchProbabilityDistribution, TorchParameterEstimator, TorchEncodedSequence, TorchSequenceEncoder, TorchDevice
 
 # Cont dists
-from pysp.torch_stats.exponential import ExponentialDistribution, ExponentialEstimator
-from pysp.torch_stats.gamma import GammaDistribution, GammaEstimator
-from pysp.torch_stats.dmvn import DiagonalGaussianDistribution, DiagonalGaussianEstimator
-from pysp.torch_stats.gaussian import GaussianDistribution, GaussianEstimator
-from pysp.torch_stats.mvn import MultivariateGaussianDistribution, MultivariateGaussianEstimator
-from pysp.torch_stats.jmixture import JointMixtureDistribution, JointMixtureEstimator
+from dmx.torch_stats.exponential import ExponentialDistribution, ExponentialEstimator
+from dmx.torch_stats.gamma import GammaDistribution, GammaEstimator
+from dmx.torch_stats.dmvn import DiagonalGaussianDistribution, DiagonalGaussianEstimator
+from dmx.torch_stats.gaussian import GaussianDistribution, GaussianEstimator
+from dmx.torch_stats.mvn import MultivariateGaussianDistribution, MultivariateGaussianEstimator
+from dmx.torch_stats.jmixture import JointMixtureDistribution, JointMixtureEstimator
 
 # Discrete
-from pysp.torch_stats.intrange import IntegerCategoricalDistribution, IntegerCategoricalEstimator
-from pysp.torch_stats.poisson import PoissonDistribution, PoissonEstimator
-from pysp.torch_stats.binomial import BinomialDistribution, BinomialEstimator
-from pysp.torch_stats.geometric import GeometricDistribution, GeometricEstimator
-from pysp.torch_stats.intsetdist import IntegerBernoulliSetDistribution, IntegerBernoulliSetEstimator
-from pysp.torch_stats.intmultinomial import IntegerMultinomialDistribution, IntegerMultinomialEstimator
+from dmx.torch_stats.intrange import IntegerCategoricalDistribution, IntegerCategoricalEstimator
+from dmx.torch_stats.poisson import PoissonDistribution, PoissonEstimator
+from dmx.torch_stats.binomial import BinomialDistribution, BinomialEstimator
+from dmx.torch_stats.geometric import GeometricDistribution, GeometricEstimator
+from dmx.torch_stats.intsetdist import IntegerBernoulliSetDistribution, IntegerBernoulliSetEstimator
+from dmx.torch_stats.intmultinomial import IntegerMultinomialDistribution, IntegerMultinomialEstimator
 
 # Msc
-from pysp.torch_stats.null_dist import NullDistribution, NullEstimator
+from dmx.torch_stats.null_dist import NullDistribution, NullEstimator
 
 # Combinators
-from pysp.torch_stats.composite import CompositeDistribution, CompositeEstimator
-from pysp.torch_stats.conditional import ConditionalDistribution, ConditionalDistributionEstimator
-from pysp.torch_stats.mixture import MixtureDistribution, MixtureEstimator
-from pysp.torch_stats.sequence import SequenceDistribution, SequenceEstimator
-from pysp.torch_stats.heterogenous_mixture import HeterogeneousMixtureDistribution, HeterogeneousMixtureEstimator
-from pysp.torch_stats.int_plsi import IntegerPLSIDistribution, IntegerPLSIEstimator
-from pysp.torch_stats.hmm import HiddenMarkovModelDistribution, HiddenMarkovEstimator
+from dmx.torch_stats.composite import CompositeDistribution, CompositeEstimator
+from dmx.torch_stats.conditional import ConditionalDistribution, ConditionalDistributionEstimator
+from dmx.torch_stats.mixture import MixtureDistribution, MixtureEstimator
+from dmx.torch_stats.sequence import SequenceDistribution, SequenceEstimator
+from dmx.torch_stats.heterogenous_mixture import HeterogeneousMixtureDistribution, HeterogeneousMixtureEstimator
+from dmx.torch_stats.int_plsi import IntegerPLSIDistribution, IntegerPLSIEstimator
+from dmx.torch_stats.hmm import HiddenMarkovModelDistribution, HiddenMarkovEstimator
 
-import pysp.torch_utils.vector as vec
+import dmx.torch_utils.vector as vec
 
 
 T = TypeVar('T')

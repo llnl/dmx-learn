@@ -9,12 +9,12 @@ Data type: int.
 import torch as tn
 import numpy as np
 from numpy.random import RandomState
-from pysp.utils.vector import gammaln
-from pysp.utils.arithmetic import *
-from pysp.torch_stats.pdist import TorchProbabilityDistribution, TorchParameterEstimator, TorchSequenceEncoder, \
+from dmx.utils.vector import gammaln
+from dmx.utils.arithmetic import *
+from dmx.torch_stats.pdist import TorchProbabilityDistribution, TorchParameterEstimator, TorchSequenceEncoder, \
     TorchStatisticAccumulator, TorchStatisticAccumulatorFactory, DistributionSampler, TorchEncodedSequence
 from typing import Optional, Tuple, List, Callable, Dict, Union, Any, Sequence
-import pysp.torch_utils.vector as vec
+import dmx.torch_utils.vector as vec
 
 
 E = Tuple[tn.Tensor, tn.Tensor, tn.Tensor, int, int]

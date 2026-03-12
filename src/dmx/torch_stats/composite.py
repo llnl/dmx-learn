@@ -9,11 +9,11 @@ must be compatible with data type T_k.
 
 """
 import torch as tn
-from pysp.torch_stats.null_dist import *
-from pysp.torch_stats.pdist import TorchProbabilityDistribution, TorchParameterEstimator, TorchSequenceEncoder, \
+from dmx.torch_stats.null_dist import *
+from dmx.torch_stats.pdist import TorchProbabilityDistribution, TorchParameterEstimator, TorchSequenceEncoder, \
     TorchStatisticAccumulator, TorchStatisticAccumulatorFactory, DistributionSampler, TorchEncodedSequence
 
-from pysp.utils.arithmetic import maxrandint
+from dmx.utils.arithmetic import maxrandint
 from torch import Generator
 from typing import List, Union, Tuple, Any, Optional, TypeVar, Sequence, Dict
 

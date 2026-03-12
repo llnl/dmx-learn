@@ -30,16 +30,16 @@ list of floats where the rows sum to 1.0. (3) is represented by a numpy array of
 import torch as tn
 import numpy as np
 from numpy.random import RandomState
-import pysp.torch_utils.vector as vec
-from pysp.utils.arithmetic import *
-from pysp.torch_stats.pdist import TorchProbabilityDistribution, TorchParameterEstimator, TorchSequenceEncoder, \
+import dmx.torch_utils.vector as vec
+from dmx.utils.arithmetic import *
+from dmx.torch_stats.pdist import TorchProbabilityDistribution, TorchParameterEstimator, TorchSequenceEncoder, \
     TorchStatisticAccumulator, TorchStatisticAccumulatorFactory, DistributionSampler, TorchEncodedSequence
-from pysp.stats.markovchain import MarkovChainDistribution
-from pysp.torch_stats.mixture import MixtureDistribution
-from pysp.torch_stats.null_dist import NullDistribution, NullAccumulatorFactory, NullEstimator, NullDataEncoder, \
+from dmx.stats.markovchain import MarkovChainDistribution
+from dmx.torch_stats.mixture import MixtureDistribution
+from dmx.torch_stats.null_dist import NullDistribution, NullAccumulatorFactory, NullEstimator, NullDataEncoder, \
     NullAccumulator
 
-from pysp.utils.arithmetic import maxrandint
+from dmx.utils.arithmetic import maxrandint
 
 from typing import List, Any, Tuple, Sequence, Union, Optional, TypeVar, Set, Dict
 
@@ -177,7 +177,7 @@ class HiddenMarkovModelDistribution(TorchProbabilityDistribution):
         where P_len(N) is the length distribution 'len_dist', if assigned.
         Note: All calculations are done on the log scale with log-sum-exp used to prevent numerical underflow.
 
-        If 'has_topics' is true, 'weighed_log_sum_exp' and 'log_sum' calls from pysp.utils.vector are used to handle
+        If 'has_topics' is true, 'weighed_log_sum_exp' and 'log_sum' calls from dmx.utils.vector are used to handle
         the emission distributions being treated as mixture distributions with weights 'log_taus'.
 
         Args:

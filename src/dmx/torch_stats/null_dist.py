@@ -16,8 +16,8 @@ import torch as tn
 import numpy as np
 from numpy.random import RandomState
 
-from pysp.torch_stats.pdist import *
-import pysp.torch_utils.vector as vec
+from dmx.torch_stats.pdist import *
+import dmx.torch_utils.vector as vec
 
 
 class NullDistribution(TorchProbabilityDistribution):

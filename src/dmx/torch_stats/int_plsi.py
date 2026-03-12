@@ -29,12 +29,12 @@ from typing import List, Optional, Sequence, Tuple, Union, Any, TypeVar, Dict
 import numpy as np
 import torch as tn
 from torch import Generator
-from pysp.utils.optsutil import count_by_value
+from dmx.utils.optsutil import count_by_value
 
-import pysp.torch_utils.vector as vec
-from pysp.torch_stats.null_dist import NullDistribution, NullEstimator, NullDataEncoder, NullAccumulator, \
+import dmx.torch_utils.vector as vec
+from dmx.torch_stats.null_dist import NullDistribution, NullEstimator, NullDataEncoder, NullAccumulator, \
     NullAccumulatorFactory
-from pysp.torch_stats.pdist import TorchProbabilityDistribution, TorchParameterEstimator, TorchSequenceEncoder, \
+from dmx.torch_stats.pdist import TorchProbabilityDistribution, TorchParameterEstimator, TorchSequenceEncoder, \
     TorchStatisticAccumulator, TorchStatisticAccumulatorFactory, DistributionSampler, TorchEncodedSequence
 
 T1 = TypeVar('T1')  # type for encoded sequence of lengths.

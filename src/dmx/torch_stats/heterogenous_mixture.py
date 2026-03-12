@@ -21,11 +21,11 @@ where
 
 import torch as tn
 import numpy as np
-from pysp.torch_stats.pdist import TorchProbabilityDistribution, TorchParameterEstimator, TorchSequenceEncoder, \
+from dmx.torch_stats.pdist import TorchProbabilityDistribution, TorchParameterEstimator, TorchSequenceEncoder, \
     TorchStatisticAccumulator, TorchStatisticAccumulatorFactory, DistributionSampler, TorchEncodedSequence
 
-import pysp.torch_utils.vector as vec
-from pysp.utils.arithmetic import maxrandint
+import dmx.torch_utils.vector as vec
+from dmx.utils.arithmetic import maxrandint
 from typing import List, Union, Tuple, Any, Optional, TypeVar, Sequence, Dict
 
 T = TypeVar('T')  # Type of Mixture component data.
