@@ -28,3 +28,7 @@ if __name__ == '__main__':
     # Eval likelihood at all data points (fast)
     ll = model.seq_log_density(enc_data)
     print(f'Likelihood of estimated model on data: {ll}')
+
+    # Check model device and move it to cpu (or some other device if prefered)
+    print(f"\nEstimated model is on {model.model_device()}.\nMoving it to the cpu...")
+    model.to(torch.device("cpu"))

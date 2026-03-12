@@ -56,3 +56,7 @@ if __name__ == '__main__':
     ll = model.seq_log_density(enc_data)
     for x, y in zip(data[:5], ll[:5]):
         print(f'Obs: {str(x)}, Likelihood: {y}.')
+
+    # Check model device and move it to cpu (or some other device if prefered)
+    print(f"\nEstimated model is on {model.model_device()}.\nMoving it to the cpu...")
+    model.to(torch.device("cpu"))
