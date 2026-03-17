@@ -5,6 +5,7 @@ from dmx.arithmetic import *
 from dmx.torch_stats.pdist import TorchProbabilityDistribution, TorchParameterEstimator, TorchSequenceEncoder, \
     TorchStatisticAccumulator, TorchStatisticAccumulatorFactory, DistributionSampler, TorchEncodedSequence, TorchDevice
 from typing import Optional, Tuple, List, Callable, Dict, Union, Any, Sequence
+from typing import cast
 import dmx.torch_utils.vector as vec
 
 
@@ -142,7 +143,7 @@ class ExponentialAccumulator(TorchStatisticAccumulator):
             device: Optional[device]: Sets device for GPU calculations
 
         """
-        super(ExponentialAccumulator, self).__init__(device)
+        super(ExponentialAccumulator, self).__init__(cast(Optional[str], device))
         self.sum = 0.0
         self.count = 0.0
         self.key = keys
@@ -209,13 +210,15 @@ class ExponentialEstimator(TorchParameterEstimator):
     def estimate(self, nobs: Optional[float], suff_stat: Tuple[float, float], device: Optional[TorchDevice] = None) -> 'ExponentialDistribution':
         """Estimate ExponentialDistribution from suff_stat arg.
 
-        Estimate ExponentialDistribution from sufficient statistic tuple suff_stat, counting a float value for
-        count and sum. If pseudo_count is set, this is used to re-weight the member value "suff_stat", which is the
-        scale of ExponentialEstimator object.
+        Estimate ExponentialDistribution from sufficient statistic tuple suff_stat,
+        storing the weighted observation sum followed by the weighted count. If
+        pseudo_count is set, this is used to re-weight the member value
+        "suff_stat", which is the scale of ExponentialEstimator object.
 
         Args:
             nobs (Optional[float]): Not used. Kept for consistency with ParameterEstimator.
-            suff_stat (Tuple[float, float]): Tuple of count and sum. Both are positive real-valued floats.
+            suff_stat (Tuple[float, float]): Tuple of (sum, count). Both are
+                positive real-valued floats.
             device (Optional[TorchDevice]): Set for estimating model on GPU device
 
         Returns:
@@ -223,12 +226,12 @@ class ExponentialEstimator(TorchParameterEstimator):
 
         """
         if self.pseudo_count is not None and self.suff_stat is not None:
-            p = (suff_stat[1] + self.suff_stat * self.pseudo_count) / (suff_stat[0] + self.pseudo_count)
+            p = (suff_stat[0] + self.suff_stat * self.pseudo_count) / (suff_stat[1] + self.pseudo_count)
         elif self.pseudo_count is not None and self.suff_stat is None:
-            p = (suff_stat[1] + self.pseudo_count) / (suff_stat[0] + self.pseudo_count)
+            p = (suff_stat[0] + self.pseudo_count) / (suff_stat[1] + self.pseudo_count)
         else:
-            if suff_stat[0] > 0:
-                p = suff_stat[1] / suff_stat[0]
+            if suff_stat[1] > 0:
+                p = suff_stat[0] / suff_stat[1]
             else:
                 p = 1.0
 
@@ -255,9 +258,8 @@ class ExponentialDataEncoder(TorchSequenceEncoder):
 
 class ExponentialTorchEncodedSequence(TorchEncodedSequence):
 
-    def __init__(self, data: tn.tensor, device: Optional[TorchDevice] = None):
+    def __init__(self, data: tn.Tensor, device: Optional[TorchDevice] = None):
         super().__init__(data=data, device=device)
 
     def __str__(self) -> str:
         return f'ExponentialTorchEncodedSequence(device={repr(self.device)})'
-
