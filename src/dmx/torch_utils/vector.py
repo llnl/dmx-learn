@@ -57,11 +57,12 @@ def zeros_like(x: tn.Tensor):
     return tn.zeros_like(x, dtype=DFLOAT)
 
 
-def tensor(x: Union[Union[List[int], List[float]], tn.Tensor, List[List[int]], List[List[float]], np.ndarray], device: Optional[tn.device] = None, dtype: Optional[tn.dtype] = None):
+def tensor(x: Union[List[int], List[float], Sequence[int], Sequence[float], tn.Tensor, List[List[int]], List[List[float]], np.ndarray], device: Optional[tn.device] = None, dtype: Optional[tn.dtype] = None):
     dtype = dtype if dtype is not None else DFLOAT
     if isinstance(x, tn.Tensor):
         y = x.clone().detach().to(dtype)
-        y.to(device)
+        if device is not None:
+            y = y.to(device)
 
         return y
 
@@ -69,7 +70,7 @@ def tensor(x: Union[Union[List[int], List[float]], tn.Tensor, List[List[int]], L
         return tn.tensor(x, device=device, dtype=dtype)
 
 
-def int_tensor(x: Union[Union[Sequence[int], List[List[int]], np.ndarray, tn.Tensor]], device: Optional[tn.device] = None, dtype: Optional[tn.dtype] = DINT):
+def int_tensor(x: Union[List[int], List[List[int]], np.ndarray, tn.Tensor], device: Optional[tn.device] = None, dtype: Optional[tn.dtype] = DINT):
     return tensor(x, device=device, dtype=dtype)
 
 

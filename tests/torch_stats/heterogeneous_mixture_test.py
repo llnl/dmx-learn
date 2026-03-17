@@ -78,3 +78,26 @@ class HeterogeneousMixtureDistributionTestCase(TorchStatsTestClass):
         """num_components must match the length of the component list."""
         for dist in self._dists:
             self.assertEqual(dist.num_components, len(dist.components))
+
+    def test_seq_estimate_with_shared_encoder_group(self):
+        """seq_estimate must handle multiple components that share one encoder type."""
+        dist = self._dists[1]
+        encoder = self._encoders[1]
+        data = dist.sampler(seed=7).sample(size=200)
+        enc_data = [(len(data), encoder.seq_encode(data, device=self.device))]
+
+        init_model = seq_initialize(
+            enc_data=enc_data,
+            estimator=dist.estimator(),
+            seed=7,
+            device=self.device,
+        )
+        next_model = seq_estimate(
+            enc_data=enc_data,
+            estimator=dist.estimator(),
+            prev_estimate=init_model,
+        )
+        _, ll = seq_log_density_sum(enc_data, next_model)
+
+        self.assertIsInstance(next_model, HeterogeneousMixtureDistribution)
+        self.assertTrue(np.isfinite(ll), f"Expected finite log-likelihood, got {ll}")

@@ -73,12 +73,14 @@ Created 18 test files covering all torch_stats distributions. Each inherits the 
 
 The failing tests expose real implementation bugs:
 
-### 1. `ExponentialEstimator` — Wrong MLE formula
+### 1. `ExponentialEstimator` — Wrong MLE formula [COMPLETED]
 **File:** `src/dmx/torch_stats/exponential.py` (~line 231)
 
 `ExponentialEstimator.estimate()` computes `p = count / sum` (rate = 1/mean) but `ExponentialDistribution` treats `beta` as the **mean**. The formula should be `p = sum / count`.
 
 **Effect:** For `beta != 1.0`, each EM step moves the estimate away from the true mean, causing the log-likelihood to decrease after `seq_estimate`.
+
+**Implemented:** Updated `ExponentialEstimator.estimate()` to interpret the torch sufficient statistics as `(sum, count)` and compute `beta = sum / count` in all branches, and added a targeted regression test in `tests/torch_stats/exponential_test.py`.
 
 **Fix:** Swap the numerator and denominator in the `estimate` method:
 ```python
@@ -128,7 +130,7 @@ Tests in `hidden_markov_test.py` are written to call `viterbi` with individual r
 
 ## Next Steps
 
-1. **Fix `ExponentialEstimator`** — swap numerator/denominator in `estimate()`. Straightforward one-line fix.
+1. [x] **Fix `ExponentialEstimator`** — completed in `src/dmx/torch_stats/exponential.py`; added regression coverage in `tests/torch_stats/exponential_test.py`.
 2. **Fix `HeterogeneousMixtureDistribution` dtype issue** — cast Poisson encoded data to float in `PoissonAccumulator.seq_update`.
 3. **Fix `HiddenMarkovAccumulator.seq_initialize`** — align weight vector size with total time steps so HMM EM tests can be re-enabled.
 4. **Fix `IntegerPLSIDistribution.component_log_density`** — verify return shape matches `num_states`.
