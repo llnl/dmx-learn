@@ -10,6 +10,7 @@ Each sample is (doc_id, [(word_id, count), ...]).
 import torch
 import numpy as np
 import pytest
+from typing import Sequence, Tuple, cast
 from tests.torch_stats.torch_stats_tests import *
 from dmx.torch_stats import *
 from dmx.torch_stats.int_plsi import (
@@ -102,6 +103,7 @@ class IntegerPLSIDistributionTestCase(TorchStatsTestClass):
             data = dist.sampler(seed=1).sample(size=20)
             num_docs = dist.num_docs
             for obs in data:
+                obs = cast(Tuple[int, Sequence[Tuple[int, float]]], obs)
                 self.assertEqual(len(obs), 2,
                                  f"Expected (doc_id, word_counts) pair, got length {len(obs)}")
                 doc_idx, word_counts = obs
@@ -115,6 +117,7 @@ class IntegerPLSIDistributionTestCase(TorchStatsTestClass):
             data = dist.sampler(seed=1).sample(size=50)
             num_vals = dist.num_vals
             for obs in data:
+                obs = cast(Tuple[int, Sequence[Tuple[int, float]]], obs)
                 _, word_counts = obs
                 for w_id, cnt in word_counts:
                     self.assertGreaterEqual(w_id, 0)
@@ -127,6 +130,7 @@ class IntegerPLSIDistributionTestCase(TorchStatsTestClass):
         for dist in self._dists:
             data = dist.sampler(seed=1).sample(size=20)
             for obs in data:
+                obs = cast(Tuple[int, Sequence[Tuple[int, float]]], obs)
                 ll = dist.log_density(obs)
                 self.assertTrue(np.isfinite(ll), f"log_density returned {ll}")
 
@@ -134,7 +138,19 @@ class IntegerPLSIDistributionTestCase(TorchStatsTestClass):
         """component_log_density must return a tensor with one value per state."""
         for dist in self._dists:
             data = dist.sampler(seed=1).sample(size=1)
-            obs = data[0]
+            obs = cast(Tuple[int, Sequence[Tuple[int, float]]], data[0])
             comp_ll = dist.component_log_density(obs)
             self.assertEqual(len(comp_ll), dist.num_states,
                              f"Expected {dist.num_states} component log densities")
+
+    def test_component_log_density_values(self):
+        """component_log_density must match the weighted log word probabilities per state."""
+        obs = (0, [(0, 2.0), (1, 1.0), (3, 3.0)])
+        expected = np.array([
+            2.0 * np.log(0.70) + 1.0 * np.log(0.20) + 3.0 * np.log(0.05),
+            2.0 * np.log(0.05) + 1.0 * np.log(0.70) + 3.0 * np.log(0.05),
+            2.0 * np.log(0.05) + 1.0 * np.log(0.05) + 3.0 * np.log(0.70),
+        ])
+
+        comp_ll = self._dist1.component_log_density(obs).cpu().numpy()
+        np.testing.assert_allclose(comp_ll, expected)

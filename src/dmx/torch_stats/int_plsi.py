@@ -174,7 +174,7 @@ class IntegerPLSIDistribution(TorchProbabilityDistribution):
         xv = vec.int_tensor([u[0] for u in x[1]], device=self._device)
         xc = vec.tensor([u[1] for u in x[1]], device=self._device)
 
-        return tn.dot(tn.log(self.prob_mat[xv, :]).T, xc)
+        return tn.matmul(tn.log(self.prob_mat[xv, :]).T, xc)
 
     def seq_log_density(self, x: 'IntegerPLSITorchSequence') -> tn.Tensor:
 
@@ -718,4 +718,3 @@ class IntegerPLSITorchSequence(TorchEncodedSequence):
 
     def __str__(self) -> str:
         return f'IntegerPLSITorchSequence(device={repr(self.device)})'
-
