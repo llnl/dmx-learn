@@ -16,7 +16,7 @@ from dmx.torch_stats.composite import (
 class CompositeDistributionTestCase(TorchStatsTestClass):
 
     def setUp(self) -> None:
-        self.device = torch.device("cpu")
+        self.device = get_test_torch_device()
 
         self._dists = [
             CompositeDistribution(

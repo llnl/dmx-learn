@@ -15,7 +15,7 @@ from dmx.torch_stats.poisson import (
 class PoissonDistributionTestCase(TorchStatsTestClass):
 
     def setUp(self) -> None:
-        self.device = torch.device("cpu")
+        self.device = get_test_torch_device()
 
         self._dists = [
             PoissonDistribution(lam=1.0),

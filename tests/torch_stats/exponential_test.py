@@ -14,7 +14,7 @@ from dmx.torch_stats.exponential import (
 class ExponentialDistributionTestCase(TorchStatsTestClass):
 
     def setUp(self) -> None:
-        self.device = torch.device("cpu")
+        self.device = get_test_torch_device()
 
         self._dists = [
             ExponentialDistribution(beta=1.0),

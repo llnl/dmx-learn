@@ -15,7 +15,7 @@ from dmx.torch_stats.geometric import (
 class GeometricDistributionTestCase(TorchStatsTestClass):
 
     def setUp(self) -> None:
-        self.device = torch.device("cpu")
+        self.device = get_test_torch_device()
 
         self._dists = [
             GeometricDistribution(p=0.3),

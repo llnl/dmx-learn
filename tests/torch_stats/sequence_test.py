@@ -15,7 +15,7 @@ from dmx.torch_stats.sequence import (
 class SequenceDistributionTestCase(TorchStatsTestClass):
 
     def setUp(self) -> None:
-        self.device = torch.device("cpu")
+        self.device = get_test_torch_device()
 
         # Exponential base with IntegerCategorical length distribution
         self._dist1 = SequenceDistribution(

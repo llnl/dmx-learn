@@ -16,7 +16,7 @@ from dmx.torch_stats.hmm import (
 class HiddenMarkovModelDistributionTestCase(TorchStatsTestClass):
 
     def setUp(self) -> None:
-        self.device = torch.device("cpu")
+        self.device = get_test_torch_device()
 
         transitions = [
             [0.8, 0.1, 0.1],

@@ -15,7 +15,7 @@ from dmx.torch_stats.dmvn import (
 class DiagonalGaussianDistributionTestCase(TorchStatsTestClass):
 
     def setUp(self) -> None:
-        self.device = torch.device("cpu")
+        self.device = get_test_torch_device()
 
         self._dists = [
             DiagonalGaussianDistribution(mu=[0.0, 0.0], covar=[1.0, 1.0]),

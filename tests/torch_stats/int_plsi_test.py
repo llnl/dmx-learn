@@ -24,7 +24,7 @@ from dmx.torch_stats.int_plsi import (
 class IntegerPLSIDistributionTestCase(TorchStatsTestClass):
 
     def setUp(self) -> None:
-        self.device = torch.device("cpu")
+        self.device = get_test_torch_device()
 
         # 4 words, 3 states, 3 documents.
         # Columns of state_word_mat sum to 1 (p(word | state)).

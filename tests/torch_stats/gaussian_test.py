@@ -15,7 +15,7 @@ from dmx.torch_stats.gaussian import (
 class GaussianDistributionTestCase(TorchStatsTestClass):
 
     def setUp(self) -> None:
-        self.device = torch.device("cpu")
+        self.device = get_test_torch_device()
 
         self._dists = [
             GaussianDistribution(mu=0.0, sigma2=1.0),

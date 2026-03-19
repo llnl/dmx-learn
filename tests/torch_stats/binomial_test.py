@@ -15,7 +15,7 @@ from dmx.torch_stats.binomial import (
 class BinomialDistributionTestCase(TorchStatsTestClass):
 
     def setUp(self) -> None:
-        self.device = torch.device("cpu")
+        self.device = get_test_torch_device()
 
         self._dists = [
             BinomialDistribution(p=0.3, n=10),

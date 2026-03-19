@@ -15,7 +15,7 @@ from dmx.torch_stats.conditional import (
 class ConditionalDistributionTestCase(TorchStatsTestClass):
 
     def setUp(self) -> None:
-        self.device = torch.device("cpu")
+        self.device = get_test_torch_device()
 
         # Condition on integer categories (0, 1), each with its own Gaussian
         given_dist1 = IntegerCategoricalDistribution(min_val=0, p_vec=[0.5, 0.5])

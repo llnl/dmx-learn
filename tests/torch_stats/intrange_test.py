@@ -15,7 +15,7 @@ from dmx.torch_stats.intrange import (
 class IntegerCategoricalDistributionTestCase(TorchStatsTestClass):
 
     def setUp(self) -> None:
-        self.device = torch.device("cpu")
+        self.device = get_test_torch_device()
 
         self._dists = [
             IntegerCategoricalDistribution(min_val=0, p_vec=[0.2, 0.5, 0.3]),

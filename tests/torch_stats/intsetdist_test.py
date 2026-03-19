@@ -15,7 +15,7 @@ from dmx.torch_stats.intsetdist import (
 class IntegerBernoulliSetDistributionTestCase(TorchStatsTestClass):
 
     def setUp(self) -> None:
-        self.device = torch.device("cpu")
+        self.device = get_test_torch_device()
 
         self._dists = [
             IntegerBernoulliSetDistribution(log_pvec=np.log([0.3, 0.6, 0.5, 0.2])),

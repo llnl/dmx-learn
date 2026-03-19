@@ -44,11 +44,12 @@ self.factories            : List[TorchStatisticAccumulatorFactory]
 self.accumulators         : List[TorchStatisticAccumulator]
     Accumulators whose acc_to_encoder() return type is checked.
 
-self.device               : torch.device  (default: torch.device('cpu'))
+self.device               : torch.device  (default: get_test_torch_device())
     Device used when encoding data and initialising models in tests.
 """
 
 import abc
+import os
 import unittest
 
 import numpy as np
@@ -78,6 +79,32 @@ from dmx.torch_utils.estimation import empirical_kl_divergence
 # ---------------------------------------------------------------------------
 _LOG_DENSITY_TOL_F64 = 1.0e-10
 _LOG_DENSITY_TOL_F32 = 1.0e-4
+
+
+def get_test_torch_device() -> torch.device:
+    """Resolve the torch device for tests from TEST_TORCH_DEVICE."""
+    raw_device = os.environ.get("TEST_TORCH_DEVICE", "cpu").strip().lower()
+
+    if raw_device == "cpu":
+        return torch.device("cpu")
+
+    if raw_device == "mps":
+        if not torch.backends.mps.is_available():
+            raise RuntimeError(
+                "TEST_TORCH_DEVICE=mps requested, but MPS is not available in this environment."
+            )
+        return torch.device("mps")
+
+    if raw_device.startswith("cuda"):
+        if not torch.cuda.is_available():
+            raise RuntimeError(
+                f"TEST_TORCH_DEVICE={raw_device} requested, but CUDA is not available in this environment."
+            )
+        return torch.device(raw_device)
+
+    raise RuntimeError(
+        f"Unsupported TEST_TORCH_DEVICE={raw_device!r}. Use cpu, mps, cuda, or cuda:<index>."
+    )
 
 
 def _tol_for_device(device: torch.device) -> float:
@@ -348,7 +375,7 @@ class TorchStatsTestClass(unittest.TestCase, metaclass=abc.ABCMeta):
             dist = GaussianDistribution(mu=0.0, sigma2=1.0)
             encoder = dist.dist_to_encoder()
 
-            self.device              = torch.device('cpu')
+            self.device              = get_test_torch_device()
             self.sampler_dist        = dist
             self.density_dist_encoder = [(dist, encoder)]
             self.dist_encoder        = [(dist, encoder)]
@@ -372,7 +399,7 @@ class TorchStatsTestClass(unittest.TestCase, metaclass=abc.ABCMeta):
             self.factories            List[TorchStatisticAccumulatorFactory]
             self.accumulators         List[TorchStatisticAccumulator]
         """
-        self.device: torch.device = torch.device("cpu")
+        self.device: torch.device = get_test_torch_device()
         self.sampler_dist: TorchProbabilityDistribution
         self.density_dist_encoder: list
         self.dist_encoder: list

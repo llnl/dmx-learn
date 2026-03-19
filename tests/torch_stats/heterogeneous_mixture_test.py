@@ -15,7 +15,7 @@ from dmx.torch_stats.heterogenous_mixture import (
 class HeterogeneousMixtureDistributionTestCase(TorchStatsTestClass):
 
     def setUp(self) -> None:
-        self.device = torch.device("cpu")
+        self.device = get_test_torch_device()
 
         self._dists = [
             HeterogeneousMixtureDistribution(
