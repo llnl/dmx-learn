@@ -129,12 +129,12 @@ The torch implementation used `torch.dot(log_prob_matrix.T, counts)` for the per
 
 ---
 
-### 5. `viterbi()` API inconsistency
+### 5. `viterbi()` single-sequence API is intentional [COMPLETED]
 **File:** `src/dmx/torch_stats/hmm.py` (~line 266)
 
-`viterbi(x)` accepts a **single raw sequence** (`List[T]`), unlike all other `seq_*` methods which accept a batch-encoded `TorchEncodedSequence`. This makes it impossible to use `viterbi` in the same pipeline as `seq_log_density` and `seq_encode`.
+`viterbi(x)` accepts a **single raw sequence** (`List[T]`), unlike the `seq_*` methods which operate on encoded batches. After review, this is an intentional API distinction rather than a bug: `viterbi()` is a single-sequence decoding routine, not a vectorized `seq_*` method.
 
-Tests in `hidden_markov_test.py` are written to call `viterbi` with individual raw sequences to match the current API.
+**Resolution:** Keep `viterbi()` as-is. The existing tests in `tests/torch_stats/hidden_markov_test.py` already exercise it with individual raw sequences, which matches the intended contract.
 
 ---
 
@@ -144,6 +144,6 @@ Tests in `hidden_markov_test.py` are written to call `viterbi` with individual r
 2. [x] **Fix `HeterogeneousMixtureDistribution` EM update bug** — corrected encoder-group indexing in `src/dmx/torch_stats/heterogenous_mixture.py`; added regression coverage in `tests/torch_stats/heterogeneous_mixture_test.py`.
 3. [x] **Fix `HiddenMarkovAccumulator.seq_initialize`** — corrected sequence-weight indexing in `src/dmx/torch_stats/hmm.py`; re-enabled HMM EM coverage and added empty-sequence regression coverage in `tests/torch_stats/hidden_markov_test.py`.
 4. [x] **Fix `IntegerPLSIDistribution.component_log_density`** — replaced the invalid `torch.dot` call with `torch.matmul` in `src/dmx/torch_stats/int_plsi.py`; added shape and numeric regression coverage in `tests/torch_stats/int_plsi_test.py`.
-5. **Standardize `viterbi` API** — consider making it accept a `HiddenMarkovTorchSequence` (encoded batch) for consistency with other `seq_*` methods.
+5. [x] **Keep `viterbi()` as a single-sequence API** — reviewed and confirmed intentional; no code changes needed.
 6. **Run on MPS/CUDA** — all tests currently run on CPU only; validate float32 tolerances on MPS devices.
 7. **Add `pytest-dependency`** — the `@pytest.mark.dependency` markers in the base class generate warnings because the plugin is not installed. Add it to dev dependencies.
