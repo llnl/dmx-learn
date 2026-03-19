@@ -93,15 +93,14 @@ p = suff_stat[0] / suff_stat[1]   # sum / count = mean
 
 ---
 
-### 2. `HeterogeneousMixtureDistribution` — dtype mismatch in EM
-**File:** `src/dmx/torch_stats/heterogenous_mixture.py` / `poisson.py`
+### 2. `HeterogeneousMixtureDistribution` — wrong encoder-group indexing in EM [COMPLETED]
+**File:** `src/dmx/torch_stats/heterogenous_mixture.py`
 
-When calling `seq_estimate` on a `HeterogeneousMixtureDistribution` containing a `PoissonDistribution` component, `PoissonTorchSequence.data[0]` is an `Int` tensor but the weight vector is `Float64`. Causes:
-```
-RuntimeError: dot: expected both vectors to have same dtype, but found Int and Double
-```
+The original dtype diagnosis turned out to be stale. `PoissonDataEncoder.seq_encode()` already uses `vec.tensor(...)`, so Poisson observations are encoded as floating-point tensors. The real bug was in `HeterogeneousMixtureAccumulator.seq_update()`: it indexed grouped encoded data as `enc_data[i]` by component index, even though `enc_data` is grouped by encoder type and must be accessed as `enc_data[tag]`.
 
-**Fix:** Cast `PoissonTorchSequence.data` to `float` (or cast the weight vector to match) before calling `torch.dot` in `PoissonAccumulator.seq_update`.
+**Effect:** During EM updates, components could receive encoded data from the wrong encoder group. This breaks heterogeneous mixtures with shared encoder families and can surface as misleading runtime errors during `seq_estimate`.
+
+**Implemented:** Updated `HeterogeneousMixtureAccumulator.seq_update()` to mirror the numpy implementation and use `enc_data[tag]` for component updates. Added regression coverage in `tests/torch_stats/heterogeneous_mixture_test.py` for a mixture with two Poisson components sharing one encoder group plus a Binomial component.
 
 ---
 
@@ -131,7 +130,7 @@ Tests in `hidden_markov_test.py` are written to call `viterbi` with individual r
 ## Next Steps
 
 1. [x] **Fix `ExponentialEstimator`** — completed in `src/dmx/torch_stats/exponential.py`; added regression coverage in `tests/torch_stats/exponential_test.py`.
-2. **Fix `HeterogeneousMixtureDistribution` dtype issue** — cast Poisson encoded data to float in `PoissonAccumulator.seq_update`.
+2. [x] **Fix `HeterogeneousMixtureDistribution` EM update bug** — corrected encoder-group indexing in `src/dmx/torch_stats/heterogenous_mixture.py`; added regression coverage in `tests/torch_stats/heterogeneous_mixture_test.py`.
 3. **Fix `HiddenMarkovAccumulator.seq_initialize`** — align weight vector size with total time steps so HMM EM tests can be re-enabled.
 4. **Fix `IntegerPLSIDistribution.component_log_density`** — verify return shape matches `num_states`.
 5. **Standardize `viterbi` API** — consider making it accept a `HiddenMarkovTorchSequence` (encoded batch) for consistency with other `seq_*` methods.
