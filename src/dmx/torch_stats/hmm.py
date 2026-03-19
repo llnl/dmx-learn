@@ -487,9 +487,7 @@ class HiddenMarkovAccumulator(TorchStatisticAccumulator):
 
         self.len_accumulator.seq_initialize(len_enc, weights, tng)
 
-        non_zero_len = len_vec != 0
-        weights_nz = weights[non_zero_len]
-        weights_loc = weights_nz[idx_vec]
+        weights_loc = weights[idx_vec]
 
         band0 = idx_bands[:, 0]
         band1 = idx_bands[:, 1]
