@@ -118,7 +118,18 @@ IndexError: index 496 is out of bounds for dimension 0 with size 496
 
 ---
 
-### 4. `viterbi()` API inconsistency
+### 4. `IntegerPLSIDistribution.component_log_density` — invalid torch matrix/vector op [COMPLETED]
+**File:** `src/dmx/torch_stats/int_plsi.py` (~line 177)
+
+The torch implementation used `torch.dot(log_prob_matrix.T, counts)` for the per-state component log-density calculation. Unlike numpy, `torch.dot` only accepts two 1-D tensors, so this was the wrong primitive for the intended matrix-vector product.
+
+**Effect:** `component_log_density()` could not reliably return the intended vector of length `num_states`, and the behavior diverged from the numpy implementation.
+
+**Implemented:** Replaced `torch.dot(...)` with `torch.matmul(...)` so the computation matches the numpy version and returns one score per latent state. Added regression coverage in `tests/torch_stats/int_plsi_test.py` for both output shape and hand-checked numeric values.
+
+---
+
+### 5. `viterbi()` API inconsistency
 **File:** `src/dmx/torch_stats/hmm.py` (~line 266)
 
 `viterbi(x)` accepts a **single raw sequence** (`List[T]`), unlike all other `seq_*` methods which accept a batch-encoded `TorchEncodedSequence`. This makes it impossible to use `viterbi` in the same pipeline as `seq_log_density` and `seq_encode`.
@@ -132,7 +143,7 @@ Tests in `hidden_markov_test.py` are written to call `viterbi` with individual r
 1. [x] **Fix `ExponentialEstimator`** — completed in `src/dmx/torch_stats/exponential.py`; added regression coverage in `tests/torch_stats/exponential_test.py`.
 2. [x] **Fix `HeterogeneousMixtureDistribution` EM update bug** — corrected encoder-group indexing in `src/dmx/torch_stats/heterogenous_mixture.py`; added regression coverage in `tests/torch_stats/heterogeneous_mixture_test.py`.
 3. [x] **Fix `HiddenMarkovAccumulator.seq_initialize`** — corrected sequence-weight indexing in `src/dmx/torch_stats/hmm.py`; re-enabled HMM EM coverage and added empty-sequence regression coverage in `tests/torch_stats/hidden_markov_test.py`.
-4. **Fix `IntegerPLSIDistribution.component_log_density`** — verify return shape matches `num_states`.
+4. [x] **Fix `IntegerPLSIDistribution.component_log_density`** — replaced the invalid `torch.dot` call with `torch.matmul` in `src/dmx/torch_stats/int_plsi.py`; added shape and numeric regression coverage in `tests/torch_stats/int_plsi_test.py`.
 5. **Standardize `viterbi` API** — consider making it accept a `HiddenMarkovTorchSequence` (encoded batch) for consistency with other `seq_*` methods.
 6. **Run on MPS/CUDA** — all tests currently run on CPU only; validate float32 tolerances on MPS devices.
 7. **Add `pytest-dependency`** — the `@pytest.mark.dependency` markers in the base class generate warnings because the plugin is not installed. Add it to dev dependencies.
