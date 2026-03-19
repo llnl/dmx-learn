@@ -104,17 +104,17 @@ The original dtype diagnosis turned out to be stale. `PoissonDataEncoder.seq_enc
 
 ---
 
-### 3. `HiddenMarkovAccumulator.seq_initialize` — weight vector size mismatch
+### 3. `HiddenMarkovAccumulator.seq_initialize` — sequence-weight indexing bug [COMPLETED]
 **File:** `src/dmx/torch_stats/hmm.py` (~line 492)
 
-`seq_initialize` (in `torch_stats/__init__.py`) creates a weight vector of size equal to the number of sequences (`sz`). However, `HiddenMarkovAccumulator.seq_initialize` expects a weight vector sized to the **total number of time steps** across all sequences. Causes:
+The original issue was not in the shared `seq_initialize()` helper. The helper correctly passes one weight per top-level sequence. The real bug was in `HiddenMarkovAccumulator.seq_initialize()`: it compressed weights to the non-empty subsequence set and then indexed them with `idx_vec`, even though `idx_vec` stores original sequence indices from the encoded batch. Causes:
 ```
 IndexError: index 496 is out of bounds for dimension 0 with size 496
 ```
 
-HMM EM tests (`test_08_seq_update`, `test_09_seq_initialize`, `test_10_device`) are currently disabled in `hidden_markov_test.py` with a comment until this is resolved.
+**Effect:** Batches containing empty sequences could fail during HMM initialization because per-sequence weights no longer aligned with the original sequence ids used by `idx_vec`.
 
-**Fix:** Either update `seq_initialize` in `__init__.py` to pass per-observation weights for variable-length sequence distributions, or update `HiddenMarkovAccumulator.seq_initialize` to accept per-sequence weights.
+**Implemented:** Updated `HiddenMarkovAccumulator.seq_initialize()` to expand sequence weights with `weights[idx_vec]`, matching the encoder semantics and the existing `seq_update()` path. Re-enabled HMM EM/device coverage in `tests/torch_stats/hidden_markov_test.py` and added a regression test with explicit empty sequences.
 
 ---
 
@@ -131,7 +131,7 @@ Tests in `hidden_markov_test.py` are written to call `viterbi` with individual r
 
 1. [x] **Fix `ExponentialEstimator`** — completed in `src/dmx/torch_stats/exponential.py`; added regression coverage in `tests/torch_stats/exponential_test.py`.
 2. [x] **Fix `HeterogeneousMixtureDistribution` EM update bug** — corrected encoder-group indexing in `src/dmx/torch_stats/heterogenous_mixture.py`; added regression coverage in `tests/torch_stats/heterogeneous_mixture_test.py`.
-3. **Fix `HiddenMarkovAccumulator.seq_initialize`** — align weight vector size with total time steps so HMM EM tests can be re-enabled.
+3. [x] **Fix `HiddenMarkovAccumulator.seq_initialize`** — corrected sequence-weight indexing in `src/dmx/torch_stats/hmm.py`; re-enabled HMM EM coverage and added empty-sequence regression coverage in `tests/torch_stats/hidden_markov_test.py`.
 4. **Fix `IntegerPLSIDistribution.component_log_density`** — verify return shape matches `num_states`.
 5. **Standardize `viterbi` API** — consider making it accept a `HiddenMarkovTorchSequence` (encoded batch) for consistency with other `seq_*` methods.
 6. **Run on MPS/CUDA** — all tests currently run on CPU only; validate float32 tolerances on MPS devices.

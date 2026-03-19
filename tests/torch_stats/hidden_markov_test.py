@@ -2,6 +2,7 @@
 import torch
 import numpy as np
 import pytest
+from typing import cast, List
 from tests.torch_stats.torch_stats_tests import *
 from dmx.torch_stats import *
 from dmx.torch_stats.hmm import (
@@ -51,11 +52,7 @@ class HiddenMarkovModelDistributionTestCase(TorchStatsTestClass):
         self._accs = [f.make(device=self.device) for f in self._factories]
 
         self.sampler_dist = self._dists[0]
-        # HMM sequences are variable-length; seq_initialize expects per-observation
-        # weight tensors but receives per-sequence sized weights, causing an IndexError
-        # in HiddenMarkovAccumulator.seq_initialize.  EM tests are disabled here
-        # until the library API is aligned.
-        self.density_dist_encoder = []
+        self.density_dist_encoder = list(zip(self._dists, self._encoders))
         self.dist_encoder = list(zip(self._dists, self._encoders))
         self.estimators = self._ests
         self.factories = self._factories
@@ -89,7 +86,7 @@ class HiddenMarkovModelDistributionTestCase(TorchStatsTestClass):
         for dist in self._dists:
             data = dist.sampler(seed=1).sample(size=10)
             for seq in data:
-                ll = dist.log_density(seq)
+                ll = dist.log_density(cast(List[float], seq))
                 self.assertTrue(np.isfinite(ll), f"log_density returned {ll}")
 
     def test_viterbi_state_range(self):
@@ -97,7 +94,7 @@ class HiddenMarkovModelDistributionTestCase(TorchStatsTestClass):
         for dist in self._dists:
             num_states = len(dist.topics)
             # viterbi() accepts a single raw sequence (List[T])
-            seq = dist.sampler(seed=1).sample(size=5)[0]
+            seq = cast(List[float], dist.sampler(seed=1).sample(size=5)[0])
             states = dist.viterbi(seq)
             self.assertTrue(
                 all(0 <= int(s) < num_states for s in states),
@@ -108,6 +105,25 @@ class HiddenMarkovModelDistributionTestCase(TorchStatsTestClass):
         """viterbi() state sequence must match the length of the observed sequence."""
         data = self._dist1.sampler(seed=1).sample(size=5)
         for seq in data:
-            states = self._dist1.viterbi(seq)
-            self.assertEqual(len(states), len(seq),
+            seq_list = cast(List[float], seq)
+            states = self._dist1.viterbi(seq_list)
+            self.assertEqual(len(states), len(seq_list),
                              "Viterbi state sequence length mismatch")
+
+    def test_seq_initialize_with_empty_sequences(self):
+        """seq_initialize must handle batches containing empty sequences."""
+        data = [[], [0.5, -0.2], [], [1.3], [0.0, 0.1, -0.1]]
+        encoder = self._dist2.dist_to_encoder()
+        enc_data = [(len(data), encoder.seq_encode(data, device=self.device))]
+
+        model = seq_initialize(
+            enc_data=enc_data,
+            estimator=self._dist2.estimator(),
+            seed=11,
+            p=1.0,
+            device=self.device,
+        )
+        _, ll = seq_log_density_sum(enc_data, model)
+
+        self.assertIsInstance(model, HiddenMarkovModelDistribution)
+        self.assertTrue(np.isfinite(ll), f"Expected finite log-likelihood, got {ll}")
