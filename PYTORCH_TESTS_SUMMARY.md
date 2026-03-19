@@ -146,4 +146,4 @@ The torch implementation used `torch.dot(log_prob_matrix.T, counts)` for the per
 4. [x] **Fix `IntegerPLSIDistribution.component_log_density`** — replaced the invalid `torch.dot` call with `torch.matmul` in `src/dmx/torch_stats/int_plsi.py`; added shape and numeric regression coverage in `tests/torch_stats/int_plsi_test.py`.
 5. [x] **Keep `viterbi()` as a single-sequence API** — reviewed and confirmed intentional; no code changes needed.
 6. **Run on MPS/CUDA** — `tests/torch_stats` now supports env-driven backend selection via `TEST_TORCH_DEVICE` (default `cpu`) through `tests/torch_stats/torch_stats_tests.py`; remaining work is to execute the suite on MPS/CUDA hardware and validate float32 tolerances on MPS.
-7. **Add `pytest-dependency`** — the `@pytest.mark.dependency` markers in the base class generate warnings because the plugin is not installed. Add it to dev dependencies.
+7. [x] **Add `pytest-dependency`** — added to the `test` extra in `pyproject.toml`, resolving the `PytestUnknownMarkWarning` noise for the dependency markers.

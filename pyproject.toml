@@ -37,7 +37,8 @@ dependencies = [
 
 [project.optional-dependencies]
 test = [
-  "pytest"
+  "pytest",
+  "pytest-dependency"
 ]
 optional = [
   "mpi4py",
