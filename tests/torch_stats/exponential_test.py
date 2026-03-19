@@ -25,6 +25,8 @@ class ExponentialDistributionTestCase(TorchStatsTestClass):
         self._ests = [d.estimator() for d in self._dists]
         self._factories = [e.accumulator_factory() for e in self._ests]
         self._accs = [f.make(device=self.device) for f in self._factories]
+        for dist in self._dists:
+            dist.to(self.device)
 
         self.sampler_dist = self._dists[0]
         self.density_dist_encoder = list(zip(self._dists, self._encoders))

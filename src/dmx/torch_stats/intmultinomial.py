@@ -128,19 +128,18 @@ class IntegerMultinomialDistribution(TorchProbabilityDistribution):
     def seq_log_density(self, x: 'IntegerMultinomialTorchSequence') -> tn.Tensor:
         if not isinstance(x, IntegerMultinomialTorchSequence):
             raise Exception('Requires IntegerMultinomialTorchSequence for `seq_` function calls.')
-        else:
-            if x.device != self.model_device():
-                raise Exception('IntegerMultinomialTorchSequence must have same device as model.')
-
         sz, idx, cnt, val, tcnt = x.data
 
-        v = val - self.min_val
+        val_dev = val.to(device=self.log_p_vec.device)
+        idx_dev = idx.to(device=self.model_device())
+        cnt_dev = cnt.to(device=self.model_device())
+        v = val_dev - self.min_val
         u = tn.bitwise_and(v >= 0, v < self.num_vals)
         rv = vec.zeros(len(v), device=self.model_device())
         rv.fill_(-tn.inf)
         rv[u] = self.log_p_vec[v[u]]
-        rv[u] *= cnt[u]
-        ll = tn.bincount(idx, weights=rv, minlength=sz)
+        rv[u] *= cnt_dev[u.to(device=cnt_dev.device)]
+        ll = tn.bincount(idx_dev, weights=rv.to(device=self.model_device()), minlength=sz)
 
         if tcnt is not None:
             ll += self.len_dist.seq_log_density(tcnt)
@@ -579,5 +578,3 @@ class IntegerMultinomialTorchSequence(TorchEncodedSequence):
 
     def __str__(self) -> str:
         return f'IntegerMultinomialTorchSequence(device={repr(self.device)})'
-
-

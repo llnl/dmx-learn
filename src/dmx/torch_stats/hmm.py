@@ -102,7 +102,7 @@ class HiddenMarkovModelDistribution(TorchProbabilityDistribution):
             transitions = np.asarray(transitions, dtype=float)
 
         self.transitions = np.reshape(transitions, (self.n_states, self.n_states))
-        self.transitions = tn.tensor(transitions, device=device)
+        self.transitions = vec.tensor(self.transitions, device=self._device)
         self.log_transitions = tn.log(self.transitions)
         self.terminal_values = terminal_values
 
@@ -201,9 +201,6 @@ class HiddenMarkovModelDistribution(TorchProbabilityDistribution):
         if not isinstance(x, HiddenMarkovTorchSequence):
             raise Exception('HiddenMarkovTorchSequence required for `seq_` function calls.')
 
-        if x.device != self.model_device():
-            raise Exception('HiddenMarkovTorchSequence must be on same device as model.')
-
         (tot_cnt, max_len, idx_bands, has_next, len_vec, idx_mat, idx_vec, enc_data), len_enc = x.data
         w = self.w
         a_mat = self.transitions
@@ -211,6 +208,7 @@ class HiddenMarkovModelDistribution(TorchProbabilityDistribution):
         num_seq = int(idx_mat.shape[0])
 
         good = idx_mat >= 0
+        good_cpu = good.cpu()
 
         pr_obs = vec.zeros((tot_cnt, num_states), device=self._device)
         ll_ret = vec.zeros(num_seq, device=self._device)
@@ -235,7 +233,7 @@ class HiddenMarkovModelDistribution(TorchProbabilityDistribution):
 
         tn.log(temp, out=temp)
         temp2 = pr_max0[band0[0]:band1[0], 0]
-        ll_ret[good[:, 0]] += temp[:, 0] + temp2
+        ll_ret[good_cpu[:, 0].to(device=ll_ret.device)] += temp[:, 0] + temp2
 
         for i in range(1, max_len):
             band = idx_bands[i]
@@ -251,7 +249,7 @@ class HiddenMarkovModelDistribution(TorchProbabilityDistribution):
 
             tn.log(pr_max, out=pr_max)
             temp2 = pr_max0[band0[i]:band1[i], 0]
-            ll_ret[good[:, i]] += pr_max[:, 0] + temp2
+            ll_ret[good_cpu[:, i].to(device=ll_ret.device)] += pr_max[:, 0] + temp2
 
         # nz = len_vec != 0
         # ll_ret[nz] /= len_vec[nz]
@@ -1034,4 +1032,3 @@ class HiddenMarkovTorchSequence(TorchEncodedSequence):
 
     def __str__(self) -> str:
         return f'HiddenMarkovTorchSequence(device={repr(self.device)})'
-

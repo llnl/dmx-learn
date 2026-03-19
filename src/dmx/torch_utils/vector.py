@@ -8,6 +8,14 @@ DINT = tn.int32
 DFLOAT = tn.float64
 
 
+def _resolve_float_dtype(device: Optional[tn.device], dtype: Optional[tn.dtype]) -> tn.dtype:
+    if dtype is not None:
+        return dtype
+    if device is not None and device.type == 'mps':
+        return tn.float32
+    return DFLOAT
+
+
 def resolve_device(device=None) -> tn.device:
     """Convert string or None to torch.device. Auto-detects CUDA > MPS > CPU if None."""
     if device is None:
@@ -42,11 +50,11 @@ def seed_sample(n: int, tng: tn.Generator):
 
 
 def zeros(size: Union[int, Tuple[int, ...]], device: Optional[tn.device] = None, dtype: Optional[tn.dtype] = None):
-    return tn.zeros(size, dtype=dtype if dtype is not None else DFLOAT, device=device)
+    return tn.zeros(size, dtype=_resolve_float_dtype(device, dtype), device=device)
 
 
 def ones(size: Union[int, Tuple[int, ...]], device: Optional[tn.device] = None, dtype: Optional[tn.dtype] = None):
-    return tn.ones(size, dtype=dtype if dtype is not None else DFLOAT, device=device)
+    return tn.ones(size, dtype=_resolve_float_dtype(device, dtype), device=device)
 
 
 def int_vec(size: Union[int, Tuple[int, ...]], device: Optional[tn.device] = None):
@@ -54,11 +62,12 @@ def int_vec(size: Union[int, Tuple[int, ...]], device: Optional[tn.device] = Non
 
 
 def zeros_like(x: tn.Tensor):
-    return tn.zeros_like(x, dtype=DFLOAT)
+    return tn.zeros_like(x, dtype=_resolve_float_dtype(x.device, None))
 
 
 def tensor(x: Union[List[int], List[float], Sequence[int], Sequence[float], tn.Tensor, List[List[int]], List[List[float]], np.ndarray], device: Optional[tn.device] = None, dtype: Optional[tn.dtype] = None):
-    dtype = dtype if dtype is not None else DFLOAT
+    target_device = device if device is not None else (x.device if isinstance(x, tn.Tensor) else None)
+    dtype = _resolve_float_dtype(target_device, dtype)
     if isinstance(x, tn.Tensor):
         y = x.clone().detach().to(dtype)
         if device is not None:
@@ -121,8 +130,13 @@ def sample_dirichlet(alpha: tn.Tensor, size: int, tng: tn.Generator) -> tn.Tenso
 
     """
     k = alpha.shape[0]
-    rv = tn._sample_dirichlet(alpha.expand((size, k)), generator=tng)
-    rv = tensor(rv, device=tng.device)
+    if alpha.device.type == 'mps' or tng.device.type == 'mps':
+        alpha_cpu = alpha.detach().cpu().expand((size, k))
+        rv = tn._sample_dirichlet(alpha_cpu, generator=tn.Generator().manual_seed(tng.initial_seed()))
+        rv = tensor(rv, device=alpha.device, dtype=alpha.dtype)
+    else:
+        rv = tn._sample_dirichlet(alpha.expand((size, k)), generator=tng)
+        rv = tensor(rv, device=tng.device)
 
     return rv
 

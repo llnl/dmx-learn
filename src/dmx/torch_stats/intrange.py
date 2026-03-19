@@ -109,16 +109,14 @@ class IntegerCategoricalDistribution(TorchProbabilityDistribution):
     def seq_log_density(self, x: 'IntegerCategoricalTorchSequence') -> tn.Tensor:
         if not isinstance(x, IntegerCategoricalTorchSequence):
             raise Exception('Requires IntegerCategoricalTorchSequence for `seq_` function calls.')
-        else:
-            if x.device != self.model_device():
-                raise Exception('Requires IntegerCategoricalTorchSequence on same device as model.')
-
         v = x.data - self.min_val
         u = tn.bitwise_and(v >= 0, v < self.num_vals)
         rv = vec.zeros(len(x.data), device=self.model_device())
         rv.fill_(-tn.inf)
 
-        rv[u] = self.log_p_vec[v[u]]
+        v_dev = v.to(device=self.log_p_vec.device)
+        u_dev = u.to(device=self.model_device())
+        rv[u_dev] = self.log_p_vec[v_dev[u_dev.to(device=v_dev.device)]]
 
         return rv
 
@@ -471,4 +469,3 @@ class IntegerCategoricalTorchSequence(TorchEncodedSequence):
 
     def __str__(self) -> str:
         return f'IntegerCategoricalTorchSequence(device={repr(self.device)})'
-

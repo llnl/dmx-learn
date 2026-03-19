@@ -29,6 +29,10 @@ T2 = TypeVar('T2')
 key_type = Union[Tuple[str, str], Tuple[None, None]]
 
 
+def _sample_dirichlet_like(alpha: tn.Tensor, size: int, tng: tn.Generator) -> tn.Tensor:
+    return vec.sample_dirichlet(alpha=alpha, size=size, tng=tng)
+
+
 class MixtureDistribution(TorchProbabilityDistribution):
     """MixtureDistribution object defining mixture distribution with torch tensors.
 
@@ -346,7 +350,7 @@ class MixtureAccumulator(TorchStatisticAccumulator):
 
         if keep_len > 0:
             alpha = vec.ones(self.num_components, device=self._device) / self.num_components**2
-            ww[keep_idx, :] += vec.sample_dirichlet(alpha=alpha, size=int(keep_len), tng=tng)
+            ww[keep_idx, :] += _sample_dirichlet_like(alpha=alpha, size=int(keep_len), tng=tng)
 
         ww *= tn.reshape(weights, (sz, 1))
 
@@ -565,4 +569,3 @@ class MixtureTorchEncodedSequence(TorchEncodedSequence):
 
     def __str__(self) -> str:
         return f'MixtureTorchEncodedSequence(device={repr(self.device)})'
-

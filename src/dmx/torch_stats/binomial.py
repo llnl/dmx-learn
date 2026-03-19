@@ -109,7 +109,7 @@ class BinomialDistribution(TorchProbabilityDistribution):
 
         ux, ix, _, _, _ = x.data
         n = self.n
-        gn = tn.lgamma(vec.tensor([n+1], device=self.model_device()))
+        gn = tn.lgamma(vec.tensor([n + 1], device=ux.device, dtype=ux.dtype))
 
         if self.min_val is not None:
             xx = ux - self.min_val
@@ -464,6 +464,5 @@ class BinomialTorchEncodedSequence(TorchEncodedSequence):
 
     def __str__(self) -> str:
         return f'BinomialTorchEncodedSequence(device={repr(self.device)})'
-
 
 

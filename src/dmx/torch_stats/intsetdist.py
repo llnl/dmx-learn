@@ -115,13 +115,11 @@ class IntegerBernoulliSetDistribution(TorchProbabilityDistribution):
 
         if not isinstance(x, IntegerBernoulliSetTorchSequence):
             raise Exception('Requires IntegerBernoulliSetTorchSequence for `seq_` calls.')
-        else:
-            if x.device != self.model_device():
-                raise Exception('Requires IntegerBernoulliSetTorchSequence to have same device as model.')
-
         sz, idx, xs = x.data
         rv = vec.zeros(sz, device=self.model_device())
-        rv += tn.bincount(idx, weights=self.log_dvec[xs], minlength=sz)
+        xs_dev = xs.to(device=self.log_dvec.device)
+        idx_dev = idx.to(device=self.model_device())
+        rv += tn.bincount(idx_dev, weights=self.log_dvec[xs_dev].to(device=self.model_device()), minlength=sz)
         rv += self.log_nsum
 
         return rv
@@ -366,4 +364,3 @@ class IntegerBernoulliSetTorchSequence(TorchEncodedSequence):
 
     def __str__(self) -> str:
         return f'IntegerBernoulliSetTorchSequence(device={repr(self.device)})'
-

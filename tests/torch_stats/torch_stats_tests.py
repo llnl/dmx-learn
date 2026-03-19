@@ -71,6 +71,7 @@ from dmx.torch_stats.pdist import (
     TorchStatisticAccumulatorFactory,
 )
 from dmx.torch_utils.estimation import empirical_kl_divergence
+from dmx.torch_utils.vector import set_default_float_dtype, float_dtype_for_device
 
 
 # ---------------------------------------------------------------------------
@@ -105,6 +106,9 @@ def get_test_torch_device() -> torch.device:
     raise RuntimeError(
         f"Unsupported TEST_TORCH_DEVICE={raw_device!r}. Use cpu, mps, cuda, or cuda:<index>."
     )
+
+
+set_default_float_dtype(float_dtype_for_device(get_test_torch_device()))
 
 
 def _tol_for_device(device: torch.device) -> float:

@@ -115,9 +115,14 @@ class MultivariateGaussianDistribution(TorchProbabilityDistribution):
     def seq_log_density(self, x: 'MultivariateGaussianTorchSequence') -> tn.Tensor:
         if not isinstance(x, MultivariateGaussianTorchSequence):
             raise Exception('Requires MultivariateGaussianTorchSequence for `seq_` function calls.')
-        else:
-            if x.device != self.model_device():
-                raise Exception('Requires MultivariateGaussianTorchSequence on same device as model.')
+        if self.model_device().type == 'mps':
+            x_cpu = x.data.detach().cpu()
+            mu_cpu = self.mu.detach().cpu()
+            chol_cpu = self.chol.detach().cpu()
+            diff = mu_cpu - x_cpu
+            soln = tn.cholesky_solve(diff.T, chol_cpu).T
+            rv = self.chol_const.detach().cpu() - 0.5 * ((diff * soln).sum(dim=1))
+            return rv.to(device=self.model_device(), dtype=x.data.dtype)
 
         diff = self.mu - x.data
         soln = tn.cholesky_solve(diff.T, self.chol).T

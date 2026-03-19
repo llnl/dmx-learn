@@ -98,9 +98,13 @@ class DiagonalGaussianDistribution(TorchProbabilityDistribution):
         if not isinstance(x, DiagonalGaussianTorchEncodedSequence):
             raise Exception('Requires DiagonalGaussianTorchEncodedSequence for `seq_` function calls.')
 
-        rv = tn.matmul(x.data * x.data, self.ca)
-        rv += tn.matmul(x.data, self.cb)
-        rv += self.cc
+        ca = self.ca.to(device=x.data.device, dtype=x.data.dtype)
+        cb = self.cb.to(device=x.data.device, dtype=x.data.dtype)
+        cc = self.cc.to(device=x.data.device, dtype=x.data.dtype)
+
+        rv = tn.matmul(x.data * x.data, ca)
+        rv += tn.matmul(x.data, cb)
+        rv += cc
         return rv
 
     def sampler(self, seed: Optional[int] = None) -> 'DiagonalGaussianSampler':
@@ -348,4 +352,3 @@ class DiagonalGaussianTorchEncodedSequence(TorchEncodedSequence):
 
     def __str__(self) -> str:
         return f'DiagonalGaussianTorchEncodedSequence(device=tn.device({self.device}))'
-

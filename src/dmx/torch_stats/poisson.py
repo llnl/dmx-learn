@@ -169,7 +169,8 @@ class PoissonAccumulator(TorchStatisticAccumulator):
 
     def seq_update(self, x: 'PoissonTorchSequence', weights: tn.Tensor,
                    estimate: Optional['PoissonDistribution'] = None) -> None:
-        self.sum += float(tn.dot(x.data[0], weights))
+        xx = x.data[0].to(device=weights.device, dtype=weights.dtype)
+        self.sum += float(tn.dot(xx, weights))
         self.count += float(weights.sum())
 
     def combine(self, suff_stat: Tuple[float, float]) -> 'PoissonAccumulator':

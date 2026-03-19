@@ -155,19 +155,17 @@ class ConditionalDistribution(TorchProbabilityDistribution):
 
         if not isinstance(x, ConditionalTorchEncodedSequence):
             raise Exception('Requires ConditionalTorchEncodedSequence for `seq_` function calls.')
-        else:
-            if self._device != x.device:
-                raise Exception('ConditionalTorchEncodedSequence device must match device of model.')
 
         sz, cond_vals, eobs_vals, idx_vals, given_enc = x.data
         rv = vec.zeros(sz, device=self._device)
 
         for i in range(len(cond_vals)):
+            idx = idx_vals[i].to(device=rv.device)
             if self.has_default:
-                rv[idx_vals[i]] = self.dmap.get(cond_vals[i], self.default_dist).seq_log_density(eobs_vals[i])
+                rv[idx] = self.dmap.get(cond_vals[i], self.default_dist).seq_log_density(eobs_vals[i])
             else:
                 if cond_vals[i] in self.dmap:
-                    rv[idx_vals[i]] += self.dmap[cond_vals[i]].seq_log_density(eobs_vals[i])
+                    rv[idx] += self.dmap[cond_vals[i]].seq_log_density(eobs_vals[i])
 
         if self.has_given:
             rv += self.given_dist.seq_log_density(given_enc)
@@ -352,10 +350,11 @@ class ConditionalDistributionAccumulator(TorchStatisticAccumulator):
         self._given_tng: Optional[Generator] = None
 
     def _tng_initialize(self, tng: Generator) -> None:
-        seeds = tn.randint(0, 2**31, (len(self.accumulator_map.keys())+2,), generator=tng)
+        seed_rng = np.random.RandomState(int(tng.initial_seed()))
+        seeds = seed_rng.randint(0, 2**31, size=(len(self.accumulator_map.keys()) + 2,))
         self._acc_tng = dict()
         for i, acc_key in enumerate(self.accumulator_map.keys()):
-            self._acc_tng[acc_key] = Generator().manual_seed(int(seeds[i+2]))
+            self._acc_tng[acc_key] = Generator().manual_seed(int(seeds[i + 2]))
 
         self._default_tng = Generator().manual_seed(int(seeds[0]))
         self._given_tng = Generator().manual_seed(int(seeds[1]))
@@ -722,5 +721,3 @@ class ConditionalTorchEncodedSequence(TorchEncodedSequence):
     def __str__(self) -> str:
 
         return f'ConditionalTorchEncodedSequence(device={repr(self.device)})'
-
-

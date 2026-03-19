@@ -181,19 +181,20 @@ class IntegerPLSIDistribution(TorchProbabilityDistribution):
         if not isinstance(x, IntegerPLSITorchSequence):
             raise Exception('IntegerPLSITorchSequence required for `seq_` calls')
 
-        if x.device != self.model_device():
-            raise Exception('IntegerPLSITorchSequence must be on same device as model.')
-        
         nn, (xv, xc, xd, xi, xn, xm) = x.data
         cnt = len(xn)
-        rv = vec.zeros(cnt)
+        rv = vec.zeros(cnt, device=self._device)
 
-        w = self.prob_mat[xv, :] * self.state_mat[xd, :]
+        xv_dev = xv.to(device=self.prob_mat.device)
+        xd_dev = xd.to(device=self.state_mat.device)
+        xi_dev = xi.to(device=self._device)
+        xm_dev = xm.to(device=self._device)
+        w = self.prob_mat[xv_dev, :] * self.state_mat[xd_dev, :]
         w = tn.sum(w, dim=1, keepdim=False)
         tn.log(w, out=w)
-        w *= xc
-        rv += tn.bincount(xi, w)
-        rv += self.log_doc_vec[xm]
+        w *= xc.to(device=w.device, dtype=w.dtype)
+        rv += tn.bincount(xi_dev, w.to(device=self._device), minlength=cnt)
+        rv += self.log_doc_vec[xm_dev]
 
         if self.len_dist is not None:
             rv += self.len_dist.seq_log_density(nn)
