@@ -74,6 +74,9 @@ class HeterogeneousMixtureDistribution(TorchProbabilityDistribution):
     def to(self, device: tn.device) -> None:
         self._device = device
         self.w = self.w.to(device)
+        self.zw = (self.w == 0.0)
+        self.log_w = tn.log(self.w + self.zw)
+        self.log_w[self.zw] = -tn.inf
 
         for comp in self.components:
             comp.to(device)

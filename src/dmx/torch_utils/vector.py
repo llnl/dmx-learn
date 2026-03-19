@@ -130,13 +130,17 @@ def sample_dirichlet(alpha: tn.Tensor, size: int, tng: tn.Generator) -> tn.Tenso
 
     """
     k = alpha.shape[0]
-    if alpha.device.type == 'mps' or tng.device.type == 'mps':
+    target_device = tng.device if tng.device is not None else alpha.device
+    target_dtype = alpha.dtype
+
+    if target_device.type == 'mps' or alpha.device.type == 'mps':
         alpha_cpu = alpha.detach().cpu().expand((size, k))
         rv = tn._sample_dirichlet(alpha_cpu, generator=tn.Generator().manual_seed(tng.initial_seed()))
-        rv = tensor(rv, device=alpha.device, dtype=alpha.dtype)
+        rv = tensor(rv, device=target_device, dtype=target_dtype)
     else:
-        rv = tn._sample_dirichlet(alpha.expand((size, k)), generator=tng)
-        rv = tensor(rv, device=tng.device)
+        alpha_dev = alpha.to(device=target_device)
+        rv = tn._sample_dirichlet(alpha_dev.expand((size, k)), generator=tng)
+        rv = tensor(rv, device=target_device, dtype=target_dtype)
 
     return rv
 

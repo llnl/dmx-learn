@@ -103,6 +103,15 @@ class MultivariateGaussianDistribution(TorchProbabilityDistribution):
 
         """
         try:
+            if self.model_device().type == 'mps':
+                x_cpu = vec.tensor(x, device=tn.device('cpu'))
+                mu_cpu = self.mu.detach().cpu()
+                chol_cpu = self.chol.detach().cpu()
+                diff = mu_cpu - x_cpu
+                soln = tn.cholesky_solve(diff[:, None], chol_cpu).T
+                rv = self.chol_const.detach().cpu() - 0.5 * ((diff * soln).sum())
+                return float(rv)
+
             diff = self.mu - vec.tensor(x, device=self._device)
             soln = tn.cholesky_solve(diff[:, None], self.chol).T
 

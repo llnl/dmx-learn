@@ -89,9 +89,9 @@ class IntegerPLSIDistribution(TorchProbabilityDistribution):
 
     def to(self, device: tn.device) -> None:
         self._device = device
-        self.prob_mat.to(device)
-        self.state_mat.to(device)
-        self.doc_vec.to(device)
+        self.prob_mat = self.prob_mat.to(device)
+        self.state_mat = self.state_mat.to(device)
+        self.doc_vec = self.doc_vec.to(device)
         self.log_doc_vec = tn.log(self.doc_vec)
         self.len_dist.to(device)
 

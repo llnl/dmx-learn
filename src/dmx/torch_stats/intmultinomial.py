@@ -71,7 +71,7 @@ class IntegerMultinomialDistribution(TorchProbabilityDistribution):
         self.keys = keys
 
     def to(self, device: tn.device) -> None:
-        self.p_vec.to(device)
+        self.p_vec = self.p_vec.to(device)
         self.log_p_vec = tn.log(self.p_vec)
         self.len_dist.to(device)
         self._device = device
@@ -566,7 +566,7 @@ class IntegerMultinomialDataEncoder(TorchSequenceEncoder):
         cnt = vec.tensor(cnt, device=device)
         val = vec.int_tensor(val, device=device)
 
-        tcnt = self.len_encoder.seq_encode(tcnt)
+        tcnt = self.len_encoder.seq_encode(tcnt, device=device)
 
         return IntegerMultinomialTorchSequence(data=(sz, idx, cnt, val, tcnt), device=device)
 

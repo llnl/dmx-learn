@@ -121,7 +121,7 @@ class HiddenMarkovModelDistribution(TorchProbabilityDistribution):
             dist.to(device)
 
         self.w = self.w.to(device)
-        self.transitions.to(device)
+        self.transitions = self.transitions.to(device)
 
         self.log_w = tn.log(self.w)
         self.log_transitions = tn.log(self.transitions)
@@ -381,8 +381,19 @@ class HiddenMarkovSampler(DistributionSampler):
         else:
             self.terminal_set = set(dist.terminal_values)
 
-        trans = dist.transitions.data.cpu().numpy()
-        w = dist.w.data.cpu().numpy()
+        trans = dist.transitions.data.cpu().numpy().astype(np.float64, copy=True)
+        w = dist.w.data.cpu().numpy().astype(np.float64, copy=True)
+
+        w_sum = w.sum()
+        if w_sum > 0.0:
+            w /= w_sum
+
+        row_sums = trans.sum(axis=1, keepdims=True)
+        good_rows = row_sums[:, 0] > 0.0
+        if np.any(good_rows):
+            trans[good_rows, :] /= row_sums[good_rows]
+        if np.any(~good_rows):
+            trans[~good_rows, :] = 1.0 / dist.n_states
 
         t_map = {i: {k: trans[i, k] for k in range(dist.n_states)} for i in range(dist.n_states)}
         p_map = {i: w[i] for i in range(dist.n_states)}
