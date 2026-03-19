@@ -1,149 +1,259 @@
-# PyTorch Stats Test Suite — Summary
+# MPS Device Plan
 
-## What Was Accomplished
+This document captures the remaining work to get `tests/torch_stats` passing on
+`TEST_TORCH_DEVICE=mps`.
 
-### Example Files (`examples_torch/stats_examples/`)
-Created torch-adapted example scripts for all remaining distributions:
-- `mvn_example.py` — MultivariateGaussianDistribution
-- `mixture_example.py` — MixtureDistribution (with `seq_posterior` demo)
-- `heterogeneous_mixture_example.py` — HeterogeneousMixtureDistribution
-- `conditional_example.py` — ConditionalDistribution (integer-keyed dmap)
-- `composite_example.py` — CompositeDistribution
-- `sequence_example.py` — SequenceDistribution
-- `hidden_markov_example.py` — HiddenMarkovModelDistribution
-- `jmixture_example.py` — JointMixtureDistribution
+## Current State
 
----
+- MPS is available locally.
+- The torch test harness is now device-selectable through
+  `TEST_TORCH_DEVICE`.
+- `NUMBA_DISABLE_JIT=1` should be exported before running these tests to
+  avoid unnecessary numba compilation.
+- A stable subset already passes on MPS, including:
+  - `tests/torch_stats/gaussian_test.py`
+  - `tests/torch_stats/exponential_test.py`
+  - `tests/torch_stats/binomial_test.py`
+- The full `tests/torch_stats` suite still has MPS-specific failures.
 
-### Base Test Class (`tests/torch_stats/torch_stats_tests.py`)
-Created `TorchStatsTestClass`, a torch-adapted equivalent of `tests/stats/stats_tests.py`. Key differences from the stats version:
-- No `__eq__` checks — replaced with isinstance/type-correctness assertions
-- `encoder.seq_encode(data, device=device)` — explicit device argument
-- `seq_initialize` uses `int` seed instead of `numpy.random.RandomState`
-- Float tolerance: `1e-10` for float64 (CPU/CUDA), `1e-4` for float32 (MPS)
-- Added `test_09_seq_initialize` and `test_10_device` (not in stats base class)
+## Useful Command
 
-**10 inherited tests per distribution:**
-
-| Test | Description |
-|---|---|
-| `test_01_sampler` | Same seed yields identical samples |
-| `test_02_log_density` | `log_density(x)` matches element of `seq_log_density` |
-| `test_03_dist_to_encoder` | `dist_to_encoder()` returns `TorchSequenceEncoder` |
-| `test_04_estimator` | `dist.estimator()` returns `TorchParameterEstimator` |
-| `test_05_estimator_factory` | `est.accumulator_factory()` returns `TorchStatisticAccumulatorFactory` |
-| `test_06_factory_make` | `factory.make()` returns `TorchStatisticAccumulator` |
-| `test_07_acc_to_encoder` | `acc.acc_to_encoder()` returns `TorchSequenceEncoder` |
-| `test_08_seq_update` | One EM step does not decrease log-likelihood |
-| `test_09_seq_initialize` | `seq_initialize` produces a model with finite log-likelihood |
-| `test_10_device` | Fitted model can be moved to CPU via `model.to(torch.device('cpu'))` |
-
----
-
-### Test Files (`tests/torch_stats/`)
-Created 18 test files covering all torch_stats distributions. Each inherits the 10 base tests and adds distribution-specific tests:
-
-| File | Extra Tests |
-|---|---|
-| `gaussian_test.py` | encoder/accumulator type checks |
-| `exponential_test.py` | sampler positivity, beta effect on mean |
-| `gamma_test.py` | sampler positivity, mean approximation (`k * theta`) |
-| `geometric_test.py` | sampler non-negativity, mean approximation (`1/p`) |
-| `poisson_test.py` | sampler non-negativity, lambda mean approximation |
-| `binomial_test.py` | sample range `[0, n]`, mean approximation (`n * p`) |
-| `dmvn_test.py` | sample shape matches dimension, column-wise mean |
-| `mvn_test.py` | sample shape matches dimension, column-wise mean |
-| `intrange_test.py` | sample range `[min_val, max_val]`, empirical frequency |
-| `intsetdist_test.py` | set element range, empirical inclusion frequency |
-| `intmultinomial_test.py` | `(value, count)` pair element range |
-| `mixture_test.py` | `seq_posterior` rows sum to 1, `seq_component_log_density` consistency with `seq_log_density` |
-| `heterogeneous_mixture_test.py` | `seq_posterior` rows sum to 1 |
-| `composite_test.py` | tuple length matches component count, log-density additivity |
-| `conditional_test.py` | sample pair structure `(given, obs)`, finite log-density |
-| `sequence_test.py` | sample is list, length distribution, finite log-density |
-| `hidden_markov_test.py` | `viterbi` state range, `viterbi` length matches sequence |
-| `jmixture_test.py` | sample is `(x1, x2)` pair, finite log-density |
-| `int_plsi_test.py` | `(doc_id, [(word, count)])` structure, word index range, finite log-density, `component_log_density` shape |
-
-**Result: 286 passing, 3 failing**
-
----
-
-## Bugs Discovered in `torch_stats`
-
-The failing tests expose real implementation bugs:
-
-### 1. `ExponentialEstimator` — Wrong MLE formula [COMPLETED]
-**File:** `src/dmx/torch_stats/exponential.py` (~line 231)
-
-`ExponentialEstimator.estimate()` computes `p = count / sum` (rate = 1/mean) but `ExponentialDistribution` treats `beta` as the **mean**. The formula should be `p = sum / count`.
-
-**Effect:** For `beta != 1.0`, each EM step moves the estimate away from the true mean, causing the log-likelihood to decrease after `seq_estimate`.
-
-**Implemented:** Updated `ExponentialEstimator.estimate()` to interpret the torch sufficient statistics as `(sum, count)` and compute `beta = sum / count` in all branches, and added a targeted regression test in `tests/torch_stats/exponential_test.py`.
-
-**Fix:** Swap the numerator and denominator in the `estimate` method:
-```python
-# Current (wrong):
-p = suff_stat[1] / suff_stat[0]   # count / sum = rate
-
-# Correct:
-p = suff_stat[0] / suff_stat[1]   # sum / count = mean
+```bash
+export NUMBA_DISABLE_JIT=1
+TEST_TORCH_DEVICE=mps python -m pytest tests/torch_stats
 ```
 
----
+For smaller iterations:
 
-### 2. `HeterogeneousMixtureDistribution` — wrong encoder-group indexing in EM [COMPLETED]
-**File:** `src/dmx/torch_stats/heterogenous_mixture.py`
-
-The original dtype diagnosis turned out to be stale. `PoissonDataEncoder.seq_encode()` already uses `vec.tensor(...)`, so Poisson observations are encoded as floating-point tensors. The real bug was in `HeterogeneousMixtureAccumulator.seq_update()`: it indexed grouped encoded data as `enc_data[i]` by component index, even though `enc_data` is grouped by encoder type and must be accessed as `enc_data[tag]`.
-
-**Effect:** During EM updates, components could receive encoded data from the wrong encoder group. This breaks heterogeneous mixtures with shared encoder families and can surface as misleading runtime errors during `seq_estimate`.
-
-**Implemented:** Updated `HeterogeneousMixtureAccumulator.seq_update()` to mirror the numpy implementation and use `enc_data[tag]` for component updates. Added regression coverage in `tests/torch_stats/heterogeneous_mixture_test.py` for a mixture with two Poisson components sharing one encoder group plus a Binomial component.
-
----
-
-### 3. `HiddenMarkovAccumulator.seq_initialize` — sequence-weight indexing bug [COMPLETED]
-**File:** `src/dmx/torch_stats/hmm.py` (~line 492)
-
-The original issue was not in the shared `seq_initialize()` helper. The helper correctly passes one weight per top-level sequence. The real bug was in `HiddenMarkovAccumulator.seq_initialize()`: it compressed weights to the non-empty subsequence set and then indexed them with `idx_vec`, even though `idx_vec` stores original sequence indices from the encoded batch. Causes:
-```
-IndexError: index 496 is out of bounds for dimension 0 with size 496
+```bash
+export NUMBA_DISABLE_JIT=1
+TEST_TORCH_DEVICE=mps python -m pytest tests/torch_stats/<file> -q
 ```
 
-**Effect:** Batches containing empty sequences could fail during HMM initialization because per-sequence weights no longer aligned with the original sequence ids used by `idx_vec`.
+## What Has Already Been Fixed
 
-**Implemented:** Updated `HiddenMarkovAccumulator.seq_initialize()` to expand sequence weights with `weights[idx_vec]`, matching the encoder semantics and the existing `seq_update()` path. Re-enabled HMM EM/device coverage in `tests/torch_stats/hidden_markov_test.py` and added a regression test with explicit empty sequences.
+- `src/dmx/torch_utils/vector.py`
+  - float tensor creation now defaults to `float32` on MPS instead of
+    `float64`
+  - `sample_dirichlet()` now has an MPS fallback path that samples on CPU and
+    moves the result back
+- `tests/torch_stats/torch_stats_tests.py`
+  - test harness now sets default float dtype from the selected test device
+- `src/dmx/torch_stats/binomial.py`
+  - fixed a constant creation path so tensors are created on the same device as
+    encoded inputs
+- `src/dmx/torch_stats/poisson.py`
+  - `PoissonAccumulator.seq_update()` now aligns encoded observations to the
+    weights device/dtype before `torch.dot`
+- Torch test files under `tests/torch_stats`
+  - distributions are now moved onto `self.device` in test setup
+- `src/dmx/torch_stats/dmvn.py`
+  - one MPS matmul/device mismatch was fixed by aligning cached coefficients to
+    encoded tensor device/dtype
 
----
+## Main Remaining Failure Categories
 
-### 4. `IntegerPLSIDistribution.component_log_density` — invalid torch matrix/vector op [COMPLETED]
-**File:** `src/dmx/torch_stats/int_plsi.py` (~line 177)
+### 1. Index Tensors on One Device, Parameters on Another
 
-The torch implementation used `torch.dot(log_prob_matrix.T, counts)` for the per-state component log-density calculation. Unlike numpy, `torch.dot` only accepts two 1-D tensors, so this was the wrong primitive for the intended matrix-vector product.
+These failures look like:
 
-**Effect:** `component_log_density()` could not reliably return the intended vector of length `num_states`, and the behavior diverged from the numpy implementation.
+```text
+RuntimeError: indices should be either on cpu or on the same device as the indexed tensor
+```
 
-**Implemented:** Replaced `torch.dot(...)` with `torch.matmul(...)` so the computation matches the numpy version and returns one score per latent state. Added regression coverage in `tests/torch_stats/int_plsi_test.py` for both output shape and hand-checked numeric values.
+This still shows up in:
 
----
+- `src/dmx/torch_stats/conditional.py`
+- `src/dmx/torch_stats/hmm.py`
+- `src/dmx/torch_stats/int_plsi.py`
+- `src/dmx/torch_stats/intmultinomial.py`
+- `src/dmx/torch_stats/intrange.py`
+- `src/dmx/torch_stats/intsetdist.py`
 
-### 5. `viterbi()` single-sequence API is intentional [COMPLETED]
-**File:** `src/dmx/torch_stats/hmm.py` (~line 266)
+Resolution pattern:
 
-`viterbi(x)` accepts a **single raw sequence** (`List[T]`), unlike the `seq_*` methods which operate on encoded batches. After review, this is an intentional API distinction rather than a bug: `viterbi()` is a single-sequence decoding routine, not a vectorized `seq_*` method.
+- Move index tensors onto the parameter tensor device before indexed reads or
+  writes
+- Move boolean masks onto the target tensor device before masked assignment
+- Keep the output tensor on the model device and only convert index tensors as
+  needed
 
-**Resolution:** Keep `viterbi()` as-is. The existing tests in `tests/torch_stats/hidden_markov_test.py` already exercise it with individual raw sequences, which matches the intended contract.
+### 2. Unsupported MPS Operators
 
----
+These failures look like:
 
-## Next Steps
+```text
+NotImplementedError: The operator 'aten::_sample_dirichlet' is not currently implemented for the MPS device
+```
 
-1. [x] **Fix `ExponentialEstimator`** — completed in `src/dmx/torch_stats/exponential.py`; added regression coverage in `tests/torch_stats/exponential_test.py`.
-2. [x] **Fix `HeterogeneousMixtureDistribution` EM update bug** — corrected encoder-group indexing in `src/dmx/torch_stats/heterogenous_mixture.py`; added regression coverage in `tests/torch_stats/heterogeneous_mixture_test.py`.
-3. [x] **Fix `HiddenMarkovAccumulator.seq_initialize`** — corrected sequence-weight indexing in `src/dmx/torch_stats/hmm.py`; re-enabled HMM EM coverage and added empty-sequence regression coverage in `tests/torch_stats/hidden_markov_test.py`.
-4. [x] **Fix `IntegerPLSIDistribution.component_log_density`** — replaced the invalid `torch.dot` call with `torch.matmul` in `src/dmx/torch_stats/int_plsi.py`; added shape and numeric regression coverage in `tests/torch_stats/int_plsi_test.py`.
-5. [x] **Keep `viterbi()` as a single-sequence API** — reviewed and confirmed intentional; no code changes needed.
-6. **Run on MPS/CUDA** — `tests/torch_stats` now supports env-driven backend selection via `TEST_TORCH_DEVICE` (default `cpu`) through `tests/torch_stats/torch_stats_tests.py`; remaining work is to execute the suite on MPS/CUDA hardware and validate float32 tolerances on MPS.
-7. [x] **Add `pytest-dependency`** — added to the `test` extra in `pyproject.toml`, resolving the `PytestUnknownMarkWarning` noise for the dependency markers.
+and:
+
+```text
+NotImplementedError: The operator 'aten::_cholesky_solve_helper' is not currently implemented for the MPS device
+```
+
+Affected areas:
+
+- `src/dmx/torch_stats/int_plsi.py` initialization path
+- `src/dmx/torch_stats/mixture.py` / `src/dmx/torch_stats/heterogenous_mixture.py`
+  initialization paths
+- `src/dmx/torch_stats/mvn.py` for multivariate Gaussian log-density
+
+Resolution pattern:
+
+- For Dirichlet initialization, use CPU fallback and move results back to MPS
+- For unsupported linear algebra like `cholesky_solve`, compute on CPU for the
+  affected path and move the result back to the model device
+
+### 3. Nested Encoded Structures Keep Mixed Devices Internally
+
+Some top-level encoded sequences are on MPS, but nested tensors or cached model
+parameters are still on CPU.
+
+This is especially relevant in:
+
+- `src/dmx/torch_stats/conditional.py`
+- `src/dmx/torch_stats/hmm.py`
+- `src/dmx/torch_stats/int_plsi.py`
+- `src/dmx/torch_stats/sequence.py`
+
+Resolution pattern:
+
+- Ensure `to(device)` actually migrates all cached tensors
+- Ensure nested distributions used inside composite/conditional/HMM structures
+  are moved to the selected device during test setup and model construction
+- When this is too fragile, explicitly coerce intermediate tensors inside the
+  hot path
+
+### 4. HMM Sampling / Normalization Instability After MPS Float32 Switch
+
+Current HMM failures are not only device mismatches. Some now fail during
+sampling with:
+
+```text
+ValueError: probabilities do not sum to 1
+```
+
+Likely cause:
+
+- probability maps derived from float32 tensors are not renormalized before
+  they are handed to numpy sampling code
+
+Resolution pattern:
+
+- inspect `HiddenMarkovSampler` and `MarkovChainDistribution` handoff
+- normalize `w` and each transition row on CPU before constructing the numpy
+  sampler inputs
+
+## Recommended Order of Work
+
+### Step 1. Fix discrete/indexed distributions first
+
+Start here because the fixes are localized and unblock several higher-level
+ models.
+
+Files:
+
+- `src/dmx/torch_stats/intrange.py`
+- `src/dmx/torch_stats/intsetdist.py`
+- `src/dmx/torch_stats/intmultinomial.py`
+- `src/dmx/torch_stats/int_plsi.py`
+
+Goal:
+
+- all direct indexing uses tensors on the same device
+
+Suggested validation:
+
+```bash
+export NUMBA_DISABLE_JIT=1
+TEST_TORCH_DEVICE=mps python -m pytest tests/torch_stats/intrange_test.py -q
+TEST_TORCH_DEVICE=mps python -m pytest tests/torch_stats/intsetdist_test.py -q
+TEST_TORCH_DEVICE=mps python -m pytest tests/torch_stats/intmultinomial_test.py -q
+TEST_TORCH_DEVICE=mps python -m pytest tests/torch_stats/int_plsi_test.py -q
+```
+
+### Step 2. Fix conditional and sequence-style nested models
+
+Files:
+
+- `src/dmx/torch_stats/conditional.py`
+- `src/dmx/torch_stats/sequence.py`
+
+Goal:
+
+- nested encodings and index tensors operate consistently on MPS
+
+Suggested validation:
+
+```bash
+export NUMBA_DISABLE_JIT=1
+TEST_TORCH_DEVICE=mps python -m pytest tests/torch_stats/conditional_test.py -q
+TEST_TORCH_DEVICE=mps python -m pytest tests/torch_stats/sequence_test.py -q
+```
+
+### Step 3. Fix HMM device and normalization issues
+
+Files:
+
+- `src/dmx/torch_stats/hmm.py`
+
+Focus areas:
+
+- device alignment for masks / indexing
+- transition tensor construction on MPS
+- sampler probability normalization before numpy sampling
+
+Suggested validation:
+
+```bash
+export NUMBA_DISABLE_JIT=1
+TEST_TORCH_DEVICE=mps python -m pytest tests/torch_stats/hidden_markov_test.py -q
+```
+
+### Step 4. Fix unsupported-op fallbacks for remaining structured models
+
+Files:
+
+- `src/dmx/torch_stats/int_plsi.py`
+- `src/dmx/torch_stats/mixture.py`
+- `src/dmx/torch_stats/heterogenous_mixture.py`
+- `src/dmx/torch_stats/mvn.py`
+
+Goal:
+
+- CPU fallback for MPS-missing ops, while preserving MPS-facing API behavior
+
+Suggested validation:
+
+```bash
+export NUMBA_DISABLE_JIT=1
+TEST_TORCH_DEVICE=mps python -m pytest tests/torch_stats/mixture_test.py -q
+TEST_TORCH_DEVICE=mps python -m pytest tests/torch_stats/heterogeneous_mixture_test.py -q
+TEST_TORCH_DEVICE=mps python -m pytest tests/torch_stats/mvn_test.py -q
+```
+
+## Practical Notes
+
+- Reinstall test dependencies if the `pytest.mark.dependency` warnings persist:
+
+```bash
+pip install -e ".[test]"
+```
+
+- Prefer small-file validation as you go rather than rerunning the full suite
+  after every edit
+- Once the targeted files pass, rerun the full suite:
+
+```bash
+export NUMBA_DISABLE_JIT=1
+TEST_TORCH_DEVICE=mps python -m pytest tests/torch_stats
+```
+
+## Exit Criteria
+
+This task is complete when:
+
+- `tests/torch_stats` passes on `TEST_TORCH_DEVICE=mps`
+- no remaining failures are due to MPS dtype/device mismatches
+- unsupported MPS ops are either handled or explicitly avoided
