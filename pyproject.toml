@@ -1,47 +1,93 @@
-[build-system]
-requires = ["setuptools>=61.0"]
-build-backend = "setuptools.build_meta"
-
-[project]
+[tool.poetry]
 name = "dmx-learn"
-version = "1.0.0"
-description = "A package for estimating heterogeneous probability density functions."
+version = "2.0.0"
+description = "Distributed mixture learning for heterogeneous density estimation. Fit complex probabilistic models on variable-length heterogeneous data with support for distributed computing (Spark, MPI) and GPU acceleration (PyTorch)."
+authors = ["Adam Walder"]
+license = "BSD"
 readme = "README.md"
-requires-python = ">=3.10"
-license = { text = "BSD" }
-authors = [
-  { name="Adam Walder" }
-]
-
+homepage = "https://dmx-learn.readthedocs.io/en/latest/"
+repository = "https://github.com/llnl/dmx-learn"
+documentation = "https://dmx-learn.readthedocs.io/en/latest/"
+packages = [{include = "dmx", from = "src"}]
 classifiers = [
-  "Programming Language :: Python",
-  "Development Status :: 4 - Beta",
-  "Intended Audience :: Developers",
+    "Development Status :: 5 - Production/Stable",
+    "Programming Language :: Python",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Intended Audience :: Developers",
+    "Intended Audience :: Science/Research",
+    "Topic :: Scientific/Engineering",
+    "Topic :: Scientific/Engineering :: Artificial Intelligence",
+    "Topic :: Scientific/Engineering :: Mathematics",
+    "License :: OSI Approved :: BSD License",
+    "Operating System :: OS Independent",
 ]
-
 keywords = [
-  "machine learning",
-  "density estimation",
-  "statistics",
-  "heterogeneous data"
+    "machine learning",
+    "density estimation",
+    "statistics",
+    "heterogeneous data",
+    "distributed computing",
+    "mixture models",
+    "probabilistic modeling",
+    "spark",
+    "mpi",
+    "pytorch",
+    "gpu acceleration",
+    "probability density",
+    "statistical learning",
+    "data science",
 ]
 
-dependencies = [
-  "mpmath",
-  "numba",
-  "numpy",
-  "pandas",
-  "pyspark",
-  "scipy"
-]
+[tool.poetry.dependencies]
+python = "^3.10"
+# Core dependencies - always installed
+numpy = "^2.2.0"
+scipy = "^1.15.0"
+numba = "^0.62.0"
+mpmath = "^1.3.0"
+pandas = "^2.3.0"
+pyspark = "^4.0.0"
 
-[project.optional-dependencies]
-test = [
-  "pytest"
-]
-optional = [
-  "mpi4py",
-  "umap-learn"
+# Optional dependencies (for pip extras support)
+torch = {version = "^2.0.0", optional = true}
+mpi4py = {version = "^4.0.0", optional = true}
+umap-learn = {version = "^0.5.0", optional = true}
+
+[tool.poetry.extras]
+torch = ["torch"]
+optional = ["mpi4py", "umap-learn"]
+all = ["torch", "mpi4py", "umap-learn"]
+
+[tool.poetry.group.dev]
+optional = true
+
+[tool.poetry.group.dev.dependencies]
+pytest = "^8.0.0"
+pytest-dependency = "^0.6.0"
+
+[tool.poetry.group.docs]
+optional = true
+
+[tool.poetry.group.docs.dependencies]
+sphinx = "^8.0.0"
+sphinx-rtd-theme = "^3.0.0"
+sphinx-autodoc-typehints = "^3.0.0"
+
+[build-system]
+requires = ["poetry-core>=1.0.0"]
+build-backend = "poetry.core.masonry.api"
+
+[tool.pytest.ini_options]
+pythonpath = ["."]
+testpaths = ["tests"]
+python_files = ["*_test.py", "test_*.py"]
+python_classes = ["Test*", "*TestCase"]
+python_functions = ["test_*"]
+markers = [
+    "torch: marks tests as requiring PyTorch (skipped if torch not installed)",
 ]
 
 [tool.setuptools]

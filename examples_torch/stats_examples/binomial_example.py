@@ -1,12 +1,13 @@
 """Example for ConditionalDistribution. Define distribution, generate data,
 estimate, and evaluate likelihoods."""
-from dmx.stats import *
-from dmx.utils.estimation import optimize
-from numpy.random import RandomState
+from dmx.torch_stats import *
+from dmx.torch_utils import detect_device
+from dmx.torch_utils.estimation import optimize
+
+device = detect_device()
 
 if __name__ == '__main__':
     n = int(1e4)
-    rng = RandomState(1)
     # Define the model
     dist = BinomialDistribution(p=0.4, n=5, min_val=0)
     # Generate data from sampler
@@ -17,7 +18,7 @@ if __name__ == '__main__':
     # Define estimator
     est = BinomialEstimator()
     # Estimate model
-    model = optimize(data, est, max_its=100, rng=rng, print_iter=1)
+    model = optimize(data=data, estimator=est, max_its=100, seed=1, print_iter=1, device=device)
     print(str(model))
     # Eval likelihood on a an observation 
     ll0 = model.log_density(data[0])
@@ -27,5 +28,10 @@ if __name__ == '__main__':
     # Eval likleihood at all data points (fast)
     ll = model.seq_log_density(enc_data)
     print(f'Likelihood of estimated model on data: {ll}')
+
+    # Check model device and move it to cpu (or some other device if prefered)
+    print(f"\nEstimated model is on {model.model_device()}.\nMoving it to the cpu...")
+    model.to(torch.device("cpu"))
+
 
 
