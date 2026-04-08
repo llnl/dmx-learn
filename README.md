@@ -343,13 +343,3 @@ export PYTHONPATH=/path/to/dmx-learn:$PYTHONPATH
 BSD License
 
 ---
-
-## 🙏 Citation
-
-If you use dmx-learn in your research, please cite...
-
----
-
-## 📞 Contact
-
-For questions, issues, or contributions, please contact...
