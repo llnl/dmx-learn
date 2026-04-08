@@ -1,8 +1,4 @@
 import os
-import sys
-
-os.environ['NUMBA_DISABLE_JIT'] = '1'
-
 import numpy as np
 import torch as tn
 from dmx.torch_stats import *
