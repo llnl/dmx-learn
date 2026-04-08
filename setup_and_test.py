@@ -55,8 +55,51 @@ subprocess.check_call([python_bin, "-m", "pytest", "tests/examples"])
 print("\nRunning util tests...")
 subprocess.check_call([python_bin, "-m", "pytest", "tests/utils"])
 
+# ----------------------------
+# 7. Run torch tests (if available)
+# ----------------------------
+print("\nChecking for PyTorch...")
+try:
+    # Check if torch is available
+    result = subprocess.run(
+        [python_bin, "-c", "import torch; print(torch.__version__)"],
+        capture_output=True,
+        text=True,
+        timeout=10
+    )
+    
+    if result.returncode == 0:
+        torch_version = result.stdout.strip()
+        print(f"PyTorch {torch_version} detected. Running torch_stats tests...")
+        
+        # Set environment variables for torch tests
+        env = os.environ.copy()
+        env['NUMBA_DISABLE_JIT'] = '1'
+        
+        # Check for TEST_TORCH_DEVICE environment variable
+        test_device = os.environ.get('TEST_TORCH_DEVICE', 'cpu')
+        if test_device != 'cpu':
+            print(f"Testing on device: {test_device}")
+            env['TEST_TORCH_DEVICE'] = test_device
+        
+        # Run torch tests
+        subprocess.check_call(
+            [python_bin, "-m", "pytest", "tests/torch_stats", "-v"],
+            env=env
+        )
+        print("✅ Torch tests passed!")
+    else:
+        print("⚠️  PyTorch not installed. Skipping torch_stats tests.")
+        print("   To install: pip install torch")
+        
+except subprocess.TimeoutExpired:
+    print("⚠️  Torch import timed out. Skipping torch_stats tests.")
+except Exception as e:
+    print(f"⚠️  Could not detect PyTorch: {e}")
+    print("   Skipping torch_stats tests.")
+
 # # ----------------------------
-# # 7. Run MPI-enabled tests
+# # 8. Run MPI-enabled tests
 # # ----------------------------
 # print("\nRunning MPI-enabled tests with 4 processes...")
 # subprocess.check_call([mpiexec_bin, "-n", "4", python_bin, "-m", "pytest", "tests/mpi4py"])

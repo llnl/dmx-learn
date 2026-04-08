@@ -67,6 +67,9 @@ testpaths = ["tests"]
 python_files = ["*_test.py", "test_*.py"]
 python_classes = ["Test*", "*TestCase"]
 python_functions = ["test_*"]
+markers = [
+    "torch: marks tests as requiring PyTorch (skipped if torch not installed)",
+]
 
 [tool.setuptools]
 zip-safe = false
