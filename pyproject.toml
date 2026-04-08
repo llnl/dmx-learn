@@ -1,49 +1,72 @@
-[build-system]
-requires = ["setuptools>=61.0"]
-build-backend = "setuptools.build_meta"
-
-[project]
+[tool.poetry]
 name = "dmx-learn"
 version = "1.0.0"
 description = "A package for estimating heterogeneous probability density functions."
+authors = ["Adam Walder"]
+license = "BSD"
 readme = "README.md"
-requires-python = ">=3.10"
-license = { text = "BSD" }
-authors = [
-  { name="Adam Walder" }
-]
-
+packages = [{include = "dmx", from = "src"}]
 classifiers = [
-  "Programming Language :: Python",
-  "Development Status :: 4 - Beta",
-  "Intended Audience :: Developers",
+    "Programming Language :: Python",
+    "Development Status :: 4 - Beta",
+    "Intended Audience :: Developers",
 ]
-
 keywords = [
-  "machine learning",
-  "density estimation",
-  "statistics",
-  "heterogeneous data"
+    "machine learning",
+    "density estimation",
+    "statistics",
+    "heterogeneous data"
 ]
 
-dependencies = [
-  "mpmath",
-  "numba",
-  "numpy",
-  "pandas",
-  "pyspark",
-  "scipy"
-]
+[tool.poetry.dependencies]
+python = "^3.10"
+# Core dependencies - always installed
+numpy = "^2.2.0"
+scipy = "^1.15.0"
+numba = "^0.62.0"
+mpmath = "^1.3.0"
+pandas = "^2.3.0"
+pyspark = "^4.0.0"
 
-[project.optional-dependencies]
-test = [
-  "pytest",
-  "pytest-dependency"
-]
-optional = [
-  "mpi4py",
-  "umap-learn"
-]
+# Optional dependency groups
+[tool.poetry.group.torch]
+optional = true
+
+[tool.poetry.group.torch.dependencies]
+torch = "^2.0.0"
+
+[tool.poetry.group.mpi]
+optional = true
+
+[tool.poetry.group.mpi.dependencies]
+mpi4py = "^4.0.0"
+umap-learn = "^0.5.0"
+
+[tool.poetry.group.dev]
+optional = true
+
+[tool.poetry.group.dev.dependencies]
+pytest = "^8.0.0"
+pytest-dependency = "^0.6.0"
+
+[tool.poetry.group.docs]
+optional = true
+
+[tool.poetry.group.docs.dependencies]
+sphinx = "^8.0.0"
+sphinx-rtd-theme = "^3.0.0"
+sphinx-autodoc-typehints = "^3.0.0"
+
+[build-system]
+requires = ["poetry-core>=1.0.0"]
+build-backend = "poetry.core.masonry.api"
+
+[tool.pytest.ini_options]
+pythonpath = ["."]
+testpaths = ["tests"]
+python_files = ["*_test.py", "test_*.py"]
+python_classes = ["Test*", "*TestCase"]
+python_functions = ["test_*"]
 
 [tool.setuptools]
 zip-safe = false
