@@ -1,21 +1,44 @@
 [tool.poetry]
 name = "dmx-learn"
-version = "1.0.0"
-description = "A package for estimating heterogeneous probability density functions."
+version = "2.0.0"
+description = "Distributed mixture learning for heterogeneous density estimation. Fit complex probabilistic models on variable-length heterogeneous data with support for distributed computing (Spark, MPI) and GPU acceleration (PyTorch)."
 authors = ["Adam Walder"]
 license = "BSD"
 readme = "README.md"
+homepage = "https://dmx-learn.readthedocs.io/en/latest/"
+repository = "https://github.com/llnl/dmx-learn"
+documentation = "https://dmx-learn.readthedocs.io/en/latest/"
 packages = [{include = "dmx", from = "src"}]
 classifiers = [
+    "Development Status :: 5 - Production/Stable",
     "Programming Language :: Python",
-    "Development Status :: 4 - Beta",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
     "Intended Audience :: Developers",
+    "Intended Audience :: Science/Research",
+    "Topic :: Scientific/Engineering",
+    "Topic :: Scientific/Engineering :: Artificial Intelligence",
+    "Topic :: Scientific/Engineering :: Mathematics",
+    "License :: OSI Approved :: BSD License",
+    "Operating System :: OS Independent",
 ]
 keywords = [
     "machine learning",
     "density estimation",
     "statistics",
-    "heterogeneous data"
+    "heterogeneous data",
+    "distributed computing",
+    "mixture models",
+    "probabilistic modeling",
+    "spark",
+    "mpi",
+    "pytorch",
+    "gpu acceleration",
+    "probability density",
+    "statistical learning",
+    "data science",
 ]
 
 [tool.poetry.dependencies]
