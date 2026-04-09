@@ -143,3 +143,9 @@ module = [
   "pyspark.*",
 ]
 ignore_missing_imports = true
+
+[tool.pydocstyle]
+convention = "google"
+add-ignore = "D100"
+match = '(?!test_|__init__).*\.py'
+match-dir = '^(?!(\.|tests|build|dist)).*'
