@@ -30,24 +30,43 @@ where x[0] = [(value, count)] for the unique values of x_mat = (X_1,X_2,...,X_M)
 the unique values of Y = (Y_1,...,Y_N) in V as well.
 
 """
-import numpy as np
+
 import math
+from typing import Any, Dict, List, Optional, Sequence, Tuple, TypeVar, Union
+
+import numpy as np
+
 from dmx.arithmetic import *
-from dmx.stats.pdist import SequenceEncodableProbabilityDistribution, SequenceEncodableStatisticAccumulator, \
-    ParameterEstimator, StatisticAccumulatorFactory, DistributionSampler, DataSequenceEncoder, EncodedDataSequence
-from dmx.utils.optsutil import count_by_value
 from dmx.arithmetic import maxrandint
-from dmx.stats.null_dist import NullDistribution, NullAccumulator, NullEstimator, NullDataEncoder, \
-    NullAccumulatorFactory
-from dmx.stats.conditional import ConditionalDistribution, ConditionalDistributionAccumulator, \
-    ConditionalDistributionEstimator, ConditionalDistributionAccumulatorFactory
-from typing import TypeVar, Dict, List, Sequence, Any, Optional, Tuple, Union
+from dmx.stats.conditional import (
+    ConditionalDistribution,
+    ConditionalDistributionAccumulator,
+    ConditionalDistributionAccumulatorFactory,
+    ConditionalDistributionEstimator,
+)
+from dmx.stats.null_dist import (
+    NullAccumulator,
+    NullAccumulatorFactory,
+    NullDataEncoder,
+    NullDistribution,
+    NullEstimator,
+)
+from dmx.stats.pdist import (
+    DataSequenceEncoder,
+    DistributionSampler,
+    EncodedDataSequence,
+    ParameterEstimator,
+    SequenceEncodableProbabilityDistribution,
+    SequenceEncodableStatisticAccumulator,
+    StatisticAccumulatorFactory,
+)
+from dmx.utils.optsutil import count_by_value
 
+T = TypeVar("T")  ### value data type
+SS1 = TypeVar("SS1")  ### Data type for suff stats of conditional
+SS2 = TypeVar("SS2")  ### Data type for suff stats of given
+SS3 = TypeVar("SS3")  ### Data type for suff stats of length
 
-T = TypeVar('T') ### value data type
-SS1 = TypeVar('SS1') ### Data type for suff stats of conditional
-SS2 = TypeVar('SS2') ### Data type for suff stats of given
-SS3 = TypeVar('SS3') ### Data type for suff stats of length
 
 class HiddenAssociationDistribution(SequenceEncodableProbabilityDistribution):
     """HiddenAssociationDistribution object for specifying hidden association models.
@@ -63,11 +82,18 @@ class HiddenAssociationDistribution(SequenceEncodableProbabilityDistribution):
 
     """
 
-    def __init__(self, cond_dist: ConditionalDistribution,
-                 given_dist: Optional[SequenceEncodableProbabilityDistribution] = NullDistribution(),
-                 len_dist: Optional[SequenceEncodableProbabilityDistribution] = NullDistribution(),
-                 name: Optional[str] = None,
-                 keys: Optional[Tuple[Optional[str], Optional[str]]] = (None, None)) -> None:
+    def __init__(
+        self,
+        cond_dist: ConditionalDistribution,
+        given_dist: Optional[
+            SequenceEncodableProbabilityDistribution
+        ] = NullDistribution(),
+        len_dist: Optional[
+            SequenceEncodableProbabilityDistribution
+        ] = NullDistribution(),
+        name: Optional[str] = None,
+        keys: Optional[Tuple[Optional[str], Optional[str]]] = (None, None),
+    ) -> None:
         """HiddenAssociationDistribution object.
 
         Args:
@@ -94,12 +120,17 @@ class HiddenAssociationDistribution(SequenceEncodableProbabilityDistribution):
         s4 = repr(self.name)
         s5 = repr(self.keys)
 
-        return 'HiddenAssociationDistribution(%s, given_dist=%s, len_dist=%s, name=%s, keys=%s)' % (s1, s2, s3, s4, s5)
+        return (
+            "HiddenAssociationDistribution(%s, given_dist=%s, len_dist=%s, name=%s, keys=%s)"
+            % (s1, s2, s3, s4, s5)
+        )
 
     def density(self, x: Tuple[List[Tuple[T, float]], List[Tuple[T, float]]]) -> float:
         return exp(self.log_density(x))
 
-    def log_density(self, x: Tuple[List[Tuple[T, float]], List[Tuple[T, float]]]) -> float:
+    def log_density(
+        self, x: Tuple[List[Tuple[T, float]], List[Tuple[T, float]]]
+    ) -> float:
         rv = 0
         nn = 0
         for x1, c1 in x[1]:
@@ -126,44 +157,60 @@ class HiddenAssociationDistribution(SequenceEncodableProbabilityDistribution):
 
         return rv
 
-    def seq_log_density(self, x: 'HiddenAssociationEncodedDataSequence') -> np.ndarray:
+    def seq_log_density(self, x: "HiddenAssociationEncodedDataSequence") -> np.ndarray:
         if not isinstance(x, HiddenAssociationEncodedDataSequence):
-            raise Exception('Requires HiddenAssociationEncodedDataSequence.')
+            raise Exception("Requires HiddenAssociationEncodedDataSequence.")
 
         return np.asarray([self.log_density(xx) for xx in x.data])
 
-    def sampler(self, seed: Optional[int] = None) -> 'HiddenAssociationSampler':
+    def sampler(self, seed: Optional[int] = None) -> "HiddenAssociationSampler":
         return HiddenAssociationSampler(self, seed)
 
-    def estimator(self, pseudo_count: Optional[float] = None) -> 'HiddenAssociationEstimator':
-        return HiddenAssociationEstimator(cond_estimator=self.cond_dist.estimator(),
-                                          given_estimator=self.given_dist.estimator(),
-                                          len_estimator=self.len_dist.estimator(),
-                                          name=self.name,
-                                          keys=self.keys)
+    def estimator(
+        self, pseudo_count: Optional[float] = None
+    ) -> "HiddenAssociationEstimator":
+        return HiddenAssociationEstimator(
+            cond_estimator=self.cond_dist.estimator(),
+            given_estimator=self.given_dist.estimator(),
+            len_estimator=self.len_dist.estimator(),
+            name=self.name,
+            keys=self.keys,
+        )
 
-    def dist_to_encoder(self) -> 'HiddenAssociationDataEncoder':
+    def dist_to_encoder(self) -> "HiddenAssociationDataEncoder":
         return HiddenAssociationDataEncoder()
+
 
 class HiddenAssociationSampler(DistributionSampler):
 
-    def __init__(self, dist: HiddenAssociationDistribution, seed: Optional[int] = None) -> None:
+    def __init__(
+        self, dist: HiddenAssociationDistribution, seed: Optional[int] = None
+    ) -> None:
         if isinstance(dist.given_dist, NullDistribution):
-            raise Exception('HiddenAssociationSampler requires attribute dist.given_dist.')
+            raise Exception(
+                "HiddenAssociationSampler requires attribute dist.given_dist."
+            )
         if isinstance(dist.len_dist, NullDistribution):
-            raise Exception('HiddenAssociationSampler requires attribute dist.len_dist.')
+            raise Exception(
+                "HiddenAssociationSampler requires attribute dist.len_dist."
+            )
 
         self.rng = np.random.RandomState(seed)
         self.dist = dist
 
         self.cond_sampler = dist.cond_dist.sampler(seed=self.rng.randint(0, maxrandint))
         self.idx_sampler = np.random.RandomState(seed=self.rng.randint(0, maxrandint))
-        self.len_sampler = self.dist.len_dist.sampler(seed=self.rng.randint(0, maxrandint))
-        self.given_sampler = self.dist.given_dist.sampler(seed=self.rng.randint(0, maxrandint))
+        self.len_sampler = self.dist.len_dist.sampler(
+            seed=self.rng.randint(0, maxrandint)
+        )
+        self.given_sampler = self.dist.given_dist.sampler(
+            seed=self.rng.randint(0, maxrandint)
+        )
 
-    def sample(self, size: Optional[int] = None)\
-            -> Union[Sequence[Tuple[List[Tuple[Any, float]], List[Tuple[Any, float]]]],
-                     Tuple[List[Tuple[Any, float]], List[Tuple[Any, float]]]]:
+    def sample(self, size: Optional[int] = None) -> Union[
+        Sequence[Tuple[List[Tuple[Any, float]], List[Tuple[Any, float]]]],
+        Tuple[List[Tuple[Any, float]], List[Tuple[Any, float]]],
+    ]:
         if size is None:
             prev_obs = self.given_sampler.sample()
             cnt = self.len_sampler.sample()
@@ -199,19 +246,30 @@ class HiddenAssociationSampler(DistributionSampler):
 
 class HiddenAssociationAccumulator(SequenceEncodableStatisticAccumulator):
 
-    def __init__(self, cond_acc: ConditionalDistributionAccumulator,
-                 given_acc: Optional[SequenceEncodableStatisticAccumulator] = NullAccumulator(),
-                 size_acc: Optional[SequenceEncodableStatisticAccumulator] = NullAccumulator(),
-                 name: Optional[str] = None,
-                 keys: Optional[Tuple[Optional[str],Optional[str]]] = (None, None)) -> None:
+    def __init__(
+        self,
+        cond_acc: ConditionalDistributionAccumulator,
+        given_acc: Optional[SequenceEncodableStatisticAccumulator] = NullAccumulator(),
+        size_acc: Optional[SequenceEncodableStatisticAccumulator] = NullAccumulator(),
+        name: Optional[str] = None,
+        keys: Optional[Tuple[Optional[str], Optional[str]]] = (None, None),
+    ) -> None:
         self.cond_accumulator = cond_acc
-        self.given_accumulator = given_acc if given_acc is not None else NullAccumulator()
+        self.given_accumulator = (
+            given_acc if given_acc is not None else NullAccumulator()
+        )
         self.size_accumulator = size_acc if size_acc is not None else NullAccumulator()
-        self.init_key, self.trans_key = keys[0], keys[1] if keys is not None else (None, None)
+        self.init_key, self.trans_key = keys[0], (
+            keys[1] if keys is not None else (None, None)
+        )
         self.name = name
 
-    def update(self, x: Tuple[List[Tuple[T, float]], List[Tuple[T, float]]], weight: float,
-               estimate: HiddenAssociationDistribution) -> None:
+    def update(
+        self,
+        x: Tuple[List[Tuple[T, float]], List[Tuple[T, float]]],
+        weight: float,
+        estimate: HiddenAssociationDistribution,
+    ) -> None:
         nn = 0
         pv = np.zeros(len(x[0]))
 
@@ -237,7 +295,9 @@ class HiddenAssociationAccumulator(SequenceEncodableStatisticAccumulator):
             np.exp(pv, out=pv)
 
             for i, (x0, c0) in enumerate(x[0]):
-                self.cond_accumulator.update((x0, x1), pv[i] * c1 * weight, estimate.cond_dist)
+                self.cond_accumulator.update(
+                    (x0, x1), pv[i] * c1 * weight, estimate.cond_dist
+                )
 
         if self.given_accumulator is not None:
             given_dist = None if estimate is None else estimate.given_dist
@@ -247,8 +307,12 @@ class HiddenAssociationAccumulator(SequenceEncodableStatisticAccumulator):
             len_dist = None if estimate is None else estimate.len_dist
             self.size_accumulator.update(nn, weight, len_dist)
 
-    def initialize(self, x: Tuple[List[Tuple[T, float]], List[Tuple[T, float]]], weight: float,
-                   rng: np.random.RandomState) -> None:
+    def initialize(
+        self,
+        x: Tuple[List[Tuple[T, float]], List[Tuple[T, float]]],
+        weight: float,
+        rng: np.random.RandomState,
+    ) -> None:
         w = rng.dirichlet(np.ones(len(x[0])), size=len(x[1]))
         nn = 0
         for j, (x1, c1) in enumerate(x[1]):
@@ -262,17 +326,27 @@ class HiddenAssociationAccumulator(SequenceEncodableStatisticAccumulator):
         if self.size_accumulator is not None:
             self.size_accumulator.initialize(nn, weight, rng)
 
-    def seq_initialize(self, x:  'HiddenAssociationEncodedDataSequence',
-                       weights: np.ndarray, rng: np.random.RandomState) -> None:
+    def seq_initialize(
+        self,
+        x: "HiddenAssociationEncodedDataSequence",
+        weights: np.ndarray,
+        rng: np.random.RandomState,
+    ) -> None:
         for i, xx in enumerate(x.data):
             self.initialize(xx, weights[i], rng)
 
-    def seq_update(self, x: 'HiddenAssociationEncodedDataSequence', weights: np.ndarray,
-                   estimate: HiddenAssociationDistribution) -> None:
+    def seq_update(
+        self,
+        x: "HiddenAssociationEncodedDataSequence",
+        weights: np.ndarray,
+        estimate: HiddenAssociationDistribution,
+    ) -> None:
         for xx, ww in zip(x.data, weights):
             self.update(xx, ww, estimate)
 
-    def combine(self, suff_stat: Tuple[SS1, Optional[SS2], Optional[SS3]]) -> 'HiddenAssociationAccumulator':
+    def combine(
+        self, suff_stat: Tuple[SS1, Optional[SS2], Optional[SS3]]
+    ) -> "HiddenAssociationAccumulator":
         cond_acc, given_acc, size_acc = suff_stat
 
         self.cond_accumulator.combine(cond_acc)
@@ -282,9 +356,15 @@ class HiddenAssociationAccumulator(SequenceEncodableStatisticAccumulator):
         return self
 
     def value(self) -> Tuple[Any, Optional[Any], Optional[Any]]:
-        return self.cond_accumulator.value(), self.given_accumulator.value(), self.size_accumulator.value()
+        return (
+            self.cond_accumulator.value(),
+            self.given_accumulator.value(),
+            self.size_accumulator.value(),
+        )
 
-    def from_value(self, x: Tuple[SS1, Optional[SS2], Optional[SS3]]) -> 'HiddenAssociationAccumulator':
+    def from_value(
+        self, x: Tuple[SS1, Optional[SS2], Optional[SS3]]
+    ) -> "HiddenAssociationAccumulator":
         cond_acc, given_acc, size_acc = x
 
         self.cond_accumulator.from_value(cond_acc)
@@ -299,26 +379,38 @@ class HiddenAssociationAccumulator(SequenceEncodableStatisticAccumulator):
     def key_replace(self, stats_dict: Dict[str, Any]) -> None:
         self.size_accumulator.key_replace(stats_dict)
 
-    def acc_to_encoder(self) -> 'HiddenAssociationDataEncoder':
+    def acc_to_encoder(self) -> "HiddenAssociationDataEncoder":
         return HiddenAssociationDataEncoder()
 
 
 class HiddenAssociationAccumulatorFactory(StatisticAccumulatorFactory):
 
-    def __init__(self, cond_factory: ConditionalDistributionAccumulatorFactory,
-                 given_factory: Optional[StatisticAccumulatorFactory] = NullAccumulatorFactory(),
-                 len_factory: Optional[StatisticAccumulatorFactory] = NullAccumulatorFactory(),
-                 name: Optional[str] = None,
-                 keys: Optional[Tuple[Optional[str], Optional[str]]] = (None, None)) -> None:
+    def __init__(
+        self,
+        cond_factory: ConditionalDistributionAccumulatorFactory,
+        given_factory: Optional[StatisticAccumulatorFactory] = NullAccumulatorFactory(),
+        len_factory: Optional[StatisticAccumulatorFactory] = NullAccumulatorFactory(),
+        name: Optional[str] = None,
+        keys: Optional[Tuple[Optional[str], Optional[str]]] = (None, None),
+    ) -> None:
         self.cond_factory = cond_factory
-        self.given_factory = given_factory if given_factory is not None else NullAccumulatorFactory()
-        self.len_factory = len_factory if len_factory is not None else NullAccumulatorFactory()
+        self.given_factory = (
+            given_factory if given_factory is not None else NullAccumulatorFactory()
+        )
+        self.len_factory = (
+            len_factory if len_factory is not None else NullAccumulatorFactory()
+        )
         self.keys = keys if keys is not None else (None, None)
         self.name = name
 
-    def make(self) -> 'HiddenAssociationAccumulator':
-        return HiddenAssociationAccumulator(self.cond_factory.make(), self.given_factory.make(),
-                                            self.len_factory.make(), self.name, self.keys)
+    def make(self) -> "HiddenAssociationAccumulator":
+        return HiddenAssociationAccumulator(
+            self.cond_factory.make(),
+            self.given_factory.make(),
+            self.len_factory.make(),
+            self.name,
+            self.keys,
+        )
 
 
 class HiddenAssociationEstimator(ParameterEstimator):
@@ -336,12 +428,15 @@ class HiddenAssociationEstimator(ParameterEstimator):
 
     """
 
-    def __init__(self, cond_estimator: ConditionalDistributionEstimator,
-                 given_estimator: Optional[ParameterEstimator] = NullEstimator(),
-                 len_estimator: Optional[ParameterEstimator] = NullEstimator(),
-                 pseudo_count: Optional[float] = None,
-                 name: Optional[str] = None,
-                 keys: Optional[Tuple[Optional[str], Optional[str]]] = (None, None)) -> None:
+    def __init__(
+        self,
+        cond_estimator: ConditionalDistributionEstimator,
+        given_estimator: Optional[ParameterEstimator] = NullEstimator(),
+        len_estimator: Optional[ParameterEstimator] = NullEstimator(),
+        pseudo_count: Optional[float] = None,
+        name: Optional[str] = None,
+        keys: Optional[Tuple[Optional[str], Optional[str]]] = (None, None),
+    ) -> None:
         """HiddenAssociationEstimator object.
 
         Args:
@@ -362,24 +457,36 @@ class HiddenAssociationEstimator(ParameterEstimator):
         ):
             self.keys = keys
         else:
-            raise TypeError("HiddenAssociationEstimator requires keys (Tuple[Optional[str], Optional[str]]).")
-        
+            raise TypeError(
+                "HiddenAssociationEstimator requires keys (Tuple[Optional[str], Optional[str]])."
+            )
+
         self.keys = keys if keys is not None else (None, None)
-        self.len_estimator = len_estimator if len_estimator is not None else NullEstimator()
+        self.len_estimator = (
+            len_estimator if len_estimator is not None else NullEstimator()
+        )
         self.pseudo_count = pseudo_count
         self.cond_estimator = cond_estimator
-        self.given_estimator = given_estimator if given_estimator is not None else NullEstimator()
+        self.given_estimator = (
+            given_estimator if given_estimator is not None else NullEstimator()
+        )
         self.name = name
 
-    def accumulator_factory(self) -> 'HiddenAssociationAccumulatorFactory':
+    def accumulator_factory(self) -> "HiddenAssociationAccumulatorFactory":
         len_factory = self.len_estimator.accumulator_factory()
         given_factory = self.given_estimator.accumulator_factory()
         cond_factory = self.cond_estimator.accumulator_factory()
-        return HiddenAssociationAccumulatorFactory(cond_factory=cond_factory, given_factory=given_factory,
-                                                   len_factory=len_factory, name=self.name, keys=self.keys)
+        return HiddenAssociationAccumulatorFactory(
+            cond_factory=cond_factory,
+            given_factory=given_factory,
+            len_factory=len_factory,
+            name=self.name,
+            keys=self.keys,
+        )
 
-    def estimate(self, nobs: Optional[float], suff_stat: Tuple[SS1, Optional[SS2], Optional[SS3]]) \
-            -> 'HiddenAssociationDistribution':
+    def estimate(
+        self, nobs: Optional[float], suff_stat: Tuple[SS1, Optional[SS2], Optional[SS3]]
+    ) -> "HiddenAssociationDistribution":
 
         cond_stats, given_stats, size_stats = suff_stat
 
@@ -387,21 +494,28 @@ class HiddenAssociationEstimator(ParameterEstimator):
         given_dist = self.given_estimator.estimate(nobs, given_stats)
         len_dist = self.len_estimator.estimate(nobs, size_stats)
 
-        return HiddenAssociationDistribution(cond_dist=cond_dist, given_dist=given_dist, len_dist=len_dist,
-                                             name=self.name)
+        return HiddenAssociationDistribution(
+            cond_dist=cond_dist,
+            given_dist=given_dist,
+            len_dist=len_dist,
+            name=self.name,
+        )
+
 
 class HiddenAssociationDataEncoder(DataSequenceEncoder):
-    """HiddenAssociationDataEncoder object. """
+    """HiddenAssociationDataEncoder object."""
 
     def __str__(self) -> str:
-        return 'HiddenAssociationDataEncoder'
+        return "HiddenAssociationDataEncoder"
 
     def __eq__(self, other) -> bool:
         return isinstance(other, HiddenAssociationDataEncoder)
 
-    def seq_encode(self, x: Sequence[Tuple[List[Tuple[T, float]], List[Tuple[T, float]]]])\
-            -> 'HiddenAssociationEncodedDataSequence':
+    def seq_encode(
+        self, x: Sequence[Tuple[List[Tuple[T, float]], List[Tuple[T, float]]]]
+    ) -> "HiddenAssociationEncodedDataSequence":
         return HiddenAssociationEncodedDataSequence(data=x)
+
 
 class HiddenAssociationEncodedDataSequence(EncodedDataSequence):
     """HiddenAssociationEncodedDataSequence for vectorized calls.
@@ -411,7 +525,9 @@ class HiddenAssociationEncodedDataSequence(EncodedDataSequence):
 
     """
 
-    def __init__(self, data: Sequence[Tuple[List[Tuple[T, float]], List[Tuple[T, float]]]]):
+    def __init__(
+        self, data: Sequence[Tuple[List[Tuple[T, float]], List[Tuple[T, float]]]]
+    ):
         """HiddenAssociationEncodedDataSequence object.
 
         Args:
@@ -421,4 +537,4 @@ class HiddenAssociationEncodedDataSequence(EncodedDataSequence):
         super().__init__(data)
 
     def __repr__(self) -> str:
-        return f'HiddenAssociationEncodedDataSequence(data={self.data})'
+        return f"HiddenAssociationEncodedDataSequence(data={self.data})"

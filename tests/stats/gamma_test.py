@@ -1,37 +1,40 @@
 """Tests for the Gamma distribution and its related classes."""
-from tests.stats.stats_tests import * 
+
+import numpy as np
+import pytest
+
 from dmx.stats import *
 from dmx.stats.gamma import *
-import numpy as np
-import pytest 
+from tests.stats.stats_tests import *
+
 
 class GammaDistributionTestCase(StatsTestClass):
     def setUp(self) -> None:
         self.eval_dists = [
-            GammaDistribution(k=2.0, theta=1.0, name='name', keys='key'),
-            GammaDistribution(k=1.0, theta=1.0, keys='key'),
-            GammaDistribution(k=4.0, theta=3.0, name='name'),
-            GammaDistribution(k=2.0, theta=2.0)
+            GammaDistribution(k=2.0, theta=1.0, name="name", keys="key"),
+            GammaDistribution(k=1.0, theta=1.0, keys="key"),
+            GammaDistribution(k=4.0, theta=3.0, name="name"),
+            GammaDistribution(k=2.0, theta=2.0),
         ]
         self._ests = [
-            GammaEstimator(name='name', keys='key'),
-            GammaEstimator(keys='key'),
-            GammaEstimator(name='name'),
-            GammaEstimator()
+            GammaEstimator(name="name", keys="key"),
+            GammaEstimator(keys="key"),
+            GammaEstimator(name="name"),
+            GammaEstimator(),
         ]
         self._factories = [
-            GammaAccumulatorFactory(name='name', keys='key'),
-            GammaAccumulatorFactory(keys='key'),
-            GammaAccumulatorFactory(name='name'),
-            GammaAccumulatorFactory()
+            GammaAccumulatorFactory(name="name", keys="key"),
+            GammaAccumulatorFactory(keys="key"),
+            GammaAccumulatorFactory(name="name"),
+            GammaAccumulatorFactory(),
         ]
         self._accumulators = [
-            GammaAccumulator(name='name', keys='key'),
-            GammaAccumulator(keys='key'),
-            GammaAccumulator(name='name'),
-            GammaAccumulator()
+            GammaAccumulator(name="name", keys="key"),
+            GammaAccumulator(keys="key"),
+            GammaAccumulator(name="name"),
+            GammaAccumulator(),
         ]
-        self._encoders = [GammaDataEncoder()]*len(self.eval_dists)
+        self._encoders = [GammaDataEncoder()] * len(self.eval_dists)
 
         # Define members for tests
         self.dist_est = [(d, e) for d, e in zip(self.eval_dists, self._ests)]
@@ -43,18 +46,21 @@ class GammaDistributionTestCase(StatsTestClass):
         self.acc_encoder = [(a, e) for a, e in zip(self._accumulators, self._encoders)]
 
         self.type_check_data = [None, np.ones((10, 10))]
-        self.type_check_keys = [(None, None), 1.0, ('keys', None)]
+        self.type_check_keys = [(None, None), 1.0, ("keys", None)]
 
     def test_seq_log_density_type(self):
         for x in self.type_check_data:
             with pytest.raises(Exception) as e:
                 self.eval_dists[0].seq_log_density(x)
-                
-            assert str(e.value) == "GammaEncodedDataSequence required for seq_log_density()."
+
+            assert (
+                str(e.value)
+                == "GammaEncodedDataSequence required for seq_log_density()."
+            )
 
     def test_key_exceptions(self):
         for x in self.type_check_keys:
             with pytest.raises(TypeError) as e:
                 GammaEstimator(keys=x)
-                
+
             assert str(e.value) == "GammaEstimator requires keys to be of type 'str'."

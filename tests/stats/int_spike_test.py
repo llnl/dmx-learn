@@ -1,9 +1,11 @@
 """Test cases for Spike and Slab Distribution and related classes."""
-from tests.stats.stats_tests import * 
+
+import numpy as np
+import pytest
+
 from dmx.stats import *
 from dmx.stats.int_spike import *
-import numpy as np
-import pytest 
+from tests.stats.stats_tests import *
 
 
 def seq_update_test(dist, encoder, est):
@@ -19,38 +21,43 @@ def seq_update_test(dist, encoder, est):
 
         ll_prev = np.sum(prev_estimate.seq_log_density(enc_data[0][1]))
         ll = np.sum(estimate.seq_log_density(enc_data[0][1]))
-        log_diff = ll-ll_prev
+        log_diff = ll - ll_prev
         rv.append(log_diff > 0)
 
     return np.all(rv), rv
 
+
 class SpikeAndSlabDistributionTestCase(StatsTestClass):
     def setUp(self) -> None:
         self.eval_dists = [
-            SpikeAndSlabDistribution(k=4, num_vals=10, p=0.80, min_val=0, name='name', keys='keys'),
-            SpikeAndSlabDistribution(k=4, num_vals=10, p=0.80, min_val=3, name='name'),
-            SpikeAndSlabDistribution(k=4, num_vals=10, p=0.80, keys='keys'),
-            SpikeAndSlabDistribution(k=4, num_vals=10, p=0.80)
+            SpikeAndSlabDistribution(
+                k=4, num_vals=10, p=0.80, min_val=0, name="name", keys="keys"
+            ),
+            SpikeAndSlabDistribution(k=4, num_vals=10, p=0.80, min_val=3, name="name"),
+            SpikeAndSlabDistribution(k=4, num_vals=10, p=0.80, keys="keys"),
+            SpikeAndSlabDistribution(k=4, num_vals=10, p=0.80),
         ]
         self._ests = [
-            SpikeAndSlabEstimator(min_val=0, max_val=10, name='name', keys='keys'),
-            SpikeAndSlabEstimator(min_val=3, max_val=13, name='name'),
-            SpikeAndSlabEstimator(min_val=0, max_val=10, keys='keys'),
-            SpikeAndSlabEstimator(min_val=0, max_val=10)
+            SpikeAndSlabEstimator(min_val=0, max_val=10, name="name", keys="keys"),
+            SpikeAndSlabEstimator(min_val=3, max_val=13, name="name"),
+            SpikeAndSlabEstimator(min_val=0, max_val=10, keys="keys"),
+            SpikeAndSlabEstimator(min_val=0, max_val=10),
         ]
         self._factories = [
-            SpikeAndSlabAccumulatorFactory(min_val=0, max_val=10, name='name', keys='keys'),
-            SpikeAndSlabAccumulatorFactory(min_val=3, max_val=13, name='name'),
-            SpikeAndSlabAccumulatorFactory(min_val=0, max_val=10, keys='keys'),
-            SpikeAndSlabAccumulatorFactory(min_val=0, max_val=10)
+            SpikeAndSlabAccumulatorFactory(
+                min_val=0, max_val=10, name="name", keys="keys"
+            ),
+            SpikeAndSlabAccumulatorFactory(min_val=3, max_val=13, name="name"),
+            SpikeAndSlabAccumulatorFactory(min_val=0, max_val=10, keys="keys"),
+            SpikeAndSlabAccumulatorFactory(min_val=0, max_val=10),
         ]
         self._accumulators = [
-            SpikeAndSlabAccumulator(min_val=0, max_val=10, name='name', keys='keys'),
-            SpikeAndSlabAccumulator(min_val=3, max_val=13, name='name'),
-            SpikeAndSlabAccumulator(min_val=0, max_val=10, keys='keys'),
-            SpikeAndSlabAccumulator(min_val=0, max_val=10)
+            SpikeAndSlabAccumulator(min_val=0, max_val=10, name="name", keys="keys"),
+            SpikeAndSlabAccumulator(min_val=3, max_val=13, name="name"),
+            SpikeAndSlabAccumulator(min_val=0, max_val=10, keys="keys"),
+            SpikeAndSlabAccumulator(min_val=0, max_val=10),
         ]
-        self._encoders = [SpikeAndSlabDataEncoder()]*len(self.eval_dists)
+        self._encoders = [SpikeAndSlabDataEncoder()] * len(self.eval_dists)
 
         # Define members for tests
         self.dist_est = [(d, e) for d, e in zip(self.eval_dists, self._ests)]
@@ -67,12 +74,14 @@ class SpikeAndSlabDistributionTestCase(StatsTestClass):
             SpikeAndSlabEstimator(min_val=0, max_val=10, pseudo_count=1.0e-10),
             SpikeAndSlabEstimator(min_val=3, max_val=13, pseudo_count=1.0e-10),
             SpikeAndSlabEstimator(min_val=0, max_val=10, pseudo_count=1.0e-10),
-            SpikeAndSlabEstimator(min_val=0, max_val=10, pseudo_count=1.0e-10)
+            SpikeAndSlabEstimator(min_val=0, max_val=10, pseudo_count=1.0e-10),
         ]
 
-        self.type_check_keys = [(None, None), 1.0, ('keys', None)]
-        
-    @pytest.mark.dependency(depends=["estimator", "log_density", "estimator_factory", "factory_make"])
+        self.type_check_keys = [(None, None), 1.0, ("keys", None)]
+
+    @pytest.mark.dependency(
+        depends=["estimator", "log_density", "estimator_factory", "factory_make"]
+    )
     def test_09_seq_update(self):
         for x in zip(self.eval_dists, self._encoders, self._init_ests):
             res = seq_update_test(*x)
@@ -82,11 +91,17 @@ class SpikeAndSlabDistributionTestCase(StatsTestClass):
         for x in self.type_check_data:
             with pytest.raises(Exception) as e:
                 self.eval_dists[0].seq_log_density(x)
-            assert str(e.value) == "SpikeAndSlabEncodedDataSequence required for seq_log_density()."
-            
+            assert (
+                str(e.value)
+                == "SpikeAndSlabEncodedDataSequence required for seq_log_density()."
+            )
+
     def test_key_exceptions(self):
         for x in self.type_check_keys:
             with pytest.raises(TypeError) as e:
                 SpikeAndSlabEstimator(keys=x)
-                
-            assert str(e.value) == "SpikeAndSlabEstimator requires keys to be of type 'str'."
+
+            assert (
+                str(e.value)
+                == "SpikeAndSlabEstimator requires keys to be of type 'str'."
+            )

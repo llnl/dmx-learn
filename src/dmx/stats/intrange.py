@@ -9,13 +9,23 @@ and vector of probabilities p_vec (np.ndarray[float]) that sum to 1.0. The range
 [min_val, min_val + len(p_vec) - ). The density is then,
 
 """
+
+from typing import Any, Dict, List, Optional, Tuple, Union
+
 import numpy as np
 from numpy.random import RandomState
+
 import dmx.utils.vector as vec
 from dmx.arithmetic import *
-from dmx.stats.pdist import SequenceEncodableStatisticAccumulator, SequenceEncodableProbabilityDistribution, \
-    ParameterEstimator, DistributionSampler, DataSequenceEncoder, StatisticAccumulatorFactory, EncodedDataSequence
-from typing import List, Union, Tuple, Optional, Dict, Any
+from dmx.stats.pdist import (
+    DataSequenceEncoder,
+    DistributionSampler,
+    EncodedDataSequence,
+    ParameterEstimator,
+    SequenceEncodableProbabilityDistribution,
+    SequenceEncodableStatisticAccumulator,
+    StatisticAccumulatorFactory,
+)
 
 
 class IntegerCategoricalDistribution(SequenceEncodableProbabilityDistribution):
@@ -27,12 +37,18 @@ class IntegerCategoricalDistribution(SequenceEncodableProbabilityDistribution):
         max_val (int): Maximum value in support of integer categorical set to min_val + length(p_vec) - 1.
         log_p_vec (np.ndarray[float]): Log of p_vec.
         num_vals (int): Total number of values in support of IntegerCategoricalDistribution instance.
-        name (Optional[str]): Name for object. 
-        keys (Optional[str]): Key for parameter. 
+        name (Optional[str]): Name for object.
+        keys (Optional[str]): Key for parameter.
 
     """
 
-    def __init__(self, min_val: int, p_vec: Union[List[float], np.ndarray], name: Optional[str] = None, keys: Optional[str] = None) -> None:
+    def __init__(
+        self,
+        min_val: int,
+        p_vec: Union[List[float], np.ndarray],
+        name: Optional[str] = None,
+        keys: Optional[str] = None,
+    ) -> None:
         """IntegerCategoricalDistribution object.
 
         Args:
@@ -40,10 +56,10 @@ class IntegerCategoricalDistribution(SequenceEncodableProbabilityDistribution):
             p_vec (Union[List[float], np.ndarray]): Probability vector containing probability of each integer in the
                 support range.
             name (Optional[str]): Assign name to IntegerCategoricalDistribution object.
-            keys (Optional[str]): Key for parameter. 
+            keys (Optional[str]): Key for parameter.
 
         """
-        with np.errstate(divide='ignore'):
+        with np.errstate(divide="ignore"):
             self.p_vec = np.asarray(p_vec, dtype=np.float64)
             self.min_val = min_val
             self.max_val = min_val + self.p_vec.shape[0] - 1
@@ -58,7 +74,12 @@ class IntegerCategoricalDistribution(SequenceEncodableProbabilityDistribution):
         s3 = repr(self.name)
         s4 = repr(self.keys)
 
-        return 'IntegerCategoricalDistribution(%s, %s, name=%s, keys=%s)' % (s1, s2, s3, s4)
+        return "IntegerCategoricalDistribution(%s, %s, name=%s, keys=%s)" % (
+            s1,
+            s2,
+            s3,
+            s4,
+        )
 
     def density(self, x: int) -> float:
         """Evaluate the density of the integer categorical at observation x.
@@ -70,7 +91,11 @@ class IntegerCategoricalDistribution(SequenceEncodableProbabilityDistribution):
             float: Density at x.
 
         """
-        return zero if x < self.min_val or x > self.max_val else self.p_vec[x - self.min_val]
+        return (
+            zero
+            if x < self.min_val or x > self.max_val
+            else self.p_vec[x - self.min_val]
+        )
 
     def log_density(self, x: int) -> float:
         """Evaluate the log-density of the integer categorical at observation x.
@@ -82,12 +107,18 @@ class IntegerCategoricalDistribution(SequenceEncodableProbabilityDistribution):
             float: Log-density at x.
 
         """
-        return -inf if (x < self.min_val or x > self.max_val) else self.log_p_vec[x - self.min_val]
+        return (
+            -inf
+            if (x < self.min_val or x > self.max_val)
+            else self.log_p_vec[x - self.min_val]
+        )
 
-    def seq_log_density(self, x: 'IntegerCategoricalEncodedDataSequence') -> np.ndarray:
+    def seq_log_density(self, x: "IntegerCategoricalEncodedDataSequence") -> np.ndarray:
 
         if not isinstance(x, IntegerCategoricalEncodedDataSequence):
-            raise Exception('IntegerCategoricalEncodedDataSequence required for seq_log_density().')
+            raise Exception(
+                "IntegerCategoricalEncodedDataSequence required for seq_log_density()."
+            )
 
         v = x.data - self.min_val
         u = np.bitwise_and(v >= 0, v < self.num_vals)
@@ -97,23 +128,26 @@ class IntegerCategoricalDistribution(SequenceEncodableProbabilityDistribution):
 
         return rv
 
-    def sampler(self, seed: Optional[int] = None) -> 'IntegerCategoricalSampler':
+    def sampler(self, seed: Optional[int] = None) -> "IntegerCategoricalSampler":
 
         return IntegerCategoricalSampler(self, seed)
 
-    def estimator(self, pseudo_count: Optional[float] = None) -> 'IntegerCategoricalEstimator':
+    def estimator(
+        self, pseudo_count: Optional[float] = None
+    ) -> "IntegerCategoricalEstimator":
 
         if pseudo_count is None:
             return IntegerCategoricalEstimator(name=self.name, keys=self.keys)
 
         else:
             return IntegerCategoricalEstimator(
-                pseudo_count=pseudo_count, 
+                pseudo_count=pseudo_count,
                 suff_stat=(self.min_val, self.p_vec),
                 name=self.name,
-                keys=self.keys)
+                keys=self.keys,
+            )
 
-    def dist_to_encoder(self) -> 'IntegerCategoricalDataEncoder':
+    def dist_to_encoder(self) -> "IntegerCategoricalDataEncoder":
         return IntegerCategoricalDataEncoder()
 
 
@@ -126,7 +160,9 @@ class IntegerCategoricalSampler(DistributionSampler):
 
     """
 
-    def __init__(self, dist: 'IntegerCategoricalDistribution', seed: Optional[int] = None) -> None:
+    def __init__(
+        self, dist: "IntegerCategoricalDistribution", seed: Optional[int] = None
+    ) -> None:
         """IntegerCategoricalSampler object.
 
         Args:
@@ -151,13 +187,18 @@ class IntegerCategoricalSampler(DistributionSampler):
 
         """
         if size is None:
-            return int(self.rng.choice(range(self.dist.min_val, self.dist.max_val +
-                                         1), p=self.dist.p_vec))
+            return int(
+                self.rng.choice(
+                    range(self.dist.min_val, self.dist.max_val + 1), p=self.dist.p_vec
+                )
+            )
 
         else:
-            return self.rng.choice(range(self.dist.min_val, self.dist.max_val +
-                                         1), p=self.dist.p_vec,
-                                   size=size).tolist()
+            return self.rng.choice(
+                range(self.dist.min_val, self.dist.max_val + 1),
+                p=self.dist.p_vec,
+                size=size,
+            ).tolist()
 
 
 class IntegerCategoricalAccumulator(SequenceEncodableStatisticAccumulator):
@@ -171,14 +212,19 @@ class IntegerCategoricalAccumulator(SequenceEncodableStatisticAccumulator):
         max_val (Optional[int]): Maximum value of integer categorical range.
         count_vec (Optional[np.ndarray]): Numpy array of floats for tracking probability weights for each integer
             value in support. Set to None if min_val and max_val are both not None.
-        name (Optional[str]): Name for object. 
+        name (Optional[str]): Name for object.
         keys (Optional[str]): Key for merging sufficient statistics of integer IntegerCategoricalAccumulator
             objects.
 
     """
 
-    def __init__(self, min_val: Optional[int] = None, max_val: Optional[int] = None, keys: Optional[str] = None, name: Optional[str] = None) \
-            -> None:
+    def __init__(
+        self,
+        min_val: Optional[int] = None,
+        max_val: Optional[int] = None,
+        keys: Optional[str] = None,
+        name: Optional[str] = None,
+    ) -> None:
         """IntegerCategoricalAccumulator object.
 
         Args:
@@ -201,7 +247,12 @@ class IntegerCategoricalAccumulator(SequenceEncodableStatisticAccumulator):
         self.name = name
         self.keys = keys
 
-    def update(self, x: int, weight: float, estimate: Optional['IntegerCategoricalDistribution']) -> None:
+    def update(
+        self,
+        x: int,
+        weight: float,
+        estimate: Optional["IntegerCategoricalDistribution"],
+    ) -> None:
 
         if self.count_vec is None:
             self.min_val = x
@@ -212,7 +263,7 @@ class IntegerCategoricalAccumulator(SequenceEncodableStatisticAccumulator):
             temp_vec = self.count_vec
             self.max_val = x
             self.count_vec = np.zeros(self.max_val - self.min_val + 1)
-            self.count_vec[:len(temp_vec)] = temp_vec
+            self.count_vec[: len(temp_vec)] = temp_vec
             self.count_vec[x - self.min_val] += weight
 
         elif self.min_val > x:
@@ -229,11 +280,20 @@ class IntegerCategoricalAccumulator(SequenceEncodableStatisticAccumulator):
     def initialize(self, x: int, weight: float, rng: RandomState) -> None:
         return self.update(x, weight, None)
 
-    def seq_initialize(self, x: 'IntegerCategoricalEncodedDataSequence', weights: np.ndarray, rng: RandomState) -> None:
+    def seq_initialize(
+        self,
+        x: "IntegerCategoricalEncodedDataSequence",
+        weights: np.ndarray,
+        rng: RandomState,
+    ) -> None:
         return self.seq_update(x, weights, None)
 
-    def seq_update(self, x: 'IntegerCategoricalEncodedDataSequence', weights: np.ndarray, estimate: Optional['IntegerCategoricalDistribution'])\
-            -> None:
+    def seq_update(
+        self,
+        x: "IntegerCategoricalEncodedDataSequence",
+        weights: np.ndarray,
+        estimate: Optional["IntegerCategoricalDistribution"],
+    ) -> None:
         min_x = np.min(x.data)
         max_x = np.max(x.data)
 
@@ -251,12 +311,14 @@ class IntegerCategoricalAccumulator(SequenceEncodableStatisticAccumulator):
             temp = self.count_vec
             prev_diff = prev_min - self.min_val
             self.count_vec = np.zeros(self.max_val - self.min_val + 1)
-            self.count_vec[prev_diff:(prev_diff + len(temp))] = temp
+            self.count_vec[prev_diff : (prev_diff + len(temp))] = temp
 
         min_diff = min_x - self.min_val
-        self.count_vec[min_diff:(min_diff + len(loc_cnt))] += loc_cnt
+        self.count_vec[min_diff : (min_diff + len(loc_cnt))] += loc_cnt
 
-    def combine(self, suff_stat: Tuple[Optional[int], Optional[np.ndarray]]) -> 'IntegerCategoricalAccumulator':
+    def combine(
+        self, suff_stat: Tuple[Optional[int], Optional[np.ndarray]]
+    ) -> "IntegerCategoricalAccumulator":
 
         if self.count_vec is None and suff_stat[1] is not None:
             self.min_val = suff_stat[0]
@@ -264,7 +326,9 @@ class IntegerCategoricalAccumulator(SequenceEncodableStatisticAccumulator):
             self.count_vec = suff_stat[1]
 
         elif self.count_vec is not None and suff_stat[1] is not None:
-            if self.min_val == suff_stat[0] and len(self.count_vec) == len(suff_stat[1]):
+            if self.min_val == suff_stat[0] and len(self.count_vec) == len(
+                suff_stat[1]
+            ):
                 self.count_vec += suff_stat[1]
 
             else:
@@ -290,7 +354,7 @@ class IntegerCategoricalAccumulator(SequenceEncodableStatisticAccumulator):
     def value(self) -> Tuple[int, np.ndarray]:
         return self.min_val, self.count_vec
 
-    def from_value(self, x: Tuple[int, np.ndarray]) -> 'IntegerCategoricalAccumulator':
+    def from_value(self, x: Tuple[int, np.ndarray]) -> "IntegerCategoricalAccumulator":
         self.min_val = x[0]
         self.max_val = x[0] + len(x[1]) - 1
         self.count_vec = x[1]
@@ -311,7 +375,7 @@ class IntegerCategoricalAccumulator(SequenceEncodableStatisticAccumulator):
             if self.keys in stats_dict:
                 self.from_value(stats_dict[self.keys].value())
 
-    def acc_to_encoder(self) -> 'IntegerCategoricalDataEncoder':
+    def acc_to_encoder(self) -> "IntegerCategoricalDataEncoder":
         return IntegerCategoricalDataEncoder()
 
 
@@ -326,10 +390,13 @@ class IntegerCategoricalAccumulatorFactory(StatisticAccumulatorFactory):
 
     """
 
-    def __init__(self, min_val: Optional[int] = None, 
-                 max_val: Optional[int] = None,
-                 name: Optional[str] = None,
-                 keys: Optional[str] = None) -> None:
+    def __init__(
+        self,
+        min_val: Optional[int] = None,
+        max_val: Optional[int] = None,
+        name: Optional[str] = None,
+        keys: Optional[str] = None,
+    ) -> None:
         """IntegerCategoricalAccumulatorFactory object.
 
         Args:
@@ -344,8 +411,10 @@ class IntegerCategoricalAccumulatorFactory(StatisticAccumulatorFactory):
         self.name = name
         self.keys = keys
 
-    def make(self) -> 'IntegerCategoricalAccumulator':
-        return IntegerCategoricalAccumulator(min_val=self.min_val, max_val=self.max_val, keys=self.keys, name=self.name)
+    def make(self) -> "IntegerCategoricalAccumulator":
+        return IntegerCategoricalAccumulator(
+            min_val=self.min_val, max_val=self.max_val, keys=self.keys, name=self.name
+        )
 
 
 class IntegerCategoricalEstimator(ParameterEstimator):
@@ -353,7 +422,7 @@ class IntegerCategoricalEstimator(ParameterEstimator):
 
     Notes:
         Must set either min_val and max_val, or suff_stat must be passed as arg.
-    
+
     Attributes:
         min_val (Optional[int]): Minimum value of integer categorical.
         max_val (Optional[int]): Maximum value of integer categorical.
@@ -364,11 +433,15 @@ class IntegerCategoricalEstimator(ParameterEstimator):
 
     """
 
-    def __init__(self, min_val: Optional[int] = None, max_val: Optional[int] = None,
-                 pseudo_count: Optional[float] = None,
-                 suff_stat: Optional[Tuple[int, np.ndarray]] = None,
-                 name: Optional[str] = None,
-                 keys: Optional[str] = None) -> None:
+    def __init__(
+        self,
+        min_val: Optional[int] = None,
+        max_val: Optional[int] = None,
+        pseudo_count: Optional[float] = None,
+        suff_stat: Optional[Tuple[int, np.ndarray]] = None,
+        name: Optional[str] = None,
+        keys: Optional[str] = None,
+    ) -> None:
         """IntegerCategoricalEstimator object.
 
         Args:
@@ -384,7 +457,9 @@ class IntegerCategoricalEstimator(ParameterEstimator):
         if isinstance(keys, str) or keys is None:
             self.keys = keys
         else:
-            raise TypeError("IntegerCategoricalEstimator requires keys to be of type 'str'.")
+            raise TypeError(
+                "IntegerCategoricalEstimator requires keys to be of type 'str'."
+            )
 
         self.pseudo_count = pseudo_count
         self.min_val = min_val
@@ -393,7 +468,7 @@ class IntegerCategoricalEstimator(ParameterEstimator):
         self.keys = keys
         self.name = name
 
-    def accumulator_factory(self) -> 'IntegerCategoricalAccumulatorFactory':
+    def accumulator_factory(self) -> "IntegerCategoricalAccumulatorFactory":
         min_val = None
         max_val = None
 
@@ -404,19 +479,29 @@ class IntegerCategoricalEstimator(ParameterEstimator):
             min_val = self.min_val
             max_val = self.max_val
 
-        return IntegerCategoricalAccumulatorFactory(min_val=min_val, max_val=max_val, name=self.name, keys=self.keys)
+        return IntegerCategoricalAccumulatorFactory(
+            min_val=min_val, max_val=max_val, name=self.name, keys=self.keys
+        )
 
-    def estimate(self, nobs: Optional[float], suff_stat: Optional[Tuple[int, np.ndarray]])\
-            -> 'IntegerCategoricalDistribution':
+    def estimate(
+        self, nobs: Optional[float], suff_stat: Optional[Tuple[int, np.ndarray]]
+    ) -> "IntegerCategoricalDistribution":
 
         if self.pseudo_count is not None and self.suff_stat is None:
             pseudo_count_per_level = self.pseudo_count / float(len(suff_stat[1]))
             adjusted_nobs = suff_stat[1].sum() + self.pseudo_count
 
-            return IntegerCategoricalDistribution(suff_stat[0], (suff_stat[1] + pseudo_count_per_level) / adjusted_nobs,
-                                                  name=self.name)
+            return IntegerCategoricalDistribution(
+                suff_stat[0],
+                (suff_stat[1] + pseudo_count_per_level) / adjusted_nobs,
+                name=self.name,
+            )
 
-        elif self.pseudo_count is not None and self.min_val is not None and self.max_val is not None:
+        elif (
+            self.pseudo_count is not None
+            and self.min_val is not None
+            and self.max_val is not None
+        ):
 
             min_val = min(self.min_val, suff_stat[0])
             max_val = max(self.max_val, suff_stat[0] + len(suff_stat[1]) - 1)
@@ -430,8 +515,11 @@ class IntegerCategoricalEstimator(ParameterEstimator):
             pseudo_count_per_level = self.pseudo_count / float(len(count_vec))
             adjusted_nobs = suff_stat[1].sum() + self.pseudo_count
 
-            return IntegerCategoricalDistribution(min_val, (count_vec + pseudo_count_per_level) / adjusted_nobs,
-                                                  name=self.name)
+            return IntegerCategoricalDistribution(
+                min_val,
+                (count_vec + pseudo_count_per_level) / adjusted_nobs,
+                name=self.name,
+            )
 
         elif self.pseudo_count is not None and self.suff_stat is not None:
 
@@ -451,10 +539,14 @@ class IntegerCategoricalEstimator(ParameterEstimator):
             i1 = (suff_stat[0] + len(suff_stat[1]) - 1) - min_val + 1
             count_vec[i0:i1] += suff_stat[1]
 
-            return IntegerCategoricalDistribution(min_val, count_vec / (count_vec.sum()), name=self.name)
+            return IntegerCategoricalDistribution(
+                min_val, count_vec / (count_vec.sum()), name=self.name
+            )
 
         else:
-            return IntegerCategoricalDistribution(suff_stat[0], suff_stat[1] / (suff_stat[1].sum()), name=self.name)
+            return IntegerCategoricalDistribution(
+                suff_stat[0], suff_stat[1] / (suff_stat[1].sum()), name=self.name
+            )
 
 
 class IntegerCategoricalDataEncoder(DataSequenceEncoder):
@@ -462,13 +554,15 @@ class IntegerCategoricalDataEncoder(DataSequenceEncoder):
 
     def __str__(self) -> str:
         """Returns IntegerCategoricalDataEncoder object for encoding data sequences."""
-        return 'IntegerCategoricalDataEncoder'
+        return "IntegerCategoricalDataEncoder"
 
     def __eq__(self, other: object) -> bool:
         """Return True if other is an IntegerCategoricalDataEncoder, False is else."""
         return isinstance(other, IntegerCategoricalDataEncoder)
 
-    def seq_encode(self, x: Union[List[int], np.ndarray]) -> 'IntegerCategoricalEncodedDataSequence':
+    def seq_encode(
+        self, x: Union[List[int], np.ndarray]
+    ) -> "IntegerCategoricalEncodedDataSequence":
         return IntegerCategoricalEncodedDataSequence(data=np.asarray(x, dtype=int))
 
 
@@ -490,6 +584,4 @@ class IntegerCategoricalEncodedDataSequence(EncodedDataSequence):
         super().__init__(data=data)
 
     def __repr__(self) -> str:
-        return f'IntegerCategoricalEncodedDataSequence(data={self.data})'
-
-
+        return f"IntegerCategoricalEncodedDataSequence(data={self.data})"

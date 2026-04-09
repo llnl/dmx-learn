@@ -14,13 +14,22 @@ A comment on estimation: Note that probability of an element s_k belonging to th
 elements an observation sequence. For this reason, we need not state the support of the state-space in estimation.
 
 """
+
+from collections import OrderedDict, defaultdict
+from typing import Any, Dict, List, Optional, Sequence, Tuple, TypeVar, Union
+
 import numpy as np
 from numpy.random import RandomState
-from collections import defaultdict, OrderedDict
-from dmx.stats.pdist import SequenceEncodableProbabilityDistribution, SequenceEncodableStatisticAccumulator, \
-    ParameterEstimator, DataSequenceEncoder, StatisticAccumulatorFactory, DistributionSampler, EncodedDataSequence
 
-from typing import Optional, Dict, Tuple, Any, Dict, List, Sequence, TypeVar, Union
+from dmx.stats.pdist import (
+    DataSequenceEncoder,
+    DistributionSampler,
+    EncodedDataSequence,
+    ParameterEstimator,
+    SequenceEncodableProbabilityDistribution,
+    SequenceEncodableStatisticAccumulator,
+    StatisticAccumulatorFactory,
+)
 
 
 class BernoulliSetDistribution(SequenceEncodableProbabilityDistribution):
@@ -38,8 +47,13 @@ class BernoulliSetDistribution(SequenceEncodableProbabilityDistribution):
 
     """
 
-    def __init__(self, pmap: Dict[Any, float], min_prob: float = 1.0e-128, name: Optional[str] = None,
-                 keys: Optional[str] = None) -> None:
+    def __init__(
+        self,
+        pmap: Dict[Any, float],
+        min_prob: float = 1.0e-128,
+        name: Optional[str] = None,
+        keys: Optional[str] = None,
+    ) -> None:
         """BernoulliSetDistribution object.
 
         Args:
@@ -94,7 +108,12 @@ class BernoulliSetDistribution(SequenceEncodableProbabilityDistribution):
         s2 = repr(self.min_prob)
         s3 = repr(self.name)
         s4 = repr(self.keys)
-        return 'BernoulliSetDistribution(dict(%s), min_prob=%s, name=%s, keys=%s)' % (s1, s2, s3, s4)
+        return "BernoulliSetDistribution(dict(%s), min_prob=%s, name=%s, keys=%s)" % (
+            s1,
+            s2,
+            s3,
+            s4,
+        )
 
     def density(self, x: Sequence[Any]) -> float:
         return np.exp(self.log_density(x))
@@ -109,10 +128,12 @@ class BernoulliSetDistribution(SequenceEncodableProbabilityDistribution):
 
         return self.nlog_sum + rv
 
-    def seq_log_density(self, x: 'BernoulliSetEncodedDataSequence') -> np.ndarray:
+    def seq_log_density(self, x: "BernoulliSetEncodedDataSequence") -> np.ndarray:
 
         if not isinstance(x, BernoulliSetEncodedDataSequence):
-            raise Exception('BernoulliSetEncodedDataSequence required for seq_log_density().')
+            raise Exception(
+                "BernoulliSetEncodedDataSequence required for seq_log_density()."
+            )
 
         sz, idx, val_map_inv, xs = x.data
 
@@ -128,18 +149,27 @@ class BernoulliSetDistribution(SequenceEncodableProbabilityDistribution):
 
         return rv
 
-    def sampler(self, seed: Optional[int] = None) -> 'BernoulliSetSampler':
+    def sampler(self, seed: Optional[int] = None) -> "BernoulliSetSampler":
         return BernoulliSetSampler(self, seed)
 
-    def estimator(self, pseudo_count: Optional[float] = None) -> 'BernoulliSetEstimator':
+    def estimator(
+        self, pseudo_count: Optional[float] = None
+    ) -> "BernoulliSetEstimator":
 
         if pseudo_count is None:
-            return BernoulliSetEstimator(min_prob=self.min_prob, name=self.name, keys=self.keys)
+            return BernoulliSetEstimator(
+                min_prob=self.min_prob, name=self.name, keys=self.keys
+            )
         else:
-            return BernoulliSetEstimator(min_prob=self.min_prob, pseudo_count=pseudo_count, suff_stat=self.pmap,
-                                         name=self.name, keys=self.keys)
+            return BernoulliSetEstimator(
+                min_prob=self.min_prob,
+                pseudo_count=pseudo_count,
+                suff_stat=self.pmap,
+                name=self.name,
+                keys=self.keys,
+            )
 
-    def dist_to_encoder(self) -> 'BernoulliSetDataEncoder':
+    def dist_to_encoder(self) -> "BernoulliSetDataEncoder":
         return BernoulliSetDataEncoder()
 
 
@@ -152,7 +182,9 @@ class BernoulliSetSampler(DistributionSampler):
 
     """
 
-    def __init__(self, dist: BernoulliSetDistribution, seed: Optional[int] = None) -> None:
+    def __init__(
+        self, dist: BernoulliSetDistribution, seed: Optional[int] = None
+    ) -> None:
         """BernoulliSetSampler object.
 
         Args:
@@ -163,7 +195,9 @@ class BernoulliSetSampler(DistributionSampler):
         self.rng = RandomState(seed)
         self.dist = dist
 
-    def sample(self, size: Optional[int] = None) -> Union[Sequence[Any], List[Sequence[Any]]]:
+    def sample(
+        self, size: Optional[int] = None
+    ) -> Union[Sequence[Any], List[Sequence[Any]]]:
 
         if size is not None:
             retval = [[] for i in range(size)]
@@ -196,7 +230,7 @@ class BernoulliSetAccumulator(SequenceEncodableStatisticAccumulator):
 
         Args:
             keys (Optional[str]): Set keys for merging sufficient statistics.
-            name (Optional[str]): Name for object. 
+            name (Optional[str]): Name for object.
 
         """
         self.pmap = defaultdict(float)
@@ -204,16 +238,27 @@ class BernoulliSetAccumulator(SequenceEncodableStatisticAccumulator):
         self.keys = keys
         self.name = name
 
-    def update(self, x: Sequence[Any], weight: float, estimate: Optional[BernoulliSetDistribution]) -> None:
+    def update(
+        self,
+        x: Sequence[Any],
+        weight: float,
+        estimate: Optional[BernoulliSetDistribution],
+    ) -> None:
         for u in x:
             self.pmap[u] += weight
         self.tot_sum += weight
 
-    def initialize(self, x: Sequence[Any], weight: float, rng: Optional[RandomState]) -> None:
+    def initialize(
+        self, x: Sequence[Any], weight: float, rng: Optional[RandomState]
+    ) -> None:
         self.update(x, weight, None)
 
-    def seq_update(self, x: 'BernoulliSetEncodedDataSequence', weights: np.ndarray,
-                   estimate: Optional[BernoulliSetDistribution]) -> None:
+    def seq_update(
+        self,
+        x: "BernoulliSetEncodedDataSequence",
+        weights: np.ndarray,
+        estimate: Optional[BernoulliSetDistribution],
+    ) -> None:
 
         sz, idx, val_map_inv, xs = x.data
         agg_cnt = np.bincount(xs, weights[idx])
@@ -223,11 +268,17 @@ class BernoulliSetAccumulator(SequenceEncodableStatisticAccumulator):
 
         self.tot_sum += weights.sum()
 
-    def seq_initialize(self, x: 'BernoulliSetEncodedDataSequence', weights: np.ndarray,
-                       rng: np.random.RandomState) -> None:
+    def seq_initialize(
+        self,
+        x: "BernoulliSetEncodedDataSequence",
+        weights: np.ndarray,
+        rng: np.random.RandomState,
+    ) -> None:
         self.seq_update(x, weights, None)
 
-    def combine(self, suff_stat: Tuple[Dict[Any, float], float]) -> 'BernoulliSetAccumulator':
+    def combine(
+        self, suff_stat: Tuple[Dict[Any, float], float]
+    ) -> "BernoulliSetAccumulator":
         for k, v in suff_stat[0].items():
             self.pmap[k] += v
         self.tot_sum += suff_stat[1]
@@ -236,7 +287,9 @@ class BernoulliSetAccumulator(SequenceEncodableStatisticAccumulator):
     def value(self) -> Tuple[Dict[Any, float], float]:
         return dict(self.pmap), self.tot_sum
 
-    def from_value(self, x: Tuple[Dict[Any, float], float]) -> 'BernoulliSetAccumulator':
+    def from_value(
+        self, x: Tuple[Dict[Any, float], float]
+    ) -> "BernoulliSetAccumulator":
         self.pmap = x[0]
         self.tot_sum = x[1]
         return self
@@ -253,7 +306,7 @@ class BernoulliSetAccumulator(SequenceEncodableStatisticAccumulator):
             if self.keys in stats_dict:
                 self.from_value(stats_dict[self.keys].value())
 
-    def acc_to_encoder(self) -> 'BernoulliSetDataEncoder':
+    def acc_to_encoder(self) -> "BernoulliSetDataEncoder":
         return BernoulliSetDataEncoder()
 
 
@@ -277,7 +330,7 @@ class BernoulliSetAccumulatorFactory(StatisticAccumulatorFactory):
         self.keys = keys
         self.name = name
 
-    def make(self) -> 'BernoulliSetAccumulator':
+    def make(self) -> "BernoulliSetAccumulator":
         return BernoulliSetAccumulator(keys=self.keys, name=self.name)
 
 
@@ -293,9 +346,14 @@ class BernoulliSetEstimator(ParameterEstimator):
 
     """
 
-    def __init__(self, min_prob: float = 1.0e-128, pseudo_count: Optional[float] = None,
-                 suff_stat: Optional[Dict[Any, float]] = None,
-                 name: Optional[str] = None, keys: Optional[str] = None) -> None:
+    def __init__(
+        self,
+        min_prob: float = 1.0e-128,
+        pseudo_count: Optional[float] = None,
+        suff_stat: Optional[Dict[Any, float]] = None,
+        name: Optional[str] = None,
+        keys: Optional[str] = None,
+    ) -> None:
         """BernoulliSetEstimator object.
 
         Args:
@@ -317,17 +375,25 @@ class BernoulliSetEstimator(ParameterEstimator):
         self.name = name
         self.min_prob = min_prob
 
-    def accumulator_factory(self) -> 'BernoulliSetAccumulatorFactory':
+    def accumulator_factory(self) -> "BernoulliSetAccumulatorFactory":
         return BernoulliSetAccumulatorFactory(keys=self.keys, name=self.name)
 
-    def estimate(self, nobs: Optional[float], suff_stat: Tuple[Dict[Any, float], float]) -> 'BernoulliSetDistribution':
+    def estimate(
+        self, nobs: Optional[float], suff_stat: Tuple[Dict[Any, float], float]
+    ) -> "BernoulliSetDistribution":
 
         if self.pseudo_count is not None and self.suff_stat is not None:
             keys = set(suff_stat[0].keys())
             keys.update(self.suff_stat.keys())
 
-            pmap = {k: (self.suff_stat.get(k, 0.0) * self.pseudo_count + suff_stat[0].get(k, 0.0)) / (
-                        self.pseudo_count + suff_stat[1]) for k in keys}
+            pmap = {
+                k: (
+                    self.suff_stat.get(k, 0.0) * self.pseudo_count
+                    + suff_stat[0].get(k, 0.0)
+                )
+                / (self.pseudo_count + suff_stat[1])
+                for k in keys
+            }
 
         elif self.pseudo_count is not None and self.suff_stat is None:
             p = self.pseudo_count
@@ -343,16 +409,19 @@ class BernoulliSetEstimator(ParameterEstimator):
 
         return BernoulliSetDistribution(pmap, min_prob=self.min_prob, name=self.name)
 
+
 class BernoulliSetDataEncoder(DataSequenceEncoder):
     """BernoulliSetDataEncoder for encoding sequences of iid observations."""
 
     def __str__(self) -> str:
-        return 'BernoulliSetDataEncoder'
+        return "BernoulliSetDataEncoder"
 
     def __eq__(self, other: object) -> bool:
         return isinstance(other, BernoulliSetDataEncoder)
 
-    def seq_encode(self, x: Sequence[Sequence[Any]]) -> 'BernoulliSetEncodedDataSequence':
+    def seq_encode(
+        self, x: Sequence[Sequence[Any]]
+    ) -> "BernoulliSetEncodedDataSequence":
         idx = []
         xs = []
 
@@ -366,6 +435,7 @@ class BernoulliSetDataEncoder(DataSequenceEncoder):
         xs = np.asarray(xs, dtype=np.int32)
 
         return BernoulliSetEncodedDataSequence(data=(len(x), idx, val_map, xs))
+
 
 class BernoulliSetEncodedDataSequence(EncodedDataSequence):
     """BernoulliSetEncodedDataSequence object for vectorized function calls.
@@ -392,5 +462,4 @@ class BernoulliSetEncodedDataSequence(EncodedDataSequence):
         super().__init__(data=data)
 
     def __repr__(self) -> str:
-        return f'BernoulliSetEncodedDataSequence(data={self.data})'
-
+        return f"BernoulliSetEncodedDataSequence(data={self.data})"

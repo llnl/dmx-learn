@@ -14,7 +14,7 @@ The spike and slab distribution places a spike of probability *p* on integer val
    \end{array} \right.
 
 
-In the above we have assumed the length of [*min_val*, *max_val*] is *n*. 
+In the above we have assumed the length of [*min_val*, *max_val*] is *n*.
 
 SpikeAndSlabDistribution
 ---------------------------------
@@ -35,4 +35,3 @@ SpikeAndSlabSampler
 
 .. autoclass:: dmx.stats.int_spike.SpikeAndSlabSampler
    :members:
-

@@ -1,31 +1,38 @@
 """Contains estimation tools for bstats with mpi4py use."""
-__all__ = [
-    'seq_estimate_mpi', 
-    'initialize_mpi', 
-    'seq_log_density_sum_mpi', 
-    'seq_encode_mpi', 
-    'seq_log_density_mpi'
-    ]
 
-from typing import Any, Tuple, Sequence, Optional, List
+__all__ = [
+    "seq_estimate_mpi",
+    "initialize_mpi",
+    "seq_log_density_sum_mpi",
+    "seq_encode_mpi",
+    "seq_log_density_mpi",
+]
+
+from typing import Any, List, Optional, Sequence, Tuple
+
 import numpy as np
-from numpy.random import RandomState
 from mpi4py import MPI
-from dmx.bstats import *
+from numpy.random import RandomState
+
 from dmx.arithmetic import *
-from dmx.bstats.pdist import ParameterEstimator, EncodedDataSequence, ProbabilityDistribution
+from dmx.bstats import *
+from dmx.bstats.pdist import (
+    EncodedDataSequence,
+    ParameterEstimator,
+    ProbabilityDistribution,
+)
 
 
 def seq_encode_mpi(
     data: Sequence[Any],
     model: ProbabilityDistribution,
     num_chunks: int = 1,
-    chunk_size: Optional[int] = None
+    chunk_size: Optional[int] = None,
 ) -> List[Tuple[int, Any]]:
     """
     Encode data sequentially using MPI for parallel processing.
 
-    This function distributes data across MPI processes, performs encoding on each process, 
+    This function distributes data across MPI processes, performs encoding on each process,
     and collects the encoded results.
 
     Args:
@@ -52,7 +59,9 @@ def seq_encode_mpi(
             num_chunks_loc = num_chunks
 
         # Distribute data across processes
-        data_loc = [[data[i] for i in range(r, sz, world_size)] for r in range(world_size)]
+        data_loc = [
+            [data[i] for i in range(r, sz, world_size)] for r in range(world_size)
+        ]
         model_loc = model
     else:
         num_chunks_loc = None
@@ -76,7 +85,9 @@ def seq_encode_mpi(
     return rv
 
 
-def initialize_mpi(data: Sequence[Any], estimator: ParameterEstimator, rng: RandomState, p: float) -> Optional[ProbabilityDistribution]:
+def initialize_mpi(
+    data: Sequence[Any], estimator: ParameterEstimator, rng: RandomState, p: float
+) -> Optional[ProbabilityDistribution]:
     """
     Initialize MPI-based parallel data processing and estimate parameters.
 
@@ -102,29 +113,31 @@ def initialize_mpi(data: Sequence[Any], estimator: ParameterEstimator, rng: Rand
     if world_rank == 0:
         # factory = estimator.accumulator_factory()
         est = estimator
-        seeds = rng.randint(low=0, high=2**31-1, size=world_size).tolist()
-        data_loc = [[data[i] for i in range(r, len(data), world_size)] for r in range(world_size)]
+        seeds = rng.randint(low=0, high=2**31 - 1, size=world_size).tolist()
+        data_loc = [
+            [data[i] for i in range(r, len(data), world_size)]
+            for r in range(world_size)
+        ]
 
     else:
         seeds = None
         est = None
         data_loc = None
-    
+
     seed = comm.scatter(seeds, root=0)
-    est = comm.bcast(est, root=0) # this should be factory cast
+    est = comm.bcast(est, root=0)  # this should be factory cast
     factory = est.accumulator_factory()
     data_loc = comm.scatter(data_loc, root=0)
     rng_loc = np.random.RandomState(seed)
 
     idata = iter(data_loc)
-    local_accumulator = factory.make() 
+    local_accumulator = factory.make()
     nobs = 0.0
 
     for x in idata:
         w = 1.0 if rng_loc.rand() <= p else 0.0
         nobs += w
         local_accumulator.initialize(x, w, rng)
-
 
     stats_dict = dict()
     local_accumulator.key_merge(stats_dict)
@@ -151,7 +164,7 @@ def initialize_mpi(data: Sequence[Any], estimator: ParameterEstimator, rng: Rand
 def seq_estimate_mpi(
     enc_data: List[Tuple[int, EncodedDataSequence]],
     estimator: ParameterEstimator,
-    prev_estimate: ProbabilityDistribution
+    prev_estimate: ProbabilityDistribution,
 ) -> Optional[ProbabilityDistribution]:
     """
     Estimate parameters using MPI-based parallel processing.
@@ -178,11 +191,11 @@ def seq_estimate_mpi(
 
     if world_rank == 0:
         est = estimator
-        
+
     else:
         est = None
         prev_estimate = None
-    
+
     est = comm.bcast(est, root=0)
     factory = est.accumulator_factory()
     prev_estimate = comm.bcast(prev_estimate, root=0)
@@ -192,7 +205,7 @@ def seq_estimate_mpi(
     for sz, x in enc_data:
         nobs += sz
         local_accumulator.seq_update(x, np.ones(sz), prev_estimate)
-    
+
     suff_stats = comm.gather((nobs, local_accumulator.value()), root=0)
     if world_rank == 0:
         total_obs = 0.0
@@ -200,7 +213,7 @@ def seq_estimate_mpi(
         for nn, ss in suff_stats:
             total_obs += nn
             accumulator.combine(ss)
-        
+
         stats_dict = ()
         accumulator.key_merge(stats_dict)
         accumulator.key_replace(stats_dict)
@@ -210,11 +223,10 @@ def seq_estimate_mpi(
         return None
 
 
-
 def seq_log_density_mpi(
     enc_data: Sequence[Tuple[int, EncodedDataSequence]],
     estimate: ProbabilityDistribution,
-    is_list: bool = False
+    is_list: bool = False,
 ) -> List[np.ndarray]:
     """
     Compute log densities for encoded data sequences in parallel using MPI.
@@ -242,15 +254,17 @@ def seq_log_density_mpi(
         loc_estimate = None
     loc_estimate = comm.bcast(loc_estimate, root=0)
     if is_list:
-        return [np.asarray([ee.seq_log_density(u[1]) for ee in loc_estimate]) for u in enc_data]
+        return [
+            np.asarray([ee.seq_log_density(u[1]) for ee in loc_estimate])
+            for u in enc_data
+        ]
     else:
         return [loc_estimate.seq_log_density(u[1]) for u in enc_data]
 
 
-
 def seq_log_density_sum_mpi(
     enc_data: Sequence[Tuple[int, EncodedDataSequence]],
-    estimate: ProbabilityDistribution
+    estimate: ProbabilityDistribution,
 ) -> Tuple[int, float]:
     """
     Compute the total number of observations and the sum of log densities in parallel using MPI.
@@ -281,5 +295,5 @@ def seq_log_density_sum_mpi(
 
     nobs = comm.allreduce(rv0)
     ll = comm.allreduce(rv1)
-    
+
     return nobs, ll

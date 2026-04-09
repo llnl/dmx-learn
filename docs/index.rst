@@ -3,9 +3,9 @@
    You can adapt this file completely to your liking, but it should at least
    contain the root `toctree` directive.
 
-*dmx-learn* Documentation 
+*dmx-learn* Documentation
 ==============================
-*dmx-learn* is a Python package for distributed heterogeneous density estimation. 
+*dmx-learn* is a Python package for distributed heterogeneous density estimation.
 With only a few lines of code you can specify and fit complex models on variable-length heterogenous data.
 
 Contents

@@ -1,34 +1,40 @@
 """Test cases for Integer Bernoulli Set Distribution and related classes."""
-from tests.stats.stats_tests import * 
+
+import numpy as np
+import pytest
+
 from dmx.stats import *
 from dmx.stats.intsetdist import *
-import numpy as np
-import pytest 
+from tests.stats.stats_tests import *
 
 
 class IntegerBernoulliSetDistributionTestCase(StatsTestClass):
     def setUp(self) -> None:
         self.eval_dists = [
-            IntegerBernoulliSetDistribution(log_pvec=np.log(np.ones(3) / 3.), name='name', keys='keys'),
-            IntegerBernoulliSetDistribution(log_pvec=np.log(np.ones(2) / 2.), keys='keys'),
-            IntegerBernoulliSetDistribution(log_pvec=np.log(np.ones(5) / 5.))
+            IntegerBernoulliSetDistribution(
+                log_pvec=np.log(np.ones(3) / 3.0), name="name", keys="keys"
+            ),
+            IntegerBernoulliSetDistribution(
+                log_pvec=np.log(np.ones(2) / 2.0), keys="keys"
+            ),
+            IntegerBernoulliSetDistribution(log_pvec=np.log(np.ones(5) / 5.0)),
         ]
         self._ests = [
-            IntegerBernoulliSetEstimator(num_vals=3, name='name', keys='keys'),
-            IntegerBernoulliSetEstimator(num_vals=2, keys='keys'),
+            IntegerBernoulliSetEstimator(num_vals=3, name="name", keys="keys"),
+            IntegerBernoulliSetEstimator(num_vals=2, keys="keys"),
             IntegerBernoulliSetEstimator(num_vals=5),
         ]
         self._factories = [
-            IntegerBernoulliSetAccumulatorFactory(num_vals=3, keys='keys', name='name'),
-            IntegerBernoulliSetAccumulatorFactory(num_vals=2, keys='keys'),
-            IntegerBernoulliSetAccumulatorFactory(num_vals=5)
+            IntegerBernoulliSetAccumulatorFactory(num_vals=3, keys="keys", name="name"),
+            IntegerBernoulliSetAccumulatorFactory(num_vals=2, keys="keys"),
+            IntegerBernoulliSetAccumulatorFactory(num_vals=5),
         ]
         self._accumulators = [
-            IntegerBernoulliSetAccumulator(num_vals=3, keys='keys', name='name'),
-            IntegerBernoulliSetAccumulator(num_vals=2, keys='keys'),
-            IntegerBernoulliSetAccumulator(num_vals=5)
+            IntegerBernoulliSetAccumulator(num_vals=3, keys="keys", name="name"),
+            IntegerBernoulliSetAccumulator(num_vals=2, keys="keys"),
+            IntegerBernoulliSetAccumulator(num_vals=5),
         ]
-        self._encoders = [IntegerBernoulliSetDataEncoder()]*len(self.eval_dists)
+        self._encoders = [IntegerBernoulliSetDataEncoder()] * len(self.eval_dists)
 
         # Define members for tests
         self.dist_est = [(d, e) for d, e in zip(self.eval_dists, self._ests)]
@@ -40,21 +46,25 @@ class IntegerBernoulliSetDistributionTestCase(StatsTestClass):
         self.acc_encoder = [(a, e) for a, e in zip(self._accumulators, self._encoders)]
 
         self.type_check_data = [None, np.ones((10, 10))]
-        self.type_check_keys = [(None, None), 1.0, ('keys', None)]
+        self.type_check_keys = [(None, None), 1.0, ("keys", None)]
 
-        self._init_ests = [
-        ]
-    
+        self._init_ests = []
 
     def test_seq_log_density_type(self):
         for x in self.type_check_data:
             with pytest.raises(Exception) as e:
                 self.eval_dists[0].seq_log_density(x)
-            assert str(e.value) == "IntegerBernoulliSetEncodedDataSequence required for seq_log_density()."
-   
+            assert (
+                str(e.value)
+                == "IntegerBernoulliSetEncodedDataSequence required for seq_log_density()."
+            )
+
     def test_key_exceptions(self):
         for x in self.type_check_keys:
             with pytest.raises(TypeError) as e:
                 IntegerBernoulliSetEstimator(num_vals=1, keys=x)
-                
-            assert str(e.value) == "IntegerBernoulliSetEstimator requires keys to be of type 'str'."
+
+            assert (
+                str(e.value)
+                == "IntegerBernoulliSetEstimator requires keys to be of type 'str'."
+            )

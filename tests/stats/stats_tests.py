@@ -10,22 +10,28 @@ It includes tests for:
 - Estimation and sequence estimation using empirical KL divergence
 - Initialization and update methods for accumulators
 - Type checking for keys and data"""
-from dmx.stats import *
-import numpy as np
-from dmx.utils.estimation import empirical_kl_divergence
-from dmx.stats import SequenceEncodableProbabilityDistribution, DataSequenceEncoder
+
 import abc
 import unittest
-import pytest
-import dmx.utils.vector as vec
 
-def str_eval_test(dist):    
+import numpy as np
+import pytest
+
+import dmx.utils.vector as vec
+from dmx.stats import *
+from dmx.stats import DataSequenceEncoder, SequenceEncodableProbabilityDistribution
+from dmx.utils.estimation import empirical_kl_divergence
+
+
+def str_eval_test(dist):
     dist2 = eval(str(dist))
     return dist == dist2
+
 
 def estimator_test(dist, est):
     # pseudo_count should be passed on estimator call
     return dist.estimator() == est
+
 
 def dist_to_encoder_test(dist, encoder):
     return dist.dist_to_encoder() == encoder
@@ -39,11 +45,11 @@ def sampler_repeat_test(dist: SequenceEncodableProbabilityDistribution):
     are consistent when the same seed is used multiple times.
 
     Args:
-        dist (SequenceEncodableProbabilityDistribution): The distribution instance to test, 
+        dist (SequenceEncodableProbabilityDistribution): The distribution instance to test,
             which must have a `sampler` method.
 
     Returns:
-        tuple: A tuple where the first element is a boolean indicating if the sampler 
+        tuple: A tuple where the first element is a boolean indicating if the sampler
                is repeatable, and the second element is a list of results for each seed.
     """
     seeds = [1, 2, 3]
@@ -61,19 +67,21 @@ def sampler_repeat_test(dist: SequenceEncodableProbabilityDistribution):
     return all(rv), rv
 
 
-def log_density_test(dist: SequenceEncodableProbabilityDistribution, encoder: DataSequenceEncoder):
+def log_density_test(
+    dist: SequenceEncodableProbabilityDistribution, encoder: DataSequenceEncoder
+):
     """
     Test the log density function for a given distribution.
 
-    This function tests that the log density values for a set of samples generated 
+    This function tests that the log density values for a set of samples generated
     by the distribution's sampler match the values computed using `seq_log_density`.
 
     Args:
         dist (SequenceEncodableProbabilityDistribution): The distribution instance to test.
 
     Returns:
-        tuple: A tuple where the first element is a boolean indicating whether 
-               the log density values are consistent, and the second element 
+        tuple: A tuple where the first element is a boolean indicating whether
+               the log density values are consistent, and the second element
                is the maximum discrepancy between the calculated values.
     """
     seeds = [1, 2, 3]
@@ -91,40 +99,48 @@ def log_density_test(dist: SequenceEncodableProbabilityDistribution, encoder: Da
             if seq_ll[i] == 0:
                 seq_ll[i] = np.abs(dist.log_density(data[i]))
             else:
-                seq_ll[i] = np.abs(seq_ll[i] - dist.log_density(data[i])) / np.abs(seq_ll[i])
+                seq_ll[i] = np.abs(seq_ll[i] - dist.log_density(data[i])) / np.abs(
+                    seq_ll[i]
+                )
 
         rv.append(max(seq_ll))
-        
+
     return max(rv) < 1.0e-14, "max(rv) test"
+
 
 def estimator_factory_test(x):
     est, factory = x
     rv = est.accumulator_factory()
     return rv == factory
 
+
 def factory_make_test(x):
     factory, acc_ = x
     acc = factory.make()
     return acc == acc_
 
+
 def acc_to_encoder_test(x):
-    acc, encoder = x 
+    acc, encoder = x
     return acc.acc_to_encoder() == encoder
 
-def estimation_test(dist: SequenceEncodableProbabilityDistribution, encoder: DataSequenceEncoder):
+
+def estimation_test(
+    dist: SequenceEncodableProbabilityDistribution, encoder: DataSequenceEncoder
+):
     """
     Test the estimation of a distribution using empirical KL divergence.
 
-    This function tests whether the empirical KL divergence between the distribution 
+    This function tests whether the empirical KL divergence between the distribution
     and its estimator decreases as the sample size increases.
 
     Args:
-        dist (SequenceEncodableProbabilityDistribution): The distribution instance to test, which 
+        dist (SequenceEncodableProbabilityDistribution): The distribution instance to test, which
             must have a `sampler` method and an `estimator` method.
 
     Returns:
-        tuple: A tuple where the first element is a boolean indicating whether the 
-               estimation improved as sample size increased, and the second element 
+        tuple: A tuple where the first element is a boolean indicating whether the
+               estimation improved as sample size increased, and the second element
                is a list of KL divergence values for each sample size.
     """
     seeds = [1, 2, 3, 4]
@@ -156,7 +172,9 @@ def estimation_test(dist: SequenceEncodableProbabilityDistribution, encoder: Dat
     return rv, akld
 
 
-def seq_estimation_test(dist: SequenceEncodableProbabilityDistribution, encoder: DataSequenceEncoder):
+def seq_estimation_test(
+    dist: SequenceEncodableProbabilityDistribution, encoder: DataSequenceEncoder
+):
     """
     Test the sequence estimation of a distribution using empirical KL divergence.
 
@@ -164,12 +182,12 @@ def seq_estimation_test(dist: SequenceEncodableProbabilityDistribution, encoder:
     and its sequence estimator decreases as the sample size increases.
 
     Args:
-        dist (SequenceEncodableProbabilityDistribution): The distribution instance to test, 
+        dist (SequenceEncodableProbabilityDistribution): The distribution instance to test,
             which must have a `sampler` method and an estimator capable of sequence estimation.
 
     Returns:
-        tuple: A tuple where the first element is a boolean indicating whether the 
-            sequence estimation improved as sample size increased, and the second 
+        tuple: A tuple where the first element is a boolean indicating whether the
+            sequence estimation improved as sample size increased, and the second
             element is a list of KL divergence values for each sample size.
     """
     seeds = [1, 2, 3, 4]
@@ -200,6 +218,7 @@ def seq_estimation_test(dist: SequenceEncodableProbabilityDistribution, encoder:
 
     return rv, akld
 
+
 def initialize_test(dist, encoder):
     seeds = [1, 2, 3]
     sz = 1000
@@ -224,11 +243,11 @@ def initialize_test(dist, encoder):
         acc1.seq_initialize(enc_data, np.ones(len(data)), rng)
         v1 = acc1.value()
         d0 = est.estimate(None, v0)
-        d1 = est.estimate(None, v1) 
+        d1 = est.estimate(None, v1)
 
         ekld = empirical_kl_divergence(d0, d1, [(sz, enc_data)])
         rv.append(np.abs(ekld[0]) < 1.0e-1)
-        
+
     return np.all(rv), rv
 
 
@@ -247,7 +266,7 @@ def seq_update_test(dist, encoder):
 
         ll_prev = np.sum(prev_estimate.seq_log_density(enc_data[0][1]))
         ll = np.sum(estimate.seq_log_density(enc_data[0][1]))
-        log_diff = ll-ll_prev
+        log_diff = ll - ll_prev
         rv.append(log_diff >= 0)
 
     return np.all(rv), rv
@@ -321,7 +340,9 @@ class StatsTestClass(unittest.TestCase, metaclass=abc.ABCMeta):
             rv = acc_to_encoder_test(x)
             self.assertTrue(rv)
 
-    @pytest.mark.dependency(depends=["estimator", "log_density", "estimator_factory", "factory_make"])
+    @pytest.mark.dependency(
+        depends=["estimator", "log_density", "estimator_factory", "factory_make"]
+    )
     def test_09_seq_update(self):
         for x in self.density_dist_encoder:
             res = seq_update_test(*x)
@@ -338,6 +359,3 @@ class StatsTestClass(unittest.TestCase, metaclass=abc.ABCMeta):
     #     for x in self.density_dist_encoder:
     #         res = initialize_test(*x)
     #         self.assertTrue(res[0], str(res[1]))
-
-    
-            

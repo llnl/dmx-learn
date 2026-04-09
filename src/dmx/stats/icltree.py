@@ -13,14 +13,22 @@ where j_k < i_k for all k = 1,2,3,..N.
 Data type: Union[Sequence[int], np.ndarray] .
 
 """
+
+from typing import Any, Dict, List, Optional, Sequence, Tuple, Union
+
 import numpy as np
 from numpy.random import RandomState
-from scipy.sparse.csgraph import minimum_spanning_tree, breadth_first_order
+from scipy.sparse.csgraph import breadth_first_order, minimum_spanning_tree
 
-from dmx.stats.pdist import SequenceEncodableProbabilityDistribution, SequenceEncodableStatisticAccumulator, \
-    ParameterEstimator, DataSequenceEncoder, DistributionSampler, StatisticAccumulatorFactory, EncodedDataSequence
-
-from typing import Sequence, Tuple, Any, List, Dict, Union, Optional
+from dmx.stats.pdist import (
+    DataSequenceEncoder,
+    DistributionSampler,
+    EncodedDataSequence,
+    ParameterEstimator,
+    SequenceEncodableProbabilityDistribution,
+    SequenceEncodableStatisticAccumulator,
+    StatisticAccumulatorFactory,
+)
 
 
 class ICLTreeDistribution(SequenceEncodableProbabilityDistribution):
@@ -39,11 +47,14 @@ class ICLTreeDistribution(SequenceEncodableProbabilityDistribution):
 
     """
 
-    def __init__(self, dependency_list: List[Tuple[int, Optional[int]]],
-                 conditional_log_densities: Union[Sequence[float], np.ndarray],
-                 feature_order: Optional[Sequence[int]] = None, 
-                 name: Optional[str] = None,
-                 keys: Optional[str] = None) -> None:
+    def __init__(
+        self,
+        dependency_list: List[Tuple[int, Optional[int]]],
+        conditional_log_densities: Union[Sequence[float], np.ndarray],
+        feature_order: Optional[Sequence[int]] = None,
+        name: Optional[str] = None,
+        keys: Optional[str] = None,
+    ) -> None:
         """ICLTreeDistribution object.
 
         Args:
@@ -57,9 +68,11 @@ class ICLTreeDistribution(SequenceEncodableProbabilityDistribution):
 
         """
 
-        self.feature_order = range(len(dependency_list)) if feature_order is None else feature_order
+        self.feature_order = (
+            range(len(dependency_list)) if feature_order is None else feature_order
+        )
         self.dependency_list = list(zip(self.feature_order, dependency_list))
-                                #dependency_list[i] for i in self.feature_order] # list(zip(self.feature_order, dependency_list))
+        # dependency_list[i] for i in self.feature_order] # list(zip(self.feature_order, dependency_list))
         self.conditional_log_densities = conditional_log_densities
         self.conditional_densities = [np.exp(u) for u in conditional_log_densities]
         self.num_features = len(dependency_list)
@@ -67,12 +80,18 @@ class ICLTreeDistribution(SequenceEncodableProbabilityDistribution):
         self.keys = keys
 
     def __str__(self) -> str:
-        f1 = ','.join([str(u[1]) for u in self.dependency_list])
-        f3 = ','.join([str(u[0]) for u in self.dependency_list])
-        f2 = ['[' + ','.join(map(str, u.flatten())) + ']' for u in self.conditional_log_densities]
+        f1 = ",".join([str(u[1]) for u in self.dependency_list])
+        f3 = ",".join([str(u[0]) for u in self.dependency_list])
+        f2 = [
+            "[" + ",".join(map(str, u.flatten())) + "]"
+            for u in self.conditional_log_densities
+        ]
         f4 = repr(self.name)
         f5 = repr(self.keys)
-        return 'ICLTreeDistribution([%s], [%s], feature_order=[%s], name=%s, keys=%s)' % (f1, f2, f3, f4, f5)
+        return (
+            "ICLTreeDistribution([%s], [%s], feature_order=[%s], name=%s, keys=%s)"
+            % (f1, f2, f3, f4, f5)
+        )
 
     def density(self, x: Union[Sequence[int], np.ndarray]) -> float:
         return np.exp(self.log_density(x))
@@ -87,9 +106,9 @@ class ICLTreeDistribution(SequenceEncodableProbabilityDistribution):
 
         return rv
 
-    def seq_log_density(self, x: 'ICLTreeEncodedDataSequence') -> np.ndarray:
+    def seq_log_density(self, x: "ICLTreeEncodedDataSequence") -> np.ndarray:
         if not isinstance(x, ICLTreeEncodedDataSequence):
-            raise Exception('Requires ICLTreeEncodedDataSequence.')
+            raise Exception("Requires ICLTreeEncodedDataSequence.")
 
         rv = np.zeros(x.data.shape[0])
         for i, (j, k) in enumerate(self.dependency_list):
@@ -100,13 +119,13 @@ class ICLTreeDistribution(SequenceEncodableProbabilityDistribution):
 
         return rv
 
-    def sampler(self, seed: Optional[int] = None) -> 'ICLTreeSampler':
+    def sampler(self, seed: Optional[int] = None) -> "ICLTreeSampler":
         return ICLTreeSampler(self, seed)
 
-    def estimator(self, pseudo_count: Optional[float] = None) -> 'ICLTreeEstimator':
+    def estimator(self, pseudo_count: Optional[float] = None) -> "ICLTreeEstimator":
         return ICLTreeEstimator(name=self.name, keys=self.keys)
 
-    def dist_to_encoder(self) -> 'ICLTreeDataEncoder':
+    def dist_to_encoder(self) -> "ICLTreeDataEncoder":
         return ICLTreeDataEncoder()
 
 
@@ -130,7 +149,9 @@ class ICLTreeSampler(DistributionSampler):
         self.rng = RandomState(seed)
         self.dist = dist
 
-    def sample(self, size: Optional[int] = None) -> Union[List[Optional[int]], Sequence[List[Optional[int]]]]:
+    def sample(
+        self, size: Optional[int] = None
+    ) -> Union[List[Optional[int]], Sequence[List[Optional[int]]]]:
 
         if size is None:
             rv = [None] * self.dist.num_features
@@ -149,7 +170,13 @@ class ICLTreeSampler(DistributionSampler):
 
 class ICLTreeAccumulator(SequenceEncodableStatisticAccumulator):
 
-    def __init__(self, num_features: int, num_states: int, keys: Optional[str] = None, name: Optional[str] = None):
+    def __init__(
+        self,
+        num_features: int,
+        num_states: int,
+        keys: Optional[str] = None,
+        name: Optional[str] = None,
+    ):
         self.num_states = num_states
         self.num_features = num_features
 
@@ -165,13 +192,21 @@ class ICLTreeAccumulator(SequenceEncodableStatisticAccumulator):
 
     def _expand_states(self, num_states: int, num_features: int):
 
-        if (self.counts is None) and (num_states is not None) and (num_features is not None):
+        if (
+            (self.counts is None)
+            and (num_states is not None)
+            and (num_features is not None)
+        ):
             self.num_features = num_features
             self.num_states = num_states
             self.counts = np.zeros((num_features, num_features, num_states, num_states))
             self.marginal_counts = np.zeros((num_features, num_states))
 
-        elif (self.counts is not None) and (num_states is not None) and (num_features is not None):
+        elif (
+            (self.counts is not None)
+            and (num_states is not None)
+            and (num_features is not None)
+        ):
             old_num_states = self.num_states
             new_counts = np.zeros((num_features, num_features, num_states, num_states))
             new_marginal = np.zeros((num_features, num_states))
@@ -182,8 +217,12 @@ class ICLTreeAccumulator(SequenceEncodableStatisticAccumulator):
             self.counts = new_counts
             self.marginal_counts = new_marginal
 
-    def update(self, x: Union[Sequence[int], np.ndarray], weight: float,
-               estimate: Optional[ICLTreeDistribution]) -> None:
+    def update(
+        self,
+        x: Union[Sequence[int], np.ndarray],
+        weight: float,
+        estimate: Optional[ICLTreeDistribution],
+    ) -> None:
 
         if (self.counts is None) or (self.num_states <= np.max(x)):
             self._expand_states(max(x) + 1, len(x))
@@ -195,7 +234,12 @@ class ICLTreeAccumulator(SequenceEncodableStatisticAccumulator):
         for i in range(self.num_features):
             self.counts[i, ff, xx[i], xx] += weight
 
-    def seq_update(self, x: 'ICLTreeEncodedDataSequence', weights: np.ndarray, estimate: Optional[ICLTreeDistribution]) -> None:
+    def seq_update(
+        self,
+        x: "ICLTreeEncodedDataSequence",
+        weights: np.ndarray,
+        estimate: Optional[ICLTreeDistribution],
+    ) -> None:
 
         max_x = np.max(x.data)
 
@@ -205,22 +249,38 @@ class ICLTreeAccumulator(SequenceEncodableStatisticAccumulator):
         num_states = self.num_states
 
         for i in range(self.num_features):
-            self.marginal_counts[i, :] += np.bincount(x.data[:, i], weights=weights, minlength=num_states)
+            self.marginal_counts[i, :] += np.bincount(
+                x.data[:, i], weights=weights, minlength=num_states
+            )
 
             for j in range(i + 1, self.num_features):
                 joint_idx = x.data[:, i] * num_states + x.data[:, j]
-                joint_cnt = np.bincount(joint_idx, weights=weights, minlength=(num_states * num_states))
+                joint_cnt = np.bincount(
+                    joint_idx, weights=weights, minlength=(num_states * num_states)
+                )
                 joint_cnt = np.reshape(joint_cnt, (num_states, num_states))
 
                 self.counts[i, j, :, :] += joint_cnt
 
-    def initialize(self, x: Union[Sequence[int], np.ndarray], weight: float, rng: Optional[RandomState]) -> None:
+    def initialize(
+        self,
+        x: Union[Sequence[int], np.ndarray],
+        weight: float,
+        rng: Optional[RandomState],
+    ) -> None:
         self.update(x, weight, None)
 
-    def seq_initialize(self, x: 'ICLTreeEncodedDataSequence', weights: np.ndarray, rng: Optional[RandomState]) -> None:
+    def seq_initialize(
+        self,
+        x: "ICLTreeEncodedDataSequence",
+        weights: np.ndarray,
+        rng: Optional[RandomState],
+    ) -> None:
         self.seq_update(x, weights, None)
 
-    def combine(self, suff_stat: Tuple[int, int, np.ndarray, np.ndarray]) -> 'ICLTreeAccumulator':
+    def combine(
+        self, suff_stat: Tuple[int, int, np.ndarray, np.ndarray]
+    ) -> "ICLTreeAccumulator":
 
         num_features, num_states, counts, marginal_counts = suff_stat
 
@@ -255,7 +315,9 @@ class ICLTreeAccumulator(SequenceEncodableStatisticAccumulator):
     def value(self) -> Tuple[int, int, np.ndarray, np.ndarray]:
         return self.num_features, self.num_states, self.counts, self.marginal_counts
 
-    def from_value(self, x: Tuple[int, int, np.ndarray, np.ndarray]) -> 'ICLTreeAccumulator':
+    def from_value(
+        self, x: Tuple[int, int, np.ndarray, np.ndarray]
+    ) -> "ICLTreeAccumulator":
         self.num_features = x[0]
         self.num_states = x[1]
         self.counts = x[2]
@@ -269,28 +331,39 @@ class ICLTreeAccumulator(SequenceEncodableStatisticAccumulator):
     def key_replace(self, stats_dict: Dict[str, Any]) -> None:
         pass
 
-    def acc_to_encoder(self) -> 'ICLTreeDataEncoder':
+    def acc_to_encoder(self) -> "ICLTreeDataEncoder":
         return ICLTreeDataEncoder()
+
 
 class ICLTreeAccumulatorFactory(StatisticAccumulatorFactory):
 
-    def __init__(self, num_features: Optional[int] = None, num_states: Optional[int] = None,
-                 keys: Optional[str] = None,
-                 name: Optional[str] = None) -> None:
+    def __init__(
+        self,
+        num_features: Optional[int] = None,
+        num_states: Optional[int] = None,
+        keys: Optional[str] = None,
+        name: Optional[str] = None,
+    ) -> None:
         self.num_features = num_features
         self.num_states = num_states
         self.keys = keys
         self.name = name
 
-    def make(self) -> 'ICLTreeAccumulator':
+    def make(self) -> "ICLTreeAccumulator":
         return ICLTreeAccumulator(self.num_features, self.num_states, self.keys)
+
 
 class ICLTreeEstimator(ParameterEstimator):
 
-    def __init__(self, num_features: Optional[int] = None, num_states: Optional[int] = None,
-                 pseudo_count: Optional[float] = None,
-                 suff_stat: Optional[Any] = None,
-                 keys: Optional[str] = None, name: Optional[str] = None):
+    def __init__(
+        self,
+        num_features: Optional[int] = None,
+        num_states: Optional[int] = None,
+        pseudo_count: Optional[float] = None,
+        suff_stat: Optional[Any] = None,
+        keys: Optional[str] = None,
+        name: Optional[str] = None,
+    ):
         self.num_features = num_features
         self.num_states = num_states
         self.pseudo_count = pseudo_count
@@ -314,7 +387,10 @@ class ICLTreeEstimator(ParameterEstimator):
         for i in range(num_features - 1):
             for j in range(i + 1, num_features):
                 joint_ij = counts[i, j, :, :] + pseudo_count_adj1
-                indep_ij = np.outer(marginal_counts[i, :], marginal_counts[j, :]) + pseudo_count_adj1
+                indep_ij = (
+                    np.outer(marginal_counts[i, :], marginal_counts[j, :])
+                    + pseudo_count_adj1
+                )
 
                 joint_ij_sum = joint_ij.sum()
                 indep_ij_sum = indep_ij.sum()
@@ -327,7 +403,10 @@ class ICLTreeEstimator(ParameterEstimator):
                 good = np.bitwise_and(joint_ij > 0, indep_ij > 0)
 
                 if good.sum() > 0:
-                    mi_val = (joint_ij[good] * (np.log(joint_ij[good]) - np.log(indep_ij[good]))).sum()
+                    mi_val = (
+                        joint_ij[good]
+                        * (np.log(joint_ij[good]) - np.log(indep_ij[good]))
+                    ).sum()
                     mi_mat[i, j] = 1.0 + mi_val
 
                 else:
@@ -340,12 +419,14 @@ class ICLTreeEstimator(ParameterEstimator):
         span_tree = minimum_spanning_tree(cost_mat)
 
         root_node = 0
-        feature_order, deps = breadth_first_order(span_tree, root_node, directed=False, return_predecessors=True)
+        feature_order, deps = breadth_first_order(
+            span_tree, root_node, directed=False, return_predecessors=True
+        )
 
         deps = [deps[i] for i in feature_order]
         tmats = [None] * num_features
 
-        with np.errstate(divide='ignore'):
+        with np.errstate(divide="ignore"):
 
             root_marginal = marginal_counts[root_node, :] + pseudo_count_adj0
             tmats[0] = np.log(root_marginal / (root_marginal.sum()))
@@ -371,15 +452,17 @@ class ICLTreeEstimator(ParameterEstimator):
 
 
 class ICLTreeDataEncoder(DataSequenceEncoder):
-    """ICLTreeDataEncoder object for encoding sequences of iid ICL observations. """
+    """ICLTreeDataEncoder object for encoding sequences of iid ICL observations."""
 
     def __str__(self) -> str:
-        return 'ICLTreeDataEncoder'
+        return "ICLTreeDataEncoder"
 
     def __eq__(self, other: object) -> bool:
         return isinstance(other, ICLTreeDataEncoder)
 
-    def seq_encode(self, x: Union[List[int], np.ndarray]) -> 'ICLTreeEncodedDataSequence':
+    def seq_encode(
+        self, x: Union[List[int], np.ndarray]
+    ) -> "ICLTreeEncodedDataSequence":
         return ICLTreeEncodedDataSequence(data=np.asarray(x, dtype=int))
 
 
@@ -401,7 +484,4 @@ class ICLTreeEncodedDataSequence(EncodedDataSequence):
         super().__init__(data=data)
 
     def __repr__(self) -> str:
-        return f'ICLTreeEncodedDataSequence(data={self.data})'
-
-
-
+        return f"ICLTreeEncodedDataSequence(data={self.data})"

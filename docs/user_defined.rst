@@ -4,22 +4,22 @@ User Defined Classes
 
 .. code-block:: python
 
-    import sys 
+    import sys
     import os
-    
+
 
     sys.path.insert(0, os.path.abspath('path/to/dmx-learn'))
 
-    import numpy as np 
+    import numpy as np
     from numpy.random import RandomState
     from typing import Optional, Sequence, Dict, Union, Tuple, Any
-    from dmx.arithmetic import * 
-    from dmx.stats.pdist import (SequenceEncodableProbabilityDistribution, 
-                                   ParameterEstimator, 
-                                   DistributionSampler, 
-                                   StatisticAccumulatorFactory, 
-                                   SequenceEncodableStatisticAccumulator, 
-                                   DataSequenceEncoder, 
+    from dmx.arithmetic import *
+    from dmx.stats.pdist import (SequenceEncodableProbabilityDistribution,
+                                   ParameterEstimator,
+                                   DistributionSampler,
+                                   StatisticAccumulatorFactory,
+                                   SequenceEncodableStatisticAccumulator,
+                                   DataSequenceEncoder,
                                    EncodedDataSequence)
     from dmx.utils.estimation import optimize
     import matplotlib.pyplot as plt
@@ -90,7 +90,7 @@ We first define a skeleton of the :class:`SequenceEncodableProbabilityDistributi
 .. code-block:: python
 
     class GmmDistribution(SequenceEncodableProbabilityDistribution):
-        
+
         def __init__(self, mu: Union[Sequence[float], np.ndarray], sigma2: Union[Sequence[float], np.ndarray], w: Union[Sequence[float], np.ndarray], name: Optional[str] = None):
             self.mu = np.asarray(mu)
             self.sigma2 = np.asarray(sigma2)
@@ -101,7 +101,7 @@ We first define a skeleton of the :class:`SequenceEncodableProbabilityDistributi
 
         def __str__(self) -> str:
             return 'GmmDistribution(mu=%s, sigma2=%s, w=%s, name=%s)' % (repr(self.mu.tolist()), repr(self.sigma2.tolist()), repr(self.w.tolist()), repr(self.name))
-        
+
         def log_density(self, x: float) -> float:
             pass
 
@@ -113,7 +113,7 @@ We first define a skeleton of the :class:`SequenceEncodableProbabilityDistributi
 
         def sampler(self, seed: Optional[int] = None):
             pass
-        
+
         def dist_to_encoder(self):
             pass
 
@@ -188,7 +188,7 @@ This formulation allows for stable computation of the log density of a Gaussian 
 .. code-block:: python
 
     class GmmDistribution(SequenceEncodableProbabilityDistribution):
-        
+
         def __init__(self, mu: Union[Sequence[float], np.ndarray], sigma2: Union[Sequence[float], np.ndarray], w: Union[Sequence[float], np.ndarray], name: Optional[str] = None):
             self.mu = np.asarray(mu)
             self.sigma2 = np.asarray(sigma2)
@@ -199,7 +199,7 @@ This formulation allows for stable computation of the log density of a Gaussian 
 
         def __str__(self) -> str:
             return 'GmmDistribution(mu=%s, sigma2=%s, w=%s, name=%s)' % (repr(self.mu.tolist()), repr(self.sigma2.tolist()), repr(self.w.tolist()), repr(self.name))
-        
+
         def log_density(self, x: float) -> float:
             # eval log-density for each component
             ll = self.log_const - 0.50*(x-self.mu) ** 2 / self.sigma2 - 0.5*np.log(self.sigma2) + np.log(self.w)
@@ -207,7 +207,7 @@ This formulation allows for stable computation of the log density of a Gaussian 
             # subtract max and exponentiate
             np.exp(ll-max_, out=ll)
             # finish log-sum-exp
-            rv = np.log(np.sum(ll)) + max_ 
+            rv = np.log(np.sum(ll)) + max_
             return rv
 
         def density(self, x: float) -> float:
@@ -218,7 +218,7 @@ This formulation allows for stable computation of the log density of a Gaussian 
 
         def sampler(self, seed: Optional[int] = None):
             pass
-        
+
         def dist_to_encoder(self):
             pass
 
@@ -235,13 +235,13 @@ A good way to think about how this will all look is to first consider a vectoriz
 .. code-block:: python
 
     def seq_log_density_(x: np.ndarray) -> np.ndarray:
-    
+
         ll = -0.5 * (x[:, None] - self.mu) ** 2 / self.sigma2 - 0.5 * np.log(self.sigma2) + self.log_const + np.log(self.w)
         max_ = np.max(ll, axis=1, keepdims=True)
         np.exp(ll - max_, out=ll)
         ll = np.log(np.sum(ll, axis=1, keepdims=False))
         ll += max_.flatten()
-    
+
         return ll
 
 The :class:`EncodedDataSequence` should store the processed data (which happens to be a numpy array for floats).
@@ -249,10 +249,10 @@ The :class:`EncodedDataSequence` should store the processed data (which happens 
 .. code-block:: python
 
     class GmmEncodedDataSequence(EncodedDataSequence):
-    
+
         def __init__(self, data: np.ndarray):
             super().__init__(data=data)
-        
+
         def __repr__(self) -> str:
             return f'GmmEncodedDataSequence(data={self.data})'
 
@@ -266,35 +266,35 @@ The :meth:`__eq__` method is implemented to check if two :class:`DataSequenceEnc
 
         def __str__(self) -> str:
             return 'GmmDataEncoder'
-        
+
         def __eq__(self, other) -> bool:
             return isinstance(other, GmmDataEncoder)
-        
+
         def seq_encode(self, x: Union[Sequence[float], np.ndarray]) -> 'GmmEncodedDataSequence':
             rv = np.asarray(x, dtype=float)
-            
+
             if np.any(np.isnan(rv)) or np.any(np.isinf(rv)):
                 raise Exception('GmmDistribution requires support x in (-inf,inf).')
-            
+
             return GmmEncodedDataSequence(data=rv)
 
 We can now fill in the :meth:`seq_log_density` function with proper type hints. We also fill out :meth:`dist_to_encoder`, which returns the appropriate :class:`DataSequenceEncoder` object for encoding data.
 
 .. code-block:: python
- 
+
  class GmmDistribution(SequenceEncodableProbabilityDistribution):
-     
+
      def __init__(self, mu: Union[Sequence[float], np.ndarray], sigma2: Union[Sequence[float], np.ndarray], w: Union[Sequence[float], np.ndarray], name: Optional[str] = None):
          self.mu = np.asarray(mu)
          self.sigma2 = np.asarray(sigma2)
          self.w = np.asarray(w)
          self.name = name
- 
+
          self.log_const = -0.5 * np.log(2.0 * np.pi)
- 
+
      def __str__(self) -> str:
          return 'GmmDistribution(mu=%s, sigma2=%s, w=%s, name=%s)' % (repr(self.mu.tolist()), repr(self.sigma2.tolist()), repr(self.w.tolist()), repr(self.name))
-     
+
      def log_density(self, x: float) -> float:
          # eval log-density for each component
          ll = self.log_const - 0.5 * (x - self.mu) ** 2 / self.sigma2 - 0.5 * np.log(self.sigma2) + np.log(self.w)
@@ -302,32 +302,32 @@ We can now fill in the :meth:`seq_log_density` function with proper type hints. 
          # subtract max and exponentiate
          np.exp(ll - max_, out=ll)
          # finish log-sum-exp
-         rv = np.log(np.sum(ll)) + max_ 
+         rv = np.log(np.sum(ll)) + max_
          return rv
- 
+
      def density(self, x: float) -> float:
          return np.exp(self.log_density(x))
- 
+
      def seq_log_density(self, x: GmmEncodedDataSequence) -> np.ndarray:
          # Type check
          if not isinstance(x, GmmEncodedDataSequence):
              raise Exception('GmmEncodedDataSequence requires for seq_log_density.')
-         
+
          # Evaluate the vectorized log-density as before
          ll = -0.5 * (x.data[:, None] - self.mu) ** 2 / self.sigma2 - 0.5 * np.log(self.sigma2) + self.log_const + np.log(self.w)
          max_ = np.max(ll, axis=1, keepdims=True)
          np.exp(ll - max_, out=ll)
          ll = np.log(np.sum(ll, axis=1, keepdims=False))
          ll += max_.flatten()
- 
+
          return ll
-     
+
      def dist_to_encoder(self) -> GmmDataEncoder:
          return GmmDataEncoder()
-     
+
      def sampler(self, seed: Optional[int] = None):
          pass
- 
+
      def estimator(self, pseudo_count: Optional[float] = None):
          pass
 
@@ -343,7 +343,7 @@ Sampling the GMM
 2. Sample an observation conditioned on the label drawn: :math:`x_i \vert z_i = k \sim N\left(\mu_k, \sigma^2_k \right)`
 
 Below is a vectorized implementation of GMM sampling in the ``sample`` method.
- 
+
 .. code-block:: python
 
         class GmmSampler(DistributionSampler):
@@ -351,7 +351,7 @@ Below is a vectorized implementation of GMM sampling in the ``sample`` method.
             def __init__(self, dist: GmmDistribution, seed: Optional[int] = None):
                 self.rng = RandomState(seed)
                 self.dist = dist
-            
+
             def sample(self, size: Optional[int] = None) -> Union[float, np.ndarray]:
                 ncomps = len(self.dist.w)
                 if size:
@@ -367,8 +367,8 @@ Below is a vectorized implementation of GMM sampling in the ``sample`` method.
                             i1 = i0 + xc
                             rv[idx[i0:i1]] = self.rng.normal(loc=self.dist.mu[xi], scale=np.sqrt(self.dist.sigma2[xi]), size=xc)
                             i0 += xc
-                        
-                    return rv 
+
+                    return rv
                 else:
                     z = self.rng.choice(ncomps, p=self.dist.w)
                     rv = self.rng.randn() * np.sqrt(self.dist.sigma2[z]) + self.dist.mu[z]
@@ -380,7 +380,7 @@ We can now update the ``sampler`` function in the ``SequenceEncodableProbability
 .. code-block:: python
 
     class GmmDistribution(SequenceEncodableProbabilityDistribution):
-        
+
         def __init__(self, mu: Union[Sequence[float], np.ndarray], sigma2: Union[Sequence[float], np.ndarray], w: Union[Sequence[float], np.ndarray], name: Optional[str] = None):
             self.mu = np.asarray(mu)
             self.sigma2 = np.asarray(sigma2)
@@ -391,7 +391,7 @@ We can now update the ``sampler`` function in the ``SequenceEncodableProbability
 
         def __str__(self) -> str:
             return 'GmmDistribution(mu=%s, sigma2=%s, w=%s, name=%s)' % (repr(self.mu.tolist()), repr(self.sigma2.tolist()), repr(self.w.tolist()), repr(self.name))
-        
+
         def log_density(self, x: float) -> float:
             # eval log-density for each component
             ll = self.log_const - 0.5*(x-self.mu) ** 2 / self.sigma2 - 0.5*np.log(self.sigma2) + np.log(self.w)
@@ -399,7 +399,7 @@ We can now update the ``sampler`` function in the ``SequenceEncodableProbability
             # subtract max and exponentiate
             np.exp(ll-max_, out=ll)
             # finish log-sum-exp
-            rv = np.log(np.sum(ll)) + max_ 
+            rv = np.log(np.sum(ll)) + max_
             return rv
 
         def density(self, x: float) -> float:
@@ -409,7 +409,7 @@ We can now update the ``sampler`` function in the ``SequenceEncodableProbability
             # Type check
             if not isinstance(x, GmmEncodedDataSequence):
                 raise Exception('GmmEncodedDataSequence requires for seq_log_density.')
-            
+
             # Evaluate the vetorized log-density as before
             ll = -0.5*(x.data[:, None] - self.mu)**2 / self.sigma2 - 0.5*np.log(self.sigma2) + self.log_const + np.log(self.w)
             max_ = np.max(ll, axis=1, keepdims=True)
@@ -418,10 +418,10 @@ We can now update the ``sampler`` function in the ``SequenceEncodableProbability
             ll += max_.flatten()
 
             return ll
-        
+
         def dist_to_encoder(self) -> GmmDataEncoder:
             return GmmDataEncoder()
-        
+
         def sampler(self, seed: Optional[int] = None) -> GmmSampler:
             return GmmSampler(dist=self, seed=seed)
 
@@ -465,7 +465,7 @@ where :math:`N_k = \sum_{n=1}^{N} \gamma_{nk}` is the effective number of points
 
 Sufficient Statistics
 =====================
-In dmx-learn, the accumulator tracks the sufficient statistics, which are used to perform the estimation step. Following the above, we see that 
+In dmx-learn, the accumulator tracks the sufficient statistics, which are used to perform the estimation step. Following the above, we see that
 
 .. math::
 
@@ -514,7 +514,7 @@ The member function ``acc_to_encoder`` is similar to ``dist_to_encoder`` from th
         # Return the sufficient statistics
         def value(self) -> Tuple[np.ndarray, np.ndarray, np.ndarray]:
             return self.comp_counts, self.x, self.x2
-        
+
         # Combine suff stats with the accumulators
         def combine(self, x: Tuple[np.ndarray, np.ndarray, np.ndarray]):
             self.comp_counts += x[0]
@@ -522,7 +522,7 @@ The member function ``acc_to_encoder`` is similar to ``dist_to_encoder`` from th
             self.x2 += x[2]
 
             return self
-        
+
         # assign sufficient statistics from a value
         def from_value(self, x: Tuple[np.ndarray, np.ndarray, np.ndarray]):
             self.comp_counts = x[0]
@@ -536,7 +536,7 @@ The member function ``acc_to_encoder`` is similar to ``dist_to_encoder`` from th
                     self.comp_counts += stats_dict[self.weight_keys]
                 else:
                     stats_dict[self.weight_keys] = self.comp_counts
-            
+
             if self.param_keys is not None:
                 if self.param_keys in stats_dict:
                     x, x2 = stats_dict[self.param_keys]
@@ -554,12 +554,12 @@ The member function ``acc_to_encoder`` is similar to ``dist_to_encoder`` from th
             if self.param_keys is not None:
                 if self.param_keys in stats_dict:
                     self.param_keys = stats_dict[self.param_keys]
-        
+
         # Create a DataSequenceEncoder object for seq initialize encodings.
         def acc_to_encoder(self):
             return GmmDataEncoder()
 
-            
+
 Implementing Update
 ===================
 **Recall: Expectation Step (E-step)**: Calculate the expected value of the log-likelihood function, given the current estimates of the parameters.
@@ -600,7 +600,7 @@ We must also implement the vectorized ``seq_update``, which takes the ``GmmEncod
                 gamma *= weight
                 self.comp_counts += gamma
                 self.x += x*gamma
-                self.x2 += x**2*gamma 
+                self.x2 += x**2*gamma
 
         def seq_update(self, x: GmmEncodedDataSequence, weights: np.ndarray, estimate: GmmDistribution):
             mu, s2, log_w = estimate.mu, estimate.sigma2, np.log(estimate.w)
@@ -611,7 +611,7 @@ We must also implement the vectorized ``seq_update``, which takes the ``GmmEncod
             zw = np.isinf(log_w)
             if np.any(zw):
                 gammas[:, zw] = -np.inf
-            
+
             max_ = np.max(gammas, axis=1, keepdims=True)
 
             # correct for any posterior containing all -np.inf values.
@@ -619,7 +619,7 @@ We must also implement the vectorized ``seq_update``, which takes the ``GmmEncod
             gammas[bad_rows, :] = log_w.copy()
             max_[bad_rows] = np.max(log_w)
 
-            # logsumexp and multiply by weights passed 
+            # logsumexp and multiply by weights passed
             gammas -= max_
             np.exp(gammas, out=gammas)
             np.sum(gammas, axis=1, keepdims=True, out=max_)
@@ -641,7 +641,7 @@ We must also implement the vectorized ``seq_update``, which takes the ``GmmEncod
         # Return the sufficient statistics
         def value(self) -> Tuple[np.ndarray, np.ndarray, np.ndarray]:
             return self.comp_counts, self.x, self.x2
-        
+
         # Combine suff stats with the accumulators
         def combine(self, x: Tuple[np.ndarray, np.ndarray, np.ndarray]):
             self.comp_counts += x[0]
@@ -649,7 +649,7 @@ We must also implement the vectorized ``seq_update``, which takes the ``GmmEncod
             self.x2 += x[2]
 
             return self
-        
+
         # assign sufficient statistics from a value
         def from_value(self, x: Tuple[np.ndarray, np.ndarray, np.ndarray]):
             self.comp_counts = x[0]
@@ -663,7 +663,7 @@ We must also implement the vectorized ``seq_update``, which takes the ``GmmEncod
                     self.comp_counts += stats_dict[self.weight_keys]
                 else:
                     stats_dict[self.weight_keys] = self.comp_counts
-            
+
             if self.param_keys is not None:
                 if self.param_keys in stats_dict:
                     x, x2 = stats_dict[self.param_keys]
@@ -681,7 +681,7 @@ We must also implement the vectorized ``seq_update``, which takes the ``GmmEncod
             if self.param_keys is not None:
                 if self.param_keys in stats_dict:
                     self.param_keys = stats_dict[self.param_keys]
-        
+
         # Create a DataSequenceEncoder object for seq initialize encodings.
         def acc_to_encoder(self):
             return GmmDataEncoder()
@@ -721,7 +721,7 @@ This is quite trivial to vectorize and implement in `seq_initialize` using our e
  class GmmAccumulator(SequenceEncodableStatisticAccumulator):
 
     def __init__(self, num_comps: int, keys: Optional[Tuple[Optional[str], Optional[str]]] = None, name: Optional[str] = None):
-        
+
         self.x = np.zeros(num_comps)
         self.x2 = np.zeros(num_comps)
         self.comp_counts = np.zeros(num_comps)
@@ -743,7 +743,7 @@ This is quite trivial to vectorize and implement in `seq_initialize` using our e
             gamma *= weight
             self.comp_counts += gamma
             self.x += x*gamma
-            self.x2 += x**2*gamma 
+            self.x2 += x**2*gamma
 
     def seq_update(self, x: GmmEncodedDataSequence, weights: np.ndarray, estimate: GmmDistribution):
 
@@ -755,7 +755,7 @@ This is quite trivial to vectorize and implement in `seq_initialize` using our e
         zw = np.isinf(log_w)
         if np.any(zw):
             gammas[:, zw] = -np.inf
-        
+
         max_ = np.max(gammas, axis=1, keepdims=True)
 
         # correct for any posterior containing all -np.inf values.
@@ -763,7 +763,7 @@ This is quite trivial to vectorize and implement in `seq_initialize` using our e
         gammas[bad_rows, :] = log_w.copy()
         max_[bad_rows] = np.max(log_w)
 
-        # logsumexp and multiply by weights passed 
+        # logsumexp and multiply by weights passed
         gammas -= max_
         np.exp(gammas, out=gammas)
         np.sum(gammas, axis=1, keepdims=True, out=max_)
@@ -808,7 +808,7 @@ This is quite trivial to vectorize and implement in `seq_initialize` using our e
     # Return the sufficient statistics
     def value(self) -> Tuple[np.ndarray, np.ndarray, np.ndarray]:
         return self.comp_counts, self.x, self.x2
-    
+
     # Combine suff stats with the accumulators
     def combine(self, x: Tuple[np.ndarray, np.ndarray, np.ndarray]):
         self.comp_counts += x[0]
@@ -816,7 +816,7 @@ This is quite trivial to vectorize and implement in `seq_initialize` using our e
         self.x2 += x[2]
 
         return self
-    
+
     # assign sufficient statistics from a value
     def from_value(self, x: Tuple[np.ndarray, np.ndarray, np.ndarray]):
         self.comp_counts = x[0]
@@ -825,13 +825,13 @@ This is quite trivial to vectorize and implement in `seq_initialize` using our e
 
     # This allows for merging of suff stats with parameters that have the same keys
     def key_merge(self, stats_dict: Dict[str, Any]):
-        
+
         if self.weight_keys is not None:
             if self.weight_keys in stats_dict:
                 self.comp_counts += stats_dict[self.weight_keys]
             else:
                 stats_dict[self.weight_keys] = self.comp_counts
-        
+
         if self.param_keys is not None:
             if self.param_keys in stats_dict:
                 x, x2 = stats_dict[self.param_keys]
@@ -849,11 +849,11 @@ This is quite trivial to vectorize and implement in `seq_initialize` using our e
         if self.param_keys is not None:
             if self.param_keys in stats_dict:
                 self.param_keys = stats_dict[self.param_keys]
-    
+
     # Create a DataSequenceEncoder object for seq initialize encodings.
     def acc_to_encoder(self):
         return GmmDataEncoder()
-    
+
 StatisticAccumulatorFactory
 ============================
 
@@ -869,10 +869,10 @@ In programming, a factory object is a design pattern used to create instances of
         self.keys = keys
         self.name = name
 
-    # creates a GmmAccumulator object 
+    # creates a GmmAccumulator object
     def make (self) -> 'GmmAccumulator':
         return GmmAccumulator(num_comps=self.num_comps, keys=self.keys, name=self.name)
-    
+
 
 The only thing left to do is to implement the `ParameterEstimator` class and fill out the `estimator` function call in the `SequenceEncodableProbabilityDistribution`. So let's implement the `ParameterEstimator` and tie everything together.
 
@@ -888,7 +888,7 @@ The only thing left to do is to implement the `ParameterEstimator` class and fil
 
     def accumulator_factory(self) -> GmmAccumulatorFactory:
         return GmmAccumulatorFactory(num_comps=self.ncomps, keys=self.keys)
-    
+
     def estimate(self, nobs: Optional[float], suff_stat: Tuple[np.ndarray, np.ndarray, np.ndarray]) -> GmmDistribution:
         counts, xw, x2w = suff_stat
 
@@ -916,17 +916,17 @@ The only thing left to do is to implement the `ParameterEstimator` class and fil
             wsum = counts.copy()
             wsum[wsum==0.0] = 1.0
             mu = xw / wsum
-        
+
         # flatten/regularize the variance estimates
         if self.pseudo_count[2] and self.suff_stat[2]:
             s2 = (x2w - mu**2 * counts * self.pseudo_count[2] * self.suff_stat[2]) / (counts + self.pseudo_count[2] * np.sum(self.suff_stat[2]))
         else:
             wsum = counts.copy()
             wsum[wsum==0.0] = 1.0
-            s2 = x2w / wsum - mu * mu 
+            s2 = x2w / wsum - mu * mu
 
         return GmmDistribution(mu=mu, sigma2=s2, w=w)
-        
+
 Completed SequenceEncodableProbabilityDistribution
 ==================================================
 
@@ -935,7 +935,7 @@ We can now fill out `estimate` in the `SequenceEncodableProbabilityDistribution`
 .. code-block:: python
 
  class GmmDistribution(SequenceEncodableProbabilityDistribution):
-    
+
     def __init__(self, mu: Union[Sequence[float], np.ndarray], sigma2: Union[Sequence[float], np.ndarray], w: Union[Sequence[float], np.ndarray], name: Optional[str] = None):
         self.mu = np.asarray(mu)
         self.sigma2 = np.asarray(sigma2)
@@ -946,7 +946,7 @@ We can now fill out `estimate` in the `SequenceEncodableProbabilityDistribution`
 
     def __str__(self) -> str:
         return 'GmmDistribution(mu=%s, sigma2=%s, w=%s, name=%s)' % (repr(self.mu.tolist()), repr(self.sigma2.tolist()), repr(self.w.tolist()), repr(self.name))
-    
+
     def log_density(self, x: float) -> float:
         # eval log-density for each component
         ll = self.log_const - 0.5*(x-self.mu) ** 2 / self.sigma2 - 0.5*np.log(self.sigma2) + np.log(self.w)
@@ -954,7 +954,7 @@ We can now fill out `estimate` in the `SequenceEncodableProbabilityDistribution`
         # subtract max and exponentiate
         np.exp(ll-max_, out=ll)
         # finish log-sum-exp
-        rv = np.log(np.sum(ll)) + max_ 
+        rv = np.log(np.sum(ll)) + max_
         return rv
 
     def density(self, x: float) -> float:
@@ -964,7 +964,7 @@ We can now fill out `estimate` in the `SequenceEncodableProbabilityDistribution`
         # Type check
         if not isinstance(x, GmmEncodedDataSequence):
             raise Exception('GmmEncodedDataSequence requires for seq_log_density.')
-        
+
         # Evaluate the vetorized log-density as before
         ll = -0.5*(x.data[:, None] - self.mu)**2 / self.sigma2 + self.log_const + np.log(self.w) - 0.5*np.log(self.sigma2)
         max_ = np.max(ll, axis=1, keepdims=True)
@@ -973,10 +973,10 @@ We can now fill out `estimate` in the `SequenceEncodableProbabilityDistribution`
         ll += max_.flatten()
 
         return ll
-    
+
     def dist_to_encoder(self) -> GmmDataEncoder:
         return GmmDataEncoder()
-    
+
     def sampler(self, seed: Optional[int] = None) -> GmmSampler:
         return GmmSampler(dist=self, seed=seed)
 
@@ -1007,4 +1007,3 @@ Let's walk through the standard dmx-learn pipeline. First we declare the model a
         fit = optimize(data=data, estimator=est, max_its=10000, print_iter=100, rng=RandomState(1))
 
 This wraps things up. Keep in mind you are free to add other member functions to the ``SequenceEncodableProbabilityDistribution`` class that improve your quality of life. One thing you can try out is implementing a ``posterior`` and vectorized version ``seq_posterior`` that computes the posterior probability of component membership.
-

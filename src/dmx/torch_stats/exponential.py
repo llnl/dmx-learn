@@ -1,12 +1,21 @@
-import torch as tn
+from typing import Any, Callable, Dict, List, Optional, Sequence, Tuple, Union, cast
+
 import numpy as np
+import torch as tn
 from numpy.random import RandomState
-from dmx.arithmetic import *
-from dmx.torch_stats.pdist import TorchProbabilityDistribution, TorchParameterEstimator, TorchSequenceEncoder, \
-    TorchStatisticAccumulator, TorchStatisticAccumulatorFactory, DistributionSampler, TorchEncodedSequence, TorchDevice
-from typing import Optional, Tuple, List, Callable, Dict, Union, Any, Sequence
-from typing import cast
+
 import dmx.torch_utils.vector as vec
+from dmx.arithmetic import *
+from dmx.torch_stats.pdist import (
+    DistributionSampler,
+    TorchDevice,
+    TorchEncodedSequence,
+    TorchParameterEstimator,
+    TorchProbabilityDistribution,
+    TorchSequenceEncoder,
+    TorchStatisticAccumulator,
+    TorchStatisticAccumulatorFactory,
+)
 
 
 class ExponentialDistribution(TorchProbabilityDistribution):
@@ -34,7 +43,7 @@ class ExponentialDistribution(TorchProbabilityDistribution):
         self._device = device
 
     def __repr__(self) -> str:
-        return f'ExponentialDistribution(beta={repr(self.beta)})'
+        return f"ExponentialDistribution(beta={repr(self.beta)})"
 
     def density(self, x: float) -> float:
         """Density of Exponential distribution at observation x.
@@ -68,33 +77,37 @@ class ExponentialDistribution(TorchProbabilityDistribution):
         else:
             return -x / self.beta - self.log_beta
 
-    def seq_log_density(self, x: 'ExponentialTorchEncodedSequence') -> tn.Tensor:
+    def seq_log_density(self, x: "ExponentialTorchEncodedSequence") -> tn.Tensor:
 
         if not isinstance(x, ExponentialTorchEncodedSequence):
-            raise Exception('Requires ExponentialTorchEncodedSequence for `seq_` function calls.')
+            raise Exception(
+                "Requires ExponentialTorchEncodedSequence for `seq_` function calls."
+            )
 
         rv = x.data * (-1.0 / self.beta)
         rv -= self.log_beta
-        
+
         return rv
 
-    def sampler(self, seed: Optional[int] = None) -> 'ExponentialSampler':
+    def sampler(self, seed: Optional[int] = None) -> "ExponentialSampler":
         return ExponentialSampler(self, seed)
 
-    def estimator(self, pseudo_count: Optional[float] = None) -> 'ExponentialEstimator':
+    def estimator(self, pseudo_count: Optional[float] = None) -> "ExponentialEstimator":
         if pseudo_count is None:
             return ExponentialEstimator()
         else:
             return ExponentialEstimator(pseudo_count=pseudo_count, suff_stat=self.beta)
 
-    def dist_to_encoder(self) -> 'ExponentialDataEncoder':
+    def dist_to_encoder(self) -> "ExponentialDataEncoder":
         """Returns a ExponentialDataEncoder object for encoding sequences of data."""
         return ExponentialDataEncoder()
 
 
 class ExponentialSampler(DistributionSampler):
 
-    def __init__(self, dist: 'ExponentialDistribution', seed: Optional[int] = None) -> None:
+    def __init__(
+        self, dist: "ExponentialDistribution", seed: Optional[int] = None
+    ) -> None:
         """ExponentialSampler for drawing samples from ExponentialSampler instance.
 
         Args:
@@ -106,7 +119,9 @@ class ExponentialSampler(DistributionSampler):
             tng (tn.Generator): RandomState with seed set to seed if passed in args.
 
         """
-        self.rng = np.random.RandomState(seed) if seed is not None else np.random.RandomState()
+        self.rng = (
+            np.random.RandomState(seed) if seed is not None else np.random.RandomState()
+        )
         self.beta = dist.beta
 
     def sample(self, size: Optional[int] = None) -> Union[float, np.ndarray]:
@@ -135,7 +150,9 @@ class ExponentialAccumulator(TorchStatisticAccumulator):
 
     """
 
-    def __init__(self, keys: Optional[str] = None, device: Optional[TorchDevice] = None) -> None:
+    def __init__(
+        self, keys: Optional[str] = None, device: Optional[TorchDevice] = None
+    ) -> None:
         """ExponentialAccumulator object.
 
         Args:
@@ -148,14 +165,24 @@ class ExponentialAccumulator(TorchStatisticAccumulator):
         self.count = 0.0
         self.key = keys
 
-    def seq_initialize(self, x: 'ExponentialTorchEncodedSequence', weights: tn.Tensor, tng: Optional[tn.Generator]) -> None:
+    def seq_initialize(
+        self,
+        x: "ExponentialTorchEncodedSequence",
+        weights: tn.Tensor,
+        tng: Optional[tn.Generator],
+    ) -> None:
         self.seq_update(x, weights, None)
 
-    def seq_update(self, x: 'ExponentialTorchEncodedSequence', weights: tn.Tensor, estimate: Optional[ExponentialDistribution]) -> None:
+    def seq_update(
+        self,
+        x: "ExponentialTorchEncodedSequence",
+        weights: tn.Tensor,
+        estimate: Optional[ExponentialDistribution],
+    ) -> None:
         self.sum += float(tn.dot(x.data, weights))
         self.count += float(tn.sum(weights))
 
-    def combine(self, suff_stat: Tuple[float, float]) -> 'ExponentialAccumulator':
+    def combine(self, suff_stat: Tuple[float, float]) -> "ExponentialAccumulator":
         self.sum += suff_stat[0]
         self.count += suff_stat[1]
 
@@ -164,7 +191,7 @@ class ExponentialAccumulator(TorchStatisticAccumulator):
     def value(self, device: Optional[str] = None) -> Tuple[float, float]:
         return self.sum, self.count
 
-    def from_value(self, x: Tuple[float, float]) -> 'ExponentialAccumulator':
+    def from_value(self, x: Tuple[float, float]) -> "ExponentialAccumulator":
         self.sum, self.count = x
 
         return self
@@ -181,33 +208,42 @@ class ExponentialAccumulator(TorchStatisticAccumulator):
             if self.key in stats_dict:
                 self.sum, self.count = stats_dict[self.key]
 
-    def acc_to_encoder(self) -> 'ExponentialDataEncoder':
+    def acc_to_encoder(self) -> "ExponentialDataEncoder":
         return ExponentialDataEncoder()
 
 
 class ExponentialAccumulatorFactory(TorchStatisticAccumulatorFactory):
 
-    def __init__(self, keys:  Optional[str] = None):
+    def __init__(self, keys: Optional[str] = None):
         self.keys = keys
 
-    def make(self, device: Optional[TorchDevice] = None) -> 'ExponentialAccumulator':
-        return ExponentialAccumulator(keys=self.keys, device=device if device is not None else None)
+    def make(self, device: Optional[TorchDevice] = None) -> "ExponentialAccumulator":
+        return ExponentialAccumulator(
+            keys=self.keys, device=device if device is not None else None
+        )
 
 
 class ExponentialEstimator(TorchParameterEstimator):
 
-    def __init__(self,
-                 pseudo_count: Optional[float] = None,
-                 suff_stat: Optional[float] = None,
-                 keys: Optional[str] = None):
+    def __init__(
+        self,
+        pseudo_count: Optional[float] = None,
+        suff_stat: Optional[float] = None,
+        keys: Optional[str] = None,
+    ):
         self.pseudo_count = pseudo_count
         self.suff_stat = suff_stat
         self.keys = keys
 
-    def accumulator_factory(self) -> 'ExponentialAccumulatorFactory':
+    def accumulator_factory(self) -> "ExponentialAccumulatorFactory":
         return ExponentialAccumulatorFactory(keys=self.keys)
 
-    def estimate(self, nobs: Optional[float], suff_stat: Tuple[float, float], device: Optional[TorchDevice] = None) -> 'ExponentialDistribution':
+    def estimate(
+        self,
+        nobs: Optional[float],
+        suff_stat: Tuple[float, float],
+        device: Optional[TorchDevice] = None,
+    ) -> "ExponentialDistribution":
         """Estimate ExponentialDistribution from suff_stat arg.
 
         Estimate ExponentialDistribution from sufficient statistic tuple suff_stat,
@@ -226,7 +262,9 @@ class ExponentialEstimator(TorchParameterEstimator):
 
         """
         if self.pseudo_count is not None and self.suff_stat is not None:
-            p = (suff_stat[0] + self.suff_stat * self.pseudo_count) / (suff_stat[1] + self.pseudo_count)
+            p = (suff_stat[0] + self.suff_stat * self.pseudo_count) / (
+                suff_stat[1] + self.pseudo_count
+            )
         elif self.pseudo_count is not None and self.suff_stat is None:
             p = (suff_stat[0] + self.pseudo_count) / (suff_stat[1] + self.pseudo_count)
         else:
@@ -242,16 +280,18 @@ class ExponentialDataEncoder(TorchSequenceEncoder):
     """ExponentialDataEncoder object for encoding sequences of iid exponential observations with data type float."""
 
     def __str__(self) -> str:
-        return 'ExponentialDataEncoder'
+        return "ExponentialDataEncoder"
 
     def __eq__(self, other: object) -> bool:
         return isinstance(other, ExponentialDataEncoder)
 
-    def seq_encode(self, x: Union[List[float], np.ndarray], device: Optional[TorchDevice] = None) -> 'ExponentialTorchEncodedSequence':
+    def seq_encode(
+        self, x: Union[List[float], np.ndarray], device: Optional[TorchDevice] = None
+    ) -> "ExponentialTorchEncodedSequence":
         rv = vec.tensor(x, device=device)
 
         if tn.any(rv <= 0) or tn.any(tn.isnan(rv)):
-            raise Exception('Exponential requires x > 0.')
+            raise Exception("Exponential requires x > 0.")
 
         return ExponentialTorchEncodedSequence(data=rv, device=device)
 
@@ -262,4 +302,4 @@ class ExponentialTorchEncodedSequence(TorchEncodedSequence):
         super().__init__(data=data, device=device)
 
     def __str__(self) -> str:
-        return f'ExponentialTorchEncodedSequence(device={repr(self.device)})'
+        return f"ExponentialTorchEncodedSequence(device={repr(self.device)})"
