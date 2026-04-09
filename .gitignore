@@ -42,5 +42,5 @@ pip-delete-this-directory.txt
 
 .vscode
 
-# temp files / scratch files for switching branches 
+# temp files / scratch files for switching branches
 *misspelled.py

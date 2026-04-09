@@ -1,25 +1,33 @@
-from typing import Optional, Any, Dict, Union, Sequence
+from typing import Any, Dict, Optional, Sequence, Union
+
+import numpy as np
+import scipy.integrate
 from numpy.random import RandomState
-from dmx.bstats.pdist import (ParameterEstimator,
-                               ProbabilityDistribution,
-                               StatisticAccumulator,
-                               DataSequenceEncoder,
-                               EncodedDataSequence)
+from scipy.optimize import minimize_scalar
+from scipy.special import digamma, exp1, gammaln
 
 from dmx.bstats.beta import BetaDistribution
 from dmx.bstats.nulldist import NullDistribution, null_dist
-import numpy as np
-from scipy.special import gammaln, digamma, exp1
-from scipy.optimize import minimize_scalar
-import scipy.integrate
-
+from dmx.bstats.pdist import (
+    DataSequenceEncoder,
+    EncodedDataSequence,
+    ParameterEstimator,
+    ProbabilityDistribution,
+    StatisticAccumulator,
+)
 
 default_prior = BetaDistribution(1.000001, 1.000001)
 
 
 class BernoulliDistribution(ProbabilityDistribution):
 
-    def __init__(self, p: float, name: Optional[str] = None, prior: ProbabilityDistribution = default_prior, keys: Optional[str] = None):
+    def __init__(
+        self,
+        p: float,
+        name: Optional[str] = None,
+        prior: ProbabilityDistribution = default_prior,
+        keys: Optional[str] = None,
+    ):
 
         self.p = p
         self.log_p0 = np.log(p)
@@ -31,7 +39,12 @@ class BernoulliDistribution(ProbabilityDistribution):
         self.set_prior(prior)
 
     def __str__(self) -> str:
-        return 'BernoulliDistribution(%s, name=%s, prior=%s, keys=%s)' % (repr(self.p), repr(self.name), str(self.prior), repr(self.keys))
+        return "BernoulliDistribution(%s, name=%s, prior=%s, keys=%s)" % (
+            repr(self.p),
+            repr(self.name),
+            str(self.prior),
+            repr(self.keys),
+        )
 
     def get_parameters(self) -> float:
         return self.p
@@ -49,7 +62,7 @@ class BernoulliDistribution(ProbabilityDistribution):
 
         if isinstance(prior, BetaDistribution):
             a, b = self.prior.get_parameters()
-            self.conj_prior_params = (digamma(a), digamma(b), digamma(a+b))
+            self.conj_prior_params = (digamma(a), digamma(b), digamma(a + b))
             self.has_conj_prior = True
             self.has_prior = True
         elif isinstance(prior, NullDistribution) or prior is None:
@@ -84,7 +97,7 @@ class BernoulliDistribution(ProbabilityDistribution):
     def cross_entropy(self, dist: ProbabilityDistribution) -> float:
         a = dist.log_density(True)
         b = dist.log_density(False)
-        return (a-b)*self.p + b
+        return (a - b) * self.p + b
 
     def entropy(self) -> float:
         return self.p * (self.log_p0 - self.log_p1) + self.log_p1
@@ -102,7 +115,7 @@ class BernoulliDistribution(ProbabilityDistribution):
     def seq_encode(self, x):
         return np.asarray(x, dtype=bool)
 
-    def dist_to_encoder(self) -> 'BernoulliDataEncoder':
+    def dist_to_encoder(self) -> "BernoulliDataEncoder":
         return BernoulliDataEncoder()
 
     def sampler(self, seed: Optional[int] = None):
@@ -115,7 +128,7 @@ class BernoulliDistribution(ProbabilityDistribution):
 class BernoulliSampler(object):
 
     def __init__(self, dist, seed=None):
-        self.rng  = np.random.RandomState(seed)
+        self.rng = np.random.RandomState(seed)
         self.dist = dist
 
     def sample(self, size=None):
@@ -128,10 +141,10 @@ class BernoulliSampler(object):
 class BernoulliEstimatorAccumulator(StatisticAccumulator):
 
     def __init__(self, name, keys):
-        self.name  = name
-        self.key   = keys
-        self.psum  = 0.0
-        self.nsum  = 0.0
+        self.name = name
+        self.key = keys
+        self.psum = 0.0
+        self.nsum = 0.0
         self.count = 0.0
 
     def initialize(self, x, weight, rng):
@@ -176,7 +189,7 @@ class BernoulliEstimatorAccumulator(StatisticAccumulator):
             if self.key in stats_dict:
                 self.from_value(stats_dict[self.key].value())
 
-    def acc_to_encoder(self) -> 'BernoulliDataEncoder':
+    def acc_to_encoder(self) -> "BernoulliDataEncoder":
         return BernoulliDataEncoder()
 
 
@@ -192,11 +205,16 @@ class BernoulliEstimatorAccumulatorFactory(object):
 
 class BernoulliEstimator(ParameterEstimator):
 
-    def __init__(self, name: Optional[str] = None, keys: Optional[str] = None, prior: ProbabilityDistribution = default_prior):
+    def __init__(
+        self,
+        name: Optional[str] = None,
+        keys: Optional[str] = None,
+        prior: ProbabilityDistribution = default_prior,
+    ):
 
         self.prior = prior
-        self.name  = name
-        self.keys  = keys
+        self.name = name
+        self.keys = keys
         self.has_conj_prior = isinstance(prior, BetaDistribution)
         self.has_prior = not isinstance(prior, NullDistribution) and prior is not None
 
@@ -219,27 +237,35 @@ class BernoulliEstimator(ParameterEstimator):
             a, b = self.prior.get_parameters()
             new_a = a + psum
             new_b = b + nsum
-            p = (psum + a - 1.0)/(psum + nsum + a + b - 2.0)
-            return BernoulliDistribution(p, name=self.name, prior=BetaDistribution(new_a, new_b), keys=self.keys)
+            p = (psum + a - 1.0) / (psum + nsum + a + b - 2.0)
+            return BernoulliDistribution(
+                p, name=self.name, prior=BetaDistribution(new_a, new_b), keys=self.keys
+            )
 
         elif self.has_prior:
 
-            ll_fun = lambda x: np.log(x)*psum + np.log1p(-x)*nsum + self.prior.log_density(x)
+            ll_fun = (
+                lambda x: np.log(x) * psum
+                + np.log1p(-x) * nsum
+                + self.prior.log_density(x)
+            )
             sol = minimize_scalar(ll_fun)
 
         else:
-            return BernoulliDistribution(psum/(psum + nsum), name=self.name, prior=null_dist, keys=self.keys)
+            return BernoulliDistribution(
+                psum / (psum + nsum), name=self.name, prior=null_dist, keys=self.keys
+            )
 
 
 class BernoulliDataEncoder(DataSequenceEncoder):
-    
+
     def __str__(self) -> str:
-        return 'BernoulliDataEncoder'
+        return "BernoulliDataEncoder"
 
     def __eq__(self, other: object) -> bool:
         return isinstance(other, BernoulliDataEncoder)
 
-    def seq_encode(self, x: Union[np.array, Sequence[bool]]) -> 'BernoulliEncodedData':
+    def seq_encode(self, x: Union[np.array, Sequence[bool]]) -> "BernoulliEncodedData":
         return BernoulliEncodedData(np.asarray(x, dtype=bool))
 
 
@@ -248,6 +274,4 @@ class BernoulliEncodedData(EncodedDataSequence):
         super().__init__(data)
 
     def __repr__(self) -> str:
-        return f'BernoulliEncodedData(data={self.data})'
-
-
+        return f"BernoulliEncodedData(data={self.data})"

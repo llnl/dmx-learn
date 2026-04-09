@@ -14,22 +14,35 @@ p_mat(x) = P_dist(x[0])*...*P_dist(x[n-1])*P_len(n),
 for an observation x of data type Sequence[T] having length n.
 
 """
+
+from typing import Any, Dict, List, Optional, Sequence, Tuple, TypeVar
+
 import numpy as np
 from numpy.random import RandomState
+
 from dmx.arithmetic import maxrandint
-from dmx.stats.pdist import SequenceEncodableProbabilityDistribution, ParameterEstimator, DistributionSampler, \
-    StatisticAccumulatorFactory, SequenceEncodableStatisticAccumulator, DataSequenceEncoder, EncodedDataSequence
-from dmx.stats.null_dist import NullDistribution, NullAccumulator, NullEstimator, NullDataEncoder, \
-    NullAccumulatorFactory
+from dmx.stats.null_dist import (
+    NullAccumulator,
+    NullAccumulatorFactory,
+    NullDataEncoder,
+    NullDistribution,
+    NullEstimator,
+)
+from dmx.stats.pdist import (
+    DataSequenceEncoder,
+    DistributionSampler,
+    EncodedDataSequence,
+    ParameterEstimator,
+    SequenceEncodableProbabilityDistribution,
+    SequenceEncodableStatisticAccumulator,
+    StatisticAccumulatorFactory,
+)
 
-from typing import Optional, List, Any, Tuple, Sequence, TypeVar, Dict
-
-
-T = TypeVar('T') # Data type of Sequence distribution dist.
-E1 = TypeVar('E1') # Generic type of distribution encoding.
-E2 = TypeVar('E2') # Generic type of length encoding.
-SS1 = TypeVar('SS1') # Generic type for sufficient statistic of base dist.
-SS2 = TypeVar('SS2') # Generic type for sufficient statistics of length dist.
+T = TypeVar("T")  # Data type of Sequence distribution dist.
+E1 = TypeVar("E1")  # Generic type of distribution encoding.
+E2 = TypeVar("E2")  # Generic type of length encoding.
+SS1 = TypeVar("SS1")  # Generic type for sufficient statistic of base dist.
+SS2 = TypeVar("SS2")  # Generic type for sufficient statistics of length dist.
 
 E = Tuple[np.ndarray, np.ndarray, np.ndarray, E1, Optional[E2]]
 
@@ -44,13 +57,20 @@ class SequenceDistribution(SequenceEncodableProbabilityDistribution):
         len_normalized (Optional[bool]): If True, take geometric mean density for any density evaluation.
         name (Optional[str]): Name to instance of SequenceDistribution.
         null_len_dist (bool): True if 'len_dist' is set to instance of NullDistribution.
-        keys (Optional[str]): Key for parameters of sequence distribution. 
+        keys (Optional[str]): Key for parameters of sequence distribution.
 
     """
 
-    def __init__(self, dist: SequenceEncodableProbabilityDistribution,
-                 len_dist: Optional[SequenceEncodableProbabilityDistribution] = NullDistribution(),
-                 len_normalized: Optional[bool] = False, name: Optional[str] = None, keys: Optional[str] = None) -> None:
+    def __init__(
+        self,
+        dist: SequenceEncodableProbabilityDistribution,
+        len_dist: Optional[
+            SequenceEncodableProbabilityDistribution
+        ] = NullDistribution(),
+        len_normalized: Optional[bool] = False,
+        name: Optional[str] = None,
+        keys: Optional[str] = None,
+    ) -> None:
         """SequenceDistribution object.
 
         Args:
@@ -77,7 +97,10 @@ class SequenceDistribution(SequenceEncodableProbabilityDistribution):
         s4 = repr(self.name)
         s5 = repr(self.keys)
 
-        return 'SequenceDistribution(%s, len_dist=%s, len_normalized=%s, name=%s, keys=%s)' % (s1, s2, s3, s4, s5)
+        return (
+            "SequenceDistribution(%s, len_dist=%s, len_normalized=%s, name=%s, keys=%s)"
+            % (s1, s2, s3, s4, s5)
+        )
 
     def density(self, x: Sequence[T]) -> float:
         """Evaluate the density of SequenceDistribution at observed sequence x.
@@ -134,10 +157,12 @@ class SequenceDistribution(SequenceEncodableProbabilityDistribution):
 
         return rv
 
-    def seq_log_density(self, x: 'SequenceEncodedDataSequence') -> np.ndarray:
+    def seq_log_density(self, x: "SequenceEncodedDataSequence") -> np.ndarray:
 
         if not isinstance(x, SequenceEncodedDataSequence):
-            raise Exception('SequenceEncodedDataSequence required for seq_log_density().')
+            raise Exception(
+                "SequenceEncodedDataSequence required for seq_log_density()."
+            )
 
         idx, icnt, inz, enc_seq, enc_nseq = x.data
 
@@ -157,19 +182,26 @@ class SequenceDistribution(SequenceEncodableProbabilityDistribution):
 
         return ll_sum
 
-    def sampler(self, seed: Optional[int] = None) -> 'SequenceSampler':
+    def sampler(self, seed: Optional[int] = None) -> "SequenceSampler":
         if self.null_len_dist:
-            raise Exception('Error: len_dist cannot be none for SequenceDistribution.sampler(seed:Optional[int]=None).')
+            raise Exception(
+                "Error: len_dist cannot be none for SequenceDistribution.sampler(seed:Optional[int]=None)."
+            )
         else:
             return SequenceSampler(self.dist, self.len_dist, seed)
 
-    def estimator(self, pseudo_count: Optional[float] = None) -> 'SequenceEstimator':
+    def estimator(self, pseudo_count: Optional[float] = None) -> "SequenceEstimator":
         len_est = self.len_dist.estimator(pseudo_count=pseudo_count)
 
-        return SequenceEstimator(self.dist.estimator(pseudo_count=pseudo_count), len_estimator=len_est,
-                                 len_normalized=self.len_normalized, name=self.name, keys=self.keys)
+        return SequenceEstimator(
+            self.dist.estimator(pseudo_count=pseudo_count),
+            len_estimator=len_est,
+            len_normalized=self.len_normalized,
+            name=self.name,
+            keys=self.keys,
+        )
 
-    def dist_to_encoder(self) -> 'SequenceDataEncoder':
+    def dist_to_encoder(self) -> "SequenceDataEncoder":
         dist_encoder = self.dist.dist_to_encoder()
         len_encoder = self.len_dist.dist_to_encoder()
         encoders = (dist_encoder, len_encoder)
@@ -189,10 +221,12 @@ class SequenceSampler(DistributionSampler):
 
     """
 
-    def __init__(self,
-                 dist: SequenceEncodableProbabilityDistribution,
-                 len_dist: SequenceEncodableProbabilityDistribution,
-                 seed: Optional[int] = None) -> None:
+    def __init__(
+        self,
+        dist: SequenceEncodableProbabilityDistribution,
+        len_dist: SequenceEncodableProbabilityDistribution,
+        seed: Optional[int] = None,
+    ) -> None:
         """SequenceSampler object.
 
         Args:
@@ -241,19 +275,22 @@ class SequenceAccumulator(SequenceEncodableStatisticAccumulator):
         len_normalized (Optional[bool]): Geometric mean of density taken if set to True. Else ignored.
         keys (Optional[str]): Set keys for merging sufficient statistics of SequenceAccumulator objects with
             matching keys.
-        name (Optional[str]): Name for object. 
+        name (Optional[str]): Name for object.
         null_len_accumulator (bool): True if len_accumulator is an instance of NullAccumulator object.
         _init_rng (bool): True if _len_rng has been initialized.
         _len_rng (Optional[RandomState]): None if not initialized. Set to a RandomState object with call from
             initialize or seq_initialize functions.
 
     """
-    def __init__(self,
-                 accumulator: SequenceEncodableStatisticAccumulator,
-                 len_accumulator: SequenceEncodableStatisticAccumulator = NullAccumulator(),
-                 len_normalized: Optional[bool] = False,
-                 name: Optional[str] = None,
-                 keys: Optional[str] = None) -> None:
+
+    def __init__(
+        self,
+        accumulator: SequenceEncodableStatisticAccumulator,
+        len_accumulator: SequenceEncodableStatisticAccumulator = NullAccumulator(),
+        len_normalized: Optional[bool] = False,
+        name: Optional[str] = None,
+        keys: Optional[str] = None,
+    ) -> None:
         """SequenceAccumulator object.
 
         Args:
@@ -279,7 +316,9 @@ class SequenceAccumulator(SequenceEncodableStatisticAccumulator):
         self._init_rng = False
         self._len_rng: Optional[RandomState] = None
 
-    def update(self, x: Sequence[T], weight: float, estimate: Optional[SequenceDistribution]) -> None:
+    def update(
+        self, x: Sequence[T], weight: float, estimate: Optional[SequenceDistribution]
+    ) -> None:
         if estimate is None:
             w = weight / len(x) if (self.len_normalized and len(x) > 0) else weight
 
@@ -314,7 +353,9 @@ class SequenceAccumulator(SequenceEncodableStatisticAccumulator):
         if not self.null_len_accumulator:
             self.len_accumulator.initialize(len(x), weight, self._len_rng)
 
-    def seq_initialize(self, x: 'SequenceEncodedDataSequence', weights: np.ndarray, rng: RandomState) -> None:
+    def seq_initialize(
+        self, x: "SequenceEncodedDataSequence", weights: np.ndarray, rng: RandomState
+    ) -> None:
         idx, icnt, inz, enc_seq, enc_nseq = x.data
 
         if not self._init_rng:
@@ -327,18 +368,26 @@ class SequenceAccumulator(SequenceEncodableStatisticAccumulator):
         if not self.null_len_accumulator:
             self.len_accumulator.seq_initialize(enc_nseq, weights, self._len_rng)
 
-    def seq_update(self, x: 'SequenceEncodedDataSequence', weights: np.ndarray,
-                   estimate: Optional['SequenceDistribution']) -> None:
+    def seq_update(
+        self,
+        x: "SequenceEncodedDataSequence",
+        weights: np.ndarray,
+        estimate: Optional["SequenceDistribution"],
+    ) -> None:
         idx, icnt, inz, enc_seq, enc_nseq = x.data
 
         w = weights[idx] * icnt[idx] if self.len_normalized else weights[idx]
 
-        self.accumulator.seq_update(enc_seq, w, estimate.dist if estimate is not None else None)
+        self.accumulator.seq_update(
+            enc_seq, w, estimate.dist if estimate is not None else None
+        )
 
         if not self.null_len_accumulator:
-            self.len_accumulator.seq_update(enc_nseq, weights, estimate.len_dist if estimate is not None else None)
+            self.len_accumulator.seq_update(
+                enc_nseq, weights, estimate.len_dist if estimate is not None else None
+            )
 
-    def combine(self, suff_stat: Tuple[SS1, Optional[SS2]]) -> 'SequenceAccumulator':
+    def combine(self, suff_stat: Tuple[SS1, Optional[SS2]]) -> "SequenceAccumulator":
         self.accumulator.combine(suff_stat[0])
 
         if not self.null_len_accumulator:
@@ -349,7 +398,7 @@ class SequenceAccumulator(SequenceEncodableStatisticAccumulator):
     def value(self) -> Tuple[Any, Optional[Any]]:
         return self.accumulator.value(), self.len_accumulator.value()
 
-    def from_value(self, x: Tuple[SS1, Optional[SS2]]) -> 'SequenceAccumulator':
+    def from_value(self, x: Tuple[SS1, Optional[SS2]]) -> "SequenceAccumulator":
         self.accumulator.from_value(x[0])
 
         if not self.null_len_accumulator:
@@ -387,7 +436,7 @@ class SequenceAccumulator(SequenceEncodableStatisticAccumulator):
         if not self.null_len_accumulator:
             self.len_accumulator.key_replace(stats_dict)
 
-    def acc_to_encoder(self) -> 'SequenceDataEncoder':
+    def acc_to_encoder(self) -> "SequenceDataEncoder":
         encoder = self.accumulator.acc_to_encoder()
         len_encoder = self.len_accumulator.acc_to_encoder()
         encoders = (encoder, len_encoder)
@@ -409,12 +458,14 @@ class SequenceAccumulatorFactory(StatisticAccumulatorFactory):
 
     """
 
-    def __init__(self,
-                 dist_factory: StatisticAccumulatorFactory,
-                 len_factory: StatisticAccumulatorFactory = NullAccumulatorFactory(),
-                 len_normalized: Optional[bool] = False,
-                 keys: Optional[str] = None,
-                 name: Optional[str] = None) -> None:
+    def __init__(
+        self,
+        dist_factory: StatisticAccumulatorFactory,
+        len_factory: StatisticAccumulatorFactory = NullAccumulatorFactory(),
+        len_normalized: Optional[bool] = False,
+        keys: Optional[str] = None,
+        name: Optional[str] = None,
+    ) -> None:
         """SequenceAccumulatorFactory object.
 
         Args:
@@ -433,13 +484,14 @@ class SequenceAccumulatorFactory(StatisticAccumulatorFactory):
         self.keys = keys
         self.name = name
 
-    def make(self) -> 'SequenceAccumulator':
+    def make(self) -> "SequenceAccumulator":
         len_acc = self.len_factory.make()
         return SequenceAccumulator(
-            accumulator=self.dist_factory.make(), 
-            len_accumulator=len_acc, 
-            len_normalized=self.len_normalized, 
-            keys=self.keys, name=self.name
+            accumulator=self.dist_factory.make(),
+            len_accumulator=len_acc,
+            len_normalized=self.len_normalized,
+            keys=self.keys,
+            name=self.name,
         )
 
 
@@ -466,13 +518,15 @@ class SequenceEstimator(ParameterEstimator):
 
     """
 
-    def __init__(self,
-                 estimator: ParameterEstimator,
-                 len_estimator: Optional[ParameterEstimator] = NullEstimator(),
-                 len_dist: Optional[SequenceEncodableProbabilityDistribution] = None,
-                 len_normalized: Optional[bool] = False,
-                 name: Optional[str] = None,
-                 keys: Optional[str] = None) -> None:
+    def __init__(
+        self,
+        estimator: ParameterEstimator,
+        len_estimator: Optional[ParameterEstimator] = NullEstimator(),
+        len_dist: Optional[SequenceEncodableProbabilityDistribution] = None,
+        len_normalized: Optional[bool] = False,
+        name: Optional[str] = None,
+        keys: Optional[str] = None,
+    ) -> None:
         """SequenceEstimator object.
 
         Args:
@@ -490,33 +544,44 @@ class SequenceEstimator(ParameterEstimator):
             raise TypeError("SequenceEstimator requires keys to be of type 'str'.")
 
         self.estimator = estimator
-        self.len_estimator = len_estimator if len_estimator is not None else NullEstimator()
+        self.len_estimator = (
+            len_estimator if len_estimator is not None else NullEstimator()
+        )
         self.len_dist = len_dist
         self.keys = keys
         self.len_normalized = len_normalized
         self.name = name
 
-    def accumulator_factory(self) -> 'SequenceAccumulatorFactory':
+    def accumulator_factory(self) -> "SequenceAccumulatorFactory":
         len_factory = self.len_estimator.accumulator_factory()
         dist_factory = self.estimator.accumulator_factory()
 
         return SequenceAccumulatorFactory(
-            dist_factory=dist_factory, 
-            len_factory=len_factory, 
-            len_normalized=self.len_normalized, 
+            dist_factory=dist_factory,
+            len_factory=len_factory,
+            len_normalized=self.len_normalized,
             keys=self.keys,
-            name=self.name
+            name=self.name,
         )
 
-    def estimate(self, nobs: Optional[float], suff_stat: Tuple[Any, Optional[Any]]) -> 'SequenceDistribution':
+    def estimate(
+        self, nobs: Optional[float], suff_stat: Tuple[Any, Optional[Any]]
+    ) -> "SequenceDistribution":
         if isinstance(self.len_estimator, NullEstimator):
-            return SequenceDistribution(self.estimator.estimate(nobs, suff_stat[0]), len_dist=self.len_dist,
-                                        len_normalized=self.len_normalized, name=self.name)
+            return SequenceDistribution(
+                self.estimator.estimate(nobs, suff_stat[0]),
+                len_dist=self.len_dist,
+                len_normalized=self.len_normalized,
+                name=self.name,
+            )
 
         else:
-            return SequenceDistribution(self.estimator.estimate(nobs, suff_stat[0]),
-                                        len_dist=self.len_estimator.estimate(nobs, suff_stat[1]),
-                                        len_normalized=self.len_normalized, name=self.name)
+            return SequenceDistribution(
+                self.estimator.estimate(nobs, suff_stat[0]),
+                len_dist=self.len_estimator.estimate(nobs, suff_stat[1]),
+                len_normalized=self.len_normalized,
+                name=self.name,
+            )
 
 
 class SequenceDataEncoder(DataSequenceEncoder):
@@ -535,8 +600,9 @@ class SequenceDataEncoder(DataSequenceEncoder):
 
     """
 
-    def __init__(self,
-                 encoders: Tuple[DataSequenceEncoder, DataSequenceEncoder]) -> None:
+    def __init__(
+        self, encoders: Tuple[DataSequenceEncoder, DataSequenceEncoder]
+    ) -> None:
         """SequenceDataEncoder object.
 
         Args:
@@ -550,9 +616,9 @@ class SequenceDataEncoder(DataSequenceEncoder):
         self.null_len_enc = isinstance(self.len_encoder, NullDataEncoder)
 
     def __str__(self) -> str:
-        s = 'SequenceDataEncoder('
-        s += str(self.encoder) + ',len_encoder='
-        s += str(self.len_encoder) + ')'
+        s = "SequenceDataEncoder("
+        s += str(self.encoder) + ",len_encoder="
+        s += str(self.len_encoder) + ")"
 
         return s
 
@@ -569,7 +635,7 @@ class SequenceDataEncoder(DataSequenceEncoder):
 
             return True
 
-    def seq_encode(self, x: Sequence[Sequence[T]]) -> 'SequenceEncodedDataSequence':
+    def seq_encode(self, x: Sequence[Sequence[T]]) -> "SequenceEncodedDataSequence":
         tx = []
         nx = []
         tidx = []
@@ -583,7 +649,7 @@ class SequenceDataEncoder(DataSequenceEncoder):
 
         rv1 = np.asarray(tidx, dtype=int)
         rv2 = np.asarray(nx, dtype=float)
-        rv3 = (rv2 != 0)
+        rv3 = rv2 != 0
 
         rv2[rv3] = 1.0 / rv2[rv3]
 
@@ -593,6 +659,7 @@ class SequenceDataEncoder(DataSequenceEncoder):
         rv5 = self.len_encoder.seq_encode(nx)
 
         return SequenceEncodedDataSequence(data=(rv1, rv2, rv3, rv4, rv5))
+
 
 class SequenceEncodedDataSequence(EncodedDataSequence):
     """SequenceEncodedDataSequence object for vectorized function calls.
@@ -610,7 +677,12 @@ class SequenceEncodedDataSequence(EncodedDataSequence):
 
     """
 
-    def __init__(self, data: Tuple[np.ndarray, np.ndarray, np.ndarray, EncodedDataSequence, EncodedDataSequence]):
+    def __init__(
+        self,
+        data: Tuple[
+            np.ndarray, np.ndarray, np.ndarray, EncodedDataSequence, EncodedDataSequence
+        ],
+    ):
         """SequenceEncodedDataSequence object.
 
         Args:
@@ -620,5 +692,4 @@ class SequenceEncodedDataSequence(EncodedDataSequence):
         super().__init__(data=data)
 
     def __repr__(self) -> str:
-        return f'SequenceEncodedDataSequence(data={self.data})'
-
+        return f"SequenceEncodedDataSequence(data={self.data})"

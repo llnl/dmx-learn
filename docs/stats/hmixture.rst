@@ -1,6 +1,6 @@
 Hierarchical Mixture Distribution
 ===================================
-A Hierarchical Mixture Model is a statistical model that combines multiple layers of mixture models to capture complex data distributions. It is particularly useful in scenarios where data can be grouped into subpopulations, each of which may follow its own mixture distribution. This model is often referred to as a "mixture of mixtures." The data format required for using the Hierarchical mixture requries a sequence of observations of the form :math:`\boldsymbol{X}_i = (X_{i,1}, ..., X_{i, n_i})`. This can be thought of as independent draws from a topic, where the topic distribution is also a mixture model. 
+A Hierarchical Mixture Model is a statistical model that combines multiple layers of mixture models to capture complex data distributions. It is particularly useful in scenarios where data can be grouped into subpopulations, each of which may follow its own mixture distribution. This model is often referred to as a "mixture of mixtures." The data format required for using the Hierarchical mixture requries a sequence of observations of the form :math:`\boldsymbol{X}_i = (X_{i,1}, ..., X_{i, n_i})`. This can be thought of as independent draws from a topic, where the topic distribution is also a mixture model.
 
 .. list-table:: Hierarchical Mixture Model Features
    :header-rows: 1
@@ -9,7 +9,7 @@ A Hierarchical Mixture Model is a statistical model that combines multiple layer
      - Symbol
      - Description
    * - Outer-State Distribution
-     - :math:`\boldsymbol{\pi}` 
+     - :math:`\boldsymbol{\pi}`
      - Represents the distribution over the :math:`K_1` outer states.
    * - Inner-State Probabilities
      - :math:`\boldsymbol{\tau}_{k}`
@@ -33,7 +33,7 @@ The generative process for data :math:`\boldsymbol{X}_i = (X_{i,1}, ..., X_{i, n
    X_{i, j} \vert U_{i, j} & \sim f_{U_{i, j}}(\cdot)
    \end{array}
 
-   
+
 
 
 HierarchicalMixtureDistribution
@@ -55,4 +55,3 @@ HierarchicalMixtureSampler
 
 .. autoclass:: dmx.stats.hmixture.HierarchicalMixtureSampler
    :members:
-

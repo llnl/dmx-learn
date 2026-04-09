@@ -8,17 +8,26 @@ independent observations of 'n'-tupled data. Each component 'k' of the Composite
 must be compatible with data type T_k.
 
 """
+
+from typing import Any, Dict, List, Optional, Sequence, Tuple, TypeVar, Union
+
 import torch as tn
-from dmx.torch_stats.null_dist import *
-from dmx.torch_stats.pdist import TorchProbabilityDistribution, TorchParameterEstimator, TorchSequenceEncoder, \
-    TorchStatisticAccumulator, TorchStatisticAccumulatorFactory, DistributionSampler, TorchEncodedSequence
+from torch import Generator
 
 from dmx.arithmetic import maxrandint
-from torch import Generator
-from typing import List, Union, Tuple, Any, Optional, TypeVar, Sequence, Dict
+from dmx.torch_stats.null_dist import *
+from dmx.torch_stats.pdist import (
+    DistributionSampler,
+    TorchEncodedSequence,
+    TorchParameterEstimator,
+    TorchProbabilityDistribution,
+    TorchSequenceEncoder,
+    TorchStatisticAccumulator,
+    TorchStatisticAccumulatorFactory,
+)
 
-E = TypeVar('E')
-SS = TypeVar('SS')
+E = TypeVar("E")
+SS = TypeVar("SS")
 
 
 class CompositeDistribution(TorchProbabilityDistribution):
@@ -37,9 +46,11 @@ class CompositeDistribution(TorchProbabilityDistribution):
 
     """
 
-    def __init__(self,
-                 dists: Sequence[TorchProbabilityDistribution],
-                 device: Optional[TorchDevice] = None) -> None:
+    def __init__(
+        self,
+        dists: Sequence[TorchProbabilityDistribution],
+        device: Optional[TorchDevice] = None,
+    ) -> None:
         """CompositeDistribution object.
 
         Args:
@@ -57,8 +68,8 @@ class CompositeDistribution(TorchProbabilityDistribution):
             comp.to(device)
 
     def __repr__(self) -> str:
-        s0 = ','.join(map(str, self.dists))
-        return 'CompositeDistribution((%s))' % s0
+        s0 = ",".join(map(str, self.dists))
+        return "CompositeDistribution((%s))" % s0
 
     def density(self, x: Tuple[Any, ...]) -> float:
         """Evaluates density of CompositeDistribution for single observation tuple x.
@@ -104,9 +115,9 @@ class CompositeDistribution(TorchProbabilityDistribution):
 
         return rv
 
-    def seq_log_density(self, x: 'CompositeTorchEncodedSequence') -> tn.Tensor:
+    def seq_log_density(self, x: "CompositeTorchEncodedSequence") -> tn.Tensor:
         if not isinstance(x, CompositeTorchEncodedSequence):
-            raise Exception('Requires CompositeTorchEncodedSequence for `seq_` calls.')
+            raise Exception("Requires CompositeTorchEncodedSequence for `seq_` calls.")
 
         rv = self.dists[0].seq_log_density(x.data[0])
 
@@ -115,13 +126,15 @@ class CompositeDistribution(TorchProbabilityDistribution):
 
         return rv
 
-    def sampler(self, seed: Optional[int] = None) -> 'CompositeSampler':
+    def sampler(self, seed: Optional[int] = None) -> "CompositeSampler":
         return CompositeSampler(self, seed)
 
-    def estimator(self, pseudo_count: Optional[float] = None) -> 'CompositeEstimator':
-        return CompositeEstimator([d.estimator(pseudo_count=pseudo_count) for d in self.dists])
+    def estimator(self, pseudo_count: Optional[float] = None) -> "CompositeEstimator":
+        return CompositeEstimator(
+            [d.estimator(pseudo_count=pseudo_count) for d in self.dists]
+        )
 
-    def dist_to_encoder(self) -> 'CompositeDataEncoder':
+    def dist_to_encoder(self) -> "CompositeDataEncoder":
         encoders = tuple([d.dist_to_encoder() for d in self.dists])
 
         return CompositeDataEncoder(encoders=encoders)
@@ -137,7 +150,9 @@ class CompositeSampler(DistributionSampler):
             (len=len(dists)).
     """
 
-    def __init__(self, dist: 'CompositeDistribution', seed: Optional[int] = None) -> None:
+    def __init__(
+        self, dist: "CompositeDistribution", seed: Optional[int] = None
+    ) -> None:
         """CompositeSampler object.
 
         Args:
@@ -147,9 +162,13 @@ class CompositeSampler(DistributionSampler):
         """
         self.dist = dist
         self.rng = RandomState(seed)
-        self.dist_samplers = [d.sampler(seed=self.rng.randint(maxrandint)) for d in dist.dists]
+        self.dist_samplers = [
+            d.sampler(seed=self.rng.randint(maxrandint)) for d in dist.dists
+        ]
 
-    def sample(self, size: Optional[int] = None) -> Union[List[Tuple[Any, ...]], Tuple[Any, ...]]:
+    def sample(
+        self, size: Optional[int] = None
+    ) -> Union[List[Tuple[Any, ...]], Tuple[Any, ...]]:
         """Generate independent samples from a CompositeDistribution.
 
         If size is None, draw one sample and return as Tuple of length = len(dists). If size > 0,
@@ -183,8 +202,12 @@ class CompositeAccumulator(TorchStatisticAccumulator):
 
     """
 
-    def __init__(self, accumulators: Sequence[TorchStatisticAccumulator], keys: Optional[str] = None, 
-                 device: Optional[TorchDevice] = None) -> None:
+    def __init__(
+        self,
+        accumulators: Sequence[TorchStatisticAccumulator],
+        keys: Optional[str] = None,
+        device: Optional[TorchDevice] = None,
+    ) -> None:
         """CompositeAccumulator object.
 
         Args:
@@ -198,17 +221,25 @@ class CompositeAccumulator(TorchStatisticAccumulator):
         self.count = len(accumulators)
         self.key = keys
 
-    def seq_initialize(self, x: 'CompositeTorchEncodedSequence', weights: tn.Tensor, tng: Generator) -> None:
+    def seq_initialize(
+        self, x: "CompositeTorchEncodedSequence", weights: tn.Tensor, tng: Generator
+    ) -> None:
 
         for i in range(0, self.count):
             self.accumulators[i].seq_initialize(x.data[i], weights, tng)
 
-    def seq_update(self, x: 'CompositeTorchEncodedSequence', weights: tn.Tensor,
-                   estimate: Optional['CompositeDistribution']) -> None:
+    def seq_update(
+        self,
+        x: "CompositeTorchEncodedSequence",
+        weights: tn.Tensor,
+        estimate: Optional["CompositeDistribution"],
+    ) -> None:
         for i in range(self.count):
-            self.accumulators[i].seq_update(x.data[i], weights, estimate.dists[i] if estimate is not None else None)
+            self.accumulators[i].seq_update(
+                x.data[i], weights, estimate.dists[i] if estimate is not None else None
+            )
 
-    def combine(self, suff_stat: SS) -> 'CompositeAccumulator':
+    def combine(self, suff_stat: SS) -> "CompositeAccumulator":
         for i in range(0, self.count):
             self.accumulators[i].combine(suff_stat[i])
 
@@ -217,8 +248,10 @@ class CompositeAccumulator(TorchStatisticAccumulator):
     def value(self) -> Tuple[Any, ...]:
         return tuple([x.value() for x in self.accumulators])
 
-    def from_value(self, x: SS) -> 'CompositeAccumulator':
-        self.accumulators = [self.accumulators[i].from_value(x[i]) for i in range(len(x))]
+    def from_value(self, x: SS) -> "CompositeAccumulator":
+        self.accumulators = [
+            self.accumulators[i].from_value(x[i]) for i in range(len(x))
+        ]
         self.count = len(x)
 
         return self
@@ -241,7 +274,7 @@ class CompositeAccumulator(TorchStatisticAccumulator):
         for u in self.accumulators:
             u.key_replace(stats_dict)
 
-    def acc_to_encoder(self) -> 'CompositeDataEncoder':
+    def acc_to_encoder(self) -> "CompositeDataEncoder":
         encoders = tuple([acc.acc_to_encoder() for acc in self.accumulators])
 
         return CompositeDataEncoder(encoders=encoders)
@@ -257,20 +290,26 @@ class CompositeAccumulatorFactory(TorchStatisticAccumulatorFactory):
 
     """
 
-    def __init__(self, factories: Sequence[TorchStatisticAccumulatorFactory], keys: Optional[str] = None) -> None:
+    def __init__(
+        self,
+        factories: Sequence[TorchStatisticAccumulatorFactory],
+        keys: Optional[str] = None,
+    ) -> None:
         """CompositeAccumulatorFactory object.
 
         Attributes:
-            factories (List[TorchStatisticAccumulatorFactory]): List of TorchStatisticAccumulatorFactory objects for 
+            factories (List[TorchStatisticAccumulatorFactory]): List of TorchStatisticAccumulatorFactory objects for
                 each component.
             keys (Optional[str]): Declare keys for merging sufficient statistics of CompositeAccumulator objects.
-            
+
         """
         self.factories = factories
         self.keys = keys
 
-    def make(self, device: Optional[TorchDevice] = None) -> 'CompositeAccumulator':
-        return CompositeAccumulator([u.make() for u in self.factories], keys=self.keys, device=device)
+    def make(self, device: Optional[TorchDevice] = None) -> "CompositeAccumulator":
+        return CompositeAccumulator(
+            [u.make() for u in self.factories], keys=self.keys, device=device
+        )
 
 
 class CompositeEstimator(TorchParameterEstimator):
@@ -285,7 +324,9 @@ class CompositeEstimator(TorchParameterEstimator):
 
     """
 
-    def __init__(self, estimators: Sequence[TorchParameterEstimator], keys: Optional[str] = None) -> None:
+    def __init__(
+        self, estimators: Sequence[TorchParameterEstimator], keys: Optional[str] = None
+    ) -> None:
         """CompositeEstimator object.
 
         Args:
@@ -298,16 +339,20 @@ class CompositeEstimator(TorchParameterEstimator):
         self.count = len(estimators)
         self.keys = keys
 
-    def accumulator_factory(self) -> 'CompositeAccumulatorFactory':
+    def accumulator_factory(self) -> "CompositeAccumulatorFactory":
         """Creates CompositeAccumulatorFactory from each TorchParameterEstimator in estimators.
 
         Returns:
             CompositeAccumulatorFactory.
 
         """
-        return CompositeAccumulatorFactory([u.accumulator_factory() for u in self.estimators], self.keys)
+        return CompositeAccumulatorFactory(
+            [u.accumulator_factory() for u in self.estimators], self.keys
+        )
 
-    def estimate(self, nobs: Optional[float], suff_stat: SS, device: Optional[TorchDevice]= None) -> 'CompositeDistribution':
+    def estimate(
+        self, nobs: Optional[float], suff_stat: SS, device: Optional[TorchDevice] = None
+    ) -> "CompositeDistribution":
         """Estimate a CompositeDistribution from an aggregated sufficient statistics Tuple for a given number of
             observations (nobs).
 
@@ -321,8 +366,15 @@ class CompositeEstimator(TorchParameterEstimator):
                 number of observation (nobs).
 
         """
-        return CompositeDistribution(tuple([est.estimate(nobs, ss, device=device) for est, ss in zip(self.estimators, suff_stat)]),
-                                     device=device)
+        return CompositeDistribution(
+            tuple(
+                [
+                    est.estimate(nobs, ss, device=device)
+                    for est, ss in zip(self.estimators, suff_stat)
+                ]
+            ),
+            device=device,
+        )
 
 
 class CompositeDataEncoder(TorchSequenceEncoder):
@@ -358,16 +410,18 @@ class CompositeDataEncoder(TorchSequenceEncoder):
 
     def __str__(self) -> str:
 
-        s = 'CompositeDataEncoder(['
+        s = "CompositeDataEncoder(["
 
         for d in self.encoders[:-1]:
-            s += str(d) + ','
+            s += str(d) + ","
 
-        s += str(self.encoders[-1]) + '])'
+        s += str(self.encoders[-1]) + "])"
 
         return s
 
-    def seq_encode(self, x: Sequence[Tuple[Any, ...]], device: Optional[TorchDevice] = None) -> 'CompositeTorchEncodedSequence':
+    def seq_encode(
+        self, x: Sequence[Tuple[Any, ...]], device: Optional[TorchDevice] = None
+    ) -> "CompositeTorchEncodedSequence":
         """Encode Sequence of tuples of data for use with vectorized "seq_" functions.
 
         The input x must be a Sequence of Tuples of length equal to the length of encoders. Each component tuple
@@ -391,9 +445,12 @@ class CompositeDataEncoder(TorchSequenceEncoder):
 
 class CompositeTorchEncodedSequence(TorchEncodedSequence):
 
-    def __init__(self, data: Tuple[TorchEncodedSequence, ...], device: Optional[TorchDevice] = None):
+    def __init__(
+        self,
+        data: Tuple[TorchEncodedSequence, ...],
+        device: Optional[TorchDevice] = None,
+    ):
         super().__init__(data=data, device=device)
 
     def __str__(self) -> str:
-        return f'CompositeTorchEncodedSequence(device={repr(self.device)})'
-
+        return f"CompositeTorchEncodedSequence(device={repr(self.device)})"

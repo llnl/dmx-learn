@@ -1,18 +1,30 @@
 """Vector contains functions useful for estimation and evaluation of dmx-learn classes."""
-from typing import List, Union, Tuple, Iterable, Optional, Sequence, SupportsIndex, overload
+
+from typing import (
+    Iterable,
+    List,
+    Optional,
+    Sequence,
+    SupportsIndex,
+    Tuple,
+    Union,
+    overload,
+)
 
 import numpy as np
 import scipy.linalg
 import scipy.special
 
-
 from dmx.arithmetic import *
+
 
 @overload
 def gammaln(x: np.ndarray) -> np.ndarray: ...
 
+
 @overload
 def gammaln(x: float) -> float: ...
+
 
 def gammaln(x: Union[np.ndarray, float, int]) -> Union[np.ndarray, float]:
     """Return logrithm of the gamma function.
@@ -55,7 +67,9 @@ def sorted_merge(a: np.ndarray, b: np.ndarray) -> np.ndarray:
     return c
 
 
-def sorted_dict_merge_add(k_vec1: np.ndarray, c_vec1: np.ndarray, k_vec2: np.ndarray, c_vec2: np.ndarray) -> Tuple[np.ndarray,np.ndarray]:
+def sorted_dict_merge_add(
+    k_vec1: np.ndarray, c_vec1: np.ndarray, k_vec2: np.ndarray, c_vec2: np.ndarray
+) -> Tuple[np.ndarray, np.ndarray]:
     """Performs a merge on two sorted arrays of dictionary keys and the counts for their respective keys.
 
     Returns the merge sorted keys and corresponding counts.
@@ -77,7 +91,9 @@ def sorted_dict_merge_add(k_vec1: np.ndarray, c_vec1: np.ndarray, k_vec2: np.nda
     if len(k_vec1) < len(k_vec2):
         return sorted_dict_merge_add(k_vec2, c_vec2, k_vec1, c_vec1)
 
-    _, idx1, idx2 = np.intersect1d(k_vec1, k_vec2, assume_unique=True, return_indices=True)
+    _, idx1, idx2 = np.intersect1d(
+        k_vec1, k_vec2, assume_unique=True, return_indices=True
+    )
 
     adj_cnt = c_vec1[idx1] + c_vec2[idx2]
     new_vals = np.delete(k_vec2, idx2)
@@ -89,7 +105,9 @@ def sorted_dict_merge_add(k_vec1: np.ndarray, c_vec1: np.ndarray, k_vec2: np.nda
     return rv_vals, rv_cnts
 
 
-def make(x: Union[np.ndarray, Sequence[Union[int, float, str]], List[np.ndarray]]) -> np.ndarray:
+def make(
+    x: Union[np.ndarray, Sequence[Union[int, float, str]], List[np.ndarray]]
+) -> np.ndarray:
     """Convert the array x into a numpy array.
 
     Args:
@@ -120,7 +138,7 @@ def make_pdf(x: Union[np.ndarray, Sequence[float], List[np.ndarray]]):
     if rv_max == -inf:
         rv = zeros(n) - log(n)
     else:
-        rv_sum = np.log(np.sum(np.exp(rv-rv_max))) + np.log(rv_max)
+        rv_sum = np.log(np.sum(np.exp(rv - rv_max))) + np.log(rv_max)
         rv /= rv_sum
 
     return rv
@@ -139,7 +157,9 @@ def zeros(n: Union[int, Iterable, Tuple[int]]) -> np.ndarray:
     return np.zeros(n)
 
 
-def mat_inv(x: Union[List[List[Union[float, int]]],List[np.ndarray], np.ndarray]) -> np.ndarray:
+def mat_inv(
+    x: Union[List[List[Union[float, int]]], List[np.ndarray], np.ndarray]
+) -> np.ndarray:
     """Computes the inverse of a square matrix x.
 
     Arg x data type Union[List[List[Union[float, int]]],List[np.ndarray], np.ndarray]).
@@ -153,8 +173,10 @@ def mat_inv(x: Union[List[List[Union[float, int]]],List[np.ndarray], np.ndarray]
     return np.linalg.inv(x)
 
 
-def dot(x: Union[np.ndarray, Iterable, int, float], y: Union[np.ndarray, Iterable, int, float])\
-        -> Union[np.ndarray, float]:
+def dot(
+    x: Union[np.ndarray, Iterable, int, float],
+    y: Union[np.ndarray, Iterable, int, float],
+) -> Union[np.ndarray, float]:
     """Performs call to numpy.dot().
 
     Args:
@@ -167,7 +189,10 @@ def dot(x: Union[np.ndarray, Iterable, int, float], y: Union[np.ndarray, Iterabl
     return np.dot(x, y)
 
 
-def outer(x: Union[np.ndarray, Iterable, int, float], y: Union[np.ndarray, Iterable, int, float]) -> np.ndarray:
+def outer(
+    x: Union[np.ndarray, Iterable, int, float],
+    y: Union[np.ndarray, Iterable, int, float],
+) -> np.ndarray:
     """Compute the outer product of two vectors
 
     Args:
@@ -199,7 +224,9 @@ def diag(x: np.ndarray) -> np.ndarray:
     return np.diag(x)
 
 
-def reshape(x: np.ndarray, sz: Union[SupportsIndex, Sequence[SupportsIndex]]) -> np.ndarray:
+def reshape(
+    x: np.ndarray, sz: Union[SupportsIndex, Sequence[SupportsIndex]]
+) -> np.ndarray:
     """Gives a new shape to an array without changing its data.
 
     Args:
@@ -247,8 +274,11 @@ def cho_solve(a_mat: Tuple[np.ndarray, bool], b: np.ndarray) -> np.ndarray:
     return scipy.linalg.cho_solve(a_mat, b)
 
 
-def maximum(x: Union[float, int, Iterable, np.ndarray], y: Union[float, int, Iterable, np.ndarray],
-            output: Optional[Union[float, int, np.ndarray]] = None) -> Union[float, int, np.ndarray]:
+def maximum(
+    x: Union[float, int, Iterable, np.ndarray],
+    y: Union[float, int, Iterable, np.ndarray],
+    output: Optional[Union[float, int, np.ndarray]] = None,
+) -> Union[float, int, np.ndarray]:
     """Element-wise maximum of array elements.
 
     Compare two arrays and returns a new array containing the element-wise
@@ -342,8 +372,9 @@ def log_posterior(x: np.ndarray) -> np.ndarray:
     return x - mass
 
 
-def posterior(log_x: np.ndarray, out: Optional[np.ndarray] = None,
-              log_sum: Optional[bool] = False) -> Union[np.ndarray, Tuple[np.ndarray, float]]:
+def posterior(
+    log_x: np.ndarray, out: Optional[np.ndarray] = None, log_sum: Optional[bool] = False
+) -> Union[np.ndarray, Tuple[np.ndarray, float]]:
     """Computes posterior density for vector of log-likelihood evaluated at each parameter component.
 
     I.e. if,
@@ -464,7 +495,9 @@ def weighted_log_posterior(x: np.ndarray, w: np.ndarray) -> List[float]:
     return rv
 
 
-def weighted_log_posterior_sum(x: np.ndarray, w: np.ndarray) -> Tuple[List[float], float]:
+def weighted_log_posterior_sum(
+    x: np.ndarray, w: np.ndarray
+) -> Tuple[List[float], float]:
     """Computes weighted posterior density for vector of log-likelihood evaluated at each parameter component.
 
     I.e. if,
@@ -511,31 +544,29 @@ def weighted_log_posterior_sum(x: np.ndarray, w: np.ndarray) -> Tuple[List[float
 
 
 def matrix_log_posteriors(
-    x: np.ndarray, 
-    u_mat: np.ndarray, 
-    u: np.ndarray
+    x: np.ndarray, u_mat: np.ndarray, u: np.ndarray
 ) -> Tuple[np.ndarray, np.ndarray, float]:
     """
-    Computes the matrix of log posteriors, outer posterior probabilities, 
+    Computes the matrix of log posteriors, outer posterior probabilities,
     and the log-likelihood.
 
-    This function calculates posterior probabilities for rows and columns 
-    based on input matrices and vectors. It also computes the log-likelihood 
+    This function calculates posterior probabilities for rows and columns
+    based on input matrices and vectors. It also computes the log-likelihood
     of the data given the model.
 
     Args:
-        x (np.ndarray): A 2D array with shape `(m, z)`, where `m` is the number 
+        x (np.ndarray): A 2D array with shape `(m, z)`, where `m` is the number
             of rows and `z` is the number of columns.
-        u_mat (np.ndarray): A 2D array with shape `(h, w)` representing the matrix 
+        u_mat (np.ndarray): A 2D array with shape `(h, w)` representing the matrix
             of prior probabilities or weights.
-        u (np.ndarray): A 1D array with shape `(h,)` representing additional 
+        u (np.ndarray): A 1D array with shape `(h,)` representing additional
             prior probabilities for each row.
 
     Returns:
         Tuple[np.ndarray, np.ndarray, float]:
-            - `row_posteriors` (np.ndarray): A 3D array with shape `(h, w, z)` 
+            - `row_posteriors` (np.ndarray): A 3D array with shape `(h, w, z)`
               containing posterior probabilities for each row and column.
-            - `outer_posterior` (np.ndarray): A 1D array with shape `(h,)` containing 
+            - `outer_posterior` (np.ndarray): A 1D array with shape `(h,)` containing
               normalized posterior probabilities for each row.
             - `ll` (float): The log-likelihood of the data given the model.
 
@@ -624,10 +655,10 @@ def row_choice(p_mat: np.ndarray, rng: Optional[np.random.RandomState]) -> np.nd
     r = np.zeros(N, dtype=int)
     r.fill(m)
 
-    mid = (r-l) // 2
+    mid = (r - l) // 2
 
     l_cond = u >= bins[idx, mid]
-    r_cond = u < bins[idx, mid+1]
+    r_cond = u < bins[idx, mid + 1]
 
     bin_cond = np.bitwise_and(l_cond, r_cond)
     in_bin = np.flatnonzero(bin_cond)
@@ -653,10 +684,10 @@ def row_choice(p_mat: np.ndarray, rng: Optional[np.random.RandomState]) -> np.nd
 
     while iterate_cond:
 
-        mid = (r-l) // 2 + l
+        mid = (r - l) // 2 + l
 
         l_cond = u[idx] >= bins[idx, mid]
-        r_cond = u[idx] < bins[idx, mid+1]
+        r_cond = u[idx] < bins[idx, mid + 1]
 
         in_bin = np.bitwise_and(l_cond, r_cond)
         in_bin_idx = np.flatnonzero(in_bin)

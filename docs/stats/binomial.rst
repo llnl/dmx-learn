@@ -3,9 +3,9 @@ Binomial
 
 Data Type: int
 
-The binomial distribution is used for modeling the number of successes for a given number of trials *n*. The distribution has support on the integers between [*min_val*, *min_val* + *n*), where *min_val* is supplied by the user. 
+The binomial distribution is used for modeling the number of successes for a given number of trials *n*. The distribution has support on the integers between [*min_val*, *min_val* + *n*), where *min_val* is supplied by the user.
 
-The probability mass function is given by 
+The probability mass function is given by
 
 .. math::
    f(x | n, p) = {n \choose x} p^x (1-p)^{n-x}, \: min\_val\leq x < min\_val + n.
@@ -29,4 +29,3 @@ BinomialSampler
 
 .. autoclass:: dmx.stats.binomial.BinomialSampler
    :members:
-

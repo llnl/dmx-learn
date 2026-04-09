@@ -1,11 +1,14 @@
 """Utility functions for data pre/post processing."""
-from pathlib import Path
+
 from collections import defaultdict
-from typing import TypeVar, Union, Sequence, Dict, Tuple, List, Callable, Optional
+from pathlib import Path
+from typing import Callable, Dict, List, Optional, Sequence, Tuple, TypeVar, Union
+
 import numpy as np
 
-T = TypeVar('T')
-T1 = TypeVar('T1')
+T = TypeVar("T")
+T1 = TypeVar("T1")
+
 
 def get_parent_directory(filepath: str, levels=0) -> Path:
     """Get the parent directory of a file.
@@ -14,14 +17,15 @@ def get_parent_directory(filepath: str, levels=0) -> Path:
         levels (int): Number of levels to move up to reach parent.
     Returns:
         Path object containing path to parent directory.
-    
+
     """
     rv = Path(filepath)
 
     for _ in range(levels):
         rv = rv.parent
-    
+
     return rv
+
 
 def map_to_integers(x: Sequence[T], val_map: Dict[T, int]) -> List[int]:
     """Map sequence of type T to integers.
@@ -72,13 +76,13 @@ def text_file(f) -> List[str]:
         List of strings split on newline character.
 
     """
-    fin = open(f, 'r')
+    fin = open(f, "r")
     rv = fin.read()
 
-    if rv is not None and len(rv) > 0 and rv[-1] == '\n':
-        return rv[:-1].split('\n')
+    if rv is not None and len(rv) > 0 and rv[-1] == "\n":
+        return rv[:-1].split("\n")
     else:
-        return rv.split('\n')
+        return rv.split("\n")
 
 
 def reduce_by_key(f: Callable[[T1, T1], T1], x: Sequence[Tuple[T, T1]]) -> Dict[T, T1]:
@@ -161,6 +165,7 @@ def group_by(f: Callable[[T], T1], x: Sequence[T]) -> Dict[T1, List[T]]:
 
     return rv
 
+
 def count_by_value(x: Union[Sequence[T], np.ndarray]) -> Dict[T, int]:
     """Count the number of observations of a given value in arg 'x'.
 
@@ -197,7 +202,7 @@ def least_occurring(
     x: Sequence[T],
     count: Optional[int] = None,
     percent: Optional[float] = None,
-    keep_freq: bool = True
+    keep_freq: bool = True,
 ) -> Union[List[T], Callable]:
     """
     Identifies the least occurring elements in a sequence.

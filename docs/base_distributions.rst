@@ -1,9 +1,9 @@
 .. _base_distributions
 Base Distributions
 ===========================
-Below is a list of distributions aranged by data type. This should help pick a suitable probability distribution for you data. Note that there may be restrictions on the support of each distribution. This information will be contained in the associated references for each individual distribution. 
+Below is a list of distributions aranged by data type. This should help pick a suitable probability distribution for you data. Note that there may be restrictions on the support of each distribution. This information will be contained in the associated references for each individual distribution.
 
-Data Type: int 
+Data Type: int
 --------------------------------------------------
 
 .. toctree::
@@ -69,7 +69,7 @@ Data Type: Sequence[str]
 Data Type: Sequence[Tuple[int, float]]
 ----------------------------------------
 
-.. toctree:: 
+.. toctree::
    :maxdepth: 1
 
    /stats/intmultinomial.rst
@@ -78,7 +78,7 @@ Data Type: Sequence[Tuple[int, float]]
 Data Type: Sequence[Tuple[int, str]]
 ----------------------------------------
 
-.. toctree:: 
+.. toctree::
    :maxdepth: 1
 
    /stats/catmultinomial.rst
@@ -90,5 +90,3 @@ Data Type: Sequence[Any]
    :maxdepth: 1
 
    /stats/markovchain.rst
-
-

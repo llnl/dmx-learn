@@ -2,12 +2,13 @@
 Note that Numba should be used. """
 
 import numpy as np
+
 from dmx.stats import *
 from dmx.utils.estimation import best_of, partition_data
 
 rng = np.random.RandomState(2)
 
-if __name__ == '__main__':
+if __name__ == "__main__":
     n = int(1e3)
 
     num_states = 5
@@ -30,43 +31,49 @@ if __name__ == '__main__':
     len_dist = CategoricalDistribution({5: 1.0})
 
     # Define the dist
-    dist = IntegerHiddenMarkovModelDistribution(pmat=pmat, w=init_w, transitions=trans, len_dist=len_dist)
+    dist = IntegerHiddenMarkovModelDistribution(
+        pmat=pmat, w=init_w, transitions=trans, len_dist=len_dist
+    )
 
     ## Generate data
-    sampler = dist.sampler(seed=rng.randint(2 ** 32 - 1))
+    sampler = dist.sampler(seed=rng.randint(2**32 - 1))
     data = sampler.sample(n)
     print(data[:10])
 
     ## Create an initial estimator
     len_est = CategoricalEstimator()
-    # regularize the init states, transitions, and word distribution 
+    # regularize the init states, transitions, and word distribution
     iest = IntegerHiddenMarkovEstimator(
-        num_words=num_words, 
-        num_states=num_states, 
-        len_estimator=len_est, 
-        pseudo_count=(1.0, 1.0, 1.0))
-    
+        num_words=num_words,
+        num_states=num_states,
+        len_estimator=len_est,
+        pseudo_count=(1.0, 1.0, 1.0),
+    )
+
     # Create the estimator
-    est = IntegerHiddenMarkovEstimator(num_words=num_words, num_states=num_states, len_estimator=len_est)
+    est = IntegerHiddenMarkovEstimator(
+        num_words=num_words, num_states=num_states, len_estimator=len_est
+    )
     train_data, valid_data = partition_data(data, [0.9, 0.1], rng=rng)
 
     # Fit model, finding the best model
     ll, mm = best_of(
-        data=train_data, 
-        vdata=valid_data, 
-        est=est, 
-        trials=5, 
-        max_its=25, 
-        init_p=0.10, 
-        delta=1.0e-8, 
-        rng=rng, 
-        init_estimator=iest)
+        data=train_data,
+        vdata=valid_data,
+        est=est,
+        trials=5,
+        max_its=25,
+        init_p=0.10,
+        delta=1.0e-8,
+        rng=rng,
+        init_estimator=iest,
+    )
 
     # Eval likelihood on an observed value
     ll0 = mm.log_density(train_data[0])
-    print(f'Likelihood of estimated model at {train_data[0]}: {ll0}')
+    print(f"Likelihood of estimated model at {train_data[0]}: {ll0}")
     # Encode data vectorized calls
     enc_data = seq_encode(train_data, model=mm)[0][1]
     # Eval the likelihood at all data points
     ll = mm.seq_log_density(enc_data)
-    print(f'Likelihood of estimated model on data: {ll[:5]}')
+    print(f"Likelihood of estimated model on data: {ll[:5]}")

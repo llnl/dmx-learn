@@ -15,23 +15,31 @@ sampling X_2 from g_j() (data type T1) given X_1 was sampled from f_i().
 
 
 """
-from dmx.arithmetic import *
-from numpy.random import RandomState
-from dmx.stats.pdist import SequenceEncodableProbabilityDistribution, StatisticAccumulatorFactory, \
-    SequenceEncodableStatisticAccumulator, DataSequenceEncoder, DistributionSampler, ParameterEstimator, \
-    EncodedDataSequence
+
+from typing import Any, Dict, List, Optional, Sequence, Tuple, TypeVar, Union
+
 import numpy as np
+from numpy.random import RandomState
+
 import dmx.utils.vector as vec
+from dmx.arithmetic import *
 from dmx.arithmetic import maxrandint
+from dmx.stats.pdist import (
+    DataSequenceEncoder,
+    DistributionSampler,
+    EncodedDataSequence,
+    ParameterEstimator,
+    SequenceEncodableProbabilityDistribution,
+    SequenceEncodableStatisticAccumulator,
+    StatisticAccumulatorFactory,
+)
 
-from typing import Tuple, Union, Any, Optional, TypeVar, Sequence, List, Dict
-
-T0 = TypeVar('T0')
-T1 = TypeVar('T1')
-E0 = TypeVar('E0')
-E1 = TypeVar('E1')
-SS0 = TypeVar('SS0')
-SS1 = TypeVar('SS1')
+T0 = TypeVar("T0")
+T1 = TypeVar("T1")
+E0 = TypeVar("E0")
+E1 = TypeVar("E1")
+SS0 = TypeVar("SS0")
+SS1 = TypeVar("SS1")
 
 
 class JointMixtureDistribution(SequenceEncodableProbabilityDistribution):
@@ -64,14 +72,21 @@ class JointMixtureDistribution(SequenceEncodableProbabilityDistribution):
 
     """
 
-    def __init__(self, components1: Sequence[SequenceEncodableProbabilityDistribution],
-                 components2: Sequence[SequenceEncodableProbabilityDistribution],
-                 w1: Union[Sequence[float], np.ndarray],
-                 w2: Union[Sequence[float], np.ndarray],
-                 taus12: Union[List[List[float]], np.ndarray],
-                 taus21: Union[List[List[float]], np.ndarray],
-                 keys: Optional[Tuple[Optional[str], Optional[str], Optional[str]]] = (None, None, None),
-                 name: Optional[str] = None) -> None:
+    def __init__(
+        self,
+        components1: Sequence[SequenceEncodableProbabilityDistribution],
+        components2: Sequence[SequenceEncodableProbabilityDistribution],
+        w1: Union[Sequence[float], np.ndarray],
+        w2: Union[Sequence[float], np.ndarray],
+        taus12: Union[List[List[float]], np.ndarray],
+        taus21: Union[List[List[float]], np.ndarray],
+        keys: Optional[Tuple[Optional[str], Optional[str], Optional[str]]] = (
+            None,
+            None,
+            None,
+        ),
+        name: Optional[str] = None,
+    ) -> None:
         """JointMixtureDistribution object.
 
         Args:
@@ -88,15 +103,19 @@ class JointMixtureDistribution(SequenceEncodableProbabilityDistribution):
             name (Optional[str]): Set name to object.
 
         """
-        with np.errstate(divide='ignore'):
+        with np.errstate(divide="ignore"):
             self.components1 = components1
             self.components2 = components2
             self.w1 = vec.make(w1)
             self.w2 = vec.make(w2)
             self.num_components1 = len(components1)
             self.num_components2 = len(components2)
-            self.taus12 = np.reshape(taus12, (self.num_components1, self.num_components2))
-            self.taus21 = np.reshape(taus21, (self.num_components1, self.num_components2))
+            self.taus12 = np.reshape(
+                taus12, (self.num_components1, self.num_components2)
+            )
+            self.taus21 = np.reshape(
+                taus21, (self.num_components1, self.num_components2)
+            )
             self.log_w1 = np.log(self.w1)
             self.log_w2 = np.log(self.w2)
             self.log_taus12 = np.log(self.taus12)
@@ -105,16 +124,19 @@ class JointMixtureDistribution(SequenceEncodableProbabilityDistribution):
             self.name = name
 
     def __str__(self) -> str:
-        s1 = ','.join([str(u) for u in self.components1])
-        s2 = ','.join([str(u) for u in self.components2])
-        s3 = ','.join(map(str, self.w1))
-        s4 = ','.join(map(str, self.w2))
-        s5 = ','.join(map(str, self.taus12.flatten()))
-        s6 = ','.join(map(str, self.taus21.flatten()))
+        s1 = ",".join([str(u) for u in self.components1])
+        s2 = ",".join([str(u) for u in self.components2])
+        s3 = ",".join(map(str, self.w1))
+        s4 = ",".join(map(str, self.w2))
+        s5 = ",".join(map(str, self.taus12.flatten()))
+        s6 = ",".join(map(str, self.taus21.flatten()))
         s7 = repr(self.name)
         s8 = repr(self.keys)
 
-        return 'JointMixtureDistribution([%s], [%s], [%s], [%s], [%s], [%s], name=%s, keys=%s)' % (s1, s2, s3, s4, s5, s6, s7, s8)
+        return (
+            "JointMixtureDistribution([%s], [%s], [%s], [%s], [%s], [%s], name=%s, keys=%s)"
+            % (s1, s2, s3, s4, s5, s6, s7, s8)
+        )
 
     def density(self, x: Tuple[T0, T1]) -> float:
         return exp(self.log_density(x))
@@ -143,10 +165,12 @@ class JointMixtureDistribution(SequenceEncodableProbabilityDistribution):
 
         return rv
 
-    def seq_log_density(self, x: 'JointMixtureEncodedDataSequence') -> np.ndarray:
+    def seq_log_density(self, x: "JointMixtureEncodedDataSequence") -> np.ndarray:
 
         if not isinstance(x, JointMixtureEncodedDataSequence):
-            raise Exception("JointMixtureEncodedDataSequence required for seq_log_density().")
+            raise Exception(
+                "JointMixtureEncodedDataSequence required for seq_log_density()."
+            )
 
         sz, enc_data1, enc_data2 = x.data
         ll_mat1 = np.zeros((sz, self.num_components1))
@@ -174,17 +198,24 @@ class JointMixtureDistribution(SequenceEncodableProbabilityDistribution):
 
         return rv
 
-    def sampler(self, seed: Optional[int] = None) -> 'JointMixtureSampler':
+    def sampler(self, seed: Optional[int] = None) -> "JointMixtureSampler":
         return JointMixtureSampler(self, seed)
 
-    def estimator(self, pseudo_count: Optional[float] = None) -> 'JointMixtureEstimator':
+    def estimator(
+        self, pseudo_count: Optional[float] = None
+    ) -> "JointMixtureEstimator":
         estimators1 = [comp1.estimator() for comp1 in self.components1]
         estimators2 = [comp2.estimator() for comp2 in self.components2]
 
-        return JointMixtureEstimator(estimators1=estimators1, estimators2=estimators2, pseudo_count=pseudo_count,
-                                     keys=self.keys, name=self.name)
+        return JointMixtureEstimator(
+            estimators1=estimators1,
+            estimators2=estimators2,
+            pseudo_count=pseudo_count,
+            keys=self.keys,
+            name=self.name,
+        )
 
-    def dist_to_encoder(self) -> 'DataSequenceEncoder':
+    def dist_to_encoder(self) -> "DataSequenceEncoder":
         encoder1 = self.components1[0].dist_to_encoder()
         encoder2 = self.components2[0].dist_to_encoder()
         return JointMixtureDataEncoder(encoder1=encoder1, encoder2=encoder2)
@@ -202,7 +233,9 @@ class JointMixtureSampler(DistributionSampler):
 
     """
 
-    def __init__(self, dist: JointMixtureDistribution, seed: Optional[int] = None) -> None:
+    def __init__(
+        self, dist: JointMixtureDistribution, seed: Optional[int] = None
+    ) -> None:
         """JointMixtureSampler object.
 
         Args:
@@ -213,16 +246,29 @@ class JointMixtureSampler(DistributionSampler):
         """
         self.rng = RandomState(seed)
         self.dist = dist
-        self.comp_sampler1 = [d.sampler(seed=self.rng.randint(0, maxrandint)) for d in self.dist.components1]
-        self.comp_sampler2 = [d.sampler(seed=self.rng.randint(0, maxrandint)) for d in self.dist.components2]
+        self.comp_sampler1 = [
+            d.sampler(seed=self.rng.randint(0, maxrandint))
+            for d in self.dist.components1
+        ]
+        self.comp_sampler2 = [
+            d.sampler(seed=self.rng.randint(0, maxrandint))
+            for d in self.dist.components2
+        ]
 
-    def sample(self, size: Optional[int] = None) -> Union[Tuple[Any, Any], Sequence[Tuple[Any, Any]]]:
+    def sample(
+        self, size: Optional[int] = None
+    ) -> Union[Tuple[Any, Any], Sequence[Tuple[Any, Any]]]:
 
         if size is None:
-            comp_state1 = self.rng.choice(range(0, self.dist.num_components1), replace=True, p=self.dist.w1)
+            comp_state1 = self.rng.choice(
+                range(0, self.dist.num_components1), replace=True, p=self.dist.w1
+            )
             f1 = self.comp_sampler1[comp_state1].sample()
-            comp_state2 = self.rng.choice(range(0, self.dist.num_components2), replace=True,
-                                         p=self.dist.taus12[comp_state1, :])
+            comp_state2 = self.rng.choice(
+                range(0, self.dist.num_components2),
+                replace=True,
+                p=self.dist.taus12[comp_state1, :],
+            )
             f2 = self.comp_sampler2[comp_state2].sample()
 
             return f1, f2
@@ -259,10 +305,17 @@ class JointMixtureEstimatorAccumulator(SequenceEncodableStatisticAccumulator):
 
     """
 
-    def __init__(self, accumulators1: Sequence[SequenceEncodableStatisticAccumulator],
-                 accumulators2: Sequence[SequenceEncodableStatisticAccumulator],
-                 keys: Optional[Tuple[Optional[str], Optional[str], Optional[str]]] = (None, None, None),
-                 name: Optional[str] = None) -> None:
+    def __init__(
+        self,
+        accumulators1: Sequence[SequenceEncodableStatisticAccumulator],
+        accumulators2: Sequence[SequenceEncodableStatisticAccumulator],
+        keys: Optional[Tuple[Optional[str], Optional[str], Optional[str]]] = (
+            None,
+            None,
+            None,
+        ),
+        name: Optional[str] = None,
+    ) -> None:
         """JointMixtureEstimatorAccumulator object.
 
         Args:
@@ -291,14 +344,22 @@ class JointMixtureEstimatorAccumulator(SequenceEncodableStatisticAccumulator):
         self._acc1_rng: Optional[List[RandomState]] = None
         self._acc2_rng: Optional[List[RandomState]] = None
 
-    def update(self, x: Tuple[T0, T1], weight: float, estimate: JointMixtureDistribution) -> None:
+    def update(
+        self, x: Tuple[T0, T1], weight: float, estimate: JointMixtureDistribution
+    ) -> None:
         pass
 
     def _rng_initialize(self, rng: RandomState) -> None:
         self._idx1_rng = RandomState(seed=rng.randint(0, maxrandint))
         self._idx2_rng = RandomState(seed=rng.randint(0, maxrandint))
-        self._acc1_rng = [RandomState(seed=rng.randint(0, maxrandint)) for i in range(self.num_components1)]
-        self._acc2_rng = [RandomState(seed=rng.randint(0, maxrandint)) for i in range(self.num_components2)]
+        self._acc1_rng = [
+            RandomState(seed=rng.randint(0, maxrandint))
+            for i in range(self.num_components1)
+        ]
+        self._acc2_rng = [
+            RandomState(seed=rng.randint(0, maxrandint))
+            for i in range(self.num_components2)
+        ]
         self._rng_init = True
 
     def initialize(self, x: Tuple[T0, T1], weight: float, rng: RandomState) -> None:
@@ -323,7 +384,9 @@ class JointMixtureEstimatorAccumulator(SequenceEncodableStatisticAccumulator):
             self.accumulators2[i].initialize(x[1], w, self._acc2_rng[i])
             self.comp_counts2[i] += w
 
-    def seq_initialize(self, x: 'JointMixtureEncodedDataSequence', weights, rng) -> None:
+    def seq_initialize(
+        self, x: "JointMixtureEncodedDataSequence", weights, rng
+    ) -> None:
         sz, enc1, enc2 = x.data
 
         if not self._rng_init:
@@ -332,11 +395,15 @@ class JointMixtureEstimatorAccumulator(SequenceEncodableStatisticAccumulator):
         # idx1 = self._idx1_rng.choice(self.num_components1, size=sz)
         # idx2 = self._idx2_rng.choice(self.num_components2, size=sz)
         # temp = np.bincount(idx1*self.num_components1 + idx2, minlength=self.num_components1*self.num_components2)
-        
-        idx = self._idx1_rng.choice(self.num_components1 * self.num_components2, size=sz)
-        temp = np.bincount(idx, minlength=self.num_components1*self.num_components2)
+
+        idx = self._idx1_rng.choice(
+            self.num_components1 * self.num_components2, size=sz
+        )
+        temp = np.bincount(idx, minlength=self.num_components1 * self.num_components2)
         idx1, idx2 = np.divmod(idx, self.num_components2)
-        self.joint_counts += np.reshape(temp, (self.num_components1, self.num_components2))
+        self.joint_counts += np.reshape(
+            temp, (self.num_components1, self.num_components2)
+        )
 
         for i in range(self.num_components1):
             w = np.zeros(sz)
@@ -350,7 +417,12 @@ class JointMixtureEstimatorAccumulator(SequenceEncodableStatisticAccumulator):
             self.accumulators2[i].seq_initialize(enc2, w, self._acc2_rng[i])
             self.comp_counts2[i] += np.sum(w)
 
-    def seq_update(self, x: 'JointMixtureEncodedDataSequence', weights: np.ndarray, estimate: JointMixtureDistribution) -> None:
+    def seq_update(
+        self,
+        x: "JointMixtureEncodedDataSequence",
+        weights: np.ndarray,
+        estimate: JointMixtureDistribution,
+    ) -> None:
         sz, enc_data1, enc_data2 = x.data
         ll_mat1 = np.zeros((sz, self.num_components1, 1))
         ll_mat2 = np.zeros((sz, 1, self.num_components2))
@@ -389,13 +461,21 @@ class JointMixtureEstimatorAccumulator(SequenceEncodableStatisticAccumulator):
         self.joint_counts += ll_joint.sum(axis=0)
 
         for i in range(self.num_components1):
-            self.accumulators1[i].seq_update(enc_data1, gamma_1[:, i, 0], estimate.components1[i])
+            self.accumulators1[i].seq_update(
+                enc_data1, gamma_1[:, i, 0], estimate.components1[i]
+            )
 
         for i in range(self.num_components2):
-            self.accumulators2[i].seq_update(enc_data2, gamma_2[:, 0, i], estimate.components2[i])
+            self.accumulators2[i].seq_update(
+                enc_data2, gamma_2[:, 0, i], estimate.components2[i]
+            )
 
-    def combine(self, suff_stat: Tuple[np.ndarray, np.ndarray, np.ndarray, Tuple[E0, ...], Tuple[E1, ...]]) \
-            -> 'JointMixtureEstimatorAccumulator':
+    def combine(
+        self,
+        suff_stat: Tuple[
+            np.ndarray, np.ndarray, np.ndarray, Tuple[E0, ...], Tuple[E1, ...]
+        ],
+    ) -> "JointMixtureEstimatorAccumulator":
 
         cc1, cc2, jc, s1, s2 = suff_stat
 
@@ -409,12 +489,21 @@ class JointMixtureEstimatorAccumulator(SequenceEncodableStatisticAccumulator):
 
         return self
 
-    def value(self) -> Tuple[np.ndarray, np.ndarray, np.ndarray, Tuple[Any,...], Tuple[Any,...]]:
-        return self.comp_counts1, self.comp_counts2, self.joint_counts, tuple(
-            [u.value() for u in self.accumulators1]), tuple([u.value() for u in self.accumulators2])
+    def value(
+        self,
+    ) -> Tuple[np.ndarray, np.ndarray, np.ndarray, Tuple[Any, ...], Tuple[Any, ...]]:
+        return (
+            self.comp_counts1,
+            self.comp_counts2,
+            self.joint_counts,
+            tuple([u.value() for u in self.accumulators1]),
+            tuple([u.value() for u in self.accumulators2]),
+        )
 
-    def from_value(self, x: Tuple[np.ndarray, np.ndarray, np.ndarray, Tuple[E0, ...], Tuple[E1, ...]]) \
-            -> 'JointMixtureEstimatorAccumulator':
+    def from_value(
+        self,
+        x: Tuple[np.ndarray, np.ndarray, np.ndarray, Tuple[E0, ...], Tuple[E1, ...]],
+    ) -> "JointMixtureEstimatorAccumulator":
 
         cc1, cc2, jc, s1, s2 = x
 
@@ -444,14 +533,18 @@ class JointMixtureEstimatorAccumulator(SequenceEncodableStatisticAccumulator):
                 for i, u in enumerate(stats_dict[acc1_key]):
                     self.accumulators1[i].combine(u)
             else:
-                stats_dict[acc1_key] = tuple([acc.value() for acc in self.accumulators1])
+                stats_dict[acc1_key] = tuple(
+                    [acc.value() for acc in self.accumulators1]
+                )
 
         if acc2_key is not None:
             if acc2_key in stats_dict:
                 for i, u in enumerate(stats_dict[acc2_key]):
                     self.accumulators2[i].combine(u)
             else:
-                stats_dict[acc2_key] = tuple([acc.value() for acc in self.accumulators2])
+                stats_dict[acc2_key] = tuple(
+                    [acc.value() for acc in self.accumulators2]
+                )
 
     def key_replace(self, stats_dict: Dict[str, Any]) -> None:
         weight_key, acc1_key, acc2_key = self.keys
@@ -472,7 +565,7 @@ class JointMixtureEstimatorAccumulator(SequenceEncodableStatisticAccumulator):
                 for i, u in enumerate(stats_dict[acc2_key]):
                     self.accumulators2[i].from_value(u)
 
-    def acc_to_encoder(self) -> 'DataSequenceEncoder':
+    def acc_to_encoder(self) -> "DataSequenceEncoder":
         encoder1 = self.accumulators1[0].acc_to_encoder()
         encoder2 = self.accumulators2[0].acc_to_encoder()
         return JointMixtureDataEncoder(encoder1=encoder1, encoder2=encoder2)
@@ -490,10 +583,17 @@ class JointMixtureEstimatorAccumulatorFactory(StatisticAccumulatorFactory):
 
     """
 
-    def __init__(self, factories1: Sequence[StatisticAccumulatorFactory],
-                 factories2: Sequence[StatisticAccumulatorFactory],
-                 keys: Optional[Tuple[Optional[str], Optional[str], Optional[str]]] = (None, None, None),
-                 name: Optional[str] = None) -> None:
+    def __init__(
+        self,
+        factories1: Sequence[StatisticAccumulatorFactory],
+        factories2: Sequence[StatisticAccumulatorFactory],
+        keys: Optional[Tuple[Optional[str], Optional[str], Optional[str]]] = (
+            None,
+            None,
+            None,
+        ),
+        name: Optional[str] = None,
+    ) -> None:
         """JointMixtureEstimatorAccumulatorFactory object.
 
         Args:
@@ -509,7 +609,7 @@ class JointMixtureEstimatorAccumulatorFactory(StatisticAccumulatorFactory):
         self.keys = keys if keys is not None else (None, None, None)
         self.name = name
 
-    def make(self) -> 'JointMixtureEstimatorAccumulator':
+    def make(self) -> "JointMixtureEstimatorAccumulator":
         f1 = [self.factories1[i].make() for i in range(len(self.factories1))]
         f2 = [self.factories2[i].make() for i in range(len(self.factories2))]
         return JointMixtureEstimatorAccumulator(f1, f2, name=self.name, keys=self.keys)
@@ -529,11 +629,21 @@ class JointMixtureEstimator(ParameterEstimator):
 
     """
 
-    def __init__(self, estimators1: Sequence[ParameterEstimator], estimators2: Sequence[ParameterEstimator],
-                 suff_stat: Optional[Tuple[np.ndarray, np.ndarray, np.ndarray, Tuple[E0, ...], Tuple[E1, ...]]] = None,
-                 pseudo_count: Optional[Tuple[float, float, float]] = None,
-                 keys: Optional[Tuple[Optional[str], Optional[str], Optional[str]]] = (None, None, None),
-                 name: Optional[str] = None)  -> None:
+    def __init__(
+        self,
+        estimators1: Sequence[ParameterEstimator],
+        estimators2: Sequence[ParameterEstimator],
+        suff_stat: Optional[
+            Tuple[np.ndarray, np.ndarray, np.ndarray, Tuple[E0, ...], Tuple[E1, ...]]
+        ] = None,
+        pseudo_count: Optional[Tuple[float, float, float]] = None,
+        keys: Optional[Tuple[Optional[str], Optional[str], Optional[str]]] = (
+            None,
+            None,
+            None,
+        ),
+        name: Optional[str] = None,
+    ) -> None:
         """JointMixtureEstimator object.
 
         Args:
@@ -555,24 +665,39 @@ class JointMixtureEstimator(ParameterEstimator):
         self.keys = keys if keys is not None else (None, None, None)
         self.name = name
 
-    def accumulator_factory(self) -> 'JointMixtureEstimatorAccumulatorFactory':
+    def accumulator_factory(self) -> "JointMixtureEstimatorAccumulatorFactory":
         est_factories1 = [u.accumulator_factory() for u in self.estimators1]
         est_factories2 = [u.accumulator_factory() for u in self.estimators2]
-        return JointMixtureEstimatorAccumulatorFactory(est_factories1, est_factories2, name=self.name, keys=self.keys)
+        return JointMixtureEstimatorAccumulatorFactory(
+            est_factories1, est_factories2, name=self.name, keys=self.keys
+        )
 
-    def estimate(self, nobs, suff_stat: Tuple[np.ndarray, np.ndarray, np.ndarray, Tuple[E0, ...], Tuple[E1, ...]]) \
-            -> 'JointMixtureDistribution':
+    def estimate(
+        self,
+        nobs,
+        suff_stat: Tuple[
+            np.ndarray, np.ndarray, np.ndarray, Tuple[E0, ...], Tuple[E1, ...]
+        ],
+    ) -> "JointMixtureDistribution":
         num_components1 = self.num_components1
         num_components2 = self.num_components2
         counts1, counts2, joint_counts, comp_suff_stats1, comp_suff_stats2 = suff_stat
 
-        components1 = [self.estimators1[i].estimate(counts1[i], comp_suff_stats1[i]) for i in range(num_components1)]
-        components2 = [self.estimators2[i].estimate(counts2[i], comp_suff_stats2[i]) for i in range(num_components2)]
+        components1 = [
+            self.estimators1[i].estimate(counts1[i], comp_suff_stats1[i])
+            for i in range(num_components1)
+        ]
+        components2 = [
+            self.estimators2[i].estimate(counts2[i], comp_suff_stats2[i])
+            for i in range(num_components2)
+        ]
 
         if self.pseudo_count is not None and self.suff_stat is None:
             p1 = self.pseudo_count[0] / float(self.num_components1)
             p2 = self.pseudo_count[1] / float(self.num_components2)
-            p3 = self.pseudo_count[2] / float(self.num_components2 * self.num_components1)
+            p3 = self.pseudo_count[2] / float(
+                self.num_components2 * self.num_components1
+            )
 
             w1 = (counts1 + p1) / (counts1.sum() + p1)
             w2 = (counts2 + p2) / (counts2.sum() + p2)
@@ -599,7 +724,9 @@ class JointMixtureEstimator(ParameterEstimator):
             taus21_sum[taus21_sum == 0] = 1.0
             taus21 = taus / taus21_sum
 
-        return JointMixtureDistribution(components1, components2, w1, w2, taus12, taus21, name=self.name)
+        return JointMixtureDistribution(
+            components1, components2, w1, w2, taus12, taus21, name=self.name
+        )
 
 
 class JointMixtureDataEncoder(DataSequenceEncoder):
@@ -611,7 +738,9 @@ class JointMixtureDataEncoder(DataSequenceEncoder):
 
     """
 
-    def __init__(self, encoder1: DataSequenceEncoder, encoder2: DataSequenceEncoder) -> None:
+    def __init__(
+        self, encoder1: DataSequenceEncoder, encoder2: DataSequenceEncoder
+    ) -> None:
         """JointMixtureDataEncoder object.
 
         Args:
@@ -623,7 +752,13 @@ class JointMixtureDataEncoder(DataSequenceEncoder):
         self.encoder2 = encoder2
 
     def __str__(self) -> str:
-        return 'JointMixtureDataEncoder(encoder0=' + str(self.encoder1) + ',encoder1=' + str(self.encoder2) + ')'
+        return (
+            "JointMixtureDataEncoder(encoder0="
+            + str(self.encoder1)
+            + ",encoder1="
+            + str(self.encoder2)
+            + ")"
+        )
 
     def __eq__(self, other: object) -> bool:
         if isinstance(other, JointMixtureDataEncoder):
@@ -631,12 +766,15 @@ class JointMixtureDataEncoder(DataSequenceEncoder):
         else:
             return False
 
-    def seq_encode(self, x: Sequence[Tuple[T0, T1]]) -> 'JointMixtureEncodedDataSequence':
+    def seq_encode(
+        self, x: Sequence[Tuple[T0, T1]]
+    ) -> "JointMixtureEncodedDataSequence":
         rv0 = len(x)
         rv1 = self.encoder1.seq_encode([u[0] for u in x])
         rv2 = self.encoder2.seq_encode([u[1] for u in x])
 
         return JointMixtureEncodedDataSequence(data=(rv0, rv1, rv2))
+
 
 class JointMixtureEncodedDataSequence(EncodedDataSequence):
 
@@ -644,6 +782,4 @@ class JointMixtureEncodedDataSequence(EncodedDataSequence):
         super().__init__(data=data)
 
     def __repr__(self) -> str:
-        return f'JointMixtureEncodedDataSequence(data={self.data})'
-
-
+        return f"JointMixtureEncodedDataSequence(data={self.data})"

@@ -1,32 +1,35 @@
 """Estimation functions for bstats with mpi4py support."""
+
 import sys
-from typing import Any, Optional, Tuple, Sequence, List, IO, TypeVar
+from typing import IO, Any, List, Optional, Sequence, Tuple, TypeVar
 
 import numpy as np
-from numpy.random import RandomState
 from mpi4py import MPI
+from numpy.random import RandomState
 
 from dmx.bstats.pdist import ParameterEstimator, ProbabilityDistribution
-from dmx.mpi4py.bstats import * 
+from dmx.mpi4py.bstats import *
 
-DATUM_TYPE = TypeVar('DATUM_TYPE')
-ENCODED_SEQ = TypeVar('ENCODED_SEQ')
+DATUM_TYPE = TypeVar("DATUM_TYPE")
+ENCODED_SEQ = TypeVar("ENCODED_SEQ")
+
 
 def optimize_mpi(
-          data: Optional[Sequence[DATUM_TYPE]], 
-          estimator: ParameterEstimator, 
-          max_its: int = 10,
-          delta: Optional[float] = 1.0e-9,
-          init_estimator: Optional[ParameterEstimator] = None, 
-          init_p: float = 0.1,
-          rng: RandomState = RandomState(), 
-          prev_estimate: Optional[ProbabilityDistribution] = None,
-          vdata: Optional[Sequence[DATUM_TYPE]] = None,
-          enc_data: Optional[List[Tuple[int, ENCODED_SEQ]]] = None,
-          enc_vdata: Optional[List[Tuple[int, ENCODED_SEQ]]] = None,
-          out: IO = sys.stdout,
-          print_iter: int = 1, 
-          num_chunks: int = 1) -> ProbabilityDistribution:
+    data: Optional[Sequence[DATUM_TYPE]],
+    estimator: ParameterEstimator,
+    max_its: int = 10,
+    delta: Optional[float] = 1.0e-9,
+    init_estimator: Optional[ParameterEstimator] = None,
+    init_p: float = 0.1,
+    rng: RandomState = RandomState(),
+    prev_estimate: Optional[ProbabilityDistribution] = None,
+    vdata: Optional[Sequence[DATUM_TYPE]] = None,
+    enc_data: Optional[List[Tuple[int, ENCODED_SEQ]]] = None,
+    enc_vdata: Optional[List[Tuple[int, ENCODED_SEQ]]] = None,
+    out: IO = sys.stdout,
+    print_iter: int = 1,
+    num_chunks: int = 1,
+) -> ProbabilityDistribution:
     """Estimation of 'estimator' via EM algorithm for max_its iterations or until
         new_loglikelihood - old_loglikelihood < delta.
 
@@ -73,7 +76,9 @@ def optimize_mpi(
     data_exception = comm.bcast(data_exception, root=0)
 
     if data_exception and not enc_data_exists_all:
-        raise Exception('Optimization called with empty data one rank 0 and encoded data does not exist.')
+        raise Exception(
+            "Optimization called with empty data one rank 0 and encoded data does not exist."
+        )
 
     est = estimator if init_estimator is None else init_estimator
 
@@ -84,13 +89,13 @@ def optimize_mpi(
             skip_init = True
         else:
             # data_encoder = est.accumulator_factory().make().acc_to_encoder()
-            mm = None 
+            mm = None
             skip_init = False
     else:
         # data_encoder = None
         mm = None
         skip_init = None
-    
+
     # if previous estimate not passed, initialize the model
     skip_init = comm.bcast(skip_init, root=0)
     if not skip_init:
@@ -120,7 +125,7 @@ def optimize_mpi(
     if not enc_vdata_exists_all and vdata_exists:
         enc_vdata = seq_encode_mpi(vdata, model=mm, num_chunks=num_chunks)
         enc_vdata_exists_all = True
-    
+
     if enc_vdata_exists_all:
         _, old_vll = seq_log_density_sum_mpi(enc_vdata, mm)
     else:
@@ -138,7 +143,7 @@ def optimize_mpi(
             _, vll = seq_log_density_sum_mpi(enc_data=enc_vdata, estimate=mm_next)
         else:
             vll = ll
-        
+
         dll = ll - old_ll
 
         if (dll >= 0) or (delta is None):
@@ -149,24 +154,29 @@ def optimize_mpi(
             if world_rank == 0:
                 if enc_vdata_exists_all:
                     out.write(
-                        'Iteration %d: ln[p_mat(Data|Model)]=%e, ln[p_mat(Data|Model)]-ln[p_mat(Data|PrevModel)]=%e, '
-                        'ln[p_mat(Valid Data|Model)]=%e\n' % (
-                        i + 1, ll, dll, vll))
+                        "Iteration %d: ln[p_mat(Data|Model)]=%e, ln[p_mat(Data|Model)]-ln[p_mat(Data|PrevModel)]=%e, "
+                        "ln[p_mat(Valid Data|Model)]=%e\n" % (i + 1, ll, dll, vll)
+                    )
                 else:
-                    out.write('Iteration %d: ln[p_mat(Data|Model)]=%e, ln[p_mat(Data|Model)]-ln[p_mat(Data|PrevModel)]=%e\n' %
-                            (i + 1, ll, dll))
-                    
+                    out.write(
+                        "Iteration %d: ln[p_mat(Data|Model)]=%e, ln[p_mat(Data|Model)]-ln[p_mat(Data|PrevModel)]=%e\n"
+                        % (i + 1, ll, dll)
+                    )
+
             break
-            
+
         if world_rank == 0:
             if (i + 1) % print_iter == 0:
                 if enc_vdata_exists_all:
-                    out.write('Iteration %d: ln[p_mat(Data|Model)]=%e, ln[p_mat(Data|Model)]-ln[p_mat(Data|PrevModel)]=%e, '
-                            'ln[p_mat(Valid Data|Model)]=%e\n' % (i + 1, ll, dll, vll))
+                    out.write(
+                        "Iteration %d: ln[p_mat(Data|Model)]=%e, ln[p_mat(Data|Model)]-ln[p_mat(Data|PrevModel)]=%e, "
+                        "ln[p_mat(Valid Data|Model)]=%e\n" % (i + 1, ll, dll, vll)
+                    )
                 else:
-                    out.write('Iteration %d: ln[p_mat(Data|Model)]=%e, ln[p_mat(Data|Model)]-ln[p_mat(Data|PrevModel)]=%e\n' %
-                            (i + 1, ll, dll))
-
+                    out.write(
+                        "Iteration %d: ln[p_mat(Data|Model)]=%e, ln[p_mat(Data|Model)]-ln[p_mat(Data|PrevModel)]=%e\n"
+                        % (i + 1, ll, dll)
+                    )
 
         old_ll = ll
 

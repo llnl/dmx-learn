@@ -3,13 +3,17 @@ ProbabilityDistribution, StatisticAccumulator, StatisticAccumulatorFactory, Data
 ConditionalSampler, and DistributionSampler for classes of the dmx.stats.
 
 """
-import math
-import numpy as np
-from abc import abstractmethod
-from dmx.arithmetic import *
-from typing import TypeVar, Optional, Any, Generic, Dict
 
-SS = TypeVar('SS')
+import math
+from abc import abstractmethod
+from typing import Any, Dict, Generic, Optional, TypeVar
+
+import numpy as np
+
+from dmx.arithmetic import *
+
+SS = TypeVar("SS")
+
 
 def equal_object(x: Any, other: Any) -> bool:
     """Lazy object comparison."""
@@ -25,15 +29,15 @@ def equal_object(x: Any, other: Any) -> bool:
                     return False
             if not np.all(other_vars[k] == v):
                 return False
-            
+
         return True
-    
+
     else:
         return False
 
 
 class ProbabilityDistribution:
-    """Defines ProbabilityDistribution Abstract Class. 
+    """Defines ProbabilityDistribution Abstract Class.
 
     Note:
         This is generally used as an inherited class for
@@ -62,7 +66,7 @@ class ProbabilityDistribution:
         ...
 
     @abstractmethod
-    def sampler(self, seed: Optional[int] = None) -> 'DistributionSampler':
+    def sampler(self, seed: Optional[int] = None) -> "DistributionSampler":
         """Create a DistributionSampler object for a given ProbabilityDistribution.
 
         Args:
@@ -72,7 +76,7 @@ class ProbabilityDistribution:
         ...
 
     @abstractmethod
-    def estimator(self, pseudo_count: Optional[float] = None) -> 'ParameterEstimator':
+    def estimator(self, pseudo_count: Optional[float] = None) -> "ParameterEstimator":
         """Create a ParameterEstimator for corresponding SequenceEncodableProbabilityDistribution.
 
         Args:
@@ -83,15 +87,15 @@ class ProbabilityDistribution:
 
         """
         ...
-    
+
     def __eq__(self, other: Any) -> bool:
         """Tests if a ProbabilityDistribution is equivilent to another.
-        
+
         Args:
             other (Any): Object to test against.
 
         Returns:
-            True if the objects match. 
+            True if the objects match.
 
         """
         return equal_object(self, other)
@@ -101,7 +105,7 @@ class SequenceEncodableProbabilityDistribution(ProbabilityDistribution):
     """Extends the ProbabilityDistribution to handle vectorized calls."""
 
     @abstractmethod
-    def seq_log_density(self, x: 'EncodedDataSequence') -> np.ndarray:
+    def seq_log_density(self, x: "EncodedDataSequence") -> np.ndarray:
         """Vectorized evaluation of the log density.
 
         Args:
@@ -114,7 +118,7 @@ class SequenceEncodableProbabilityDistribution(ProbabilityDistribution):
         ...
 
     @abstractmethod
-    def dist_to_encoder(self) -> 'DataSequenceEncoder':
+    def dist_to_encoder(self) -> "DataSequenceEncoder":
         """Create DataSequenceEncoder object for SequenceEncodableProbabilityDistribution instance.
 
         Returns:
@@ -139,7 +143,9 @@ class DistributionSampler(object):
 
     """
 
-    def __init__(self, dist: SequenceEncodableProbabilityDistribution, seed: Optional[int] = None) -> None:
+    def __init__(
+        self, dist: SequenceEncodableProbabilityDistribution, seed: Optional[int] = None
+    ) -> None:
         """Initialize DistributionSampler.
 
         Args:
@@ -159,7 +165,7 @@ class DistributionSampler(object):
         """Generate samples from distribution.
 
         Args:
-            size (Optional[int]): Number of samples to generate. 
+            size (Optional[int]): Number of samples to generate.
 
         Returns:
             Samples from distribution.
@@ -179,7 +185,7 @@ class ConditionalSampler(object):
     @abstractmethod
     def sample_given(self, x: Any):
         """Sample at conditional value.
-        
+
         Args:
             x (Any): Conditioned on x, sample from dist.
 
@@ -188,21 +194,27 @@ class ConditionalSampler(object):
 
         """
 
+
 class StatisticAccumulator(Generic[SS]):
 
     def __eq__(self, other: Any) -> bool:
         """Tests if a ProbabilityDistribution is equivilent to another.
-        
+
         Args:
             other (Any): Object to test against.
 
         Returns:
-            True if the objects match. 
+            True if the objects match.
 
         """
         return equal_object(self, other)
 
-    def update(self, x: Any, weight: float, estimate: Optional[SequenceEncodableProbabilityDistribution]) -> None:
+    def update(
+        self,
+        x: Any,
+        weight: float,
+        estimate: Optional[SequenceEncodableProbabilityDistribution],
+    ) -> None:
         """Accumulate sufficient statistics for a single data observation.
 
         Note:
@@ -231,9 +243,9 @@ class StatisticAccumulator(Generic[SS]):
         self.update(x, weight, estimate=None)
 
     @abstractmethod
-    def combine(self, suff_stat: SS) -> 'StatisticAccumulator':
+    def combine(self, suff_stat: SS) -> "StatisticAccumulator":
         """Method for combining aggregated sufficient statistics.
-        
+
         Args:
             suff_stat (SS): Sufficient statistics.
 
@@ -250,7 +262,7 @@ class StatisticAccumulator(Generic[SS]):
         ...
 
     @abstractmethod
-    def from_value(self, x: SS) -> 'SequenceEncodableStatisticAccumulator':
+    def from_value(self, x: SS) -> "SequenceEncodableStatisticAccumulator":
         """Set sufficient statistics equal to passed value.
 
         Args:
@@ -286,7 +298,12 @@ class SequenceEncodableStatisticAccumulator(StatisticAccumulator[SS]):
         pass
 
     @abstractmethod
-    def seq_update(self, x: 'EncodedDataSequence', weights: np.ndarray, estimate: Optional[SequenceEncodableProbabilityDistribution]) -> None:
+    def seq_update(
+        self,
+        x: "EncodedDataSequence",
+        weights: np.ndarray,
+        estimate: Optional[SequenceEncodableProbabilityDistribution],
+    ) -> None:
         """Vectorized accumulation of sufficient statistics for EM updates.
 
         Args:
@@ -298,7 +315,9 @@ class SequenceEncodableStatisticAccumulator(StatisticAccumulator[SS]):
         ...
 
     @abstractmethod
-    def seq_initialize(self, x: 'EncodedDataSequence', weights: np.ndarray, rng: np.random.RandomState) -> None:
+    def seq_initialize(
+        self, x: "EncodedDataSequence", weights: np.ndarray, rng: np.random.RandomState
+    ) -> None:
         """Vectorized initialization of sufficient statistics.
 
         Args:
@@ -310,7 +329,7 @@ class SequenceEncodableStatisticAccumulator(StatisticAccumulator[SS]):
         ...
 
     @abstractmethod
-    def acc_to_encoder(self) -> 'DataSequenceEncoder':
+    def acc_to_encoder(self) -> "DataSequenceEncoder":
         """Create DataSequenceEncoder object for SequenceEncodableStatisticAccumulator instance."""
         ...
 
@@ -320,24 +339,24 @@ class StatisticAccumulatorFactory(object):
 
     def __eq__(self, other: Any) -> bool:
         """Tests if a ProbabilityDistribution is equivilent to another.
-        
+
         Args:
             other (Any): Object to test against.
 
         Returns:
-            True if the objects match. 
+            True if the objects match.
 
         """
         return equal_object(self, other)
 
     @abstractmethod
-    def make(self) -> 'SequenceEncodableStatisticAccumulator':
-        """Create SequenceEncodableStatisticAccumulator object. """
+    def make(self) -> "SequenceEncodableStatisticAccumulator":
+        """Create SequenceEncodableStatisticAccumulator object."""
         ...
 
 
 class ParameterEstimator(Generic[SS]):
-    """Abstract class for ParameterEstimator object. """
+    """Abstract class for ParameterEstimator object."""
 
     @abstractmethod
     def __init__(self, *args):
@@ -345,7 +364,9 @@ class ParameterEstimator(Generic[SS]):
         ...
 
     @abstractmethod
-    def estimate(self, nobs: Optional[float], suff_stat: SS) -> 'SequenceEncodableProbabilityDistribution':
+    def estimate(
+        self, nobs: Optional[float], suff_stat: SS
+    ) -> "SequenceEncodableProbabilityDistribution":
         """Estimate SequenceEncodableProbabilityDistribution for sufficient statistics.
 
         Args:
@@ -359,21 +380,22 @@ class ParameterEstimator(Generic[SS]):
         ...
 
     @abstractmethod
-    def accumulator_factory(self) -> 'StatisticAccumulatorFactory':
-        """Create SequenceEncodableStatisticAccumulator object. """
+    def accumulator_factory(self) -> "StatisticAccumulatorFactory":
+        """Create SequenceEncodableStatisticAccumulator object."""
         ...
 
     def __eq__(self, other: Any) -> bool:
         """Tests if a ParameterEstimator is equivilent to another.
-        
+
         Args:
             other (Any): Object to test against.
 
         Returns:
-            True if the objects match. 
-            
+            True if the objects match.
+
         """
         return equal_object(self, other)
+
 
 class DataSequenceEncoder:
 
@@ -381,7 +403,7 @@ class DataSequenceEncoder:
         return self.__str__()
 
     @abstractmethod
-    def seq_encode(self, x: Any) -> 'EncodedDataSequence':
+    def seq_encode(self, x: Any) -> "EncodedDataSequence":
         """Create EncodedDataSequence from iid observations from SequenceEncodedProbabilityDistribution.
 
         Args:
@@ -394,7 +416,7 @@ class DataSequenceEncoder:
         ...
 
     @abstractmethod
-    def __eq__(self, other: object) -> bool: 
+    def __eq__(self, other: object) -> bool:
         """Check if object is an instance of DataSequenceEncoder.
 
         Used to avoid repeated sequence encodings when appropriate.
@@ -407,6 +429,8 @@ class DataSequenceEncoder:
 
         """
         ...
+
+
 class EncodedDataSequence(object):
     """EncodedDatSequence is the outputed data structure from
     DataSeqeunceEncoder. Object is used for vectorized functions and type
@@ -424,12 +448,3 @@ class EncodedDataSequence(object):
 
     @abstractmethod
     def __repr__(self) -> str: ...
-
-
-
-
-
-
-
-
-

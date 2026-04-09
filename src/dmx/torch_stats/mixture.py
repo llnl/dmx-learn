@@ -12,19 +12,27 @@ where P(Z=k) is a mixture weight for component k, and P(Y|Z=k) is defined as a t
 If component distribution P(Y|Z=k) has data type (T), then the Mixture distribution has data type (T) as well.
 
 """
-import torch as tn
+
+from typing import Any, Dict, List, Optional, Sequence, Tuple, TypeVar, Union
+
 import numpy as np
-from dmx.torch_stats.pdist import TorchProbabilityDistribution, TorchParameterEstimator, TorchSequenceEncoder, \
-    TorchStatisticAccumulator, TorchStatisticAccumulatorFactory, DistributionSampler, TorchEncodedSequence
+import torch as tn
 
 import dmx.torch_utils.vector as vec
 from dmx.arithmetic import maxrandint
-from typing import List, Union, Tuple, Any, Optional, TypeVar, Sequence, Dict
+from dmx.torch_stats.pdist import (
+    DistributionSampler,
+    TorchEncodedSequence,
+    TorchParameterEstimator,
+    TorchProbabilityDistribution,
+    TorchSequenceEncoder,
+    TorchStatisticAccumulator,
+    TorchStatisticAccumulatorFactory,
+)
 
-
-T = TypeVar('T')
-T1 = TypeVar('T1')
-T2 = TypeVar('T2')
+T = TypeVar("T")
+T1 = TypeVar("T1")
+T2 = TypeVar("T2")
 
 key_type = Union[Tuple[str, str], Tuple[None, None]]
 
@@ -45,9 +53,13 @@ class MixtureDistribution(TorchProbabilityDistribution):
         num_components (int): Number of mixture comps.
 
     """
-    def __init__(self, components: Sequence[TorchProbabilityDistribution],
-                 w: Union[np.ndarray, List[float], tn.Tensor],
-                 device: Optional[tn.device] = None) -> None:
+
+    def __init__(
+        self,
+        components: Sequence[TorchProbabilityDistribution],
+        w: Union[np.ndarray, List[float], tn.Tensor],
+        device: Optional[tn.device] = None,
+    ) -> None:
         """MixtureDistribution object.
 
         Args:
@@ -60,7 +72,7 @@ class MixtureDistribution(TorchProbabilityDistribution):
         super().__init__(device)
 
         self.w = vec.tensor(w, device=self._device)
-        self.zw = (self.w == 0.0)
+        self.zw = self.w == 0.0
         self.log_w = tn.log(self.w + self.zw)
         self.log_w[self.zw] = -tn.inf
         self.components = components
@@ -69,7 +81,7 @@ class MixtureDistribution(TorchProbabilityDistribution):
     def to(self, device: tn.device) -> None:
         self._device = device
         self.w = self.w.to(device)
-        self.zw = (self.w == 0.0)
+        self.zw = self.w == 0.0
         self.log_w = tn.log(self.w + self.zw)
         self.log_w[self.zw] = -tn.inf
 
@@ -77,10 +89,10 @@ class MixtureDistribution(TorchProbabilityDistribution):
             comp.to(device)
 
     def __str__(self) -> str:
-        s1 = ','.join([str(u) for u in self.components])
+        s1 = ",".join([str(u) for u in self.components])
         s2 = repr(self.w.data.cpu().tolist())
 
-        return 'MixtureDistribution([%s], %s)' % (s1, s2)
+        return "MixtureDistribution([%s], %s)" % (s1, s2)
 
     def density(self, x: T) -> float:
         """Evaluate density of Mixture distribution at observation x.
@@ -115,15 +127,23 @@ class MixtureDistribution(TorchProbabilityDistribution):
             float: Log-density at x.
 
         """
-        rv = tn.logsumexp(vec.tensor([u.log_density(x) for u in self.components], device=self._device) + self.log_w, dim=0)
+        rv = tn.logsumexp(
+            vec.tensor([u.log_density(x) for u in self.components], device=self._device)
+            + self.log_w,
+            dim=0,
+        )
         return float(rv)
 
     def component_log_density(self, x: T) -> tn.Tensor:
-        return vec.tensor([m.log_density(x) for m in self.components], device=self._device)
+        return vec.tensor(
+            [m.log_density(x) for m in self.components], device=self._device
+        )
 
     def posterior(self, x: T) -> tn.Tensor:
-        
-        comp_log_density = vec.tensor([m.log_density(x) for m in self.components], device=self._device)
+
+        comp_log_density = vec.tensor(
+            [m.log_density(x) for m in self.components], device=self._device
+        )
         comp_log_density += self.log_w
         comp_log_density[self.w == 0] = -tn.inf
 
@@ -135,28 +155,34 @@ class MixtureDistribution(TorchProbabilityDistribution):
             tn.exp(comp_log_density, out=comp_log_density)
             return comp_log_density
 
-    def seq_component_log_density(self, x: 'MixtureTorchEncodedSequence') -> tn.Tensor:
+    def seq_component_log_density(self, x: "MixtureTorchEncodedSequence") -> tn.Tensor:
 
         if not isinstance(x, MixtureTorchEncodedSequence):
-            raise Exception('MixtureTorchEncodedSequence required for `seq_` function calls.')
-        
+            raise Exception(
+                "MixtureTorchEncodedSequence required for `seq_` function calls."
+            )
+
         ll_mat_init = False
 
         for i in range(self.num_components):
             if not self.zw[i]:
                 temp = self.components[i].seq_log_density(x.data)
                 if not ll_mat_init:
-                    ll_mat = vec.zeros((len(temp), self.num_components), device=self._device)
+                    ll_mat = vec.zeros(
+                        (len(temp), self.num_components), device=self._device
+                    )
                     ll_mat += -tn.inf
                     ll_mat_init = True
                 ll_mat[:, i] = temp
 
         return ll_mat
 
-    def seq_log_density(self, x: 'MixtureTorchEncodedSequence') -> tn.Tensor:
+    def seq_log_density(self, x: "MixtureTorchEncodedSequence") -> tn.Tensor:
 
         if not isinstance(x, MixtureTorchEncodedSequence):
-            raise Exception('MixtureTorchEncodedSequence required for `seq_` function calls.')
+            raise Exception(
+                "MixtureTorchEncodedSequence required for `seq_` function calls."
+            )
 
         ll_mat_init = False
 
@@ -164,7 +190,9 @@ class MixtureDistribution(TorchProbabilityDistribution):
             if not self.zw[i]:
                 temp = self.components[i].seq_log_density(x.data)
                 if not ll_mat_init:
-                    ll_mat = vec.zeros((len(temp), self.num_components), device=self._device)
+                    ll_mat = vec.zeros(
+                        (len(temp), self.num_components), device=self._device
+                    )
                     ll_mat += -tn.inf
                     ll_mat_init = True
                 ll_mat[:, i] = temp
@@ -199,10 +227,12 @@ class MixtureDistribution(TorchProbabilityDistribution):
 
             return rv
 
-    def seq_posterior(self, x: 'MixtureTorchEncodedSequence') -> tn.Tensor:
+    def seq_posterior(self, x: "MixtureTorchEncodedSequence") -> tn.Tensor:
 
         if not isinstance(x, MixtureTorchEncodedSequence):
-            raise Exception('MixtureTorchEncodedSequence required for `seq_` function calls.')
+            raise Exception(
+                "MixtureTorchEncodedSequence required for `seq_` function calls."
+            )
 
         ll_mat_init = False
 
@@ -210,8 +240,10 @@ class MixtureDistribution(TorchProbabilityDistribution):
             if not self.zw[i]:
                 temp = self.components[i].seq_log_density(x.data)
                 if not ll_mat_init:
-                    ll_mat = vec.zeros((len(temp), self.num_components), device=self._device)
-                    ll_mat += -tn.inf 
+                    ll_mat = vec.zeros(
+                        (len(temp), self.num_components), device=self._device
+                    )
+                    ll_mat += -tn.inf
                     ll_mat_init = True
 
                 ll_mat[:, i] = temp
@@ -230,18 +262,22 @@ class MixtureDistribution(TorchProbabilityDistribution):
 
         return ll_mat
 
-    def sampler(self, seed: Optional[int] = None) -> 'MixtureSampler':
+    def sampler(self, seed: Optional[int] = None) -> "MixtureSampler":
         return MixtureSampler(self, seed)
 
-    def estimator(self, pseudo_count: Optional[float] = None) -> 'MixtureEstimator':
+    def estimator(self, pseudo_count: Optional[float] = None) -> "MixtureEstimator":
         if pseudo_count is not None:
             return MixtureEstimator(
-                [u.estimator(pseudo_count=1.0 / self.num_components) for u in self.components],
-                pseudo_count=pseudo_count)
+                [
+                    u.estimator(pseudo_count=1.0 / self.num_components)
+                    for u in self.components
+                ],
+                pseudo_count=pseudo_count,
+            )
         else:
             return MixtureEstimator([u.estimator() for u in self.components])
 
-    def dist_to_encoder(self) -> 'MixtureDataEncoder':
+    def dist_to_encoder(self) -> "MixtureDataEncoder":
         dist_encoder = self.components[0].dist_to_encoder()
         return MixtureDataEncoder(encoder=dist_encoder)
 
@@ -268,7 +304,9 @@ class MixtureSampler(DistributionSampler):
         rng_loc = np.random.RandomState(seed)
         self.rng = np.random.RandomState(rng_loc.randint(0, maxrandint))
         self.w = dist.w.data.cpu().numpy()
-        self.comp_samplers = [d.sampler(seed=rng_loc.randint(0, maxrandint)) for d in dist.components]
+        self.comp_samplers = [
+            d.sampler(seed=rng_loc.randint(0, maxrandint)) for d in dist.components
+        ]
         self.num_components = len(self.comp_samplers)
 
     def sample(self, size: Optional[int] = None) -> Union[List[Any], Any]:
@@ -286,7 +324,9 @@ class MixtureSampler(DistributionSampler):
             Data type T or List[T].
 
         """
-        comp_state = self.rng.choice(range(0, self.num_components), size=size, replace=True, p=self.w)
+        comp_state = self.rng.choice(
+            range(0, self.num_components), size=size, replace=True, p=self.w
+        )
 
         if size is None:
             return self.comp_samplers[comp_state].sample()
@@ -296,10 +336,12 @@ class MixtureSampler(DistributionSampler):
 
 class MixtureAccumulator(TorchStatisticAccumulator):
 
-    def __init__(self,
-                 accumulators: Sequence[TorchStatisticAccumulator],
-                 keys: Tuple[Optional[str], Optional[str]] = (None, None),
-                 device: Optional[tn.device] = None):
+    def __init__(
+        self,
+        accumulators: Sequence[TorchStatisticAccumulator],
+        keys: Tuple[Optional[str], Optional[str]] = (None, None),
+        device: Optional[tn.device] = None,
+    ):
         super().__init__(device)
         self.accumulators = accumulators
         self.num_components = len(accumulators)
@@ -308,7 +350,12 @@ class MixtureAccumulator(TorchStatisticAccumulator):
 
         self.comp_counts = np.zeros(self.num_components, dtype=np.float64)
 
-    def seq_update(self, x: 'MixtureTorchEncodedSequence', weights: tn.Tensor, estimate: 'MixtureDistribution') -> None:
+    def seq_update(
+        self,
+        x: "MixtureTorchEncodedSequence",
+        weights: tn.Tensor,
+        estimate: "MixtureDistribution",
+    ) -> None:
 
         ll_mat_init = False
 
@@ -319,7 +366,9 @@ class MixtureAccumulator(TorchStatisticAccumulator):
                 temp = estimate.components[i].seq_log_density(x.data)
 
                 if not ll_mat_init:
-                    ll_mat = vec.zeros((len(temp), self.num_components), device=self._device)
+                    ll_mat = vec.zeros(
+                        (len(temp), self.num_components), device=self._device
+                    )
                     ll_mat += -tn.inf
                     ll_mat_init = True
 
@@ -345,15 +394,22 @@ class MixtureAccumulator(TorchStatisticAccumulator):
             self.comp_counts[i] += float(w_loc.sum())
             self.accumulators[i].seq_update(x.data, w_loc, estimate.components[i])
 
-    def seq_initialize(self, x: 'MixtureTorchEncodedSequence', weights: tn.Tensor, tng: tn.Generator) -> None:
+    def seq_initialize(
+        self, x: "MixtureTorchEncodedSequence", weights: tn.Tensor, tng: tn.Generator
+    ) -> None:
         sz = len(weights)
         keep_idx = weights > 0
         keep_len = tn.count_nonzero(keep_idx)
         ww = vec.zeros((sz, self.num_components), device=self._device)
 
         if keep_len > 0:
-            alpha = vec.ones(self.num_components, device=self._device) / self.num_components**2
-            ww[keep_idx, :] += _sample_dirichlet_like(alpha=alpha, size=int(keep_len), tng=tng)
+            alpha = (
+                vec.ones(self.num_components, device=self._device)
+                / self.num_components**2
+            )
+            ww[keep_idx, :] += _sample_dirichlet_like(
+                alpha=alpha, size=int(keep_len), tng=tng
+            )
 
         ww *= tn.reshape(weights, (sz, 1))
 
@@ -361,9 +417,11 @@ class MixtureAccumulator(TorchStatisticAccumulator):
             self.accumulators[i].seq_initialize(x.data, ww[:, i], tng)
             self.comp_counts[i] += float(tn.sum(ww[:, i]))
 
-    def combine(self, suff_stat: Tuple[np.ndarray, Tuple[T2, ...]]) -> 'MixtureAccumulator':
+    def combine(
+        self, suff_stat: Tuple[np.ndarray, Tuple[T2, ...]]
+    ) -> "MixtureAccumulator":
         self.comp_counts += suff_stat[0]
-        
+
         for i in range(self.num_components):
             self.accumulators[i].combine(suff_stat[1][i])
 
@@ -372,7 +430,7 @@ class MixtureAccumulator(TorchStatisticAccumulator):
     def value(self) -> Tuple[np.ndarray, Tuple[Any, ...]]:
         return self.comp_counts, tuple([u.value() for u in self.accumulators])
 
-    def from_value(self, x: Tuple[np.ndarray, Tuple[T2, ...]]) -> 'MixtureAccumulator':
+    def from_value(self, x: Tuple[np.ndarray, Tuple[T2, ...]]) -> "MixtureAccumulator":
         self.comp_counts = x[0]
         for i in range(self.num_components):
             self.accumulators[i].from_value(x[1][i])
@@ -409,7 +467,7 @@ class MixtureAccumulator(TorchStatisticAccumulator):
         for u in self.accumulators:
             u.key_replace(stats_dict)
 
-    def acc_to_encoder(self) -> 'MixtureDataEncoder':
+    def acc_to_encoder(self) -> "MixtureDataEncoder":
         acc_encoder = self.accumulators[0].acc_to_encoder()
         return MixtureDataEncoder(encoder=acc_encoder)
 
@@ -424,9 +482,11 @@ class MixtureAccumulatorFactory(TorchStatisticAccumulatorFactory):
 
     """
 
-    def __init__(self,
-                 factories: Sequence[TorchStatisticAccumulatorFactory],
-                 keys: Tuple[Optional[str], Optional[str]] = (None, None)):
+    def __init__(
+        self,
+        factories: Sequence[TorchStatisticAccumulatorFactory],
+        keys: Tuple[Optional[str], Optional[str]] = (None, None),
+    ):
         """MixtureAccumulatorFactory object for creating MixtureAccumulator objects.
 
         Args:
@@ -438,15 +498,15 @@ class MixtureAccumulatorFactory(TorchStatisticAccumulatorFactory):
         self.factories = factories
         self.keys = keys
 
-    def make(self, device: Optional[tn.device] = None) -> 'MixtureAccumulator':
+    def make(self, device: Optional[tn.device] = None) -> "MixtureAccumulator":
         if device is not None:
             factories = [factory.make(device=device) for factory in self.factories]
             return MixtureAccumulator(factories, keys=self.keys, device=device)
-            
+
         else:
             factories = [factory.make() for factory in self.factories]
             return MixtureAccumulator(factories, keys=self.keys)
-            
+
 
 class MixtureEstimator(TorchParameterEstimator):
     """MixtureEstimator object used to estimate MixtureDistribution from aggregated sufficient statistics.
@@ -461,12 +521,14 @@ class MixtureEstimator(TorchParameterEstimator):
 
     """
 
-    def __init__(self,
-                 estimators: Sequence[TorchParameterEstimator],
-                 fixed_weights: Optional[Union[List[float], tn.Tensor]] = None,
-                 suff_stat: Optional[np.ndarray] = None,
-                 pseudo_count: Optional[float] = None,
-                 keys: Tuple[Optional[str], Optional[str]] = (None, None)) -> None:
+    def __init__(
+        self,
+        estimators: Sequence[TorchParameterEstimator],
+        fixed_weights: Optional[Union[List[float], tn.Tensor]] = None,
+        suff_stat: Optional[np.ndarray] = None,
+        pseudo_count: Optional[float] = None,
+        keys: Tuple[Optional[str], Optional[str]] = (None, None),
+    ) -> None:
         """MixtureEstimator object used to estimate MixtureDistribution from aggregated sufficient statistics.
 
         Args:
@@ -484,17 +546,27 @@ class MixtureEstimator(TorchParameterEstimator):
         self.suff_stat = suff_stat
         self.keys = keys
 
-        self.fixed_weights = np.asarray(fixed_weights) if fixed_weights is not None else None
+        self.fixed_weights = (
+            np.asarray(fixed_weights) if fixed_weights is not None else None
+        )
 
-    def accumulator_factory(self) -> 'MixtureAccumulatorFactory':
+    def accumulator_factory(self) -> "MixtureAccumulatorFactory":
         est_factories = [u.accumulator_factory() for u in self.estimators]
         return MixtureAccumulatorFactory(est_factories, keys=self.keys)
 
-    def estimate(self, nobs: Optional[float], suff_stat: Tuple[np.ndarray, Tuple[Any, ...]], device: Optional[tn.device] = None) -> 'MixtureDistribution':
+    def estimate(
+        self,
+        nobs: Optional[float],
+        suff_stat: Tuple[np.ndarray, Tuple[Any, ...]],
+        device: Optional[tn.device] = None,
+    ) -> "MixtureDistribution":
         num_components = self.num_components
         counts, comp_suff_stats = suff_stat
 
-        components = [self.estimators[i].estimate(counts[i], comp_suff_stats[i], device=device) for i in range(num_components)]
+        components = [
+            self.estimators[i].estimate(counts[i], comp_suff_stats[i], device=device)
+            for i in range(num_components)
+        ]
 
         if self.fixed_weights is not None:
             w = np.asarray(self.fixed_weights)
@@ -505,7 +577,9 @@ class MixtureEstimator(TorchParameterEstimator):
             w /= w.sum()
 
         elif self.pseudo_count is not None and self.suff_stat is not None:
-            w = (counts + self.suff_stat * self.pseudo_count) / (counts.sum() + self.pseudo_count)
+            w = (counts + self.suff_stat * self.pseudo_count) / (
+                counts.sum() + self.pseudo_count
+            )
 
         else:
             nobs_loc = counts.sum()
@@ -536,7 +610,7 @@ class MixtureDataEncoder(TorchSequenceEncoder):
         self.encoder = encoder
 
     def __str__(self) -> str:
-        return 'MixtureDataEncoder(' + str(self.encoder) + ')'
+        return "MixtureDataEncoder(" + str(self.encoder) + ")"
 
     def __eq__(self, other: object) -> bool:
         if not isinstance(other, MixtureDataEncoder):
@@ -547,8 +621,12 @@ class MixtureDataEncoder(TorchSequenceEncoder):
             else:
                 return False
 
-    def seq_encode(self, x: Sequence[T], device: Optional[tn.device] = None) -> 'MixtureTorchEncodedSequence':
-        return MixtureTorchEncodedSequence(data=self.encoder.seq_encode(x, device=device), device=device)
+    def seq_encode(
+        self, x: Sequence[T], device: Optional[tn.device] = None
+    ) -> "MixtureTorchEncodedSequence":
+        return MixtureTorchEncodedSequence(
+            data=self.encoder.seq_encode(x, device=device), device=device
+        )
 
 
 class MixtureTorchEncodedSequence(TorchEncodedSequence):
@@ -571,4 +649,4 @@ class MixtureTorchEncodedSequence(TorchEncodedSequence):
         super().__init__(data=data, device=device)
 
     def __str__(self) -> str:
-        return f'MixtureTorchEncodedSequence(device={repr(self.device)})'
+        return f"MixtureTorchEncodedSequence(device={repr(self.device)})"

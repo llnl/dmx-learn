@@ -1,7 +1,10 @@
 """A detailed example of heterogenous SNE embeddings."""
+
 import numpy as np
+
 from dmx.stats import *
 from dmx.utils.htsne import htsne
+
 
 def sample_with_labels(size, mixture_comps, mixture_weights, rng):
     seeds = rng.randint(low=0, high=2**32, size=len(mixture_comps))
@@ -16,19 +19,19 @@ def sample_with_labels(size, mixture_comps, mixture_weights, rng):
     rv1 = []
     for i, c in enumerate(labels):
         if c > 0:
-            rv0[cnt:(cnt+c)] += i
+            rv0[cnt : (cnt + c)] += i
             rv1.extend(samplers[i].sample(c))
             cnt += c
 
     return rv0, rv1
 
 
-if __name__ == '__main__':
+if __name__ == "__main__":
     rng = np.random.RandomState(1)
     # define composite mixture
     ncomps = 5
     p = 0.75
-    p_vec = np.ones((ncomps, ncomps))*(1.0-p)/(ncomps-1)
+    p_vec = np.ones((ncomps, ncomps)) * (1.0 - p) / (ncomps - 1)
     np.fill_diagonal(p_vec, p)
 
     s2 = 1.0
@@ -47,13 +50,8 @@ if __name__ == '__main__':
     # simulate data from mixture
     N = int(1e3)
     labels, data = sample_with_labels(
-            size=N,
-            mixture_comps=dist.components,
-            mixture_weights=dist.w,
-            rng=rng)
+        size=N, mixture_comps=dist.components, mixture_weights=dist.w, rng=rng
+    )
     embs = htsne(data, mix_model=dist)
 
-    # make plot 
-
-   
-
+    # make plot

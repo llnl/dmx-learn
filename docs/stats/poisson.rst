@@ -3,11 +3,11 @@ Poisson
 
 Data Type: int
 
-The Poisson distribution is used to model counts.  The probability mass function is given by 
+The Poisson distribution is used to model counts.  The probability mass function is given by
 
 .. math::
 
-   f(x | \lambda) = \frac{\lambda^{x}e^{-x}}{x!}, \; 0 \leq x. 
+   f(x | \lambda) = \frac{\lambda^{x}e^{-x}}{x!}, \; 0 \leq x.
 
 For more info see `Poisson Distribution <https://en.wikipedia.org/wiki/Poisson_distribution_>`__.
 
@@ -31,4 +31,3 @@ PoissonSampler
 
 .. autoclass:: dmx.stats.poisson.PoissonSampler
    :members:
-

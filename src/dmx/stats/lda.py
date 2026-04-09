@@ -16,27 +16,41 @@ A document is then given by the bag of words produced from this sampling process
 used to sample the number of words in a given document.
 
 """
+
 import sys
+from typing import Any, Callable, Dict, List, Optional, Sequence, Tuple, TypeVar, Union
+
 import numpy as np
 from numpy.random import RandomState
 from scipy.special import digamma, gammaln
 
 from dmx.arithmetic import maxrandint
 from dmx.stats.dirichlet import DirichletDistribution
+from dmx.stats.null_dist import (
+    NullAccumulator,
+    NullAccumulatorFactory,
+    NullDataEncoder,
+    NullDistribution,
+    NullEstimator,
+)
+from dmx.stats.pdist import (
+    DataSequenceEncoder,
+    DistributionSampler,
+    EncodedDataSequence,
+    ParameterEstimator,
+    SequenceEncodableProbabilityDistribution,
+    SequenceEncodableStatisticAccumulator,
+    StatisticAccumulatorFactory,
+)
+from dmx.utils.optsutil import count_by_value
 from dmx.utils.special import digammainv
-from dmx.stats.null_dist import NullDistribution, NullAccumulator, NullEstimator, NullDataEncoder, \
-    NullAccumulatorFactory
-from dmx.stats.pdist import SequenceEncodableProbabilityDistribution, SequenceEncodableStatisticAccumulator, \
-    ParameterEstimator, DistributionSampler, DataSequenceEncoder, StatisticAccumulatorFactory, EncodedDataSequence
-from dmx.utils.optsutil import count_by_value
 from dmx.utils.vector import row_choice
-from dmx.utils.optsutil import count_by_value
-from typing import TypeVar, Dict, List, Sequence, Any, Optional, Tuple, Union, Callable
 
-E0 = TypeVar('E0')
-SS0 = TypeVar('SS0')
+E0 = TypeVar("E0")
+SS0 = TypeVar("SS0")
 
 # import dmx.c_ext
+
 
 class LDADistribution(SequenceEncodableProbabilityDistribution):
     """LDADistribution object for defining a Latent Dirichlet allocation model.
@@ -50,12 +64,17 @@ class LDADistribution(SequenceEncodableProbabilityDistribution):
 
     """
 
-    def __init__(self, topics: Sequence[SequenceEncodableProbabilityDistribution],
-                 alpha: Union[Sequence[float], np.ndarray],
-                 len_dist: Optional[SequenceEncodableProbabilityDistribution] = NullDistribution(),
-                 gamma_threshold: float = 1.0e-8,
-                 keys: Tuple[Optional[str], Optional[str]] = (None, None),
-                 name: Optional[str] = None) -> None:
+    def __init__(
+        self,
+        topics: Sequence[SequenceEncodableProbabilityDistribution],
+        alpha: Union[Sequence[float], np.ndarray],
+        len_dist: Optional[
+            SequenceEncodableProbabilityDistribution
+        ] = NullDistribution(),
+        gamma_threshold: float = 1.0e-8,
+        keys: Tuple[Optional[str], Optional[str]] = (None, None),
+        name: Optional[str] = None,
+    ) -> None:
         """LDADistribution object.
 
         Args:
@@ -75,8 +94,8 @@ class LDADistribution(SequenceEncodableProbabilityDistribution):
         self.name = name
 
     def __str__(self) -> str:
-        s0 = ','.join([str(u) for u in self.topics])
-        s1 = ','.join(map(str, self.alpha))
+        s0 = ",".join([str(u) for u in self.topics])
+        s1 = ",".join(map(str, self.alpha))
         s2 = repr(self.len_dist)
         s3 = repr(self.gamma_threshold)
         s4 = repr(self.keys)
@@ -84,7 +103,10 @@ class LDADistribution(SequenceEncodableProbabilityDistribution):
 
         rv = (s0, s1, s2, s3, s4, s5)
 
-        return 'LDADistribution(topics=[%s], alpha=[%s], len_dist=%s, gamma_threshold=%s, keys=%s, name=%s)' % rv
+        return (
+            "LDADistribution(topics=[%s], alpha=[%s], len_dist=%s, gamma_threshold=%s, keys=%s, name=%s)"
+            % rv
+        )
 
     def density(self, x: Sequence[Tuple[int, float]]) -> float:
         return np.exp(self.log_density(x))
@@ -93,10 +115,10 @@ class LDADistribution(SequenceEncodableProbabilityDistribution):
         enc_x = self.dist_to_encoder().seq_encode([x])
         return self.seq_log_density(enc_x)[0]
 
-    def seq_log_density(self, x: 'LDAEncodedDataSequence') -> np.ndarray:
+    def seq_log_density(self, x: "LDAEncodedDataSequence") -> np.ndarray:
 
         if not isinstance(x, LDAEncodedDataSequence):
-            raise Exception('Requires LDAEncodedDataSequence for `seq` function calls.')
+            raise Exception("Requires LDAEncodedDataSequence for `seq` function calls.")
 
         num_topics = self.n_topics
         alpha = self.alpha
@@ -106,30 +128,42 @@ class LDADistribution(SequenceEncodableProbabilityDistribution):
         idx_full *= num_topics
         idx_full += np.reshape(np.arange(num_topics), (1, num_topics))
 
-        log_density_gamma, document_gammas, per_topic_log_densities = seq_posterior(self, x.data)
+        log_density_gamma, document_gammas, per_topic_log_densities = seq_posterior(
+            self, x.data
+        )
 
         # This block keeps the gammas positive
-        log_density_gamma[np.bitwise_or(np.isnan(log_density_gamma), np.isinf(log_density_gamma))] = sys.float_info.min
+        log_density_gamma[
+            np.bitwise_or(np.isnan(log_density_gamma), np.isinf(log_density_gamma))
+        ] = sys.float_info.min
         log_density_gamma[log_density_gamma <= 0] = sys.float_info.min
-        document_gammas[np.bitwise_or(np.isnan(document_gammas), np.isinf(document_gammas))] = sys.float_info.min
+        document_gammas[
+            np.bitwise_or(np.isnan(document_gammas), np.isinf(document_gammas))
+        ] = sys.float_info.min
 
-        elob0 = digamma(document_gammas) - digamma(np.sum(document_gammas, axis=1, keepdims=True))
+        elob0 = digamma(document_gammas) - digamma(
+            np.sum(document_gammas, axis=1, keepdims=True)
+        )
         elob1 = elob0[idx, :]
-        elob2 = log_density_gamma * (elob1 + per_topic_log_densities - np.log(log_density_gamma))
+        elob2 = log_density_gamma * (
+            elob1 + per_topic_log_densities - np.log(log_density_gamma)
+        )
         elob3 = np.sum(elob0 * ((alpha - 1.0) - (document_gammas - 1.0)), axis=1)
         elob4 = np.bincount(idx_full.flat, weights=elob2.flat)
         elob5 = np.sum(np.reshape(elob4, (-1, num_topics)), axis=1)
-        elob6 = np.sum(gammaln(document_gammas), axis=1) - gammaln(document_gammas.sum(axis=1))
+        elob6 = np.sum(gammaln(document_gammas), axis=1) - gammaln(
+            document_gammas.sum(axis=1)
+        )
         elob7 = gammaln(alpha.sum()) - gammaln(alpha).sum()
 
         elob = elob3 + elob5 + elob6 + elob7
 
         return elob
 
-    def seq_component_log_density(self, x: 'LDAEncodedDataSequence') -> np.ndarray:
+    def seq_component_log_density(self, x: "LDAEncodedDataSequence") -> np.ndarray:
 
         if not isinstance(x, LDAEncodedDataSequence):
-            raise Exception('Requires LDAEncodedDataSequence for `seq` function calls.')
+            raise Exception("Requires LDAEncodedDataSequence for `seq` function calls.")
 
         num_topics = self.n_topics
         alpha = self.alpha
@@ -143,38 +177,49 @@ class LDADistribution(SequenceEncodableProbabilityDistribution):
 
         for i in range(num_topics):
             ll_mat[:, i] = self.topics[i].seq_log_density(enc_data)
-            rv[:, i] = np.bincount(idx, weights=ll_mat[:, i] * counts, minlength=num_documents)
+            rv[:, i] = np.bincount(
+                idx, weights=ll_mat[:, i] * counts, minlength=num_documents
+            )
 
         return rv
 
-    def seq_posterior(self, x: 'LDAEncodedDataSequence') -> np.ndarray:
+    def seq_posterior(self, x: "LDAEncodedDataSequence") -> np.ndarray:
         if not isinstance(x, LDAEncodedDataSequence):
-            raise Exception('Requires LDAEncodedDataSequence for `seq` function calls.')
+            raise Exception("Requires LDAEncodedDataSequence for `seq` function calls.")
 
         num_topics = self.n_topics
         alpha = self.alpha
         num_documents, idx, counts, _, enc_data = x.data
 
-        log_density_gamma, document_gammas, per_topic_log_densities = seq_posterior(self, x.data)
+        log_density_gamma, document_gammas, per_topic_log_densities = seq_posterior(
+            self, x.data
+        )
 
         document_gammas /= document_gammas.sum(axis=1, keepdims=True)
 
         return document_gammas
 
-    def sampler(self, seed: Optional[int] = None) -> 'LDASampler':
+    def sampler(self, seed: Optional[int] = None) -> "LDASampler":
         return LDASampler(self, seed)
 
-    def estimator(self, pseudo_count: Optional[float] = None) -> 'LDAEstimator':
+    def estimator(self, pseudo_count: Optional[float] = None) -> "LDAEstimator":
         if pseudo_count is None:
-            return LDAEstimator(estimators=[d.estimator() for d in self.topics], name=self.name, keys=self.keys)
+            return LDAEstimator(
+                estimators=[d.estimator() for d in self.topics],
+                name=self.name,
+                keys=self.keys,
+            )
         else:
-            return LDAEstimator(estimators=[d.estimator() for d in self.topics],
-                                pseudo_count=(pseudo_count, pseudo_count),
-                                name=self.name,
-                                keys=self.keys)
+            return LDAEstimator(
+                estimators=[d.estimator() for d in self.topics],
+                pseudo_count=(pseudo_count, pseudo_count),
+                name=self.name,
+                keys=self.keys,
+            )
 
-    def dist_to_encoder(self) -> 'LDADataEncoder':
+    def dist_to_encoder(self) -> "LDADataEncoder":
         return LDADataEncoder(encoder=self.topics[0].dist_to_encoder())
+
 
 class LDASampler(DistributionSampler):
 
@@ -182,12 +227,18 @@ class LDASampler(DistributionSampler):
         self.rng = RandomState(seed)
         self.dist = dist
         self.n_topics = dist.n_topics
-        self.comp_samplers = [self.dist.topics[i].sampler(seed=self.rng.randint(0, maxrandint)) for i in
-                              range(dist.n_topics)]
-        self.dirichlet_sampler = DirichletDistribution(dist.alpha).sampler(self.rng.randint(0, maxrandint))
+        self.comp_samplers = [
+            self.dist.topics[i].sampler(seed=self.rng.randint(0, maxrandint))
+            for i in range(dist.n_topics)
+        ]
+        self.dirichlet_sampler = DirichletDistribution(dist.alpha).sampler(
+            self.rng.randint(0, maxrandint)
+        )
         self.len_dist = self.dist.len_dist.sampler(seed=self.rng.randint(0, maxrandint))
 
-    def sample(self, size: Optional[int] = None) -> Union[Sequence[List[Tuple[Any, int]]], List[Tuple[Any, int]]]:
+    def sample(
+        self, size: Optional[int] = None
+    ) -> Union[Sequence[List[Tuple[Any, int]]], List[Tuple[Any, int]]]:
         """Sample returns tuple of counted values"""
         if size is None:
             n = self.len_dist.sample()
@@ -206,10 +257,13 @@ class LDASampler(DistributionSampler):
 
 class LDAEstimatorAccumulator(SequenceEncodableStatisticAccumulator):
 
-    def __init__(self, accumulators: Sequence[SequenceEncodableStatisticAccumulator],
-                 name: Optional[str] = None,
-                 keys: Optional[Tuple[Optional[str],Optional[str]]] = (None, None),
-                 prev_alpha: Optional[np.ndarray] = None) -> None:
+    def __init__(
+        self,
+        accumulators: Sequence[SequenceEncodableStatisticAccumulator],
+        name: Optional[str] = None,
+        keys: Optional[Tuple[Optional[str], Optional[str]]] = (None, None),
+        prev_alpha: Optional[np.ndarray] = None,
+    ) -> None:
         self.accumulators = accumulators
         self.num_topics = len(accumulators)
         self.sum_of_logs = np.zeros(self.num_topics)
@@ -230,14 +284,21 @@ class LDAEstimatorAccumulator(SequenceEncodableStatisticAccumulator):
 
     def _rng_initialize(self, rng: RandomState) -> None:
         if not self._init_rng:
-            seeds = rng.randint(maxrandint, size=3+self.num_topics)
+            seeds = rng.randint(maxrandint, size=3 + self.num_topics)
             self._rng_theta = RandomState(seed=seeds[0])
             self._rng_idx = RandomState(seed=seeds[1])
             self._rng_w = RandomState(seed=seeds[2])
-            self._rng_topics = [RandomState(seed=seeds[3+j]) for j in range(self.num_topics)]
+            self._rng_topics = [
+                RandomState(seed=seeds[3 + j]) for j in range(self.num_topics)
+            ]
             self._init_rng = True
 
-    def seq_initialize(self, x: 'LDAEncodedDataSequence', weights: np.ndarray, rng: np.random.RandomState) -> None:
+    def seq_initialize(
+        self,
+        x: "LDAEncodedDataSequence",
+        weights: np.ndarray,
+        rng: np.random.RandomState,
+    ) -> None:
 
         num_documents, idx, counts, old_gammas, enc_data = x.data
 
@@ -247,20 +308,22 @@ class LDAEstimatorAccumulator(SequenceEncodableStatisticAccumulator):
         if self.prev_alpha is None:
             self.prev_alpha = np.ones(self.num_topics)
 
-        theta     = self._rng_theta.dirichlet(self.prev_alpha, size=num_documents)
+        theta = self._rng_theta.dirichlet(self.prev_alpha, size=num_documents)
         theta_rep = theta[idx, :]
 
-        idx_list  = row_choice(p_mat=np.reshape(theta_rep, (-1, self.num_topics)), rng=self._rng_idx)
+        idx_list = row_choice(
+            p_mat=np.reshape(theta_rep, (-1, self.num_topics)), rng=self._rng_idx
+        )
 
         self.sum_of_logs += np.sum(np.log(theta), axis=0, keepdims=False)
         self.doc_counts += np.sum(weights)
 
-        ww_v = -np.log(self._rng_w.rand(self.num_topics*len(idx)))
+        ww_v = -np.log(self._rng_w.rand(self.num_topics * len(idx)))
         ww_v[idx_list + np.arange(0, len(ww_v), self.num_topics)] += 1
         ww_v = np.reshape(ww_v, (-1, self.num_topics))
         ww_v /= ww_v.sum(axis=1, keepdims=True)
 
-        temp = np.reshape(weights[idx]*counts, (len(idx), 1))
+        temp = np.reshape(weights[idx] * counts, (len(idx), 1))
         ww_v *= temp
 
         for j in range(self.num_topics):
@@ -281,18 +344,20 @@ class LDAEstimatorAccumulator(SequenceEncodableStatisticAccumulator):
         theta = self._rng_theta.dirichlet(self.prev_alpha)
         print(theta)
 
-        theta_rep = theta[np.arange(0, self.num_topics*len(x)) % self.num_topics]
-        idx_list = row_choice(p_mat=np.reshape(theta_rep, (-1, self.num_topics)), rng=self._rng_idx)
-        print('\n')
+        theta_rep = theta[np.arange(0, self.num_topics * len(x)) % self.num_topics]
+        idx_list = row_choice(
+            p_mat=np.reshape(theta_rep, (-1, self.num_topics)), rng=self._rng_idx
+        )
+        print("\n")
         print(idx_list)
         self.sum_of_logs += np.log(theta)
         self.doc_counts += weight
 
-        ww_v = -np.log(self._rng_w.rand(self.num_topics*len(x)))
-        ww_v[idx_list + np.arange(0, self.num_topics*len(x), self.num_topics)] += 1
+        ww_v = -np.log(self._rng_w.rand(self.num_topics * len(x)))
+        ww_v[idx_list + np.arange(0, self.num_topics * len(x), self.num_topics)] += 1
         ww_v = np.reshape(ww_v, (-1, self.num_topics))
         ww_v /= np.sum(ww_v, axis=1, keepdims=True)
-        ww_v *= counts*weight
+        ww_v *= counts * weight
 
         for j in range(self.num_topics):
             w = ww_v[:, j]
@@ -300,16 +365,28 @@ class LDAEstimatorAccumulator(SequenceEncodableStatisticAccumulator):
                 self.accumulators[j].initialize(x[i][0], w[i], self._rng_topics[j])
                 self.topic_counts[j] += w[i]
 
-    def seq_update(self, x: 'LDAEncodedDataSequence', weights: np.ndarray, estimate: LDADistribution) -> None:
+    def seq_update(
+        self,
+        x: "LDAEncodedDataSequence",
+        weights: np.ndarray,
+        estimate: LDADistribution,
+    ) -> None:
 
         num_documents, idx, counts, old_gammas, enc_data = x.data
-        log_density_gamma, final_gammas, per_topic_log_densities = seq_posterior(estimate, x.data)
+        log_density_gamma, final_gammas, per_topic_log_densities = seq_posterior(
+            estimate, x.data
+        )
 
         for i in range(self.num_topics):
-            self.accumulators[i].seq_update(enc_data, log_density_gamma[:, i] * weights[idx] * counts,
-                                            estimate.topics[i])
+            self.accumulators[i].seq_update(
+                enc_data,
+                log_density_gamma[:, i] * weights[idx] * counts,
+                estimate.topics[i],
+            )
 
-        mlpf = digamma(final_gammas) - digamma(np.sum(final_gammas, axis=1, keepdims=True))
+        mlpf = digamma(final_gammas) - digamma(
+            np.sum(final_gammas, axis=1, keepdims=True)
+        )
 
         self.sum_of_logs += np.dot(weights, mlpf)
         self.doc_counts += weights.sum()
@@ -318,8 +395,12 @@ class LDAEstimatorAccumulator(SequenceEncodableStatisticAccumulator):
 
     # return num_documents, idx, counts, final_gammas, enc_data
 
-    def combine(self, suff_stat: Tuple[Optional[np.ndarray], np.ndarray, float, np.ndarray, Sequence[SS0]]) \
-            -> 'LDAEstimatorAccumulator':
+    def combine(
+        self,
+        suff_stat: Tuple[
+            Optional[np.ndarray], np.ndarray, float, np.ndarray, Sequence[SS0]
+        ],
+    ) -> "LDAEstimatorAccumulator":
 
         prev_alpha, sum_of_logs, doc_counts, topic_counts, topic_suff_stats = suff_stat
 
@@ -335,12 +416,21 @@ class LDAEstimatorAccumulator(SequenceEncodableStatisticAccumulator):
 
         return self
 
-    def value(self) -> Tuple[Optional[np.ndarray], np.ndarray, float, np.ndarray, Sequence[Any]]:
-        return self.prev_alpha, self.sum_of_logs, self.doc_counts, self.topic_counts, [u.value() for u in
-                                                                                       self.accumulators]
+    def value(
+        self,
+    ) -> Tuple[Optional[np.ndarray], np.ndarray, float, np.ndarray, Sequence[Any]]:
+        return (
+            self.prev_alpha,
+            self.sum_of_logs,
+            self.doc_counts,
+            self.topic_counts,
+            [u.value() for u in self.accumulators],
+        )
 
-    def from_value(self, x: Tuple[Optional[np.ndarray], np.ndarray, float, np.ndarray, Sequence[SS0]]) \
-            -> 'LDAEstimatorAccumulator':
+    def from_value(
+        self,
+        x: Tuple[Optional[np.ndarray], np.ndarray, float, np.ndarray, Sequence[SS0]],
+    ) -> "LDAEstimatorAccumulator":
 
         prev_alpha, sum_of_logs, doc_counts, topic_counts, topic_suff_stats = x
 
@@ -348,7 +438,10 @@ class LDAEstimatorAccumulator(SequenceEncodableStatisticAccumulator):
         self.sum_of_logs = sum_of_logs
         self.doc_counts = doc_counts
         self.topic_counts = topic_counts
-        self.accumulators = [self.accumulators[i].from_value(topic_suff_stats[i]) for i in range(self.num_topics)]
+        self.accumulators = [
+            self.accumulators[i].from_value(topic_suff_stats[i])
+            for i in range(self.num_topics)
+        ]
 
         return self
 
@@ -360,10 +453,18 @@ class LDAEstimatorAccumulator(SequenceEncodableStatisticAccumulator):
                 p_sol, p_doc, p_pa = stats_dict[self.alpha_key]
 
                 prev_alpha = self.prev_alpha if self.prev_alpha is not None else p_pa
-                stats_dict[self.alpha_key] = (self.sum_of_logs + p_sol, self.doc_counts + p_doc, prev_alpha)
+                stats_dict[self.alpha_key] = (
+                    self.sum_of_logs + p_sol,
+                    self.doc_counts + p_doc,
+                    prev_alpha,
+                )
 
             else:
-                stats_dict[self.alpha_key] = (self.sum_of_logs, self.doc_counts, self.prev_alpha)
+                stats_dict[self.alpha_key] = (
+                    self.sum_of_logs,
+                    self.doc_counts,
+                    self.prev_alpha,
+                )
 
         if self.topics_key is not None:
             if self.topics_key in stats_dict:
@@ -393,38 +494,47 @@ class LDAEstimatorAccumulator(SequenceEncodableStatisticAccumulator):
         for u in self.accumulators:
             u.key_replace(stats_dict)
 
-    def acc_to_encoder(self) -> 'LDADataEncoder':
+    def acc_to_encoder(self) -> "LDADataEncoder":
         return LDADataEncoder(encoder=self.accumulators[0].acc_to_encoder())
 
 
 class LDAEstimatorAccumulatorFactory(StatisticAccumulatorFactory):
-    def __init__(self, factories: Sequence[StatisticAccumulatorFactory], dim: int,
-                 name: Optional[str] = None,
-                 keys: Optional[Tuple[Optional[str], Optional[str]]] = (None, None),
-                 prev_alpha: Optional[np.ndarray] = None) -> None:
+    def __init__(
+        self,
+        factories: Sequence[StatisticAccumulatorFactory],
+        dim: int,
+        name: Optional[str] = None,
+        keys: Optional[Tuple[Optional[str], Optional[str]]] = (None, None),
+        prev_alpha: Optional[np.ndarray] = None,
+    ) -> None:
         self.factories = factories
         self.dim = dim
         self.keys = keys if keys is not None else (None, None)
-        self.name = name 
+        self.name = name
         self.prev_alpha = prev_alpha
 
-    def make(self) -> 'LDAEstimatorAccumulator':
-        return LDAEstimatorAccumulator([self.factories[i].make() for i in range(self.dim)], 
-                                       name=self.name, 
-                                       keys=self.keys, 
-                                       prev_alpha=self.prev_alpha
+    def make(self) -> "LDAEstimatorAccumulator":
+        return LDAEstimatorAccumulator(
+            [self.factories[i].make() for i in range(self.dim)],
+            name=self.name,
+            keys=self.keys,
+            prev_alpha=self.prev_alpha,
         )
 
 
 class LDAEstimator(ParameterEstimator):
 
-    def __init__(self, estimators: Sequence[ParameterEstimator], suff_stat: Optional[Any] = None,
-                 pseudo_count: Optional[Tuple[float, float]] = None,
-                 name: Optional[str] = None,
-                 keys: Optional[Tuple[Optional[str], Optional[str]]] = (None, None),
-                 fixed_alpha: Optional[np.ndarray] = None,
-                 gamma_threshold: float = 1.0e-8,
-                 alpha_threshold: float = 1.0e-8) -> None:
+    def __init__(
+        self,
+        estimators: Sequence[ParameterEstimator],
+        suff_stat: Optional[Any] = None,
+        pseudo_count: Optional[Tuple[float, float]] = None,
+        name: Optional[str] = None,
+        keys: Optional[Tuple[Optional[str], Optional[str]]] = (None, None),
+        fixed_alpha: Optional[np.ndarray] = None,
+        gamma_threshold: float = 1.0e-8,
+        alpha_threshold: float = 1.0e-8,
+    ) -> None:
         self.num_topics = len(estimators)
         self.estimators = estimators
         self.pseudo_count = pseudo_count
@@ -435,37 +545,46 @@ class LDAEstimator(ParameterEstimator):
         self.fixed_alpha = fixed_alpha
         self.name = name
 
-    def accumulator_factory(self) -> 'LDAEstimatorAccumulatorFactory':
+    def accumulator_factory(self) -> "LDAEstimatorAccumulatorFactory":
         est_factories = [u.accumulator_factory() for u in self.estimators]
         return LDAEstimatorAccumulatorFactory(
-            factories=est_factories, 
-            dim=self.num_topics, 
-            keys=self.keys, 
+            factories=est_factories,
+            dim=self.num_topics,
+            keys=self.keys,
             name=self.name,
-            prev_alpha=self.fixed_alpha)
+            prev_alpha=self.fixed_alpha,
+        )
 
     def estimate(self, nobs: Optional[float], suff_stat):
 
         prev_alpha, sum_of_logs, doc_counts, topic_counts, topic_suff_stats = suff_stat
 
         num_topics = self.num_topics
-        topics = [self.estimators[i].estimate(topic_counts[i], topic_suff_stats[i]) for i in range(num_topics)]
+        topics = [
+            self.estimators[i].estimate(topic_counts[i], topic_suff_stats[i])
+            for i in range(num_topics)
+        ]
 
         if doc_counts == 0:
-            sys.stderr.write('Warning: LDA Estimation performed with zero documents.\n')
+            sys.stderr.write("Warning: LDA Estimation performed with zero documents.\n")
             LDADistribution(topics, prev_alpha, gamma_threshold=self.gamma_threshold)
 
         if self.fixed_alpha is None:
 
             if self.pseudo_count is not None:
-                mean_of_logs = (sum_of_logs + np.log(self.pseudo_count[1])) / (doc_counts + self.pseudo_count[0])
+                mean_of_logs = (sum_of_logs + np.log(self.pseudo_count[1])) / (
+                    doc_counts + self.pseudo_count[0]
+                )
 
             # new_alpha, _ = find_alpha(prev_alpha, sum_of_logs/doc_counts, gamma_threshold*np.sqrt(float(doc_counts)))
-            new_alpha, _ = update_alpha(prev_alpha, sum_of_logs / doc_counts, self.alpha_threshold)
+            new_alpha, _ = update_alpha(
+                prev_alpha, sum_of_logs / doc_counts, self.alpha_threshold
+            )
         else:
             new_alpha = np.asarray(self.fixed_alpha).copy()
 
         return LDADistribution(topics, new_alpha, gamma_threshold=self.gamma_threshold)
+
 
 class LDADataEncoder(DataSequenceEncoder):
 
@@ -473,7 +592,7 @@ class LDADataEncoder(DataSequenceEncoder):
         self.encoder = encoder
 
     def __str__(self) -> str:
-        return 'LDADataEncoder(encoder=' + str(self.encoder) + ')'
+        return "LDADataEncoder(encoder=" + str(self.encoder) + ")"
 
     def __eq__(self, other) -> bool:
         if isinstance(other, LDADataEncoder):
@@ -481,7 +600,9 @@ class LDADataEncoder(DataSequenceEncoder):
         else:
             return False
 
-    def seq_encode(self, x: Sequence[Sequence[Tuple[int, float]]]) -> 'LDAEncodedDataSequence':
+    def seq_encode(
+        self, x: Sequence[Sequence[Tuple[int, float]]]
+    ) -> "LDAEncodedDataSequence":
         """Encode a sequence of iid LDA observations for vectorized functions.
 
         Return value 'rv' is a Tuple containing:
@@ -516,15 +637,23 @@ class LDADataEncoder(DataSequenceEncoder):
         gammas = None
         enc_data = self.encoder.seq_encode(tx)
 
-        return LDAEncodedDataSequence(data=(num_documents, idx, counts, gammas, enc_data))
+        return LDAEncodedDataSequence(
+            data=(num_documents, idx, counts, gammas, enc_data)
+        )
+
 
 class LDAEncodedDataSequence(EncodedDataSequence):
 
-    def __init__(self, data: Tuple[int, np.ndarray, np.ndarray, Optional[np.ndarray], EncodedDataSequence]):
+    def __init__(
+        self,
+        data: Tuple[
+            int, np.ndarray, np.ndarray, Optional[np.ndarray], EncodedDataSequence
+        ],
+    ):
         super().__init__(data=data)
 
     def __repr__(self) -> str:
-        return f'LDAEncodedDataSequence(data={self.data})'
+        return f"LDAEncodedDataSequence(data={self.data})"
 
 
 def update_alpha(alpha_curr, mean_log_p, alpha_threshold) -> Tuple[np.ndarray, int]:
@@ -543,7 +672,9 @@ def update_alpha(alpha_curr, mean_log_p, alpha_threshold) -> Tuple[np.ndarray, i
     return alpha, its_cnt
 
 
-def mpe_update(x_mat: Optional[np.ndarray], y: np.ndarray, min_size: int = 2) -> Tuple[np.ndarray, np.ndarray]:
+def mpe_update(
+    x_mat: Optional[np.ndarray], y: np.ndarray, min_size: int = 2
+) -> Tuple[np.ndarray, np.ndarray]:
     if x_mat is None:
         x_mat = np.reshape(y, (1, -1))
         return x_mat, y
@@ -602,7 +733,9 @@ def find_alpha(current_alpha: np.ndarray, mlp: float, thresh: float):
     return mpe(current_alpha, f, thresh)
 
 
-def seq_posterior2(estimate: LDADistribution, x: Tuple[int, np.ndarray, np.ndarray, Optional[Any], E0]):
+def seq_posterior2(
+    estimate: LDADistribution, x: Tuple[int, np.ndarray, np.ndarray, Optional[Any], E0]
+):
     alpha = estimate.alpha
     topics = estimate.topics
     gamma_threshold = estimate.gamma_threshold
@@ -612,7 +745,9 @@ def seq_posterior2(estimate: LDADistribution, x: Tuple[int, np.ndarray, np.ndarr
     num_topics = len(topics)
     num_samples = len(idx)
 
-    per_topic_log_densities0 = np.asarray([topics[i].seq_log_density(enc_data) for i in range(num_topics)]).transpose()
+    per_topic_log_densities0 = np.asarray(
+        [topics[i].seq_log_density(enc_data) for i in range(num_topics)]
+    ).transpose()
 
     per_topic_log_densities = per_topic_log_densities0.copy()
     max_val = per_topic_log_densities.max(axis=1, keepdims=True)
@@ -625,8 +760,9 @@ def seq_posterior2(estimate: LDADistribution, x: Tuple[int, np.ndarray, np.ndarr
     alpha_loc = np.repeat(np.reshape(alpha, (1, num_topics)), num_documents, axis=0)
 
     if gammas is None:
-        document_gammas = alpha_loc + np.reshape(np.bincount(idx_full.flat), (num_documents, num_topics)) / float(
-            num_topics)
+        document_gammas = alpha_loc + np.reshape(
+            np.bincount(idx_full.flat), (num_documents, num_topics)
+        ) / float(num_topics)
     else:
         document_gammas = gammas.copy()
 
@@ -643,8 +779,21 @@ def seq_posterior2(estimate: LDADistribution, x: Tuple[int, np.ndarray, np.ndarr
     rv4 = np.arange(0, num_samples, dtype=np.intp)
     rv5 = np.zeros(num_documents, dtype=np.float64)
 
-    aa, bb = dmx.c_ext.lda_update(idx, document_gammas, rv1, rv2, alpha_loc, per_topic_log_densities, rv3, ccc, rv0,
-                                   rv4, rv5, -1, gamma_threshold)
+    aa, bb = dmx.c_ext.lda_update(
+        idx,
+        document_gammas,
+        rv1,
+        rv2,
+        alpha_loc,
+        per_topic_log_densities,
+        rv3,
+        ccc,
+        rv0,
+        rv4,
+        rv5,
+        -1,
+        gamma_threshold,
+    )
 
     final_gammas = bb + alpha_loc
     log_density_gamma = aa
@@ -652,7 +801,9 @@ def seq_posterior2(estimate: LDADistribution, x: Tuple[int, np.ndarray, np.ndarr
     return log_density_gamma, final_gammas, per_topic_log_densities0
 
 
-def seq_posterior(estimate: LDADistribution, x: Tuple[int, np.ndarray, np.ndarray, Optional[Any], E0]):
+def seq_posterior(
+    estimate: LDADistribution, x: Tuple[int, np.ndarray, np.ndarray, Optional[Any], E0]
+):
     alpha = estimate.alpha
     topics = estimate.topics
     gamma_threshold = estimate.gamma_threshold
@@ -662,7 +813,9 @@ def seq_posterior(estimate: LDADistribution, x: Tuple[int, np.ndarray, np.ndarra
     num_topics = len(topics)
     num_samples = len(idx)
 
-    per_topic_log_densities = np.asarray([topics[i].seq_log_density(enc_data) for i in range(num_topics)]).transpose()
+    per_topic_log_densities = np.asarray(
+        [topics[i].seq_log_density(enc_data) for i in range(num_topics)]
+    ).transpose()
     per_topic_log_densities2 = per_topic_log_densities.copy()
     per_topic_log_densities2 -= np.max(per_topic_log_densities2, axis=1, keepdims=True)
     np.exp(per_topic_log_densities2, out=per_topic_log_densities2)
@@ -674,8 +827,9 @@ def seq_posterior(estimate: LDADistribution, x: Tuple[int, np.ndarray, np.ndarra
     alpha_loc = np.reshape(alpha, (1, num_topics))
 
     if gammas is None:
-        document_gammas = alpha_loc + np.reshape(np.bincount(idx_full.flat), (num_documents, num_topics)) / float(
-            num_topics)
+        document_gammas = alpha_loc + np.reshape(
+            np.bincount(idx_full.flat), (num_documents, num_topics)
+        ) / float(num_topics)
     else:
         document_gammas = gammas.copy()
 
@@ -713,7 +867,11 @@ def seq_posterior(estimate: LDADistribution, x: Tuple[int, np.ndarray, np.ndarra
     temp = np.max(document_gammas2, axis=1, keepdims=True)
     np.exp(document_gammas2 - temp, out=document_gammas3)
 
-    np.multiply(per_topic_log_densities2, document_gammas3[rel_idx, :], out=log_density_gamma_loc)
+    np.multiply(
+        per_topic_log_densities2,
+        document_gammas3[rel_idx, :],
+        out=log_density_gamma_loc,
+    )
     np.sum(log_density_gamma_loc, axis=1, keepdims=True, out=posterior_sum_ll_loc)
     log_density_gamma_loc /= posterior_sum_ll_loc
 
@@ -728,7 +886,11 @@ def seq_posterior(estimate: LDADistribution, x: Tuple[int, np.ndarray, np.ndarra
         document_gammas2 -= temp
         np.exp(document_gammas2, out=document_gammas3)
 
-        np.multiply(per_topic_log_densities2, document_gammas3[rel_idx, :], out=log_density_gamma_loc)
+        np.multiply(
+            per_topic_log_densities2,
+            document_gammas3[rel_idx, :],
+            out=log_density_gamma_loc,
+        )
         np.sum(log_density_gamma_loc, axis=1, keepdims=True, out=posterior_sum_ll_loc)
         posterior_sum_ll_loc /= rel_counts
         log_density_gamma_loc /= posterior_sum_ll_loc
@@ -748,9 +910,15 @@ def seq_posterior(estimate: LDADistribution, x: Tuple[int, np.ndarray, np.ndarra
         has_finished = np.nonzero(gamma_asum_loc.flat <= gamma_threshold)[0]
 
         if has_finished.size != 0:
-            final_gammas[finished_count:(finished_count + len(has_finished)), :] = document_gammas[has_finished, :]
-            final_gammas_idx[finished_count:(finished_count + len(has_finished))] = rem_gammas_idx[has_finished]
-            gamma_itr_cnt[finished_count:(finished_count + len(has_finished))] = itr_cnt
+            final_gammas[finished_count : (finished_count + len(has_finished)), :] = (
+                document_gammas[has_finished, :]
+            )
+            final_gammas_idx[finished_count : (finished_count + len(has_finished))] = (
+                rem_gammas_idx[has_finished]
+            )
+            gamma_itr_cnt[finished_count : (finished_count + len(has_finished))] = (
+                itr_cnt
+            )
 
             is_rem_bool = gamma_asum_loc.flat > gamma_threshold
 

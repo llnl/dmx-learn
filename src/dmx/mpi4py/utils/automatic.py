@@ -1,22 +1,24 @@
 """Automatic estimations for input data files. Use in auto-estimation step of htsne."""
-from typing import Optional, Any, Sequence
-from mpi4py import MPI
+
+from typing import Any, Optional, Sequence
 
 import numpy as np
+from mpi4py import MPI
 
-from dmx.utils.automatic import get_estimator
-from dmx.bstats.mixture import MixtureDistribution
 from dmx.bstats import ParameterEstimator
+from dmx.bstats.mixture import MixtureDistribution
+from dmx.utils.automatic import get_estimator
+
 
 def get_dpm_mixture_mpi(
-        data: Sequence[Any], 
-        estimator: Optional[ParameterEstimator] = None, 
-        max_comp: int = 20, 
-        rng: Optional[np.random.RandomState] = None, 
-        max_its: int = 1000, 
-        print_iter: int = 100, 
-        mix_threshold_count: int = 0.5
-    ) -> MixtureDistribution:
+    data: Sequence[Any],
+    estimator: Optional[ParameterEstimator] = None,
+    max_comp: int = 20,
+    rng: Optional[np.random.RandomState] = None,
+    max_its: int = 1000,
+    print_iter: int = 100,
+    mix_threshold_count: int = 0.5,
+) -> MixtureDistribution:
     """Gets a Dirichlet Process Mixture model for the data.
 
     Args:
@@ -48,18 +50,20 @@ def get_dpm_mixture_mpi(
     # broadcast estimator to each worker
     est = comm.bcast(est, root=0)
 
-    est = DirichletProcessMixtureEstimator([est]*max_comp)
+    est = DirichletProcessMixtureEstimator([est] * max_comp)
 
     # the model should live on world_rank == 0
     mix_model = optimize_mpi(data, est, max_its=max_its, rng=rng, print_iter=print_iter)
 
     if world_rank == 0:
-        thresh = mix_threshold_count/len(data)
-        mix_comps = [mix_model.components[i] for i in np.flatnonzero(mix_model.w >= thresh)]
+        thresh = mix_threshold_count / len(data)
+        mix_comps = [
+            mix_model.components[i] for i in np.flatnonzero(mix_model.w >= thresh)
+        ]
         mix_weights = mix_model.w[mix_model.w >= thresh]
 
         print(str(mix_weights))
-        print('# Components = %d' % (len(mix_comps)))
+        print("# Components = %d" % (len(mix_comps)))
         mix_dist = MixtureDistribution(mix_comps, mix_weights)
     else:
         mix_dist = None

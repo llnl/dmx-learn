@@ -15,21 +15,26 @@ Functions:
 """
 
 __all__ = [
-    "seq_encode_mpi", 
-    "seq_initialize_mpi", 
-    "seq_estimate_mpi", 
-    "seq_log_density_mpi", 
+    "seq_encode_mpi",
+    "seq_initialize_mpi",
+    "seq_estimate_mpi",
+    "seq_log_density_mpi",
     "seq_log_density_sum_mpi",
 ]
 
-from typing import Optional, Sequence, List, Tuple, Any
+from typing import Any, List, Optional, Sequence, Tuple
+
 import numpy as np
 import pandas as pd
-from numpy.random import RandomState
 from mpi4py import MPI
+from numpy.random import RandomState
 
-from dmx.stats.pdist import SequenceEncodableProbabilityDistribution, ParameterEstimator, DataSequenceEncoder, \
-    EncodedDataSequence
+from dmx.stats.pdist import (
+    DataSequenceEncoder,
+    EncodedDataSequence,
+    ParameterEstimator,
+    SequenceEncodableProbabilityDistribution,
+)
 
 
 def seq_encode_mpi(
@@ -37,8 +42,8 @@ def seq_encode_mpi(
     encoder: Optional[DataSequenceEncoder] = None,
     estimator: Optional[ParameterEstimator] = None,
     model: Optional[SequenceEncodableProbabilityDistribution] = None,
-    num_chunks: int = 1, 
-    chunk_size: Optional[int] = None
+    num_chunks: int = 1,
+    chunk_size: Optional[int] = None,
 ) -> List[Tuple[int, Any]]:
     """Distributes and encodes sequence data across MPI workers.
 
@@ -69,7 +74,9 @@ def seq_encode_mpi(
             elif estimator is not None:
                 encoder = estimator.accumulator_factory().make().acc_to_encoder()
             else:
-                raise Exception('At least one arg: encoder, estimator, or dist must be passed to rank 0.')
+                raise Exception(
+                    "At least one arg: encoder, estimator, or dist must be passed to rank 0."
+                )
 
         sz = len(data)
         if chunk_size is not None:
@@ -78,7 +85,9 @@ def seq_encode_mpi(
             num_chunks_loc = num_chunks
 
         # Distribute data across processes
-        data_loc = [[data[i] for i in range(r, sz, world_size)] for r in range(world_size)]
+        data_loc = [
+            [data[i] for i in range(r, sz, world_size)] for r in range(world_size)
+        ]
         encoder_loc = encoder
     else:
         num_chunks_loc = None
@@ -103,10 +112,10 @@ def seq_encode_mpi(
 
 
 def seq_initialize_mpi(
-    enc_data: List[Tuple[int, EncodedDataSequence]], 
-    estimator: ParameterEstimator, 
-    rng: RandomState, 
-    p: float
+    enc_data: List[Tuple[int, EncodedDataSequence]],
+    estimator: ParameterEstimator,
+    rng: RandomState,
+    p: float,
 ) -> Optional[SequenceEncodableProbabilityDistribution]:
     """Initializes model parameters in parallel using encoded data.
 
@@ -124,20 +133,20 @@ def seq_initialize_mpi(
     world_rank = comm.Get_rank()
     world_size = comm.Get_size()
 
-    # Broadcast StatisticAccumulatorFactory and random seeds 
+    # Broadcast StatisticAccumulatorFactory and random seeds
     if world_rank == 0:
         factory = estimator.accumulator_factory()
-        seeds = rng.randint(low=0, high=2**31-1, size=world_size).tolist()
+        seeds = rng.randint(low=0, high=2**31 - 1, size=world_size).tolist()
     else:
         seeds = None
         factory = None
-    
+
     seed = comm.scatter(seeds, root=0)
     factory = comm.bcast(factory, root=0)
 
     # Define local accumulator and initialize locally on chunks
     rng_loc = np.random.RandomState(seed)
-    local_accumulator = factory.make() 
+    local_accumulator = factory.make()
     nobs = 0.0
 
     for sz, x in enc_data:
@@ -145,7 +154,7 @@ def seq_initialize_mpi(
         nobs += np.sum(w)
         local_accumulator.seq_initialize(x, w, rng)
 
-    # Merge keys for local accumulators 
+    # Merge keys for local accumulators
     stats_dict = dict()
     local_accumulator.key_merge(stats_dict)
     local_accumulator.key_replace(stats_dict)
@@ -170,9 +179,9 @@ def seq_initialize_mpi(
 
 
 def seq_estimate_mpi(
-    enc_data: List[Tuple[int, EncodedDataSequence]], 
-    estimator: Optional[ParameterEstimator] = None, 
-    prev_estimate: Optional[SequenceEncodableProbabilityDistribution] = None
+    enc_data: List[Tuple[int, EncodedDataSequence]],
+    estimator: Optional[ParameterEstimator] = None,
+    prev_estimate: Optional[SequenceEncodableProbabilityDistribution] = None,
 ) -> Optional[SequenceEncodableProbabilityDistribution]:
     """Estimates model parameters in parallel using encoded data and a previous estimate.
 
@@ -195,15 +204,15 @@ def seq_estimate_mpi(
     if world_rank == 0:
         if estimator is None:
             raise Exception("Rank 0 must have estimator for seq_estimate_mpi.")
-        
+
         if prev_estimate is None:
             raise Exception("Rank 0 must have prev_estimate for seq_estimate_mpi.")
 
         factory = estimator.accumulator_factory()
-        
+
     else:
         factory = None
-    
+
     # Broadcast prev_estimate and factory
     factory = comm.bcast(factory, root=0)
     prev_estimate = comm.bcast(prev_estimate, root=0)
@@ -228,7 +237,7 @@ def seq_estimate_mpi(
         for nn, ss in suff_stats:
             total_obs += nn
             accumulator.combine(ss)
-        
+
         stats_dict = dict()
         accumulator.key_merge(stats_dict)
         accumulator.key_replace(stats_dict)
@@ -236,12 +245,12 @@ def seq_estimate_mpi(
         return estimator.estimate(total_obs, accumulator.value())
     else:
         return None
-    
+
 
 def seq_log_density_mpi(
     enc_data: Sequence[Tuple[int, EncodedDataSequence]],
     estimate: Optional[SequenceEncodableProbabilityDistribution] = None,
-    is_list: bool = False
+    is_list: bool = False,
 ) -> List[np.ndarray]:
     """Computes log densities of encoded data in parallel.
 
@@ -263,16 +272,18 @@ def seq_log_density_mpi(
 
     if world_rank == 0 and estimate is None:
         raise Exception("Rank 0 must have estimate for seq_log_density_mpi.")
-    
+
     # broadcast estimate to each worker
     estimate = comm.bcast(estimate, root=0)
 
     # evaluate likelihood on worker data chunks, might rearrange later for use
     if is_list:
-        return [np.asarray([ee.seq_log_density(u[1]) for ee in estimate]) for u in enc_data]
+        return [
+            np.asarray([ee.seq_log_density(u[1]) for ee in estimate]) for u in enc_data
+        ]
     else:
         return [estimate.seq_log_density(u[1]) for u in enc_data]
-    
+
 
 def seq_log_density_sum_mpi(
     enc_data: Sequence[Tuple[int, EncodedDataSequence]],
@@ -297,7 +308,7 @@ def seq_log_density_sum_mpi(
 
     if world_rank == 0 and estimate is None:
         raise Exception("Rank 0 must have estimate for seq_log_density_mpi.")
-    
+
     estimate = comm.bcast(estimate, root=0)
     rv0 = sum([u[0] for u in enc_data])
     rv1 = sum([estimate.seq_log_density(u[1]).sum() for u in enc_data])
@@ -305,5 +316,5 @@ def seq_log_density_sum_mpi(
     # return nobs and ll sum back to all workers.
     nobs = comm.allreduce(rv0)
     ll = comm.allreduce(rv1)
-    
+
     return nobs, ll

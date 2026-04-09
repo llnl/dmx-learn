@@ -1,40 +1,64 @@
 """"Create, estimate, and sample from a hidden markov model with integer emission distributions"""
 
+import math
+from typing import Any, Dict, List, Optional, Sequence, Set, Tuple, TypeVar, Union
+
 import numba
 import numpy as np
-import math
 from numpy.random import RandomState
+
 import dmx.utils.vector as vec
 from dmx.arithmetic import *
-from dmx.stats.pdist import SequenceEncodableProbabilityDistribution, SequenceEncodableStatisticAccumulator, \
-    ParameterEstimator, DataSequenceEncoder, DistributionSampler, StatisticAccumulatorFactory, EncodedDataSequence
+from dmx.arithmetic import maxrandint
 from dmx.stats.markovchain import MarkovChainDistribution
 from dmx.stats.mixture import MixtureDistribution
-from dmx.stats.null_dist import NullDistribution, NullAccumulatorFactory, NullEstimator, NullDataEncoder, \
-    NullAccumulator
-from dmx.arithmetic import maxrandint
+from dmx.stats.null_dist import (
+    NullAccumulator,
+    NullAccumulatorFactory,
+    NullDataEncoder,
+    NullDistribution,
+    NullEstimator,
+)
+from dmx.stats.pdist import (
+    DataSequenceEncoder,
+    DistributionSampler,
+    EncodedDataSequence,
+    ParameterEstimator,
+    SequenceEncodableProbabilityDistribution,
+    SequenceEncodableStatisticAccumulator,
+    StatisticAccumulatorFactory,
+)
 
-from typing import List, Any, Tuple, Sequence, Union, Optional, TypeVar, Set, Dict
+T = TypeVar("T")
+T1 = TypeVar("T1")  # Emission suff-stat type
+T2 = TypeVar("T2")  # Len suff-stat type
 
-T = TypeVar('T')
-T1 = TypeVar('T1')  # Emission suff-stat type
-T2 = TypeVar('T2')  # Len suff-stat type
-
-E0 = Tuple[Tuple[int, List[Tuple[int, int]], List[np.ndarray], np.ndarray, np.ndarray, np.ndarray, EncodedDataSequence],
-           EncodedDataSequence, EncodedDataSequence]
+E0 = Tuple[
+    Tuple[
+        int,
+        List[Tuple[int, int]],
+        List[np.ndarray],
+        np.ndarray,
+        np.ndarray,
+        np.ndarray,
+        EncodedDataSequence,
+    ],
+    EncodedDataSequence,
+    EncodedDataSequence,
+]
 E = Tuple[np.ndarray, np.ndarray, EncodedDataSequence]
 
 
 class IntegerHiddenMarkovModelDistribution(SequenceEncodableProbabilityDistribution):
     """Hidden Markov Model distribution with integer emission distributions.
-    
+
     A hidden Markov model (HMM) with integer emission distributions. This class implements
     a probability distribution over sequences of integers, where the probability of each
     integer in the sequence depends on a hidden state that follows a Markov process.
-    
+
     If a length distribution for the HMM sequence is included, it must have data type int
     with support of non-negative integers.
-    
+
     Attributes:
         pmat (np.ndarray): Emission probability matrix where pmat[i,j] is the probability
             of emitting integer i from state j.
@@ -55,14 +79,22 @@ class IntegerHiddenMarkovModelDistribution(SequenceEncodableProbabilityDistribut
             transitions counts, and emission distributions.
     """
 
-    def __init__(self, 
-                 pmat: Union[List[List[float]], np.ndarray],
-                 w: Union[Sequence[float], np.ndarray],
-                 transitions: Union[List[List[float]], np.ndarray],
-                 len_dist: Optional[SequenceEncodableProbabilityDistribution] = NullDistribution(),
-                 name: Optional[str] = None,
-                 keys: Optional[Tuple[Optional[str], Optional[str], Optional[str]]] = (None, None, None),
-                 terminal_values: Optional[Set[T]] = None) -> None:
+    def __init__(
+        self,
+        pmat: Union[List[List[float]], np.ndarray],
+        w: Union[Sequence[float], np.ndarray],
+        transitions: Union[List[List[float]], np.ndarray],
+        len_dist: Optional[
+            SequenceEncodableProbabilityDistribution
+        ] = NullDistribution(),
+        name: Optional[str] = None,
+        keys: Optional[Tuple[Optional[str], Optional[str], Optional[str]]] = (
+            None,
+            None,
+            None,
+        ),
+        terminal_values: Optional[Set[T]] = None,
+    ) -> None:
         """Initialize an IntegerHiddenMarkovModelDistribution.
 
         Args:
@@ -79,11 +111,11 @@ class IntegerHiddenMarkovModelDistribution(SequenceEncodableProbabilityDistribut
                 Defaults to None.
         """
 
-        with np.errstate(divide='ignore'):
-            
+        with np.errstate(divide="ignore"):
+
             if not isinstance(pmat, np.ndarray):
                 pmat = np.ndarray(pmat)
-            
+
             self.pmat = pmat
             self.log_pmat = np.log(pmat)
             self.n_words = pmat.shape[0]
@@ -100,7 +132,7 @@ class IntegerHiddenMarkovModelDistribution(SequenceEncodableProbabilityDistribut
         self.terminal_values = terminal_values
         self.name = name
         self.len_dist = len_dist if len_dist is not None else NullDistribution()
-        self.keys = keys 
+        self.keys = keys
 
     def __str__(self) -> str:
         s1 = repr(self.pmat.tolist())
@@ -111,8 +143,10 @@ class IntegerHiddenMarkovModelDistribution(SequenceEncodableProbabilityDistribut
         s6 = repr(self.terminal_values)
         s7 = repr(self.keys)
 
-        return 'IntegerHiddenMarkovModelDistribution(pmat=pmat, w=%s, transitions=%s, taus=%s, len_dist=%s, name=%s, terminal_values=%s, ' \
-               'keys=%s)' % (s1, s2, s3, s4, s5, s6, s7)
+        return (
+            "IntegerHiddenMarkovModelDistribution(pmat=pmat, w=%s, transitions=%s, taus=%s, len_dist=%s, name=%s, terminal_values=%s, "
+            "keys=%s)" % (s1, s2, s3, s4, s5, s6, s7)
+        )
 
     def density(self, x: Sequence[int]) -> float:
         """Returns the density of HMM for an observed sequence x.
@@ -140,10 +174,10 @@ class IntegerHiddenMarkovModelDistribution(SequenceEncodableProbabilityDistribut
         """
         if x is None or len(x) == 0:
             return self.len_dist.log_density(0)
-        
+
         # Initialize: log_alpha = log(w) + log(P(x[0] | state))
         log_alpha = self.log_w + self.log_pmat[x[0], :]
-        
+
         # Forward recursion
         for t in range(1, len(x)):
             # Vectorized log-sum-exp over previous states
@@ -151,10 +185,10 @@ class IntegerHiddenMarkovModelDistribution(SequenceEncodableProbabilityDistribut
             log_terms = log_alpha[:, np.newaxis] + self.log_transitions  # (S, S)
             max_vals = np.max(log_terms, axis=0)  # (S,)
             log_alpha = max_vals + np.log(np.sum(np.exp(log_terms - max_vals), axis=0))
-            
+
             # Add emission probabilities
             log_alpha += self.log_pmat[x[t], :]
-        
+
         # Final probability
         max_val = np.max(log_alpha)
         ret_val = max_val + np.log(np.sum(np.exp(log_alpha - max_val)))
@@ -163,25 +197,36 @@ class IntegerHiddenMarkovModelDistribution(SequenceEncodableProbabilityDistribut
 
         return ret_val
 
-    def seq_log_density(self, x: 'IntegerHiddenMarkovEncodedDataSequence') -> np.ndarray:
+    def seq_log_density(
+        self, x: "IntegerHiddenMarkovEncodedDataSequence"
+    ) -> np.ndarray:
 
         # enc_data is just numpy array of integers
 
         if not isinstance(x, IntegerHiddenMarkovEncodedDataSequence):
-            raise Exception('Requires IntegerHiddenMarkovEncodedDataSequence.')
+            raise Exception("Requires IntegerHiddenMarkovEncodedDataSequence.")
 
         enc_data, tz, len_enc = x.data
 
-        ll_ret = vec.zeros(len(tz)-1)
+        ll_ret = vec.zeros(len(tz) - 1)
         log_pmat = self.log_pmat
 
-        fast_log_density(xs=enc_data, tz=tz, log_pmat=log_pmat, log_A=self.log_transitions, log_pi=self.log_w, out=ll_ret)
+        fast_log_density(
+            xs=enc_data,
+            tz=tz,
+            log_pmat=log_pmat,
+            log_A=self.log_transitions,
+            log_pi=self.log_w,
+            out=ll_ret,
+        )
 
         ll_ret += self.len_dist.seq_log_density(len_enc)
 
         return ll_ret
 
-    def seq_posterior(self, x: 'IntegerHiddenMarkovEncodedDataSequence') -> List[np.ndarray]:
+    def seq_posterior(
+        self, x: "IntegerHiddenMarkovEncodedDataSequence"
+    ) -> List[np.ndarray]:
         """Compute posterior distribution for each latent state of a sequence.
 
         Args:
@@ -193,12 +238,14 @@ class IntegerHiddenMarkovModelDistribution(SequenceEncodableProbabilityDistribut
         """
 
         if not isinstance(x, IntegerHiddenMarkovEncodedDataSequence):
-            raise Exception("Requires IntegerHiddenMarkovEncodedDataSequence for seq_posterior")
+            raise Exception(
+                "Requires IntegerHiddenMarkovEncodedDataSequence for seq_posterior"
+            )
 
         enc_data, tz, len_enc = x.data
 
         tot_cnt = len(enc_data)
-        seq_cnt = len(tz)-1
+        seq_cnt = len(tz) - 1
         num_states = self.n_states
         pr_obs = np.zeros((tot_cnt, num_states), dtype=np.float64)
         weights = np.ones(seq_cnt, dtype=np.float64)
@@ -216,10 +263,12 @@ class IntegerHiddenMarkovModelDistribution(SequenceEncodableProbabilityDistribut
         alphas = np.zeros((tot_cnt, num_states), dtype=np.float64)
         xi_acc = np.zeros((seq_cnt, num_states, num_states), dtype=np.float64)
         pi_acc = np.zeros((seq_cnt, num_states), dtype=np.float64)
-        numba_baum_welch_alphas(num_states, tz, pr_obs, init_pvec, tran_mat, weights, alphas, xi_acc, pi_acc)
+        numba_baum_welch_alphas(
+            num_states, tz, pr_obs, init_pvec, tran_mat, weights, alphas, xi_acc, pi_acc
+        )
 
-        return [alphas[tz[i]:tz[i + 1], :] for i in range(len(tz) - 1)]
-    
+        return [alphas[tz[i] : tz[i + 1], :] for i in range(len(tz) - 1)]
+
     def viterbi(self, x: Sequence[int]) -> np.ndarray:
         """Returns the viterbi sequence for an HMM observation.
 
@@ -231,61 +280,71 @@ class IntegerHiddenMarkovModelDistribution(SequenceEncodableProbabilityDistribut
         """
         if len(x) == 0:
             return np.array([], dtype=int)
-        
+
         num_states = len(self.log_w)
         sz = len(x)
-        
+
         # Initialize
         log_delta = self.log_w + self.log_pmat[x[0], :]
         psi = np.zeros((len(x), num_states), dtype=int)
-        
+
         # Store log_delta at each time step for backtracking
         all_log_delta = np.zeros((sz, num_states))
         all_log_delta[0, :] = log_delta
-        
+
         # Forward pass (vectorized)
         for t in range(1, sz):
             # Compute all transition scores: (S_prev, S_curr)
             log_trans_probs = log_delta[:, np.newaxis] + self.log_transitions  # (S, S)
-            
+
             # Find best previous state for each current state
             psi[t, :] = np.argmax(log_trans_probs, axis=0)
             log_delta = np.max(log_trans_probs, axis=0) + self.log_pmat[x[t], :]
             all_log_delta[t, :] = log_delta
-        
+
         # Backward pass
         states = np.zeros(sz, dtype=int)
-        states[sz-1] = np.argmax(all_log_delta[sz-1, :])
-        
-        for t in range(sz-2, -1, -1):
-            states[t] = psi[t+1, states[t+1]]
-        
+        states[sz - 1] = np.argmax(all_log_delta[sz - 1, :])
+
+        for t in range(sz - 2, -1, -1):
+            states[t] = psi[t + 1, states[t + 1]]
+
         return states
 
-    def sampler(self, seed: Optional[int] = None) -> 'IntegerHiddenMarkovSampler':
+    def sampler(self, seed: Optional[int] = None) -> "IntegerHiddenMarkovSampler":
         if isinstance(self.len_dist, NullDistribution) and self.terminal_values is None:
-            raise Exception('IntegerHiddenMarkovSampler requires len_dist with support on non-negative integers, or terminal_'
-                            'values to be set.')
+            raise Exception(
+                "IntegerHiddenMarkovSampler requires len_dist with support on non-negative integers, or terminal_"
+                "values to be set."
+            )
 
         return IntegerHiddenMarkovSampler(self, seed)
 
-    def estimator(self, pseudo_count: Optional[float] = None) -> 'IntegerHiddenMarkovEstimator':
+    def estimator(
+        self, pseudo_count: Optional[float] = None
+    ) -> "IntegerHiddenMarkovEstimator":
 
-        len_est = None if self.len_dist is None else self.len_dist.estimator(pseudo_count=pseudo_count)
-        
+        len_est = (
+            None
+            if self.len_dist is None
+            else self.len_dist.estimator(pseudo_count=pseudo_count)
+        )
+
         return IntegerHiddenMarkovEstimator(
-            max_val = self.n_words, 
-            pseudo_count=(pseudo_count, pseudo_count), 
+            max_val=self.n_words,
+            pseudo_count=(pseudo_count, pseudo_count),
             len_estimator=len_est,
-            name=self.name, 
+            name=self.name,
             keys=self.keys,
-            use_numba=self.use_numba)
+            use_numba=self.use_numba,
+        )
 
-    def dist_to_encoder(self) -> 'IntegerHiddenMarkovDataEncoder':
+    def dist_to_encoder(self) -> "IntegerHiddenMarkovDataEncoder":
 
         len_encoder = self.len_dist.dist_to_encoder()
 
         return IntegerHiddenMarkovDataEncoder(len_encoder=len_encoder)
+
 
 class IntegerHiddenMarkovSampler(DistributionSampler):
     """HiddenMarkovSampler object for sampling from HMM.
@@ -307,7 +366,9 @@ class IntegerHiddenMarkovSampler(DistributionSampler):
 
     """
 
-    def __init__(self, dist: 'IntegerHiddenMarkovModelDistribution', seed: Optional[int] = None) -> None:
+    def __init__(
+        self, dist: "IntegerHiddenMarkovModelDistribution", seed: Optional[int] = None
+    ) -> None:
         """Initialize an IntegerHiddenMarkovSampler.
 
         Args:
@@ -321,7 +382,9 @@ class IntegerHiddenMarkovSampler(DistributionSampler):
         self.rng = RandomState(seed)
 
         if dist.len_dist is not None:
-            self.len_sampler = dist.len_dist.sampler(seed=self.rng.randint(0, maxrandint))
+            self.len_sampler = dist.len_dist.sampler(
+                seed=self.rng.randint(0, maxrandint)
+            )
         else:
             self.len_sampler = None
 
@@ -330,10 +393,15 @@ class IntegerHiddenMarkovSampler(DistributionSampler):
         else:
             self.terminal_set = set(dist.terminal_values)
 
-        t_map = {i: {k: dist.transitions[i, k] for k in range(dist.n_states)} for i in range(dist.n_states)}
+        t_map = {
+            i: {k: dist.transitions[i, k] for k in range(dist.n_states)}
+            for i in range(dist.n_states)
+        }
         p_map = {i: dist.w[i] for i in range(dist.n_states)}
 
-        self.state_sampler = MarkovChainDistribution(p_map, t_map).sampler(seed=self.rng.randint(0, maxrandint))
+        self.state_sampler = MarkovChainDistribution(p_map, t_map).sampler(
+            seed=self.rng.randint(0, maxrandint)
+        )
 
     def sample_int(self, i: int) -> int:
         """Sample an integer obs from a given state.
@@ -346,8 +414,9 @@ class IntegerHiddenMarkovSampler(DistributionSampler):
         rv: int = self.rng.choice(self.range, p=self.pmat[:, i]).item()
         return rv
 
-
-    def sample_seq(self, size: Optional[int] = None) -> Union[list[int], list[list[int]]]:
+    def sample_seq(
+        self, size: Optional[int] = None
+    ) -> Union[list[int], list[list[int]]]:
         """Sample iid HMM sequences.
 
         If size is None, 1 sample is drawn and a List[T] is returned. If size > 0, 'size' samples are drawn and a List
@@ -417,7 +486,9 @@ class IntegerHiddenMarkovSampler(DistributionSampler):
                 return [self.sample_terminal(self.terminal_set) for i in range(size)]
 
         else:
-            raise RuntimeError('IntegerHiddenMarkovSampler requires either a length distribution or terminal value set.')
+            raise RuntimeError(
+                "IntegerHiddenMarkovSampler requires either a length distribution or terminal value set."
+            )
 
 
 class IntegerHiddenMarkovAccumulator(SequenceEncodableStatisticAccumulator):
@@ -444,12 +515,16 @@ class IntegerHiddenMarkovAccumulator(SequenceEncodableStatisticAccumulator):
 
     """
 
-    def __init__(self, 
-                 num_words: int,
-                 num_states: int,
-                 len_accumulator: Optional[SequenceEncodableStatisticAccumulator] = NullAccumulator(),
-                 keys: Tuple[Optional[str], Optional[str], Optional[str]] = (None, None, None),
-                 name: Optional[str] = None) -> None:
+    def __init__(
+        self,
+        num_words: int,
+        num_states: int,
+        len_accumulator: Optional[
+            SequenceEncodableStatisticAccumulator
+        ] = NullAccumulator(),
+        keys: Tuple[Optional[str], Optional[str], Optional[str]] = (None, None, None),
+        name: Optional[str] = None,
+    ) -> None:
         """Initialize an IntegerHiddenMarkovAccumulator.
 
         Args:
@@ -469,7 +544,9 @@ class IntegerHiddenMarkovAccumulator(SequenceEncodableStatisticAccumulator):
         self.init_counts = vec.zeros(self.num_states)
         self.trans_counts = vec.zeros((self.num_states, self.num_states))
         self.state_counts = vec.zeros(self.num_states)
-        self.len_accumulator = len_accumulator if len_accumulator is not None else NullAccumulator()
+        self.len_accumulator = (
+            len_accumulator if len_accumulator is not None else NullAccumulator()
+        )
 
         self.init_key = keys[0]
         self.trans_key = keys[1]
@@ -482,7 +559,12 @@ class IntegerHiddenMarkovAccumulator(SequenceEncodableStatisticAccumulator):
         self._len_rng: Optional[RandomState] = None
         self._idx_rng: Optional[RandomState] = None
 
-    def update(self, x: Sequence[int], weight: float, estimate: IntegerHiddenMarkovModelDistribution) -> None:
+    def update(
+        self,
+        x: Sequence[int],
+        weight: float,
+        estimate: IntegerHiddenMarkovModelDistribution,
+    ) -> None:
         """Update the accumulator with a single HMM observation sequence.
 
         Args:
@@ -504,7 +586,6 @@ class IntegerHiddenMarkovAccumulator(SequenceEncodableStatisticAccumulator):
         self._idx_rng = RandomState(seed=rng_seeds[0])
         self._len_rng = RandomState(seed=rng_seeds[1])
         self._init_rng = True
-
 
     def initialize(self, x: Sequence[int], weight: float, rng: RandomState) -> None:
         """Initialize the accumulator with a single HMM observation sequence.
@@ -532,10 +613,15 @@ class IntegerHiddenMarkovAccumulator(SequenceEncodableStatisticAccumulator):
 
             if n > 1:
                 for i in range(1, n):
-                    self.trans_counts[idx[i-1], idx[i]] += weight
+                    self.trans_counts[idx[i - 1], idx[i]] += weight
                     self.state_counts[idx[i]] += weight
 
-    def seq_initialize(self, x: 'IntegerHiddenMarkovEncodedDataSequence', weights: np.ndarray, rng: np.random.RandomState) -> None:
+    def seq_initialize(
+        self,
+        x: "IntegerHiddenMarkovEncodedDataSequence",
+        weights: np.ndarray,
+        rng: np.random.RandomState,
+    ) -> None:
         """Vectorized initialization for encoded HMM data.
 
         Args:
@@ -559,14 +645,14 @@ class IntegerHiddenMarkovAccumulator(SequenceEncodableStatisticAccumulator):
         states = self._idx_rng.randint(low=0, high=self.num_states, size=tot_cnt)
 
         fast_seq_initialize(
-            xs=enc_data, 
-            tz=tz, 
-            states=states, 
-            weights=weights, 
-            icnts=icnts_buff, 
-            scnts=scnts_buff, 
-            tcnts=tcnts_buff, 
-            wcnts=wcnts_buff
+            xs=enc_data,
+            tz=tz,
+            states=states,
+            weights=weights,
+            icnts=icnts_buff,
+            scnts=scnts_buff,
+            tcnts=tcnts_buff,
+            wcnts=wcnts_buff,
         )
 
         # aggregate results
@@ -575,10 +661,13 @@ class IntegerHiddenMarkovAccumulator(SequenceEncodableStatisticAccumulator):
         self.init_counts += icnts_buff
         self.state_counts += scnts_buff
 
-
     # TODO: Update from here down
-    def seq_update(self, x: 'IntegerHiddenMarkovEncodedDataSequence', weights: np.ndarray,
-                   estimate: IntegerHiddenMarkovModelDistribution) -> None:
+    def seq_update(
+        self,
+        x: "IntegerHiddenMarkovEncodedDataSequence",
+        weights: np.ndarray,
+        estimate: IntegerHiddenMarkovModelDistribution,
+    ) -> None:
 
         enc_data, tz, len_enc = x.data
 
@@ -591,24 +680,29 @@ class IntegerHiddenMarkovAccumulator(SequenceEncodableStatisticAccumulator):
         emit_counts = np.zeros_like(self.wcnts)
 
         numba_baum_welch(
-            xs=enc_data, 
-            tz=tz, 
+            xs=enc_data,
+            tz=tz,
             weights=weights,
-            init_pvec=init_pvec, 
-            tran_mat=tran_mat, 
-            pmat=pmat, 
-            init_counts=init_counts, 
-            tran_counts=trans_counts, 
-            emit_counts=emit_counts)
-     
+            init_pvec=init_pvec,
+            tran_mat=tran_mat,
+            pmat=pmat,
+            init_counts=init_counts,
+            tran_counts=trans_counts,
+            emit_counts=emit_counts,
+        )
+
         self.wcnts += emit_counts
         self.trans_counts += trans_counts
         self.init_counts += init_counts
 
         self.len_accumulator.seq_update(len_enc, weights, estimate.len_dist)
 
-    def combine(self, suff_stat: Tuple[int, np.ndarray, np.ndarray, np.ndarray, Sequence[T1], Optional[T2]]) \
-            -> 'IntegerHiddenMarkovAccumulator':
+    def combine(
+        self,
+        suff_stat: Tuple[
+            int, np.ndarray, np.ndarray, np.ndarray, Sequence[T1], Optional[T2]
+        ],
+    ) -> "IntegerHiddenMarkovAccumulator":
         """Aggregate sufficient statistics with this accumulator.
 
         Args:
@@ -637,10 +731,17 @@ class IntegerHiddenMarkovAccumulator(SequenceEncodableStatisticAccumulator):
         """
         len_val = self.len_accumulator.value()
 
-        return self.init_counts, self.state_counts, self.trans_counts, self.wcnts, len_val
+        return (
+            self.init_counts,
+            self.state_counts,
+            self.trans_counts,
+            self.wcnts,
+            len_val,
+        )
 
-    def from_value(self, x: Tuple[np.ndarray, np.ndarray, np.ndarray, np.ndarray, Optional[T2]])\
-            -> 'IntegerHiddenMarkovAccumulator':
+    def from_value(
+        self, x: Tuple[np.ndarray, np.ndarray, np.ndarray, np.ndarray, Optional[T2]]
+    ) -> "IntegerHiddenMarkovAccumulator":
         """Set the sufficient statistics from a tuple.
 
         Args:
@@ -715,7 +816,7 @@ class IntegerHiddenMarkovAccumulator(SequenceEncodableStatisticAccumulator):
 
         return None
 
-    def acc_to_encoder(self) -> 'IntegerHiddenMarkovDataEncoder':
+    def acc_to_encoder(self) -> "IntegerHiddenMarkovDataEncoder":
         """Return a IntegerHiddenMarkovDataEncoder for this accumulator.
 
         Returns:
@@ -742,8 +843,12 @@ class IntegerHiddenMarkovAccumulatorFactory(StatisticAccumulatorFactory):
         num_words: int,
         num_states: int,
         len_factory: StatisticAccumulatorFactory = NullAccumulatorFactory(),
-        keys: Optional[Tuple[Optional[str], Optional[str], Optional[str]]] = (None, None, None),
-        name: Optional[str] = None
+        keys: Optional[Tuple[Optional[str], Optional[str], Optional[str]]] = (
+            None,
+            None,
+            None,
+        ),
+        name: Optional[str] = None,
     ) -> None:
         """Initializes HiddenMarkovAccumulatorFactory.
 
@@ -762,7 +867,7 @@ class IntegerHiddenMarkovAccumulatorFactory(StatisticAccumulatorFactory):
         self.len_factory = len_factory
         self.name = name
 
-    def make(self) -> 'IntegerHiddenMarkovAccumulator':
+    def make(self) -> "IntegerHiddenMarkovAccumulator":
         """Creates a new IntegerHiddenMarkovAccumulator.
 
         Returns:
@@ -770,12 +875,13 @@ class IntegerHiddenMarkovAccumulatorFactory(StatisticAccumulatorFactory):
         """
         len_acc = self.len_factory.make()
         return IntegerHiddenMarkovAccumulator(
-            num_words=self.num_words, 
+            num_words=self.num_words,
             num_states=self.num_states,
-            len_accumulator=len_acc, 
+            len_accumulator=len_acc,
             keys=self.keys,
-            name=self.name
+            name=self.name,
         )
+
 
 class IntegerHiddenMarkovEstimator(ParameterEstimator):
     """Estimator for IntegerHiddenMarkovDistribution from aggregated sufficient statistics.
@@ -795,9 +901,15 @@ class IntegerHiddenMarkovEstimator(ParameterEstimator):
         num_words: int,
         num_states: int,
         len_estimator: Optional[ParameterEstimator] = NullEstimator(),
-        pseudo_count: Optional[Tuple[Optional[float], Optional[float], Optional[float]]] = (None, None, None),
+        pseudo_count: Optional[
+            Tuple[Optional[float], Optional[float], Optional[float]]
+        ] = (None, None, None),
         name: Optional[str] = None,
-        keys: Optional[Tuple[Optional[str], Optional[str], Optional[str]]] = (None, None, None)
+        keys: Optional[Tuple[Optional[str], Optional[str], Optional[str]]] = (
+            None,
+            None,
+            None,
+        ),
     ) -> None:
         """Initializes IntegerHiddenMarkovEstimator.
 
@@ -825,9 +937,13 @@ class IntegerHiddenMarkovEstimator(ParameterEstimator):
 
         self.num_states = num_states
         self.num_words = num_words
-        self.pseudo_count = pseudo_count if pseudo_count is not None else (None, None, None)
+        self.pseudo_count = (
+            pseudo_count if pseudo_count is not None else (None, None, None)
+        )
         self.keys = keys if keys is not None else (None, None, None)
-        self.len_estimator = len_estimator if len_estimator is not None else NullEstimator()
+        self.len_estimator = (
+            len_estimator if len_estimator is not None else NullEstimator()
+        )
         self.name = name
 
     def accumulator_factory(self) -> IntegerHiddenMarkovAccumulatorFactory:
@@ -838,14 +954,18 @@ class IntegerHiddenMarkovEstimator(ParameterEstimator):
         """
         len_factory = self.len_estimator.accumulator_factory()
         return IntegerHiddenMarkovAccumulatorFactory(
-            num_words=self.num_words, num_states=self.num_states, len_factory=len_factory, keys=self.keys, name=self.name
+            num_words=self.num_words,
+            num_states=self.num_states,
+            len_factory=len_factory,
+            keys=self.keys,
+            name=self.name,
         )
 
     def estimate(
         self,
         nobs: Optional[float],
-        suff_stat: Tuple[np.ndarray, np.ndarray, np.ndarray, np.ndarray, Optional[T2]]
-    ) -> 'IntegerHiddenMarkovModelDistribution':
+        suff_stat: Tuple[np.ndarray, np.ndarray, np.ndarray, np.ndarray, Optional[T2]],
+    ) -> "IntegerHiddenMarkovModelDistribution":
         """Estimates a IntegerHiddenMarkovModelDistribution from sufficient statistics.
 
         Args:
@@ -880,26 +1000,31 @@ class IntegerHiddenMarkovEstimator(ParameterEstimator):
             if np.any(bad_rows):
                 good_rows = ~bad_rows
                 transitions = np.zeros_like(trans_counts, dtype=np.float64)
-                transitions[good_rows, :] += trans_counts[good_rows, :] / row_sum[good_rows]
+                transitions[good_rows, :] += (
+                    trans_counts[good_rows, :] / row_sum[good_rows]
+                )
             else:
                 transitions = trans_counts / row_sum
 
         # Emissions are integer categoricals
-        if self.pseudo_count[2] is not None: 
+        if self.pseudo_count[2] is not None:
             pseudo_count_per_level = self.pseudo_count[2] / num_words
-            adjusted_state_nobs = np.sum(wcnts, axis=0, keepdims=True) + self.pseudo_count[2]
+            adjusted_state_nobs = (
+                np.sum(wcnts, axis=0, keepdims=True) + self.pseudo_count[2]
+            )
             pmat = (wcnts + pseudo_count_per_level) / adjusted_state_nobs
         else:
             pmat = wcnts / wcnts.sum(axis=0, keepdims=True)
 
         return IntegerHiddenMarkovModelDistribution(
-            pmat=pmat, 
-            w=w, 
-            transitions=transitions, 
+            pmat=pmat,
+            w=w,
+            transitions=transitions,
             len_dist=len_dist,
-            name=self.name, 
-            terminal_values=None
+            name=self.name,
+            terminal_values=None,
         )
+
 
 class IntegerHiddenMarkovDataEncoder(DataSequenceEncoder):
     """IntegerHiddenMarkovDataEncoder object for encoding sequences of iid HMM observations.
@@ -909,7 +1034,10 @@ class IntegerHiddenMarkovDataEncoder(DataSequenceEncoder):
             Should have support of non-negative integers. Set to NullDataEncoder if None.
 
     """
-    def __init__(self, len_encoder: Optional[DataSequenceEncoder] = NullDataEncoder()) -> None:
+
+    def __init__(
+        self, len_encoder: Optional[DataSequenceEncoder] = NullDataEncoder()
+    ) -> None:
         """IntegerHiddenMarkovDataEncoder object.
 
         Attributes:
@@ -930,7 +1058,9 @@ class IntegerHiddenMarkovDataEncoder(DataSequenceEncoder):
         else:
             return False
 
-    def seq_encode(self, x: Sequence[Sequence[int]]) -> 'IntegerHiddenMarkovEncodedDataSequence':
+    def seq_encode(
+        self, x: Sequence[Sequence[int]]
+    ) -> "IntegerHiddenMarkovEncodedDataSequence":
         """Sequence encode sequences of iid HMM observations.
 
         If use_numba is False, calls IntegerHiddenMarkovDataEncoder._seq_encode(x). (See '_seq_encode' for details).
@@ -942,10 +1072,10 @@ class IntegerHiddenMarkovDataEncoder(DataSequenceEncoder):
             IntegerHiddenMarkovEncodedDataSequence: with numba_enc=True if use_numba=True.
 
         """
-        
+
         xs = np.asarray([o for xs in x for o in xs], dtype=int)
 
-        tz = np.zeros(len(x)+1, dtype=int)
+        tz = np.zeros(len(x) + 1, dtype=int)
         tz[1:] = np.asarray([len(xs) for xs in x], dtype=int)
 
         len_enc = self.len_encoder.seq_encode(tz[1:])
@@ -979,27 +1109,30 @@ class IntegerHiddenMarkovEncodedDataSequence(EncodedDataSequence):
         super().__init__(data=data)
 
     def __repr__(self) -> str:
-        return f'IntegerHiddenMarkovEncodedDataSequence(data={self.data})'
+        return f"IntegerHiddenMarkovEncodedDataSequence(data={self.data})"
 
 
-
-@numba.njit('float64(float64[:])')
+@numba.njit("float64(float64[:])")
 def logsumexp_numba(arr):
     """Numerically stable logsumexp for 1D array."""
     max_val = np.max(arr)
     return max_val + np.log(np.sum(np.exp(arr - max_val)))
 
-@numba.njit('void(float64[:,:], float64[:])')
+
+@numba.njit("void(float64[:,:], float64[:])")
 def logsumexp_2d_rows(arr, result):
     """Logsumexp along axis=1 for 2D array."""
     for i in range(arr.shape[0]):
         result[i] = logsumexp_numba(arr[i])
 
-@numba.njit('void(int64[:], float64[:], float64[:,:], float64[:,:], float64[:,:], float64[:,:])')
+
+@numba.njit(
+    "void(int64[:], float64[:], float64[:,:], float64[:,:], float64[:,:], float64[:,:])"
+)
 def forward_backward(xs_seq, init_pvec, tran_mat, pmat, log_alpha, log_beta):
     """
     Forward-backward algorithm for a single sequence.
-    
+
     Args:
         xs_seq: numpy array of shape (T,) containing emission observations
         init_pvec: numpy array of shape (S,) initial state distribution
@@ -1010,47 +1143,51 @@ def forward_backward(xs_seq, init_pvec, tran_mat, pmat, log_alpha, log_beta):
     """
     T = len(xs_seq)
     S = len(init_pvec)
-    
+
     # Forward pass (in log space for numerical stability)
-    
+
     # Initialize: alpha_1(z) = pi(z) * P(x_1 | z)
     for j in range(S):
         log_alpha[0, j] = np.log(init_pvec[j]) + np.log(pmat[xs_seq[0], j])
-    
+
     # Recursion: alpha_t(z) = sum_z' alpha_{t-1}(z') * A(z'->z) * P(x_t | z)
     temp = np.empty(S)
     for t in range(1, T):
         for j in range(S):
             for i in range(S):
-                temp[i] = log_alpha[t-1, i] + np.log(tran_mat[i, j])
+                temp[i] = log_alpha[t - 1, i] + np.log(tran_mat[i, j])
             log_alpha[t, j] = logsumexp_numba(temp) + np.log(pmat[xs_seq[t], j])
-    
+
     # Backward pass
-    
+
     # Initialize: beta_T(z) = 1 for all z (log(1) = 0)
     for j in range(S):
-        log_beta[T-1, j] = 0.0
-    
+        log_beta[T - 1, j] = 0.0
+
     # Recursion: beta_t(z) = sum_z' A(z->z') * P(x_{t+1} | z') * beta_{t+1}(z')
-    for t in range(T-2, -1, -1):
+    for t in range(T - 2, -1, -1):
         for i in range(S):
             for j in range(S):
-                temp[j] = (np.log(tran_mat[i, j]) + 
-                          np.log(pmat[xs_seq[t+1], j]) + 
-                          log_beta[t+1, j])
+                temp[j] = (
+                    np.log(tran_mat[i, j])
+                    + np.log(pmat[xs_seq[t + 1], j])
+                    + log_beta[t + 1, j]
+                )
             log_beta[t, i] = logsumexp_numba(temp)
 
+
 @numba.njit(
-    'void(int64[:], int64[:], float64[:], float64[:], float64[:,:], float64[:,:], float64[:], float64[:,:], float64[:,:])',
-    parallel=True, 
-    fastmath=True
+    "void(int64[:], int64[:], float64[:], float64[:], float64[:,:], float64[:,:], float64[:], float64[:,:], float64[:,:])",
+    parallel=True,
+    fastmath=True,
 )
-def numba_baum_welch(xs, tz, weights, init_pvec, tran_mat, pmat, 
-                                  init_counts, tran_counts, emit_counts):
+def numba_baum_welch(
+    xs, tz, weights, init_pvec, tran_mat, pmat, init_counts, tran_counts, emit_counts
+):
     """
     E-step: Compute sufficient statistics for Baum-Welch algorithm.
     Uses parallel processing across sequences.
-    
+
     Args:
         xs: numpy array int32 of emission observations
         tz: numpy array int64 containing start/end indices (len(tz)-1 sequences)
@@ -1064,110 +1201,115 @@ def numba_baum_welch(xs, tz, weights, init_pvec, tran_mat, pmat,
     S = len(init_pvec)
     W = pmat.shape[0]
     num_sequences = len(tz) - 1
-    
+
     # Zero out the output arrays
     for j in range(S):
         init_counts[j] = 0.0
-    
+
     for i in range(S):
         for j in range(S):
             tran_counts[i, j] = 0.0
-    
+
     for i in range(W):
         for j in range(S):
             emit_counts[i, j] = 0.0
-    
+
     # Create a lock for thread-safe updates
     lock = numba.objmode(None, "none")()
-    
+
     # Process each sequence in parallel
     for seq_idx in numba.prange(num_sequences):
         start = tz[seq_idx]
         end = tz[seq_idx + 1]
         T = end - start
-        
+
         # Extract sequence view
         xs_seq = xs[start:end]
         weight_loc = weights[seq_idx]
-        
+
         # Local accumulators for this sequence
         local_init = np.zeros(S)
         local_tran = np.zeros((S, S))
         local_emit = np.zeros((W, S))
-        
+
         # Allocate arrays for forward-backward
         log_alpha = np.zeros((T, S))
         log_beta = np.zeros((T, S))
-        
+
         # Run forward-backward
         forward_backward(xs_seq, init_pvec, tran_mat, pmat, log_alpha, log_beta)
-        
+
         # Compute gamma: P(Z_t = z | X, theta)
         log_gamma = log_alpha + log_beta
-        
+
         # Normalize each row
         log_normalizers = np.empty(T)
         logsumexp_2d_rows(log_gamma, log_normalizers)
-        
+
         for t in range(T):
             for j in range(S):
                 log_gamma[t, j] -= log_normalizers[t]
-        
+
         gamma = np.exp(log_gamma)
-        
+
         # Compute xi and accumulate transition counts
         log_xi = np.empty((S, S))
         log_xi_flat = np.empty(S * S)
-        
-        for t in range(T-1):
+
+        for t in range(T - 1):
             # Compute log_xi
             for i in range(S):
                 for j in range(S):
-                    log_xi[i, j] = (log_alpha[t, i] + 
-                                   np.log(tran_mat[i, j]) + 
-                                   np.log(pmat[xs_seq[t+1], j]) + 
-                                   log_beta[t+1, j])
-            
+                    log_xi[i, j] = (
+                        log_alpha[t, i]
+                        + np.log(tran_mat[i, j])
+                        + np.log(pmat[xs_seq[t + 1], j])
+                        + log_beta[t + 1, j]
+                    )
+
             # Flatten for normalization
             for i in range(S):
                 for j in range(S):
                     log_xi_flat[i * S + j] = log_xi[i, j]
-            
+
             log_norm = logsumexp_numba(log_xi_flat)
-            
+
             # Accumulate transition counts
             for i in range(S):
                 for j in range(S):
                     local_tran[i, j] += np.exp(log_xi[i, j] - log_norm) * weight_loc
-        
+
         # Accumulate initial state counts (from first position)
         for j in range(S):
             local_init[j] = gamma[0, j] * weight_loc
-        
+
         # Accumulate emission counts
         for t in range(T):
             obs = xs_seq[t]
             for j in range(S):
                 local_emit[obs, j] += gamma[t, j] * weight_loc
-        
+
         # Add local counts to global using a critical section for thread-safety
         with numba.objmode():
             # Critical section - only one thread can execute this at a time
             for j in range(S):
                 init_counts[j] += local_init[j]
-            
+
             for i in range(S):
                 for j in range(S):
                     tran_counts[i, j] += local_tran[i, j]
-            
+
             for i in range(W):
                 for j in range(S):
                     emit_counts[i, j] += local_emit[i, j]
 
+
 @numba.njit(
-    'void(int64, int64[:], float64[:,:], float64[:], float64[:,:], float64[:], float64[:,:], float64[:,:,:], '
-    'float64[:,:])',
-    parallel=True, fastmath=True)
+    "void(int64, int64[:], float64[:,:], float64[:], float64[:,:], float64[:], float64[:,:], float64[:,:,:], "
+    "float64[:,:])",
+    parallel=True,
+    fastmath=True,
+)
 def numba_baum_welch2(
     num_states: int,
     tz: np.ndarray,
@@ -1177,7 +1319,7 @@ def numba_baum_welch2(
     weights: np.ndarray,
     alpha_loc: np.ndarray,
     xi_acc: np.ndarray,
-    pi_acc: np.ndarray
+    pi_acc: np.ndarray,
 ) -> None:
     """Parallelized Baum-Welch forward-backward algorithm for HMM parameter estimation.
 
@@ -1273,13 +1415,23 @@ def numba_baum_welch2(
         for i in range(num_states):
             pi_acc[n, i] += alpha_loc[s0, i]
 
+
 @numba.njit(
-    'void(int64[:], int64[:], float64[:], int64[:], float64[:], float64[:], float64[:,:], float64[:,:])',
-    fastmath=True
+    "void(int64[:], int64[:], float64[:], int64[:], float64[:], float64[:], float64[:,:], float64[:,:])",
+    fastmath=True,
 )
-def fast_seq_initialize(xs: np.ndarray, tz: np.ndarray, weights: np.ndarray, states: np.ndarray, icnts: np.ndarray, scnts: np.ndarray, tcnts: np.ndarray, wcnts: np.ndarray) -> None:
+def fast_seq_initialize(
+    xs: np.ndarray,
+    tz: np.ndarray,
+    weights: np.ndarray,
+    states: np.ndarray,
+    icnts: np.ndarray,
+    scnts: np.ndarray,
+    tcnts: np.ndarray,
+    wcnts: np.ndarray,
+) -> None:
     """Process data sequentially to ensure deterministic results.
-    
+
     Args:
         xs: Flattened array of observations
         tz: Cumulative indices marking sequence boundaries
@@ -1292,7 +1444,7 @@ def fast_seq_initialize(xs: np.ndarray, tz: np.ndarray, weights: np.ndarray, sta
     """
     num_words, num_states = wcnts.shape
     num_sequences = len(tz) - 1
-    
+
     # Process data sequentially to ensure deterministic results
     for n in range(num_sequences):
         s0 = tz[n]
@@ -1300,7 +1452,7 @@ def fast_seq_initialize(xs: np.ndarray, tz: np.ndarray, weights: np.ndarray, sta
 
         if s0 == s1:
             continue
-        
+
         local_tran = np.zeros((num_states, num_states))
         local_init = np.zeros(num_states)
         local_wcnts = np.zeros((num_words, num_states))
@@ -1308,66 +1460,75 @@ def fast_seq_initialize(xs: np.ndarray, tz: np.ndarray, weights: np.ndarray, sta
         for i in range(s0, s1):
             # Update buffers for this sequence directly
             local_wcnts[xs[i], states[i]] += weights[n]
-            
+
             if i == s0:
                 local_init[states[i]] += weights[n]
             else:
-                local_tran[states[i-1], states[i]] += weights[n]
+                local_tran[states[i - 1], states[i]] += weights[n]
 
         # Add local counts to global accumulation
         for j in range(num_states):
             icnts[j] += local_init[j]
-        
+
         for i in range(num_states):
             for j in range(num_states):
                 tcnts[i, j] += local_tran[i, j]
-        
+
         for i in range(num_words):
             for j in range(num_states):
                 wcnts[i, j] += local_wcnts[i, j]
 
+
 @numba.njit(
-    'void(int64[:], int64[:], float64[:,:], float64[:], float64[:,:], float64[:])',
-    fastmath=True, cache=True, parallel=True
+    "void(int64[:], int64[:], float64[:,:], float64[:], float64[:,:], float64[:])",
+    fastmath=True,
+    cache=True,
+    parallel=True,
 )
-def fast_log_density(xs: np.ndarray, tz: np.ndarray, log_pmat: np.ndarray, 
-                     log_pi: np.ndarray, log_A: np.ndarray, out: np.ndarray) -> None:
+def fast_log_density(
+    xs: np.ndarray,
+    tz: np.ndarray,
+    log_pmat: np.ndarray,
+    log_pi: np.ndarray,
+    log_A: np.ndarray,
+    out: np.ndarray,
+) -> None:
     """
     Compute log density of sequences for an HMM with categorical emissions.
-    
+
     Parameters:
     -----------
     xs : flattened array of observations
     tz : cumulative indices marking sequence boundaries
     log_pmat : array (V, S) - log emission probabilities
-    log_pi : array (S,) - log initial state probabilities  
+    log_pi : array (S,) - log initial state probabilities
     log_A : array (S, S) - log transition probabilities
     out : array (n,) - output log densities
     """
     num_states = log_pi.shape[0]
-    
+
     for n in numba.prange(len(tz) - 1):
         s0 = tz[n]
         s1 = tz[n + 1]
         sz = s1 - s0
-        
+
         if sz == 0:
             out[n] = 0.0
             continue
-        
+
         # Allocate forward variables (reuse across time steps)
         log_alpha_prev = np.empty(num_states)
         log_alpha_curr = np.empty(num_states)
-        
+
         # Initial step
         x0 = xs[s0]
         for s in range(num_states):
             log_alpha_prev[s] = log_pi[s] + log_pmat[x0, s]
-        
+
         # Forward recursion
         for t in range(1, sz):
             xt = xs[s0 + t]
-            
+
             for s in range(num_states):
                 # Compute log-sum-exp more efficiently
                 max_val = log_alpha_prev[0] + log_A[0, s]
@@ -1375,24 +1536,26 @@ def fast_log_density(xs: np.ndarray, tz: np.ndarray, log_pmat: np.ndarray,
                     val = log_alpha_prev[s_prev] + log_A[s_prev, s]
                     if val > max_val:
                         max_val = val
-                
+
                 sum_exp = 0.0
                 for s_prev in range(num_states):
-                    sum_exp += np.exp(log_alpha_prev[s_prev] + log_A[s_prev, s] - max_val)
-                
+                    sum_exp += np.exp(
+                        log_alpha_prev[s_prev] + log_A[s_prev, s] - max_val
+                    )
+
                 log_alpha_curr[s] = max_val + np.log(sum_exp) + log_pmat[xt, s]
-            
+
             # Swap buffers
             log_alpha_prev, log_alpha_curr = log_alpha_curr, log_alpha_prev
-        
+
         # Final probability (log-sum-exp over final states)
         max_val = log_alpha_prev[0]
         for s in range(1, num_states):
             if log_alpha_prev[s] > max_val:
                 max_val = log_alpha_prev[s]
-        
+
         sum_exp = 0.0
         for s in range(num_states):
             sum_exp += np.exp(log_alpha_prev[s] - max_val)
-        
+
         out[n] = max_val + np.log(sum_exp)

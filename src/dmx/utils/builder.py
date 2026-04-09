@@ -1,5 +1,7 @@
 """Helper functions for building RDD for pyspark estimation."""
+
 from dmx.stats import *
+
 
 def read_index_csv(filename: str):
     """
@@ -9,11 +11,11 @@ def read_index_csv(filename: str):
         filename (str): Path to the CSV file.
 
     Returns:
-        list: A list of tuples, where each tuple contains four elements 
+        list: A list of tuples, where each tuple contains four elements
         extracted from the CSV file (index, name, lambda expression, distribution).
     """
-    with open(filename, 'r') as fin:
-        lines = map(lambda v: v.split('#', 1)[0].split(',', 3), fin.read().split('\n'))
+    with open(filename, "r") as fin:
+        lines = map(lambda v: v.split("#", 1)[0].split(",", 3), fin.read().split("\n"))
     lines = filter(lambda v: len(v) == 4, lines)
     return list(lines)
 
@@ -23,7 +25,7 @@ def get_indexed_rdd_pne(field_info=None, filename=None):
     Creates an indexed RDD parser and estimator based on field information.
 
     Args:
-        field_info (list, optional): List of tuples containing field information 
+        field_info (list, optional): List of tuples containing field information
         (index, name, lambda expression, distribution). Defaults to None.
         filename (str, optional): Path to the CSV file containing field information. Defaults to None.
 
@@ -44,8 +46,8 @@ def get_indexed_rdd_pne(field_info=None, filename=None):
         Returns:
             function: A lambda function to process the entry.
         """
-        if mapstr != '':
-            temp_lambda_0 = eval('lambda x: ' + mapstr)
+        if mapstr != "":
+            temp_lambda_0 = eval("lambda x: " + mapstr)
             temp_lambda = lambda u: temp_lambda_0(u[idx])
         else:
             temp_lambda = lambda u: u[idx]
@@ -74,7 +76,7 @@ def get_indexed_rdd_pne(field_info=None, filename=None):
         Returns:
             tuple or None: A tuple of parsed values, or None if the line is invalid.
         """
-        parts = line.split(',')
+        parts = line.split(",")
         if len(parts) < (max_idx + 1):
             return None
         return tuple([parser(parts) for parser in parser_list])

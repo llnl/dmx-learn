@@ -16,23 +16,38 @@ by the length distribution density.
 Note if len(x) = 0, only log(P_len(0)) is returned.
 
 """
+
+from typing import Any, Dict, Iterable, List, Optional, Tuple, TypeVar, Union
+
 import numpy as np
+from numpy.random import RandomState
+from scipy.sparse import dok_matrix
+
 from dmx.arithmetic import *
 from dmx.arithmetic import maxrandint
-from numpy.random import RandomState
-from dmx.stats.pdist import SequenceEncodableProbabilityDistribution, SequenceEncodableStatisticAccumulator, \
-    ParameterEstimator, DataSequenceEncoder, DistributionSampler, StatisticAccumulatorFactory, EncodedDataSequence
+from dmx.stats.null_dist import (
+    NullAccumulator,
+    NullAccumulatorFactory,
+    NullDataEncoder,
+    NullDistribution,
+    NullEstimator,
+)
+from dmx.stats.pdist import (
+    DataSequenceEncoder,
+    DistributionSampler,
+    EncodedDataSequence,
+    ParameterEstimator,
+    SequenceEncodableProbabilityDistribution,
+    SequenceEncodableStatisticAccumulator,
+    StatisticAccumulatorFactory,
+)
 
-from dmx.stats.null_dist import NullDistribution, NullAccumulator, NullDataEncoder, NullEstimator, \
-    NullAccumulatorFactory
-
-from scipy.sparse import dok_matrix
-from typing import Optional, Dict, Union, Tuple, List, Any, TypeVar, Iterable
-
-T = TypeVar('T')  ### state type
-T1 = TypeVar('T1')  ### Type for length distribution sufficient statsitics value.
+T = TypeVar("T")  ### state type
+T1 = TypeVar("T1")  ### Type for length distribution sufficient statsitics value.
 suff_stat_type = Tuple[Dict[T, float], Dict[T, Dict[T, float]], Optional[Any]]
-enc_data_type = Tuple[int, np.ndarray, np.ndarray, np.ndarray, np.ndarray, np.ndarray, np.ndarray, Any]
+enc_data_type = Tuple[
+    int, np.ndarray, np.ndarray, np.ndarray, np.ndarray, np.ndarray, np.ndarray, Any
+]
 
 
 class MarkovChainDistribution(SequenceEncodableProbabilityDistribution):
@@ -61,9 +76,17 @@ class MarkovChainDistribution(SequenceEncodableProbabilityDistribution):
 
     """
 
-    def __init__(self, init_prob_map: Dict[T, float], transition_map: Dict[T, Dict[T, float]],
-                 len_dist: Optional[SequenceEncodableProbabilityDistribution] = NullDistribution(),
-                 default_value: float = 0.0, name: Optional[str] = None, keys: Optional[str] = None) -> None:
+    def __init__(
+        self,
+        init_prob_map: Dict[T, float],
+        transition_map: Dict[T, Dict[T, float]],
+        len_dist: Optional[
+            SequenceEncodableProbabilityDistribution
+        ] = NullDistribution(),
+        default_value: float = 0.0,
+        name: Optional[str] = None,
+        keys: Optional[str] = None,
+    ) -> None:
         """MarkovChainDistribution object.
 
         Args:
@@ -81,16 +104,27 @@ class MarkovChainDistribution(SequenceEncodableProbabilityDistribution):
         self.transition_map = transition_map
         self.len_dist = len_dist if len_dist is not None else NullDistribution()
 
-        self.all_vals = set(init_prob_map.keys()).union(
-            set([v for u in transition_map.values() for v in u.keys()])).union(transition_map.keys())
-        self.loginit_prob_map = {u[0]: -np.inf if u[1] == 0.0 else log(u[1]) for u in init_prob_map.items()}
+        self.all_vals = (
+            set(init_prob_map.keys())
+            .union(set([v for u in transition_map.values() for v in u.keys()]))
+            .union(transition_map.keys())
+        )
+        self.loginit_prob_map = {
+            u[0]: -np.inf if u[1] == 0.0 else log(u[1]) for u in init_prob_map.items()
+        }
 
         self.log_transition_map = dict(
-            (key, dict((u[0], log(u[1])) for u in transition_map[key].items())) for key in transition_map.keys())
+            (key, dict((u[0], log(u[1])) for u in transition_map[key].items()))
+            for key in transition_map.keys()
+        )
 
         self.default_value = max(min(default_value, 1.0), 0.0)
         self.log_dv = -np.inf if default_value == 0.0 else log(self.default_value)
-        self.log_dtv = -np.inf if default_value == 0.0 else (log(default_value) - np.log(len(self.all_vals) + 1))
+        self.log_dtv = (
+            -np.inf
+            if default_value == 0.0
+            else (log(default_value) - np.log(len(self.all_vals) + 1))
+        )
         self.log1p_dv = log(one + self.default_value)
 
         num_keys = len(self.all_vals)
@@ -107,23 +141,34 @@ class MarkovChainDistribution(SequenceEncodableProbabilityDistribution):
         self.trans_log_pvec = dok_matrix((num_keys + 1, num_keys + 1))
 
         for k1, v1 in init_prob_map.items():
-            self.init_log_pvec[self.key_map.get(k1, 0.0)] = -np.inf if v1 == 0.0 else np.log(v1)
+            self.init_log_pvec[self.key_map.get(k1, 0.0)] = (
+                -np.inf if v1 == 0.0 else np.log(v1)
+            )
 
         for k1, v1 in transition_map.items():
             k1_idx = self.key_map.get(k1, 0)
             for k2, v2 in v1.items():
-                self.trans_log_pvec[k1_idx, self.key_map.get(k2, 0)] = -np.inf if v2 == 0 else np.log(v2)
+                self.trans_log_pvec[k1_idx, self.key_map.get(k2, 0)] = (
+                    -np.inf if v2 == 0 else np.log(v2)
+                )
 
         self.init_log_pvec[0] = self.log_dv
         self.trans_log_pvec[:, 0] = self.log_dv
         self.trans_log_pvec[0, :] = self.log_dv - np.log(num_keys + 1)
-        self.keys = keys 
+        self.keys = keys
 
     def __eq__(self, other: SequenceEncodableProbabilityDistribution):
         if not isinstance(other, MarkovChainDistribution):
             return False
 
-        names = ['name', 'keys', 'init_prob_map', 'transition_map', 'len_dist', 'default_value']
+        names = [
+            "name",
+            "keys",
+            "init_prob_map",
+            "transition_map",
+            "len_dist",
+            "default_value",
+        ]
         for x in names:
             try:
                 v0 = getattr(other, x)
@@ -134,19 +179,23 @@ class MarkovChainDistribution(SequenceEncodableProbabilityDistribution):
             if not np.all(v0 == v1):
                 return False
         return True
-            
 
     def __str__(self):
         s1 = dict(sorted(self.init_prob_map.items(), key=lambda u: u[0]))
-        s1 = {k: float(v) for k, v in s1.items()} 
+        s1 = {k: float(v) for k, v in s1.items()}
         temp = sorted(self.transition_map.items(), key=lambda u: u[0])
-        s2 = repr(dict([(k, dict(sorted(v.items(), key=lambda u: u[0]))) for k, v in temp]))
+        s2 = repr(
+            dict([(k, dict(sorted(v.items(), key=lambda u: u[0]))) for k, v in temp])
+        )
         s3 = str(self.len_dist)
         s4 = repr(self.default_value)
         s5 = repr(self.name)
         s6 = repr(self.keys)
 
-        return 'MarkovChainDistribution(%s, %s, len_dist=%s, default_value=%s, name=%s, keys=%s)' % (s1, s2, s3, s4, s5, s6)
+        return (
+            "MarkovChainDistribution(%s, %s, len_dist=%s, default_value=%s, name=%s, keys=%s)"
+            % (s1, s2, s3, s4, s5, s6)
+        )
 
     def density(self, x: List[T]) -> float:
         """Return density of MarkovChainDistribution at observed sequence x.
@@ -179,7 +228,10 @@ class MarkovChainDistribution(SequenceEncodableProbabilityDistribution):
 
             for i in range(1, len(x)):
                 if x[i - 1] in self.log_transition_map:
-                    rv += self.log_transition_map[x[i - 1]].get(x[i], self.log_dv) - self.log1p_dv
+                    rv += (
+                        self.log_transition_map[x[i - 1]].get(x[i], self.log_dv)
+                        - self.log1p_dv
+                    )
                 else:
                     rv += self.log_dtv - self.log1p_dv
 
@@ -187,15 +239,22 @@ class MarkovChainDistribution(SequenceEncodableProbabilityDistribution):
 
         return rv
 
-    def seq_log_density(self, x: 'MarkovChainEncodedDataSequence') -> np.ndarray:
+    def seq_log_density(self, x: "MarkovChainEncodedDataSequence") -> np.ndarray:
         if not isinstance(x, MarkovChainEncodedDataSequence):
-            raise Exception('MarkovChainEncodedDataSequence required for seq_log_density().')
+            raise Exception(
+                "MarkovChainEncodedDataSequence required for seq_log_density()."
+            )
 
         sz, idx0, idx1, init_x, prev_x, next_x, inv_key_map, len_enc = x.data
 
         loc_key_map = np.asarray([self.key_map.get(u, 0) for u in inv_key_map])
 
-        temp = self.trans_log_pvec[loc_key_map[prev_x], loc_key_map[next_x]].toarray().flatten() - self.log1p_dv
+        temp = (
+            self.trans_log_pvec[loc_key_map[prev_x], loc_key_map[next_x]]
+            .toarray()
+            .flatten()
+            - self.log1p_dv
+        )
         rv = np.bincount(idx1, weights=temp, minlength=sz)
         rv[idx0] += self.init_log_pvec[loc_key_map[init_x]] - self.log1p_dv
 
@@ -204,15 +263,20 @@ class MarkovChainDistribution(SequenceEncodableProbabilityDistribution):
 
         return rv
 
-    def sampler(self, seed: Optional[int] = None) -> 'MarkovChainSampler':
+    def sampler(self, seed: Optional[int] = None) -> "MarkovChainSampler":
         return MarkovChainSampler(self, seed)
 
-    def estimator(self, pseudo_count: Optional[float] = None) -> 'MarkovChainEstimator':
+    def estimator(self, pseudo_count: Optional[float] = None) -> "MarkovChainEstimator":
 
         len_est = self.len_dist.estimator(pseudo_count=pseudo_count)
-        return MarkovChainEstimator(pseudo_count=pseudo_count, len_estimator=len_est, name=self.name, keys=self.keys)
+        return MarkovChainEstimator(
+            pseudo_count=pseudo_count,
+            len_estimator=len_est,
+            name=self.name,
+            keys=self.keys,
+        )
 
-    def dist_to_encoder(self) -> 'MarkovChainDataEncoder':
+    def dist_to_encoder(self) -> "MarkovChainDataEncoder":
         len_encoder = self.len_dist.dist_to_encoder()
         return MarkovChainDataEncoder(len_encoder=len_encoder)
 
@@ -230,7 +294,9 @@ class MarkovChainSampler(DistributionSampler):
 
     """
 
-    def __init__(self, dist: 'MarkovChainDistribution', seed: Optional[int] = None) -> None:
+    def __init__(
+        self, dist: "MarkovChainDistribution", seed: Optional[int] = None
+    ) -> None:
         """MarkovChainSampler object.
 
         Args:
@@ -276,8 +342,7 @@ class MarkovChainSampler(DistributionSampler):
             rv = [None] * cnt
 
             if cnt >= 1:
-                rv[0] = self.rng.choice(self.init_prob[0],
-                                        p=self.init_prob[1]).tolist()
+                rv[0] = self.rng.choice(self.init_prob[0], p=self.init_prob[1]).tolist()
 
             for i in range(1, cnt):
                 curr_k, curr_p = self.trans_prob[rv[i - 1]]
@@ -285,7 +350,9 @@ class MarkovChainSampler(DistributionSampler):
 
             return rv
 
-    def sample_seq(self, size: Optional[int] = None, v0: Optional[T] = None) -> Union[T, List[T]]:
+    def sample_seq(
+        self, size: Optional[int] = None, v0: Optional[T] = None
+    ) -> Union[T, List[T]]:
         """Sample a Markov chain sequence of length 'size' conditioned on initial state 'v0'.
 
         If size is None, draw a sequence of length 1, returning as type T.
@@ -309,8 +376,7 @@ class MarkovChainSampler(DistributionSampler):
             prev_val = v0
 
             if size > 0 and prev_val is None:
-                rv[0] = self.rng.choice(self.init_prob[0],
-                                        p=self.init_prob[1]).tolist()
+                rv[0] = self.rng.choice(self.init_prob[0], p=self.init_prob[1]).tolist()
                 prev_val = rv[0]
 
             for i in range(1, size):
@@ -328,8 +394,7 @@ class MarkovChainSampler(DistributionSampler):
             prev_val = v0
 
             if prev_val is None:
-                rv = self.rng.choice(self.init_prob[0],
-                                     p=self.init_prob[1]).tolist()
+                rv = self.rng.choice(self.init_prob[0], p=self.init_prob[1]).tolist()
             else:
                 levels, probs = self.trans_prob[prev_val]
                 rv = self.rng.choice(levels, p=probs).tolist()
@@ -347,30 +412,39 @@ class MarkovChainAccumulator(SequenceEncodableStatisticAccumulator):
         len_accumulator (SequenceEncodableStatisticAccumulator): SequenceEncodableStatisticAccumulator
             object for accumulating sufficient statistics of length distribution for length of Markov sequences.
             Set to NullAccumulator() if no length distribution is to be estimated.
-        name (Optional[str]): Name for object. 
+        name (Optional[str]): Name for object.
         keys (Optional[str]): Keys for merging sufficient statistics of MarkovChainAccumulator.
 
     """
 
-    def __init__(self, len_accumulator: Optional[SequenceEncodableStatisticAccumulator] = NullAccumulator(),
-                 name: Optional[str] = None,
-                 keys: Optional[str] = None) -> None:
+    def __init__(
+        self,
+        len_accumulator: Optional[
+            SequenceEncodableStatisticAccumulator
+        ] = NullAccumulator(),
+        name: Optional[str] = None,
+        keys: Optional[str] = None,
+    ) -> None:
         """MarkovChainAccumulator object.
 
         Args:
             len_accumulator (Optional[SequenceEncodableStatisticAccumulator]): SequenceEncodableStatisticAccumulator
                 object for accumulating sufficient statistics of length distribution for length of Markov sequences.
-            name (Optional[str]): Name for object. 
+            name (Optional[str]): Name for object.
             keys (Optional[str]): Set keys for merging sufficient statistics of MarkovChainAccumulator.
 
         """
         self.init_count_map = dict()
         self.trans_count_map = dict()
-        self.len_accumulator = len_accumulator if len_accumulator is not None else NullAccumulator()
-        self.name = name 
+        self.len_accumulator = (
+            len_accumulator if len_accumulator is not None else NullAccumulator()
+        )
+        self.name = name
         self.keys = keys
 
-    def update(self, x: List[T], weight: float, estimate: MarkovChainDistribution) -> None:
+    def update(
+        self, x: List[T], weight: float, estimate: MarkovChainDistribution
+    ) -> None:
         if x is not None:
             self.len_accumulator.update(len(x), weight, estimate.len_dist)
 
@@ -382,7 +456,9 @@ class MarkovChainAccumulator(SequenceEncodableStatisticAccumulator):
                 if x0 not in self.trans_count_map:
                     self.trans_count_map[x0] = dict()
 
-                self.trans_count_map[x0][u] = self.trans_count_map[x0].get(u, zero) + weight
+                self.trans_count_map[x0][u] = (
+                    self.trans_count_map[x0].get(u, zero) + weight
+                )
                 x0 = u
 
     def initialize(self, x: List[T], weight: float, rng: RandomState) -> None:
@@ -397,10 +473,14 @@ class MarkovChainAccumulator(SequenceEncodableStatisticAccumulator):
                 if x0 not in self.trans_count_map:
                     self.trans_count_map[x0] = dict()
 
-                self.trans_count_map[x0][u] = self.trans_count_map[x0].get(u, zero) + weight
+                self.trans_count_map[x0][u] = (
+                    self.trans_count_map[x0].get(u, zero) + weight
+                )
                 x0 = u
 
-    def seq_initialize(self, x: 'MarkovChainEncodedDataSequence', weights: np.ndarray, rng: RandomState) -> None:
+    def seq_initialize(
+        self, x: "MarkovChainEncodedDataSequence", weights: np.ndarray, rng: RandomState
+    ) -> None:
         sz, idx0, idx1, init_x, prev_x, next_x, inv_key_map, len_enc = x.data
         self.len_accumulator.seq_initialize(len_enc, weights, rng)
 
@@ -411,9 +491,11 @@ class MarkovChainAccumulator(SequenceEncodableStatisticAccumulator):
         for i in range(len(init_count)):
             v = init_count[i]
             if v != 0:
-                self.init_count_map[inv_key_map[i]] = self.init_count_map.get(inv_key_map[i], 0.0) + v
+                self.init_count_map[inv_key_map[i]] = (
+                    self.init_count_map.get(inv_key_map[i], 0.0) + v
+                )
 
-        '''
+        """
         trans_count = np.bincount(prev_x*key_sz + next_x, weights=weights[idx1], minlength=key_sz*key_sz)
         trans_count = np.reshape(trans_count, (key_sz, key_sz))
         trans_count_nz1, trans_count_nz2 = np.nonzero(trans_count)
@@ -429,7 +511,7 @@ class MarkovChainAccumulator(SequenceEncodableStatisticAccumulator):
             else:
                 m = self.trans_count_map[k1]
                 m[k2] = m.get(k2,0.0) + trans_count[j1,j2]
-        '''
+        """
 
         # ------------- slow and sparse...
 
@@ -446,7 +528,12 @@ class MarkovChainAccumulator(SequenceEncodableStatisticAccumulator):
 
         # ------------- slow and sparse...
 
-    def seq_update(self, x: 'MarkovChainEncodedDataSequence', weights: np.ndarray, estimate: MarkovChainDistribution) -> None:
+    def seq_update(
+        self,
+        x: "MarkovChainEncodedDataSequence",
+        weights: np.ndarray,
+        estimate: MarkovChainDistribution,
+    ) -> None:
 
         sz, idx0, idx1, init_x, prev_x, next_x, inv_key_map, len_enc = x.data
 
@@ -457,9 +544,11 @@ class MarkovChainAccumulator(SequenceEncodableStatisticAccumulator):
         for i in range(len(init_count)):
             v = init_count[i]
             if v != 0:
-                self.init_count_map[inv_key_map[i]] = self.init_count_map.get(inv_key_map[i], 0.0) + v
+                self.init_count_map[inv_key_map[i]] = (
+                    self.init_count_map.get(inv_key_map[i], 0.0) + v
+                )
 
-        '''
+        """
         trans_count = np.bincount(prev_x*key_sz + next_x, weights=weights[idx1], minlength=key_sz*key_sz)
         trans_count = np.reshape(trans_count, (key_sz, key_sz))
         trans_count_nz1, trans_count_nz2 = np.nonzero(trans_count)
@@ -475,7 +564,7 @@ class MarkovChainAccumulator(SequenceEncodableStatisticAccumulator):
             else:
                 m = self.trans_count_map[k1]
                 m[k2] = m.get(k2,0.0) + trans_count[j1,j2]
-        '''
+        """
 
         # ------------- slow and sparse...
 
@@ -493,10 +582,12 @@ class MarkovChainAccumulator(SequenceEncodableStatisticAccumulator):
         # ------------- slow and sparse...
         self.len_accumulator.seq_update(len_enc, weights, estimate.len_dist)
 
-    def combine(self, suff_stat: suff_stat_type) -> 'MarkovChainAccumulator':
+    def combine(self, suff_stat: suff_stat_type) -> "MarkovChainAccumulator":
 
         for item in suff_stat[0].items():
-            self.init_count_map[item[0]] = self.init_count_map.get(item[0], 0.0) + item[1]
+            self.init_count_map[item[0]] = (
+                self.init_count_map.get(item[0], 0.0) + item[1]
+            )
 
         for item in suff_stat[1].items():
             if item[0] not in self.trans_count_map:
@@ -514,7 +605,7 @@ class MarkovChainAccumulator(SequenceEncodableStatisticAccumulator):
 
         return self.init_count_map, self.trans_count_map, self.len_accumulator.value()
 
-    def from_value(self, x: suff_stat_type) -> 'MarkovChainAccumulator':
+    def from_value(self, x: suff_stat_type) -> "MarkovChainAccumulator":
 
         self.init_count_map = x[0]
         self.trans_count_map = x[1]
@@ -522,7 +613,7 @@ class MarkovChainAccumulator(SequenceEncodableStatisticAccumulator):
 
         return self
 
-    def key_merge(self, stats_dict: Dict[str, 'MarkovChainAccumulator']) -> None:
+    def key_merge(self, stats_dict: Dict[str, "MarkovChainAccumulator"]) -> None:
 
         if self.keys is not None:
             if self.keys in stats_dict:
@@ -531,13 +622,13 @@ class MarkovChainAccumulator(SequenceEncodableStatisticAccumulator):
             else:
                 stats_dict[self.keys] = self
 
-    def key_replace(self, stats_dict: Dict[str, 'MarkovChainAccumulator']) -> None:
+    def key_replace(self, stats_dict: Dict[str, "MarkovChainAccumulator"]) -> None:
 
         if self.keys is not None:
             if self.keys in stats_dict:
                 self.from_value(stats_dict[self.keys].value())
 
-    def acc_to_encoder(self) -> 'MarkovChainDataEncoder':
+    def acc_to_encoder(self) -> "MarkovChainDataEncoder":
         len_encoder = self.len_accumulator.acc_to_encoder()
         return MarkovChainDataEncoder(len_encoder=len_encoder)
 
@@ -548,20 +639,23 @@ class MarkovChainAccumulatorFactory(StatisticAccumulatorFactory):
     Attributes:
         len_factory (StatisticAccumulatorFactory): StatisticAccumulatorFactory object for the length distribution
             of Markov chain sequences. Set to NullAccumulatorFactory if no length distribution is to be estimated.
-        name (Optional[str]): Name for object. 
+        name (Optional[str]): Name for object.
         keys (Optional[str]): Keys for merging sufficient statistics of MarkovChainAccumulator.
 
     """
 
-    def __init__(self, len_factory: StatisticAccumulatorFactory = NullAccumulatorFactory(),
-                 name: Optional[str] = None, 
-                 keys: Optional[str] = None) -> None:
+    def __init__(
+        self,
+        len_factory: StatisticAccumulatorFactory = NullAccumulatorFactory(),
+        name: Optional[str] = None,
+        keys: Optional[str] = None,
+    ) -> None:
         """MarkovChainAccumulatorFactory object.
 
         Args:
             len_factory (StatisticAccumulatorFactory): StatisticAccumulatorFactory object for the length distribution
                 of Markov chain sequences.
-            name (Optional[str]): Name for object. 
+            name (Optional[str]): Name for object.
             keys (Optional[str]): Set keys for merging sufficient statistics of MarkovChainAccumulator.
 
         """
@@ -569,9 +663,11 @@ class MarkovChainAccumulatorFactory(StatisticAccumulatorFactory):
         self.name = name
         self.keys = keys
 
-    def make(self) -> 'MarkovChainAccumulator':
+    def make(self) -> "MarkovChainAccumulator":
         len_acc = self.len_factory.make()
-        return MarkovChainAccumulator(len_accumulator=len_acc, keys=self.keys, name=self.name)
+        return MarkovChainAccumulator(
+            len_accumulator=len_acc, keys=self.keys, name=self.name
+        )
 
 
 class MarkovChainEstimator(ParameterEstimator):
@@ -586,11 +682,14 @@ class MarkovChainEstimator(ParameterEstimator):
 
     """
 
-    def __init__(self, pseudo_count: Optional[float] = None,
-                 levels: Optional[Iterable[T]] = None,
-                 len_estimator: Optional[ParameterEstimator] = NullEstimator(),
-                 name: Optional[str] = None,
-                 keys: Optional[str] = None) -> None:
+    def __init__(
+        self,
+        pseudo_count: Optional[float] = None,
+        levels: Optional[Iterable[T]] = None,
+        len_estimator: Optional[ParameterEstimator] = NullEstimator(),
+        name: Optional[str] = None,
+        keys: Optional[str] = None,
+    ) -> None:
         """MarkovChainEstimator object.
 
         Args:
@@ -604,19 +703,29 @@ class MarkovChainEstimator(ParameterEstimator):
         self.name = name
         self.pseudo_count = pseudo_count
         self.levels = levels
-        self.len_estimator = len_estimator if len_estimator is not None else NullEstimator()
+        self.len_estimator = (
+            len_estimator if len_estimator is not None else NullEstimator()
+        )
         self.keys = keys
 
-    def accumulator_factory(self) -> 'MarkovChainAccumulatorFactory':
-        return MarkovChainAccumulatorFactory(len_factory=self.len_estimator.accumulator_factory(), keys=self.keys, name=self.name)
+    def accumulator_factory(self) -> "MarkovChainAccumulatorFactory":
+        return MarkovChainAccumulatorFactory(
+            len_factory=self.len_estimator.accumulator_factory(),
+            keys=self.keys,
+            name=self.name,
+        )
 
-    def estimate(self, nobs: Optional[float], suff_stat: suff_stat_type) -> 'MarkovChainDistribution':
+    def estimate(
+        self, nobs: Optional[float], suff_stat: suff_stat_type
+    ) -> "MarkovChainDistribution":
         if self.pseudo_count is not None:
             return self.estimate1(nobs, suff_stat)
         else:
             return self.estimate0(nobs, suff_stat)
 
-    def estimate0(self, nobs: Optional[float], suff_stat: suff_stat_type) -> 'MarkovChainDistribution':
+    def estimate0(
+        self, nobs: Optional[float], suff_stat: suff_stat_type
+    ) -> "MarkovChainDistribution":
         """Estimate MarkovChainDistribution from aggregated sufficient statistics from observed data.
 
         Maximum likelihood estimates for initial state probabilities, transition probabilities, and the length
@@ -647,9 +756,13 @@ class MarkovChainEstimator(ParameterEstimator):
 
         len_dist = self.len_estimator.estimate(nobs, suff_stat[2])
 
-        return MarkovChainDistribution(init_prob_map, trans_map, len_dist=len_dist, name=self.name)
+        return MarkovChainDistribution(
+            init_prob_map, trans_map, len_dist=len_dist, name=self.name
+        )
 
-    def estimate1(self, nobs: Optional[float], suff_stat: suff_stat_type) -> 'MarkovChainDistribution':
+    def estimate1(
+        self, nobs: Optional[float], suff_stat: suff_stat_type
+    ) -> "MarkovChainDistribution":
         """Estimate MarkovChainDistribution from aggregated sufficient statistics from observed data.
 
         Maximum likelihood estimates for initial state probabilities, transition probabilities, and the length
@@ -684,31 +797,42 @@ class MarkovChainEstimator(ParameterEstimator):
         p_cnt1 = p_cnt0 / len(all_keys)
 
         if (temp_sum + p_cnt0) > 0:
-            init_prob_map = {k: (suff_stat[0].get(k, 0.0) + p_cnt1) / (temp_sum + p_cnt0) for k in all_keys}
+            init_prob_map = {
+                k: (suff_stat[0].get(k, 0.0) + p_cnt1) / (temp_sum + p_cnt0)
+                for k in all_keys
+            }
 
         a_sum = temp_sum
         for key, tmap in suff_stat[1].items():
             temp_sum = sum(tmap.values())
             a_sum += temp_sum
             if (temp_sum + p_cnt0) > 0:
-                trans_map[key] = {k: (tmap.get(k, 0.0) + p_cnt1) / (temp_sum + p_cnt0) for k in all_keys}
+                trans_map[key] = {
+                    k: (tmap.get(k, 0.0) + p_cnt1) / (temp_sum + p_cnt0)
+                    for k in all_keys
+                }
 
         len_dist = self.len_estimator.estimate(nobs, suff_stat[2])
 
         if a_sum > 0:
             def_val = self.pseudo_count / a_sum
 
-        return MarkovChainDistribution(init_prob_map, trans_map, len_dist=len_dist, default_value=def_val,
-                                       name=self.name)
+        return MarkovChainDistribution(
+            init_prob_map,
+            trans_map,
+            len_dist=len_dist,
+            default_value=def_val,
+            name=self.name,
+        )
 
 
 class MarkovChainDataEncoder(DataSequenceEncoder):
     """MarkovChainDataEncoder used for sequence encoding data for use with vectorized 'seq_' functions.
 
-     Attributes:
-           len_encoder (DataSequenceEncoder): DataSequenceEncoder object that has support on non-negative integers.
-             Is set to NullDataEncoder() if no length distribution is to be estimated.
-     """
+    Attributes:
+          len_encoder (DataSequenceEncoder): DataSequenceEncoder object that has support on non-negative integers.
+            Is set to NullDataEncoder() if no length distribution is to be estimated.
+    """
 
     def __init__(self, len_encoder: DataSequenceEncoder = NullDataEncoder()) -> None:
         """MarkovChainDataEncoder object.
@@ -720,7 +844,7 @@ class MarkovChainDataEncoder(DataSequenceEncoder):
         self.len_encoder = len_encoder
 
     def __str__(self) -> str:
-        return 'MarkovChainDataEncoder(len_encoder=' + str(self.len_encoder) + ')'
+        return "MarkovChainDataEncoder(len_encoder=" + str(self.len_encoder) + ")"
 
     def __eq__(self, other: object) -> bool:
         if isinstance(other, MarkovChainDataEncoder):
@@ -728,7 +852,7 @@ class MarkovChainDataEncoder(DataSequenceEncoder):
         else:
             return False
 
-    def seq_encode(self, x: List[List[T]]) -> 'MarkovChainEncodedDataSequence':
+    def seq_encode(self, x: List[List[T]]) -> "MarkovChainEncodedDataSequence":
         """Sequence encoding a sequence of iid Markov chain observations with data type T.
 
         The returned value is (rv) is a Tuple of length 8 with entries:
@@ -795,8 +919,16 @@ class MarkovChainDataEncoder(DataSequenceEncoder):
 
         len_enc = self.len_encoder.seq_encode(obs_cnt)
 
-        rv_enc = len(x), entries_idx0, entries_idx1, init_entries, pair_entries[:, 0], pair_entries[:, 1], inv_key_map, \
-                 len_enc
+        rv_enc = (
+            len(x),
+            entries_idx0,
+            entries_idx1,
+            init_entries,
+            pair_entries[:, 0],
+            pair_entries[:, 1],
+            inv_key_map,
+            len_enc,
+        )
 
         return MarkovChainEncodedDataSequence(data=rv_enc)
 
@@ -812,7 +944,19 @@ class MarkovChainEncodedDataSequence(EncodedDataSequence):
 
     """
 
-    def __init__(self, data: Tuple[int, np.ndarray, np.ndarray, np.ndarray, np.ndarray, np.ndarray, np.ndarray, EncodedDataSequence]):
+    def __init__(
+        self,
+        data: Tuple[
+            int,
+            np.ndarray,
+            np.ndarray,
+            np.ndarray,
+            np.ndarray,
+            np.ndarray,
+            np.ndarray,
+            EncodedDataSequence,
+        ],
+    ):
         """MarkovChainEncodedDataSequence object.
 
         Args:
@@ -822,5 +966,4 @@ class MarkovChainEncodedDataSequence(EncodedDataSequence):
         super().__init__(data=data)
 
     def __repr__(self) -> str:
-        return f'MarkovChainEncodedDataSequence(data={self.data})'
-
+        return f"MarkovChainEncodedDataSequence(data={self.data})"
