@@ -1,7 +1,8 @@
 """Tests for ExponentialDistribution and related torch_stats classes."""
-import torch
+
 import numpy as np
-from tests.torch_stats.torch_stats_tests import *
+import torch
+
 from dmx.torch_stats import *
 from dmx.torch_stats.exponential import (
     ExponentialAccumulator,
@@ -9,6 +10,7 @@ from dmx.torch_stats.exponential import (
     ExponentialDataEncoder,
     ExponentialTorchEncodedSequence,
 )
+from tests.torch_stats.torch_stats_tests import *
 
 
 class ExponentialDistributionTestCase(TorchStatsTestClass):
@@ -54,7 +56,9 @@ class ExponentialDistributionTestCase(TorchStatsTestClass):
     def test_sampler_positive(self):
         """All sampled values must be positive (exponential has support on (0, inf))."""
         data = self._dists[0].sampler(seed=1).sample(size=500)
-        self.assertTrue(np.all(np.asarray(data) > 0), "Exponential samples must be positive")
+        self.assertTrue(
+            np.all(np.asarray(data) > 0), "Exponential samples must be positive"
+        )
 
     def test_beta_effect(self):
         """Larger beta must yield larger mean sample value."""

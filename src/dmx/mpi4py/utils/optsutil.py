@@ -1,7 +1,10 @@
 """Helper functions for mpi4py"""
+
 import pickle
 from typing import Any
+
 from mpi4py import MPI
+
 
 def pickle_on_master(x: Any, filename: str) -> None:
     """Function for saving input to pickle file on master node."""

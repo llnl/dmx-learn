@@ -1,10 +1,11 @@
-from typing import TypeVar, Union, Sequence, Dict
+from typing import Dict, Sequence, TypeVar, Union
 
 import numpy as np
 import torch as tn
 
-T = TypeVar('T')
-T1 = TypeVar('T1')
+T = TypeVar("T")
+T1 = TypeVar("T1")
+
 
 def count_by_value(x: Union[Sequence[T], np.ndarray, tn.Tensor]) -> Dict[T, int]:
     """Count the number of observations of a given value in arg 'x'.
@@ -57,8 +58,5 @@ def bincount1(xv, w, nv):
     s, n = w.shape
     idx = tn.arange(s * n)
 
-    col, row = xv[idx % n], tn.divide(idx, n, rounding_mode='floor')
+    col, row = xv[idx % n], tn.divide(idx, n, rounding_mode="floor")
     return tn.bincount(col + n * row, w.flatten(), minlength=nv * s).reshape((s, -1))
-
-
-

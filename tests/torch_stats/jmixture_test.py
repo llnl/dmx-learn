@@ -1,15 +1,17 @@
 """Tests for JointMixtureDistribution and related torch_stats classes."""
-import torch
+
 import numpy as np
 import pytest
-from tests.torch_stats.torch_stats_tests import *
+import torch
+
 from dmx.torch_stats import *
 from dmx.torch_stats.jmixture import (
+    JointMixtureDataEncoder,
     JointMixtureEstimatorAccumulator,
     JointMixtureEstimatorAccumulatorFactory,
-    JointMixtureDataEncoder,
     JointMixtureTorchEncodedSequence,
 )
+from tests.torch_stats.torch_stats_tests import *
 
 
 class JointMixtureDistributionTestCase(TorchStatsTestClass):
@@ -81,15 +83,18 @@ class JointMixtureDistributionTestCase(TorchStatsTestClass):
     def test_accumulator_type(self):
         """factory.make() must return a JointMixtureEstimatorAccumulator."""
         for f in self._factories:
-            self.assertIsInstance(f.make(device=self.device), JointMixtureEstimatorAccumulator)
+            self.assertIsInstance(
+                f.make(device=self.device), JointMixtureEstimatorAccumulator
+            )
 
     def test_sample_is_pair(self):
         """Each sample must be a (x1, x2) pair."""
         for dist in self._dists:
             data = dist.sampler(seed=1).sample(size=20)
             for obs in data:
-                self.assertEqual(len(obs), 2,
-                                 f"Expected (x1, x2) pair, got length {len(obs)}")
+                self.assertEqual(
+                    len(obs), 2, f"Expected (x1, x2) pair, got length {len(obs)}"
+                )
 
     def test_log_density_finite(self):
         """log_density must return finite values for sampled observations."""
@@ -97,4 +102,6 @@ class JointMixtureDistributionTestCase(TorchStatsTestClass):
             data = dist.sampler(seed=1).sample(size=20)
             for obs in data:
                 ll = dist.log_density(obs)
-                self.assertTrue(np.isfinite(ll), f"log_density returned {ll} for obs {obs}")
+                self.assertTrue(
+                    np.isfinite(ll), f"log_density returned {ll} for obs {obs}"
+                )

@@ -1,8 +1,9 @@
 """Tests for DiagonalGaussianDistribution and related torch_stats classes."""
-import torch
+
 import numpy as np
 import pytest
-from tests.torch_stats.torch_stats_tests import *
+import torch
+
 from dmx.torch_stats import *
 from dmx.torch_stats.dmvn import (
     DiagonalGaussianAccumulator,
@@ -10,6 +11,7 @@ from dmx.torch_stats.dmvn import (
     DiagonalGaussianDataEncoder,
     DiagonalGaussianTorchEncodedSequence,
 )
+from tests.torch_stats.torch_stats_tests import *
 
 
 class DiagonalGaussianDistributionTestCase(TorchStatsTestClass):
@@ -50,7 +52,9 @@ class DiagonalGaussianDistributionTestCase(TorchStatsTestClass):
     def test_accumulator_type(self):
         """factory.make() must return a DiagonalGaussianAccumulator."""
         for f in self._factories:
-            self.assertIsInstance(f.make(device=self.device), DiagonalGaussianAccumulator)
+            self.assertIsInstance(
+                f.make(device=self.device), DiagonalGaussianAccumulator
+            )
 
     def test_sample_shape(self):
         """Each sample must be a 1-D array/sequence of the correct dimension."""
@@ -58,8 +62,7 @@ class DiagonalGaussianDistributionTestCase(TorchStatsTestClass):
             data = dist.sampler(seed=1).sample(size=10)
             dim = len(dist.mu)
             for obs in data:
-                self.assertEqual(len(obs), dim,
-                                 f"Expected dim {dim}, got {len(obs)}")
+                self.assertEqual(len(obs), dim, f"Expected dim {dim}, got {len(obs)}")
 
     def test_sample_mean_approx(self):
         """Column-wise mean of samples should be close to mu."""

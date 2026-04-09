@@ -4,23 +4,36 @@ Useful functions for estimating dmx-learn 'SequenceEncodableProbabilityDistribut
 objects.
 
 """
+
 import sys
 import time
+from typing import IO, Any, Callable, List, Optional, Sequence, Tuple, TypeVar, Union
+
 import numpy as np
 from numpy.random import RandomState
 
-from dmx.stats import seq_estimate, seq_log_density_sum, seq_encode, seq_log_density, seq_initialize
-from dmx.stats.pdist import SequenceEncodableProbabilityDistribution, ParameterEstimator, EncodedDataSequence
+from dmx.stats import (
+    seq_encode,
+    seq_estimate,
+    seq_initialize,
+    seq_log_density,
+    seq_log_density_sum,
+)
+from dmx.stats.pdist import (
+    EncodedDataSequence,
+    ParameterEstimator,
+    SequenceEncodableProbabilityDistribution,
+)
 
-from typing import Any, Tuple, List, Union, TypeVar, Optional, IO, Sequence, Callable
-
-T = TypeVar('T')
-E0 = TypeVar('E0')
+T = TypeVar("T")
+E0 = TypeVar("E0")
 
 
-def empirical_kl_divergence(dist1: SequenceEncodableProbabilityDistribution,
-                            dist2: SequenceEncodableProbabilityDistribution, enc_data: List[Tuple[int, Any]]
-                            ) -> Tuple[float, float, float]:
+def empirical_kl_divergence(
+    dist1: SequenceEncodableProbabilityDistribution,
+    dist2: SequenceEncodableProbabilityDistribution,
+    enc_data: List[Tuple[int, Any]],
+) -> Tuple[float, float, float]:
     """Computes the emirical KL-divergence between two densities.
 
     Compute the KL-divergence between dist1 and dist2, for encoded sequence of data. Dists must both have the
@@ -83,7 +96,9 @@ def k_fold_split_index(sz: int, k: int, rng: RandomState) -> np.ndarray:
     return rv
 
 
-def partition_data_index(sz: int, pvec: Union[List[float], np.ndarray], rng: RandomState) -> List[np.ndarray]:
+def partition_data_index(
+    sz: int, pvec: Union[List[float], np.ndarray], rng: RandomState
+) -> List[np.ndarray]:
     """Returns List of np.ndarray[int] containing integers indexes for data partitions proportional to pvec.
 
     Args:
@@ -111,7 +126,9 @@ def partition_data_index(sz: int, pvec: Union[List[float], np.ndarray], rng: Ran
     return rv
 
 
-def partition_data(data: Sequence[T], pvec: Union[List[float], np.ndarray], rng: RandomState) -> List[List[T]]:
+def partition_data(
+    data: Sequence[T], pvec: Union[List[float], np.ndarray], rng: RandomState
+) -> List[List[T]]:
     """Partitions List of data into partitions, each with size equal to the proportion of pvec.
 
     Args:
@@ -130,12 +147,21 @@ def partition_data(data: Sequence[T], pvec: Union[List[float], np.ndarray], rng:
     return [[data[i] for i in u] for u in idx_list]
 
 
-def best_of(data: Optional[Sequence[T]], vdata: Optional[Sequence[T]], est: ParameterEstimator, trials: int,
-            max_its: int, init_p: float, delta: float, rng: RandomState,
-            init_estimator: Optional[ParameterEstimator] = None,
-            enc_data: Optional[List[Tuple[int, E0]]] = None,
-            enc_vdata: Optional[Sequence[Tuple[int, E0]]] = None,
-            out: IO = sys.stdout, print_iter: int = 1) -> Tuple[float, SequenceEncodableProbabilityDistribution]:
+def best_of(
+    data: Optional[Sequence[T]],
+    vdata: Optional[Sequence[T]],
+    est: ParameterEstimator,
+    trials: int,
+    max_its: int,
+    init_p: float,
+    delta: float,
+    rng: RandomState,
+    init_estimator: Optional[ParameterEstimator] = None,
+    enc_data: Optional[List[Tuple[int, E0]]] = None,
+    enc_vdata: Optional[Sequence[Tuple[int, E0]]] = None,
+    out: IO = sys.stdout,
+    print_iter: int = 1,
+) -> Tuple[float, SequenceEncodableProbabilityDistribution]:
     """Performs EM algorithm for trials-number of randomized initial conditions. Returns the best model fit in terms of
         maximum log-likelihood value from validation data.
 
@@ -165,7 +191,7 @@ def best_of(data: Optional[Sequence[T]], vdata: Optional[Sequence[T]], est: Para
     i_est = est if init_estimator is None else init_estimator
 
     if data is None and enc_data is None:
-        raise Exception('Optimization called with empty data or enc_data.')
+        raise Exception("Optimization called with empty data or enc_data.")
 
     if max_its < 1:
         max_its = 1
@@ -192,7 +218,7 @@ def best_of(data: Optional[Sequence[T]], vdata: Optional[Sequence[T]], est: Para
             dll = ll - old_ll
 
             if (i + 1) % print_iter == 0:
-                out.write('Iteration %d. LL=%f, delta LL=%e\n' % (i + 1, ll, dll))
+                out.write("Iteration %d. LL=%f, delta LL=%e\n" % (i + 1, ll, dll))
 
             if (dll >= 0) or (delta is None):
                 mm = mm_next
@@ -203,7 +229,7 @@ def best_of(data: Optional[Sequence[T]], vdata: Optional[Sequence[T]], est: Para
             old_ll = ll
 
         _, vll = seq_log_density_sum(enc_vdata, mm)
-        out.write('Trial %d. VLL=%f\n' % (kk + 1, vll))
+        out.write("Trial %d. VLL=%f\n" % (kk + 1, vll))
 
         if vll > rv_ll:
             rv_mm = mm
@@ -212,15 +238,22 @@ def best_of(data: Optional[Sequence[T]], vdata: Optional[Sequence[T]], est: Para
     return rv_ll, rv_mm
 
 
-def optimize(data: Optional[Sequence[T]], estimator: ParameterEstimator, max_its: int = 10,
-             delta: Optional[float] = 1.0e-9,
-             init_estimator: Optional[ParameterEstimator] = None, init_p: float = 0.1,
-             rng: RandomState = RandomState(), prev_estimate: Optional[SequenceEncodableProbabilityDistribution] = None,
-             vdata: Optional[Sequence[T]] = None,
-             enc_data: Optional[List[Tuple[int, E0]]] = None,
-             enc_vdata: Optional[List[Tuple[int, E0]]] = None,
-             out: IO = sys.stdout,
-             print_iter: int = 1, num_chunks: int = 1) -> SequenceEncodableProbabilityDistribution:
+def optimize(
+    data: Optional[Sequence[T]],
+    estimator: ParameterEstimator,
+    max_its: int = 10,
+    delta: Optional[float] = 1.0e-9,
+    init_estimator: Optional[ParameterEstimator] = None,
+    init_p: float = 0.1,
+    rng: RandomState = RandomState(),
+    prev_estimate: Optional[SequenceEncodableProbabilityDistribution] = None,
+    vdata: Optional[Sequence[T]] = None,
+    enc_data: Optional[List[Tuple[int, E0]]] = None,
+    enc_vdata: Optional[List[Tuple[int, E0]]] = None,
+    out: IO = sys.stdout,
+    print_iter: int = 1,
+    num_chunks: int = 1,
+) -> SequenceEncodableProbabilityDistribution:
     """Estimation of 'estimator' via EM algorithm for max_its iterations or until
         new_loglikelihood - old_loglikelihood < delta.
 
@@ -252,7 +285,7 @@ def optimize(data: Optional[Sequence[T]], estimator: ParameterEstimator, max_its
 
     """
     if data is None and enc_data is None:
-        raise Exception('Optimization called with empty data or enc_data.')
+        raise Exception("Optimization called with empty data or enc_data.")
 
     est = estimator if init_estimator is None else init_estimator
 
@@ -309,21 +342,27 @@ def optimize(data: Optional[Sequence[T]], estimator: ParameterEstimator, max_its
         if (delta is not None) and (dll < delta):
             if enc_vdata is not None:
                 out.write(
-                    'Iteration %d: ln[p_mat(Data|Model)]=%e, ln[p_mat(Data|Model)]-ln[p_mat(Data|PrevModel)]=%e, '
-                    'ln[p_mat(Valid Data|Model)]=%e\n' % (
-                    i + 1, ll, dll, vll))
+                    "Iteration %d: ln[p_mat(Data|Model)]=%e, ln[p_mat(Data|Model)]-ln[p_mat(Data|PrevModel)]=%e, "
+                    "ln[p_mat(Valid Data|Model)]=%e\n" % (i + 1, ll, dll, vll)
+                )
             else:
-                out.write('Iteration %d: ln[p_mat(Data|Model)]=%e, ln[p_mat(Data|Model)]-ln[p_mat(Data|PrevModel)]=%e\n' %
-                          (i + 1, ll, dll))
+                out.write(
+                    "Iteration %d: ln[p_mat(Data|Model)]=%e, ln[p_mat(Data|Model)]-ln[p_mat(Data|PrevModel)]=%e\n"
+                    % (i + 1, ll, dll)
+                )
             break
 
         if (i + 1) % print_iter == 0:
             if enc_vdata is not None:
-                out.write('Iteration %d: ln[p_mat(Data|Model)]=%e, ln[p_mat(Data|Model)]-ln[p_mat(Data|PrevModel)]=%e, '
-                          'ln[p_mat(Valid Data|Model)]=%e\n' % (i + 1, ll, dll, vll))
+                out.write(
+                    "Iteration %d: ln[p_mat(Data|Model)]=%e, ln[p_mat(Data|Model)]-ln[p_mat(Data|PrevModel)]=%e, "
+                    "ln[p_mat(Valid Data|Model)]=%e\n" % (i + 1, ll, dll, vll)
+                )
             else:
-                out.write('Iteration %d: ln[p_mat(Data|Model)]=%e, ln[p_mat(Data|Model)]-ln[p_mat(Data|PrevModel)]=%e\n' %
-                          (i + 1, ll, dll))
+                out.write(
+                    "Iteration %d: ln[p_mat(Data|Model)]=%e, ln[p_mat(Data|Model)]-ln[p_mat(Data|PrevModel)]=%e\n"
+                    % (i + 1, ll, dll)
+                )
 
         old_ll = ll
 
@@ -334,12 +373,18 @@ def optimize(data: Optional[Sequence[T]], estimator: ParameterEstimator, max_its
     return best_model
 
 
-def iterate(data: List[T], estimator: Optional[ParameterEstimator], max_its: int,
-            prev_estimate: Optional[SequenceEncodableProbabilityDistribution] = None, init_p: float = 0.1,
-            rng: Optional[RandomState] = RandomState(), out: IO = sys.stdout,
-            enc_data: Optional[List[Tuple[int, E0]]] = None,
-            init_estimator: Optional[ParameterEstimator] = None,
-            print_iter: int = 1) -> SequenceEncodableProbabilityDistribution:
+def iterate(
+    data: List[T],
+    estimator: Optional[ParameterEstimator],
+    max_its: int,
+    prev_estimate: Optional[SequenceEncodableProbabilityDistribution] = None,
+    init_p: float = 0.1,
+    rng: Optional[RandomState] = RandomState(),
+    out: IO = sys.stdout,
+    enc_data: Optional[List[Tuple[int, E0]]] = None,
+    init_estimator: Optional[ParameterEstimator] = None,
+    print_iter: int = 1,
+) -> SequenceEncodableProbabilityDistribution:
     """Performs max_its-iterations of EM algorithm and returns next estimate (SequenceEncodableProbabilityDistribution).
 
     Args:
@@ -364,7 +409,7 @@ def iterate(data: List[T], estimator: Optional[ParameterEstimator], max_its: int
 
     """
     if data is None and enc_data is None:
-        raise Exception('Optimization called with empty data or enc_data.')
+        raise Exception("Optimization called with empty data or enc_data.")
 
     i_est = estimator if init_estimator is None else init_estimator
 
@@ -382,7 +427,7 @@ def iterate(data: List[T], estimator: Optional[ParameterEstimator], max_its: int
     else:
         mm = prev_estimate
 
-    if hasattr(enc_data, 'cache'):
+    if hasattr(enc_data, "cache"):
         enc_data.cache()
 
     t0 = time.time()
@@ -390,22 +435,27 @@ def iterate(data: List[T], estimator: Optional[ParameterEstimator], max_its: int
         mm = seq_estimate(enc_data, estimator, mm)
 
         if (i + 1) % print_iter == 0:
-            out.write('Iteration %d\t E[dT]=%f.\n' % (i + 1, (time.time() - t0) / float(i + 1)))
+            out.write(
+                "Iteration %d\t E[dT]=%f.\n"
+                % (i + 1, (time.time() - t0) / float(i + 1))
+            )
 
     return mm
 
 
-def hill_climb(data: List[T],
-               vdata: List[T],
-               estimator: ParameterEstimator,
-               prev_estimate: SequenceEncodableProbabilityDistribution,
-               max_its: int,
-               metric_lambda: Callable[[EncodedDataSequence], Sequence],
-               best_estimate: Optional[SequenceEncodableProbabilityDistribution] = None,
-               enc_data: Optional[EncodedDataSequence] = None,
-               enc_vdata: Optional[EncodedDataSequence] = None,
-               out=sys.stdout,
-               print_iter: int = 1) -> SequenceEncodableProbabilityDistribution:
+def hill_climb(
+    data: List[T],
+    vdata: List[T],
+    estimator: ParameterEstimator,
+    prev_estimate: SequenceEncodableProbabilityDistribution,
+    max_its: int,
+    metric_lambda: Callable[[EncodedDataSequence], Sequence],
+    best_estimate: Optional[SequenceEncodableProbabilityDistribution] = None,
+    enc_data: Optional[EncodedDataSequence] = None,
+    enc_vdata: Optional[EncodedDataSequence] = None,
+    out=sys.stdout,
+    print_iter: int = 1,
+) -> SequenceEncodableProbabilityDistribution:
     """
     Performs a hill-climbing optimization to find the best model based on a given metric.
 
@@ -445,15 +495,19 @@ def hill_climb(data: List[T],
         _, next_ll = seq_log_density_sum(enc_vdata, mm_next)
         next_score = metric_lambda(vdata, mm_next)
 
-        if (next_score > best_score) or ((next_score == best_score) and (best_ll < next_ll)):
+        if (next_score > best_score) or (
+            (next_score == best_score) and (best_ll < next_ll)
+        ):
             best_model = mm_next
             best_ll = next_ll
             best_score = next_score
 
         if i % print_iter == 0:
-            out.write('Iteration %d. LL=%f, Best LL=%f, Best Score=%f\n' % (i + 1, next_ll, best_ll, best_score))
+            out.write(
+                "Iteration %d. LL=%f, Best LL=%f, Best Score=%f\n"
+                % (i + 1, next_ll, best_ll, best_score)
+            )
 
         mm = mm_next
 
     return best_model
-

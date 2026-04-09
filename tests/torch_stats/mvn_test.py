@@ -1,8 +1,9 @@
 """Tests for MultivariateGaussianDistribution and related torch_stats classes."""
-import torch
+
 import numpy as np
 import pytest
-from tests.torch_stats.torch_stats_tests import *
+import torch
+
 from dmx.torch_stats import *
 from dmx.torch_stats.mvn import (
     MultivariateGaussianAccumulator,
@@ -10,6 +11,7 @@ from dmx.torch_stats.mvn import (
     MultivariateGaussianDataEncoder,
     MultivariateGaussianTorchSequence,
 )
+from tests.torch_stats.torch_stats_tests import *
 
 
 class MultivariateGaussianDistributionTestCase(TorchStatsTestClass):
@@ -28,9 +30,7 @@ class MultivariateGaussianDistributionTestCase(TorchStatsTestClass):
             ),
             MultivariateGaussianDistribution(
                 mu=[0.0, 0.0, 0.0],
-                covar=[[1.0, 0.2, 0.1],
-                       [0.2, 1.0, 0.3],
-                       [0.1, 0.3, 1.0]],
+                covar=[[1.0, 0.2, 0.1], [0.2, 1.0, 0.3], [0.1, 0.3, 1.0]],
             ),
         ]
         self._encoders = [d.dist_to_encoder() for d in self._dists]
@@ -56,12 +56,16 @@ class MultivariateGaussianDistributionTestCase(TorchStatsTestClass):
     def test_encoder_type(self):
         """dist_to_encoder() must return a MultivariateGaussianDataEncoder."""
         for dist in self._dists:
-            self.assertIsInstance(dist.dist_to_encoder(), MultivariateGaussianDataEncoder)
+            self.assertIsInstance(
+                dist.dist_to_encoder(), MultivariateGaussianDataEncoder
+            )
 
     def test_accumulator_type(self):
         """factory.make() must return a MultivariateGaussianAccumulator."""
         for f in self._factories:
-            self.assertIsInstance(f.make(device=self.device), MultivariateGaussianAccumulator)
+            self.assertIsInstance(
+                f.make(device=self.device), MultivariateGaussianAccumulator
+            )
 
     def test_sample_shape(self):
         """Each sample must be a 1-D array of the correct dimension."""
@@ -69,8 +73,7 @@ class MultivariateGaussianDistributionTestCase(TorchStatsTestClass):
             data = dist.sampler(seed=1).sample(size=10)
             dim = len(dist.mu)
             for obs in data:
-                self.assertEqual(len(obs), dim,
-                                 f"Expected dim {dim}, got {len(obs)}")
+                self.assertEqual(len(obs), dim, f"Expected dim {dim}, got {len(obs)}")
 
     def test_sample_mean_approx(self):
         """Column-wise mean of samples should be close to mu."""

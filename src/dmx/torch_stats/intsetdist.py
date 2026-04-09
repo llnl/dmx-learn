@@ -15,21 +15,22 @@ The density for an observed subset of S, x=(x_1,x_2,..,x_m), for m < N) is given
 
 """
 
+from typing import Any, Dict, List, Optional, Sequence, Tuple, Union
+
 import numpy as np
 import torch as tn
+
+import dmx.torch_utils.vector as vec
 from dmx.arithmetic import *
-from dmx.torch_stats.pdist import DistributionSampler
 from dmx.torch_stats.pdist import (
+    DistributionSampler,
+    TorchEncodedSequence,
     TorchParameterEstimator,
     TorchProbabilityDistribution,
     TorchSequenceEncoder,
     TorchStatisticAccumulator,
     TorchStatisticAccumulatorFactory,
-    TorchEncodedSequence
 )
-import dmx.torch_utils.vector as vec
-
-from typing import Sequence, Optional, Tuple, Union, List, Any, Dict
 
 
 class IntegerBernoulliSetDistribution(TorchProbabilityDistribution):
@@ -45,9 +46,13 @@ class IntegerBernoulliSetDistribution(TorchProbabilityDistribution):
 
     """
 
-    def __init__(self, log_pvec: Union[Sequence[float], np.ndarray],
-                 log_nvec: Optional[Union[Sequence[float], np.ndarray]] = None,
-                 keys: Optional[str] = None, device: Optional[tn.device] = None) -> None:
+    def __init__(
+        self,
+        log_pvec: Union[Sequence[float], np.ndarray],
+        log_nvec: Optional[Union[Sequence[float], np.ndarray]] = None,
+        keys: Optional[str] = None,
+        device: Optional[tn.device] = None,
+    ) -> None:
         """IntegerBernoulliSetDistribution object.
 
         Args:
@@ -65,7 +70,7 @@ class IntegerBernoulliSetDistribution(TorchProbabilityDistribution):
         self.key = keys
 
         if log_nvec is None:
-            '''
+            """
             is_one   = log_pvec == 0
             is_zero  = log_pvec == -np.inf
             is_good  = np.bitwise_and(~is_one, ~is_zero)
@@ -79,7 +84,7 @@ class IntegerBernoulliSetDistribution(TorchProbabilityDistribution):
             self.log_nvec = None
             self.log_dvec = log_dvec
             self.log_nsum = np.sum(log_nvec)
-            '''
+            """
             log_nvec = tn.log1p(-tn.exp(self.log_pvec))
             self.log_nvec = None
             self.log_dvec = self.log_pvec - log_nvec
@@ -98,9 +103,11 @@ class IntegerBernoulliSetDistribution(TorchProbabilityDistribution):
 
     def __repr__(self) -> str:
         s1 = repr(self.log_pvec.cpu().detach().tolist())
-        s2 = repr(None if self.log_nvec is None else self.log_nvec.cpu().detach().tolist())
+        s2 = repr(
+            None if self.log_nvec is None else self.log_nvec.cpu().detach().tolist()
+        )
 
-        return 'IntegerBernoulliSetDistribution(%s, log_nvec=%s)' % (s1, s2)
+        return "IntegerBernoulliSetDistribution(%s, log_nvec=%s)" % (s1, s2)
 
     def density(self, x: Union[Sequence[int], np.ndarray]) -> float:
         return exp(self.log_density(x))
@@ -111,26 +118,34 @@ class IntegerBernoulliSetDistribution(TorchProbabilityDistribution):
 
         return float(rv)
 
-    def seq_log_density(self, x: 'IntegerBernoulliSetTorchSequence') -> tn.Tensor:
+    def seq_log_density(self, x: "IntegerBernoulliSetTorchSequence") -> tn.Tensor:
 
         if not isinstance(x, IntegerBernoulliSetTorchSequence):
-            raise Exception('Requires IntegerBernoulliSetTorchSequence for `seq_` calls.')
+            raise Exception(
+                "Requires IntegerBernoulliSetTorchSequence for `seq_` calls."
+            )
         sz, idx, xs = x.data
         rv = vec.zeros(sz, device=self.model_device())
         xs_dev = xs.to(device=self.log_dvec.device)
         idx_dev = idx.to(device=self.model_device())
-        rv += tn.bincount(idx_dev, weights=self.log_dvec[xs_dev].to(device=self.model_device()), minlength=sz)
+        rv += tn.bincount(
+            idx_dev,
+            weights=self.log_dvec[xs_dev].to(device=self.model_device()),
+            minlength=sz,
+        )
         rv += self.log_nsum
 
         return rv
 
-    def sampler(self, seed: Optional[int] = None) -> 'IntegerBernoulliSetSampler':
+    def sampler(self, seed: Optional[int] = None) -> "IntegerBernoulliSetSampler":
         return IntegerBernoulliSetSampler(self, seed)
 
-    def estimator(self, pseudo_count: Optional[float] = None) -> 'IntegerBernoulliSetEstimator':
+    def estimator(
+        self, pseudo_count: Optional[float] = None
+    ) -> "IntegerBernoulliSetEstimator":
         return IntegerBernoulliSetEstimator(self.num_vals, pseudo_count=pseudo_count)
 
-    def dist_to_encoder(self) -> 'IntegerBernoulliSetDataEncoder':
+    def dist_to_encoder(self) -> "IntegerBernoulliSetDataEncoder":
         return IntegerBernoulliSetDataEncoder()
 
 
@@ -144,7 +159,9 @@ class IntegerBernoulliSetSampler(DistributionSampler):
 
     """
 
-    def __init__(self, dist: IntegerBernoulliSetDistribution, seed: Optional[int] = None) -> None:
+    def __init__(
+        self, dist: IntegerBernoulliSetDistribution, seed: Optional[int] = None
+    ) -> None:
         """IntegerBernoulliSetSampler object.
 
         Args:
@@ -156,7 +173,9 @@ class IntegerBernoulliSetSampler(DistributionSampler):
         self.log_pvec = dist.log_pvec.cpu().detach().numpy()
         self.num_vals = dist.num_vals
 
-    def sample(self, size: Optional[int] = None) -> Union[List[Sequence[int]], Sequence[int]]:
+    def sample(
+        self, size: Optional[int] = None
+    ) -> Union[List[Sequence[int]], Sequence[int]]:
         if size is None:
             log_u = np.log(self.rng.rand(self.num_vals))
             return list(np.flatnonzero(log_u <= self.log_pvec))
@@ -171,15 +190,20 @@ class IntegerBernoulliSetSampler(DistributionSampler):
 class IntegerBernoulliSetAccumulator(TorchStatisticAccumulator):
     """IntegerBernoulliSetAccumulator object for accumulating sufficient statistics from observed data.
 
-     Attributes:
-         pcnt (np.ndarray): Used for aggregating weighted counts of integers.
-         key (Optional[str]): Keys for merging sufficient statistics with matching key'd objects.
-         num_vals (int): Number of values in integer range for the set.
-         tot_sum (float): Sum of weights for observations.
+    Attributes:
+        pcnt (np.ndarray): Used for aggregating weighted counts of integers.
+        key (Optional[str]): Keys for merging sufficient statistics with matching key'd objects.
+        num_vals (int): Number of values in integer range for the set.
+        tot_sum (float): Sum of weights for observations.
 
-     """
+    """
 
-    def __init__(self, num_vals: int, keys: Optional[str] = None, device: Optional[tn.device] = None) -> None:
+    def __init__(
+        self,
+        num_vals: int,
+        keys: Optional[str] = None,
+        device: Optional[tn.device] = None,
+    ) -> None:
         """IntegerBernoulliSetAccumulator object for accumulating sufficient statistics from observed data.
 
         Args:
@@ -194,17 +218,29 @@ class IntegerBernoulliSetAccumulator(TorchStatisticAccumulator):
         self.num_vals = num_vals
         self.tot_sum = 0.0
 
-    def seq_update(self, x: 'IntegerBernoulliSetTorchSequence', weights: tn.Tensor, estimate: Optional[IntegerBernoulliSetDistribution]) -> None:
+    def seq_update(
+        self,
+        x: "IntegerBernoulliSetTorchSequence",
+        weights: tn.Tensor,
+        estimate: Optional[IntegerBernoulliSetDistribution],
+    ) -> None:
         sz, idx, xs = x.data
         agg_cnt = tn.bincount(xs, weights=weights[idx]).cpu().detach().numpy()
         n = len(agg_cnt)
         self.pcnt[:n] += agg_cnt
         self.tot_sum += float(weights.sum())
 
-    def seq_initialize(self, x: 'IntegerBernoulliSetTorchSequence', weights: tn.Tensor, tng: Optional[tn.Generator]) -> None:
+    def seq_initialize(
+        self,
+        x: "IntegerBernoulliSetTorchSequence",
+        weights: tn.Tensor,
+        tng: Optional[tn.Generator],
+    ) -> None:
         self.seq_update(x, weights, None)
 
-    def combine(self, suff_stat: Tuple[np.ndarray, float]) -> 'IntegerBernoulliSetAccumulator':
+    def combine(
+        self, suff_stat: Tuple[np.ndarray, float]
+    ) -> "IntegerBernoulliSetAccumulator":
         self.pcnt += suff_stat[0]
         self.tot_sum += suff_stat[1]
         return self
@@ -212,7 +248,9 @@ class IntegerBernoulliSetAccumulator(TorchStatisticAccumulator):
     def value(self) -> Tuple[np.ndarray, float]:
         return self.pcnt, self.tot_sum
 
-    def from_value(self, x: Tuple[np.ndarray, float]) -> 'IntegerBernoulliSetAccumulator':
+    def from_value(
+        self, x: Tuple[np.ndarray, float]
+    ) -> "IntegerBernoulliSetAccumulator":
         self.pcnt = x[0]
         self.tot_sum = x[1]
         return self
@@ -230,7 +268,7 @@ class IntegerBernoulliSetAccumulator(TorchStatisticAccumulator):
             if self.key in stats_dict:
                 self.pcnt, self.tot_sum = stats_dict[self.key]
 
-    def acc_to_encoder(self) -> 'IntegerBernoulliSetDataEncoder':
+    def acc_to_encoder(self) -> "IntegerBernoulliSetDataEncoder":
         return IntegerBernoulliSetDataEncoder()
 
 
@@ -242,6 +280,7 @@ class IntegerBernoulliSetAccumulatorFactory(TorchStatisticAccumulatorFactory):
         num_vals (int): Number of values in integer range for the set.
 
     """
+
     def __init__(self, num_vals: int, keys: Optional[str] = None) -> None:
         """IntegerBernoulliSetAccumulatorFactory object.
 
@@ -253,8 +292,12 @@ class IntegerBernoulliSetAccumulatorFactory(TorchStatisticAccumulatorFactory):
         self.keys = keys
         self.num_vals = num_vals
 
-    def make(self, device: Optional[tn.device] = None) -> 'IntegerBernoulliSetAccumulator':
-        return IntegerBernoulliSetAccumulator(self.num_vals, keys=self.keys, device=device)
+    def make(
+        self, device: Optional[tn.device] = None
+    ) -> "IntegerBernoulliSetAccumulator":
+        return IntegerBernoulliSetAccumulator(
+            self.num_vals, keys=self.keys, device=device
+        )
 
 
 class IntegerBernoulliSetEstimator(TorchParameterEstimator):
@@ -269,8 +312,14 @@ class IntegerBernoulliSetEstimator(TorchParameterEstimator):
 
     """
 
-    def __init__(self, num_vals: int, min_prob: float = 1.0e-128, pseudo_count: Optional[float] = None,
-                 suff_stat: Optional[np.ndarray] = None, keys: Optional[str] = None) -> None:
+    def __init__(
+        self,
+        num_vals: int,
+        min_prob: float = 1.0e-128,
+        pseudo_count: Optional[float] = None,
+        suff_stat: Optional[np.ndarray] = None,
+        keys: Optional[str] = None,
+    ) -> None:
         """IntegerBernoulliSetEstimator object.
 
         Args:
@@ -287,11 +336,15 @@ class IntegerBernoulliSetEstimator(TorchParameterEstimator):
         self.suff_stat = suff_stat
         self.min_prob = min_prob
 
-    def accumulator_factory(self) -> 'IntegerBernoulliSetAccumulatorFactory':
+    def accumulator_factory(self) -> "IntegerBernoulliSetAccumulatorFactory":
         return IntegerBernoulliSetAccumulatorFactory(self.num_vals, self.keys)
 
-    def estimate(self, nobs: Optional[float], suff_stat: Optional[np.ndarray] = None, device: Optional[tn.device] = None) \
-            -> 'IntegerBernoulliSetDistribution':
+    def estimate(
+        self,
+        nobs: Optional[float],
+        suff_stat: Optional[np.ndarray] = None,
+        device: Optional[tn.device] = None,
+    ) -> "IntegerBernoulliSetDistribution":
         if self.pseudo_count is not None and self.suff_stat is not None:
             p0 = np.product(self.suff_stat, self.pseudo_count)
             p1 = np.product(np.subtract(1.0, self.suff_stat), self.pseudo_count)
@@ -314,15 +367,21 @@ class IntegerBernoulliSetEstimator(TorchParameterEstimator):
                 log_nvec = np.zeros(self.num_vals, dtype=np.float64) + 0.5
 
             elif self.min_prob > 0:
-                log_pvec = np.log(np.maximum(suff_stat[0] / suff_stat[1], self.min_prob))
-                log_nvec = np.log(np.maximum((suff_stat[1] - suff_stat[0]) / suff_stat[1], self.min_prob))
+                log_pvec = np.log(
+                    np.maximum(suff_stat[0] / suff_stat[1], self.min_prob)
+                )
+                log_nvec = np.log(
+                    np.maximum(
+                        (suff_stat[1] - suff_stat[0]) / suff_stat[1], self.min_prob
+                    )
+                )
 
             else:
                 pvec = suff_stat[0] / suff_stat[1]
                 nvec = (suff_stat[1] - suff_stat[0]) / suff_stat[1]
 
-                is_zero = (pvec == 0)
-                is_one = (nvec == 0)
+                is_zero = pvec == 0
+                is_one = nvec == 0
 
                 log_pvec = np.zeros(self.num_vals, dtype=np.float64)
                 log_nvec = np.zeros(self.num_vals, dtype=np.float64)
@@ -339,12 +398,14 @@ class IntegerBernoulliSetDataEncoder(TorchSequenceEncoder):
     """IntegerBernoulliSetDataEncoder object for encoding sequences of iid integer Bernoulli set observations."""
 
     def __str__(self) -> str:
-        return 'IntegerBernoulliSetDataEncoder'
+        return "IntegerBernoulliSetDataEncoder"
 
     def __eq__(self, other: object) -> bool:
         return isinstance(object, IntegerBernoulliSetDataEncoder)
 
-    def seq_encode(self, x: Sequence[Sequence[int]], device: Optional[tn.device] = None) -> 'IntegerBernoulliSetTorchSequence':
+    def seq_encode(
+        self, x: Sequence[Sequence[int]], device: Optional[tn.device] = None
+    ) -> "IntegerBernoulliSetTorchSequence":
         idx = []
         xs = []
         for i, xx in enumerate(x):
@@ -359,8 +420,10 @@ class IntegerBernoulliSetDataEncoder(TorchSequenceEncoder):
 
 class IntegerBernoulliSetTorchSequence(TorchEncodedSequence):
 
-    def __init__(self, data: Tuple[int, tn.Tensor, tn.Tensor], device: Optional[tn.device] = None):
+    def __init__(
+        self, data: Tuple[int, tn.Tensor, tn.Tensor], device: Optional[tn.device] = None
+    ):
         super().__init__(data=data, device=device)
 
     def __str__(self) -> str:
-        return f'IntegerBernoulliSetTorchSequence(device={repr(self.device)})'
+        return f"IntegerBernoulliSetTorchSequence(device={repr(self.device)})"

@@ -1,16 +1,21 @@
-#import copyreg, copy, pickle, dill
-from typing import Optional, Any, Dict
-from dmx.arithmetic import *
+# import copyreg, copy, pickle, dill
+from typing import Any, Dict, Optional
+
+import numpy as np
+import scipy.integrate
 from numpy.random import RandomState
-from dmx.bstats.pdist import ParameterEstimator, ProbabilityDistribution, StatisticAccumulator
+from scipy.optimize import minimize_scalar
+from scipy.special import digamma, exp1, gammaln
+
+from dmx.arithmetic import *
 from dmx.bstats.gamma import GammaDistribution
 from dmx.bstats.nulldist import NullDistribution, null_dist
+from dmx.bstats.pdist import (
+    ParameterEstimator,
+    ProbabilityDistribution,
+    StatisticAccumulator,
+)
 from dmx.utils.special import stirling2
-import numpy as np
-from scipy.special import gammaln, digamma, exp1
-from scipy.optimize import minimize_scalar
-import scipy.integrate
-
 
 default_prior = GammaDistribution(1.0001, 1.0e6)
 
@@ -31,7 +36,13 @@ class PoissonDistribution(ProbabilityDistribution):
     has_conj_prior: bool
     has_prior: bool
 
-    def __init__(self, lam: float, name: Optional[str] = None, prior: ProbabilityDistribution = default_prior, keys: Optional[str] = None):
+    def __init__(
+        self,
+        lam: float,
+        name: Optional[str] = None,
+        prior: ProbabilityDistribution = default_prior,
+        keys: Optional[str] = None,
+    ):
 
         self.name = name
         self.keys = keys
@@ -39,7 +50,12 @@ class PoissonDistribution(ProbabilityDistribution):
         self.set_prior(prior)
 
     def __str__(self) -> str:
-        return 'PoissonDistribution(%f, name=%s, prior=%s, keys=%s)' % (self.lam, str(self.name), str(self.prior), str(self.keys))
+        return "PoissonDistribution(%f, name=%s, prior=%s, keys=%s)" % (
+            self.lam,
+            str(self.name),
+            str(self.prior),
+            str(self.keys),
+        )
 
     def get_parameters(self) -> float:
         return self.lam
@@ -73,16 +89,16 @@ class PoissonDistribution(ProbabilityDistribution):
         return np.exp(self.log_density(x))
 
     def log_density(self, x: int) -> float:
-        return x*self.log_lambda - float(gammaln(x + 1.0)) - self.lam
+        return x * self.log_lambda - float(gammaln(x + 1.0)) - self.lam
 
     def expected_log_density(self, x: float) -> float:
 
         if self.has_conj_prior:
 
             k, theta = self.conj_prior_params
-            e1 = (digamma(k)+np.log(theta))*x
-            e2 = k*theta
-            e3 = gammaln(x+1)
+            e1 = (digamma(k) + np.log(theta)) * x
+            e2 = k * theta
+            e3 = gammaln(x + 1)
             return e1 - e2 - e3
 
         else:
@@ -93,7 +109,7 @@ class PoissonDistribution(ProbabilityDistribution):
             lam1 = self.lam
             lam2 = dist.lam
             rv = self.entropy()
-            rv += lam1 - lam2 - (np.log(lam1)-np.log(lam2))*lam1
+            rv += lam1 - lam2 - (np.log(lam1) - np.log(lam2)) * lam1
         else:
             pass
 
@@ -101,11 +117,24 @@ class PoissonDistribution(ProbabilityDistribution):
 
         if self.lam > 450:
             l = self.lam
-            rv = -(0.5*np.log(2.0*np.pi*l) + 0.5 - 1/(12.0*l) - 1.0/(24.0*l*l) - 19.0/(360.0*l*l*l))
+            rv = -(
+                0.5 * np.log(2.0 * np.pi * l)
+                + 0.5
+                - 1 / (12.0 * l)
+                - 1.0 / (24.0 * l * l)
+                - 19.0 / (360.0 * l * l * l)
+            )
         else:
             lam = self.lam
-            rv0 = 0.5 * np.log(2.0 * np.pi * lam) + 0.5 + (lam + 0.5) * exp1(lam) - np.exp(-lam)
-            rterm = lambda x: (np.exp(-lam * x) / x) * ((1 / x) - 0.5 + (1 / np.log1p(-x)))
+            rv0 = (
+                0.5 * np.log(2.0 * np.pi * lam)
+                + 0.5
+                + (lam + 0.5) * exp1(lam)
+                - np.exp(-lam)
+            )
+            rterm = lambda x: (np.exp(-lam * x) / x) * (
+                (1 / x) - 0.5 + (1 / np.log1p(-x))
+            )
             rv1 = scipy.integrate.quad(rterm, 0, 1)[0]
             rv = -rv0 + rv1
         return rv
@@ -122,15 +151,15 @@ class PoissonDistribution(ProbabilityDistribution):
             return rv
 
     def seq_log_density(self, x):
-        rv = x[0]*self.log_lambda
+        rv = x[0] * self.log_lambda
         rv -= x[1]
         rv -= self.lam
         return rv
 
     def seq_expected_log_density(self, x):
         k, theta = self.conj_prior_params
-        e1 = (digamma(k) + np.log(theta))*x[0]
-        e2 = k*theta
+        e1 = (digamma(k) + np.log(theta)) * x[0]
+        e2 = k * theta
         e3 = x[1]
         return e1 - e2 - e3
 
@@ -146,11 +175,10 @@ class PoissonDistribution(ProbabilityDistribution):
         return PoissonEstimator(name=self.name, keys=self.keys, prior=self.prior)
 
 
-
 class PoissonSampler(object):
 
     def __init__(self, dist, seed=None):
-        self.rng  = RandomState(seed)
+        self.rng = RandomState(seed)
         self.dist = dist
 
     def sample(self, size=None):
@@ -160,10 +188,10 @@ class PoissonSampler(object):
 class PoissonEstimatorAccumulator(StatisticAccumulator):
 
     def __init__(self, name, keys):
-        self.name  = name
-        self.key   = keys
-        self.sum   = 0.0
-        self.gsum  = 0.0
+        self.name = name
+        self.key = keys
+        self.sum = 0.0
+        self.gsum = 0.0
         self.count = 0.0
 
     def initialize(self, x, weight, rng):
@@ -173,16 +201,16 @@ class PoissonEstimatorAccumulator(StatisticAccumulator):
         self.seq_update(x, weights, None)
 
     def update(self, x, weight, estimate):
-        self.sum  += x*weight
+        self.sum += x * weight
         self.count += weight
-        self.gsum += gammaln(x+1)
+        self.gsum += gammaln(x + 1)
 
     def seq_update(self, x, weights, estimate):
-        self.sum   += np.dot(x[0], weights)
+        self.sum += np.dot(x[0], weights)
         self.count += weights.sum()
 
     def combine(self, suff_stat):
-        self.sum  += suff_stat[1]
+        self.sum += suff_stat[1]
         self.count += suff_stat[0]
         return self
 
@@ -218,11 +246,16 @@ class PoissonEstimatorAccumulatorFactory(object):
 
 class PoissonEstimator(ParameterEstimator):
 
-    def __init__(self, name: Optional[str] = None, keys: Optional[str] = None, prior: ProbabilityDistribution = default_prior):
+    def __init__(
+        self,
+        name: Optional[str] = None,
+        keys: Optional[str] = None,
+        prior: ProbabilityDistribution = default_prior,
+    ):
 
         self.prior = prior
-        self.name  = name
-        self.keys  = keys
+        self.name = name
+        self.keys = keys
         self.has_conj_prior = isinstance(prior, GammaDistribution)
         self.has_prior = not isinstance(prior, NullDistribution) and prior is not None
 
@@ -243,11 +276,15 @@ class PoissonEstimator(ParameterEstimator):
 
             k, theta = self.prior.get_parameters()
 
-            new_k          = k + psum
-            new_theta      = theta/(nobs*theta + 1)
-            posterior_mode = (new_k-1)*new_theta
+            new_k = k + psum
+            new_theta = theta / (nobs * theta + 1)
+            posterior_mode = (new_k - 1) * new_theta
 
-            return PoissonDistribution(posterior_mode, name=self.name, prior=GammaDistribution(new_k, new_theta))
+            return PoissonDistribution(
+                posterior_mode,
+                name=self.name,
+                prior=GammaDistribution(new_k, new_theta),
+            )
 
         elif self.has_prior:
 
@@ -256,4 +293,4 @@ class PoissonEstimator(ParameterEstimator):
             pass
 
         else:
-            return PoissonDistribution(psum/nobs, name=self.name, prior=null_dist)
+            return PoissonDistribution(psum / nobs, name=self.name, prior=null_dist)

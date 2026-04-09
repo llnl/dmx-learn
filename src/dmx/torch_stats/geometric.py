@@ -8,14 +8,24 @@ Data type (int): The geometric distribution with probability of success p, has d
     P(x=k) = (k-1)*log(1-p) + log(p), for k = 1,2,...
 
 """
-import torch as tn
+
+from typing import Any, Dict, Optional, Sequence, Tuple, Union
+
 import numpy as np
+import torch as tn
 from numpy.random import RandomState
-from dmx.arithmetic import *
-from dmx.torch_stats.pdist import TorchProbabilityDistribution, TorchParameterEstimator, TorchSequenceEncoder, \
-    TorchStatisticAccumulator, TorchStatisticAccumulatorFactory, DistributionSampler, TorchEncodedSequence
-from typing import Optional, Tuple, Dict, Union, Any, Sequence
+
 import dmx.torch_utils.vector as vec
+from dmx.arithmetic import *
+from dmx.torch_stats.pdist import (
+    DistributionSampler,
+    TorchEncodedSequence,
+    TorchParameterEstimator,
+    TorchProbabilityDistribution,
+    TorchSequenceEncoder,
+    TorchStatisticAccumulator,
+    TorchStatisticAccumulatorFactory,
+)
 
 
 class GeometricDistribution(TorchProbabilityDistribution):
@@ -46,7 +56,7 @@ class GeometricDistribution(TorchProbabilityDistribution):
         self.log_1p = np.log1p(-p)
 
     def __repr__(self) -> str:
-        return f'GeometricDistribution(p={repr(self.p)})'
+        return f"GeometricDistribution(p={repr(self.p)})"
 
     def to(self, device: tn.device) -> None:
         self._device = device
@@ -83,10 +93,12 @@ class GeometricDistribution(TorchProbabilityDistribution):
         """
         return (x - 1) * self.log_1p + self.log_p
 
-    def seq_log_density(self, x: 'GeometricTorchEncodedSequence') -> tn.Tensor:
+    def seq_log_density(self, x: "GeometricTorchEncodedSequence") -> tn.Tensor:
 
         if not isinstance(x, GeometricTorchEncodedSequence):
-            raise Exception('Requires GeometricTorchEncodedSequence for `seq_` function calls.')
+            raise Exception(
+                "Requires GeometricTorchEncodedSequence for `seq_` function calls."
+            )
 
         rv = x.data - 1
         rv *= self.log_1p
@@ -94,16 +106,16 @@ class GeometricDistribution(TorchProbabilityDistribution):
 
         return rv
 
-    def sampler(self, seed: Optional[int] = None) -> 'GeometricSampler':
+    def sampler(self, seed: Optional[int] = None) -> "GeometricSampler":
         return GeometricSampler(self, seed)
 
-    def estimator(self, pseudo_count: Optional[float] = None) -> 'GeometricEstimator':
+    def estimator(self, pseudo_count: Optional[float] = None) -> "GeometricEstimator":
         if pseudo_count is None:
             return GeometricEstimator()
         else:
             return GeometricEstimator(pseudo_count=pseudo_count, suff_stat=self.p)
 
-    def dist_to_encoder(self) -> 'GeometricDataEncoder':
+    def dist_to_encoder(self) -> "GeometricDataEncoder":
         return GeometricDataEncoder()
 
 
@@ -166,14 +178,24 @@ class GeometricAccumulator(TorchStatisticAccumulator):
         self.count = 0.0
         self.key = keys
 
-    def seq_update(self, x: 'GeometricTorchEncodedSequence', weights: tn.Tensor, estimate: Optional['GeometricDistribution']) -> None:
+    def seq_update(
+        self,
+        x: "GeometricTorchEncodedSequence",
+        weights: tn.Tensor,
+        estimate: Optional["GeometricDistribution"],
+    ) -> None:
         self.sum += float(tn.dot(x.data, weights))
         self.count += float(tn.sum(weights))
 
-    def seq_initialize(self, x: 'GeometricTorchEncodedSequence', weights: tn.Tensor, rng: Optional[tn.Generator]) -> None:
+    def seq_initialize(
+        self,
+        x: "GeometricTorchEncodedSequence",
+        weights: tn.Tensor,
+        rng: Optional[tn.Generator],
+    ) -> None:
         self.seq_update(x, weights, None)
 
-    def combine(self, suff_stat: Tuple[float, float]) -> 'GeometricAccumulator':
+    def combine(self, suff_stat: Tuple[float, float]) -> "GeometricAccumulator":
         self.sum += suff_stat[1]
         self.count += suff_stat[0]
 
@@ -182,7 +204,7 @@ class GeometricAccumulator(TorchStatisticAccumulator):
     def value(self) -> Tuple[float, float]:
         return self.count, self.sum
 
-    def from_value(self, x: Tuple[float, float]) -> 'GeometricAccumulator':
+    def from_value(self, x: Tuple[float, float]) -> "GeometricAccumulator":
         self.count = x[0]
         self.sum = x[1]
 
@@ -205,7 +227,7 @@ class GeometricAccumulator(TorchStatisticAccumulator):
             if self.key in stats_dict:
                 self.count, self.sum = stats_dict[self.key]
 
-    def acc_to_encoder(self) -> 'GeometricDataEncoder':
+    def acc_to_encoder(self) -> "GeometricDataEncoder":
         return GeometricDataEncoder()
 
 
@@ -213,7 +235,7 @@ class GeometricAccumulatorFactory(TorchStatisticAccumulatorFactory):
     def __init__(self, keys: Optional[str] = None) -> None:
         self.keys = keys
 
-    def make(self, device: Optional[tn.device] = None) -> 'GeometricAccumulator':
+    def make(self, device: Optional[tn.device] = None) -> "GeometricAccumulator":
         return GeometricAccumulator(device=device, keys=self.keys)
 
 
@@ -227,9 +249,12 @@ class GeometricEstimator(TorchParameterEstimator):
 
     """
 
-    def __init__(self, pseudo_count: Optional[float] = None,
-                 suff_stat: Optional[float] = None,
-                 keys: Optional[str] = None) -> None:
+    def __init__(
+        self,
+        pseudo_count: Optional[float] = None,
+        suff_stat: Optional[float] = None,
+        keys: Optional[str] = None,
+    ) -> None:
         """GeometricEstimator object.
 
         Args:
@@ -239,16 +264,24 @@ class GeometricEstimator(TorchParameterEstimator):
 
         """
         self.pseudo_count = pseudo_count
-        self.suff_stat = min(min(suff_stat, 1.0), 0.0) if suff_stat is not None else None
+        self.suff_stat = (
+            min(min(suff_stat, 1.0), 0.0) if suff_stat is not None else None
+        )
         self.keys = keys
 
-    def accumulator_factory(self) -> 'GeometricAccumulatorFactory':
+    def accumulator_factory(self) -> "GeometricAccumulatorFactory":
         return GeometricAccumulatorFactory(keys=self.keys)
 
-    def estimate(self, nobs: Optional[float], suff_stat: Tuple[float, float], device: Optional[tn.device] = None) -> 'GeometricDistribution':
+    def estimate(
+        self,
+        nobs: Optional[float],
+        suff_stat: Tuple[float, float],
+        device: Optional[tn.device] = None,
+    ) -> "GeometricDistribution":
         if self.pseudo_count is not None and self.suff_stat is not None:
             p = (suff_stat[0] + self.pseudo_count * self.suff_stat) / (
-                    suff_stat[1] + self.pseudo_count)
+                suff_stat[1] + self.pseudo_count
+            )
         elif self.pseudo_count is not None and self.suff_stat is None:
             p = (suff_stat[0] + self.pseudo_count) / (suff_stat[1] + self.pseudo_count)
         else:
@@ -261,15 +294,19 @@ class GeometricDataEncoder(TorchSequenceEncoder):
     """GeometricDataEncoder object for encoding sequences of iid geometric observations with data type int."""
 
     def __str__(self) -> str:
-        return 'GeometricDataEncoder'
+        return "GeometricDataEncoder"
 
     def __eq__(self, other) -> bool:
         return isinstance(other, GeometricDataEncoder)
 
-    def seq_encode(self, x: Union[Sequence[int], np.ndarray], device: Optional[tn.device] = None) -> 'GeometricTorchEncodedSequence':
+    def seq_encode(
+        self, x: Union[Sequence[int], np.ndarray], device: Optional[tn.device] = None
+    ) -> "GeometricTorchEncodedSequence":
         rv = vec.tensor(x, device=device)
         if tn.any(rv < 1) or tn.any(tn.isnan(rv)):
-            raise Exception('GeometricDistribution requires integers greater than 0 for x.')
+            raise Exception(
+                "GeometricDistribution requires integers greater than 0 for x."
+            )
 
         return GeometricTorchEncodedSequence(data=rv, device=device)
 
@@ -280,5 +317,4 @@ class GeometricTorchEncodedSequence(TorchEncodedSequence):
         super().__init__(data=data, device=device)
 
     def __str__(self) -> str:
-        return f'GeometricTorchEncodedSequence(device={repr(self.device)})'
-
+        return f"GeometricTorchEncodedSequence(device={repr(self.device)})"

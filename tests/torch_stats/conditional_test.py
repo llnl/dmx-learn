@@ -1,8 +1,9 @@
 """Tests for ConditionalDistribution and related torch_stats classes."""
-import torch
+
 import numpy as np
 import pytest
-from tests.torch_stats.torch_stats_tests import *
+import torch
+
 from dmx.torch_stats import *
 from dmx.torch_stats.conditional import (
     ConditionalDistributionAccumulator,
@@ -10,6 +11,7 @@ from dmx.torch_stats.conditional import (
     ConditionalDistributionDataEncoder,
     ConditionalTorchEncodedSequence,
 )
+from tests.torch_stats.torch_stats_tests import *
 
 
 class ConditionalDistributionTestCase(TorchStatsTestClass):
@@ -62,12 +64,16 @@ class ConditionalDistributionTestCase(TorchStatsTestClass):
     def test_encoder_type(self):
         """dist_to_encoder() must return a ConditionalDistributionDataEncoder."""
         for dist in self._dists:
-            self.assertIsInstance(dist.dist_to_encoder(), ConditionalDistributionDataEncoder)
+            self.assertIsInstance(
+                dist.dist_to_encoder(), ConditionalDistributionDataEncoder
+            )
 
     def test_accumulator_type(self):
         """factory.make() must return a ConditionalDistributionAccumulator."""
         for f in self._factories:
-            self.assertIsInstance(f.make(device=self.device), ConditionalDistributionAccumulator)
+            self.assertIsInstance(
+                f.make(device=self.device), ConditionalDistributionAccumulator
+            )
 
     def test_sample_tuple_structure(self):
         """Each sample must be a (given, obs) pair where given is in the dmap keys."""
@@ -75,11 +81,13 @@ class ConditionalDistributionTestCase(TorchStatsTestClass):
             data = dist.sampler(seed=1).sample(size=50)
             for obs in data:
                 # obs should be a 2-element tuple: (condition_val, observation)
-                self.assertEqual(len(obs), 2,
-                                 f"Expected pair (given, obs), got length {len(obs)}")
+                self.assertEqual(
+                    len(obs), 2, f"Expected pair (given, obs), got length {len(obs)}"
+                )
                 cond_val = obs[0]
-                self.assertIn(cond_val, dist.dmap,
-                              f"Condition value {cond_val} not in dmap keys")
+                self.assertIn(
+                    cond_val, dist.dmap, f"Condition value {cond_val} not in dmap keys"
+                )
 
     def test_log_density_finite(self):
         """log_density should return finite values for all samples."""
@@ -87,4 +95,6 @@ class ConditionalDistributionTestCase(TorchStatsTestClass):
             data = dist.sampler(seed=1).sample(size=50)
             for obs in data:
                 ll = dist.log_density(obs)
-                self.assertTrue(np.isfinite(ll), f"log_density returned {ll} for obs {obs}")
+                self.assertTrue(
+                    np.isfinite(ll), f"log_density returned {ll} for obs {obs}"
+                )

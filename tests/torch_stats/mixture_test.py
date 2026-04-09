@@ -1,8 +1,9 @@
 """Tests for MixtureDistribution and related torch_stats classes."""
-import torch
+
 import numpy as np
 import pytest
-from tests.torch_stats.torch_stats_tests import *
+import torch
+
 from dmx.torch_stats import *
 from dmx.torch_stats.mixture import (
     MixtureAccumulator,
@@ -10,6 +11,7 @@ from dmx.torch_stats.mixture import (
     MixtureDataEncoder,
     MixtureTorchEncodedSequence,
 )
+from tests.torch_stats.torch_stats_tests import *
 
 
 class MixtureDistributionTestCase(TorchStatsTestClass):
@@ -83,11 +85,12 @@ class MixtureDistributionTestCase(TorchStatsTestClass):
         seq_log_density up to tolerance.
         """
         import math
+
         for dist, encoder in zip(self._dists, self._encoders):
             data = dist.sampler(seed=1).sample(size=50)
             enc = encoder.seq_encode(data, device=self.device)
-            comp_ll = dist.seq_component_log_density(enc)   # shape (n, k)
-            log_w = torch.log(dist.w)                        # shape (k,)
+            comp_ll = dist.seq_component_log_density(enc)  # shape (n, k)
+            log_w = torch.log(dist.w)  # shape (k,)
             # log-sum-exp manually: logsumexp over components
             combined = comp_ll + log_w.unsqueeze(0)
             lse = torch.logsumexp(combined, dim=1)

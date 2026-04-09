@@ -14,22 +14,35 @@ the integer-categories given by p = (p_0, ..., p_k), is given by
 where P_len(N) is a distribution for the number of trials in the multinomial.
 
 """
-import torch as tn
+
+from typing import Any, Dict, List, Optional, Sequence, Tuple, TypeVar, Union
+
 import numpy as np
+import torch as tn
 from numpy.random import RandomState
-from dmx.arithmetic import *
-from dmx.torch_stats.pdist import TorchProbabilityDistribution, TorchParameterEstimator, TorchSequenceEncoder, \
-    TorchStatisticAccumulator, TorchStatisticAccumulatorFactory, DistributionSampler, TorchEncodedSequence
-from dmx.torch_stats.null_dist import NullDistribution, NullEstimator, NullDataEncoder, NullAccumulator, \
-    NullAccumulatorFactory
 
-from typing import Optional, Tuple, List, TypeVar, Dict, Union, Any, Sequence
 import dmx.torch_utils.vector as vec
+from dmx.arithmetic import *
+from dmx.torch_stats.null_dist import (
+    NullAccumulator,
+    NullAccumulatorFactory,
+    NullDataEncoder,
+    NullDistribution,
+    NullEstimator,
+)
+from dmx.torch_stats.pdist import (
+    DistributionSampler,
+    TorchEncodedSequence,
+    TorchParameterEstimator,
+    TorchProbabilityDistribution,
+    TorchSequenceEncoder,
+    TorchStatisticAccumulator,
+    TorchStatisticAccumulatorFactory,
+)
 
-
-SS = TypeVar('SS')
+SS = TypeVar("SS")
 D = Sequence[Tuple[int, float]]
-E0 = TypeVar('E0')
+E0 = TypeVar("E0")
 E = Tuple[int, tn.Tensor, tn.Tensor, tn.Tensor, Optional[E0]]
 
 
@@ -48,9 +61,14 @@ class IntegerMultinomialDistribution(TorchProbabilityDistribution):
 
     """
 
-    def __init__(self, min_val: int = 0, p_vec: List[float] = None,
-                 len_dist: Optional[TorchProbabilityDistribution] = NullDistribution(),
-                 keys: Optional[str] = None, device: Optional[tn.device] = None) -> None:
+    def __init__(
+        self,
+        min_val: int = 0,
+        p_vec: List[float] = None,
+        len_dist: Optional[TorchProbabilityDistribution] = NullDistribution(),
+        keys: Optional[str] = None,
+        device: Optional[tn.device] = None,
+    ) -> None:
         """Create IntegerMultinomialDistribution object.
 
         Args:
@@ -67,7 +85,9 @@ class IntegerMultinomialDistribution(TorchProbabilityDistribution):
         self.max_val = min_val + self.p_vec.shape[0] - 1
         self.log_p_vec = tn.log(self.p_vec)
         self.num_vals = self.p_vec.shape[0]
-        self.len_dist = len_dist if len_dist is not None else NullDistribution(device=self._device)
+        self.len_dist = (
+            len_dist if len_dist is not None else NullDistribution(device=self._device)
+        )
         self.keys = keys
 
     def to(self, device: tn.device) -> None:
@@ -81,7 +101,7 @@ class IntegerMultinomialDistribution(TorchProbabilityDistribution):
         s2 = repr(self.p_vec.data.cpu().tolist())
         s3 = repr(self.len_dist)
 
-        return 'IntegerMultinomialDistribution(%s, %s, len_dist=%s)' % (s1, s2, s3)
+        return "IntegerMultinomialDistribution(%s, %s, len_dist=%s)" % (s1, s2, s3)
 
     def density(self, x: Sequence[Tuple[int, float]]) -> float:
         """Evaluate the density of IntegerMultinomialDistribution at observed value x.
@@ -118,16 +138,22 @@ class IntegerMultinomialDistribution(TorchProbabilityDistribution):
         rv = 0.0
         xc = 0
         for xx, cnt in x:
-            rv += (-inf if (xx < self.min_val or xx > self.max_val) else self.log_p_vec[xx - self.min_val]) * cnt
+            rv += (
+                -inf
+                if (xx < self.min_val or xx > self.max_val)
+                else self.log_p_vec[xx - self.min_val]
+            ) * cnt
             xc += cnt
 
         rv += self.len_dist.log_density(xc)
 
         return float(rv)
 
-    def seq_log_density(self, x: 'IntegerMultinomialTorchSequence') -> tn.Tensor:
+    def seq_log_density(self, x: "IntegerMultinomialTorchSequence") -> tn.Tensor:
         if not isinstance(x, IntegerMultinomialTorchSequence):
-            raise Exception('Requires IntegerMultinomialTorchSequence for `seq_` function calls.')
+            raise Exception(
+                "Requires IntegerMultinomialTorchSequence for `seq_` function calls."
+            )
         sz, idx, cnt, val, tcnt = x.data
 
         val_dev = val.to(device=self.log_p_vec.device)
@@ -139,29 +165,44 @@ class IntegerMultinomialDistribution(TorchProbabilityDistribution):
         rv.fill_(-tn.inf)
         rv[u] = self.log_p_vec[v[u]]
         rv[u] *= cnt_dev[u.to(device=cnt_dev.device)]
-        ll = tn.bincount(idx_dev, weights=rv.to(device=self.model_device()), minlength=sz)
+        ll = tn.bincount(
+            idx_dev, weights=rv.to(device=self.model_device()), minlength=sz
+        )
 
         if tcnt is not None:
             ll += self.len_dist.seq_log_density(tcnt)
 
         return ll
 
-    def sampler(self, seed: Optional[int] = None) -> 'IntegerMultinomialSampler':
+    def sampler(self, seed: Optional[int] = None) -> "IntegerMultinomialSampler":
         if isinstance(self.len_dist, NullDistribution):
-            raise Exception('IntegerMultinomialDistribution must have len_dist set to distribution with support on '
-                            'non-negative integers.')
+            raise Exception(
+                "IntegerMultinomialDistribution must have len_dist set to distribution with support on "
+                "non-negative integers."
+            )
         return IntegerMultinomialSampler(self, seed)
 
-    def estimator(self, pseudo_count: Optional[int] = None) -> 'IntegerMultinomialEstimator':
-        len_est = NullEstimator() if self.len_dist is None else self.len_dist.estimator(pseudo_count=pseudo_count)
+    def estimator(
+        self, pseudo_count: Optional[int] = None
+    ) -> "IntegerMultinomialEstimator":
+        len_est = (
+            NullEstimator()
+            if self.len_dist is None
+            else self.len_dist.estimator(pseudo_count=pseudo_count)
+        )
 
         if pseudo_count is None:
             return IntegerMultinomialEstimator(len_estimator=len_est)
         else:
-            return IntegerMultinomialEstimator(min_val=self.min_val, max_val=self.max_val, len_estimator=len_est,
-                                               pseudo_count=pseudo_count, suff_stat=(self.min_val, self.p_vec))
+            return IntegerMultinomialEstimator(
+                min_val=self.min_val,
+                max_val=self.max_val,
+                len_estimator=len_est,
+                pseudo_count=pseudo_count,
+                suff_stat=(self.min_val, self.p_vec),
+            )
 
-    def dist_to_encoder(self) -> 'IntegerMultinomialDataEncoder':
+    def dist_to_encoder(self) -> "IntegerMultinomialDataEncoder":
         len_encoder = self.len_dist.dist_to_encoder()
         return IntegerMultinomialDataEncoder(len_encoder=len_encoder)
 
@@ -178,7 +219,9 @@ class IntegerMultinomialSampler(DistributionSampler):
 
     """
 
-    def __init__(self, dist: IntegerMultinomialDistribution, seed: Optional[int] = None) -> None:
+    def __init__(
+        self, dist: IntegerMultinomialDistribution, seed: Optional[int] = None
+    ) -> None:
         """IntegerMultinomialSampler object.
 
         Args:
@@ -191,9 +234,13 @@ class IntegerMultinomialSampler(DistributionSampler):
         self.p_vec = dist.p_vec.data.cpu().numpy()
         self.min_val = dist.min_val
         self.max_val = dist.max_val
-        self.len_sampler = self.dist.len_dist.sampler(seed=self.rng.randint(0, maxrandint))
+        self.len_sampler = self.dist.len_dist.sampler(
+            seed=self.rng.randint(0, maxrandint)
+        )
 
-    def sample(self, size: Optional[int] = None) -> Union[List[Tuple[int, float]], List[List[Tuple[int, float]]]]:
+    def sample(
+        self, size: Optional[int] = None
+    ) -> Union[List[Tuple[int, float]], List[List[Tuple[int, float]]]]:
         """Draw independent samples from an integer multinomial distribution.
 
         Args:
@@ -239,12 +286,14 @@ class IntegerMultinomialAccumulator(TorchStatisticAccumulator):
 
     """
 
-    def __init__(self,
-                 min_val: Optional[int] = None,
-                 max_val: Optional[int] = None,
-                 keys: Optional[str] = None,
-                 len_accumulator: Optional[TorchStatisticAccumulator] = None,
-                 device: Optional[tn.device] = None) -> None:
+    def __init__(
+        self,
+        min_val: Optional[int] = None,
+        max_val: Optional[int] = None,
+        keys: Optional[str] = None,
+        len_accumulator: Optional[TorchStatisticAccumulator] = None,
+        device: Optional[tn.device] = None,
+    ) -> None:
         """IntegerMultinomialAccumulator object.
 
         Args:
@@ -259,7 +308,11 @@ class IntegerMultinomialAccumulator(TorchStatisticAccumulator):
         super().__init__(device=device)
         self.min_val = min_val
         self.max_val = max_val
-        self.len_accumulator = len_accumulator if len_accumulator is not None else NullAccumulator(device=self._device)
+        self.len_accumulator = (
+            len_accumulator
+            if len_accumulator is not None
+            else NullAccumulator(device=self._device)
+        )
 
         if min_val is not None and max_val is not None:
             self.count_vec = np.zeros(max_val - min_val + 1, dtype=np.float64)
@@ -268,13 +321,20 @@ class IntegerMultinomialAccumulator(TorchStatisticAccumulator):
 
         self.key = keys
 
-    def seq_update(self, x: 'IntegerMultinomialTorchSequence', weights: tn.Tensor, estimate: Optional[IntegerMultinomialDistribution]) -> None:
+    def seq_update(
+        self,
+        x: "IntegerMultinomialTorchSequence",
+        weights: tn.Tensor,
+        estimate: Optional[IntegerMultinomialDistribution],
+    ) -> None:
         sz, idx, cnt, val, tenc = x.data
 
         min_x = int(val.min())
         max_x = int(val.max())
 
-        loc_cnt = tn.bincount(val-min_x, weights=cnt*weights[idx]).data.cpu().numpy()
+        loc_cnt = (
+            tn.bincount(val - min_x, weights=cnt * weights[idx]).data.cpu().numpy()
+        )
 
         if self.count_vec is None:
             self.count_vec = np.zeros(max_x - min_x + 1, dtype=np.float64)
@@ -285,13 +345,13 @@ class IntegerMultinomialAccumulator(TorchStatisticAccumulator):
             prev_min = self.min_val
             self.min_val = min(min_x, self.min_val)
             self.max_val = max(max_x, self.max_val)
-            temp        = self.count_vec
-            prev_diff   = prev_min - self.min_val
+            temp = self.count_vec
+            prev_diff = prev_min - self.min_val
             self.count_vec = np.zeros(self.max_val - self.min_val + 1, dtype=np.float64)
-            self.count_vec[prev_diff:(prev_diff + len(temp))] = temp
+            self.count_vec[prev_diff : (prev_diff + len(temp))] = temp
 
         min_diff = min_x - self.min_val
-        self.count_vec[min_diff:(min_diff + len(loc_cnt))] += loc_cnt
+        self.count_vec[min_diff : (min_diff + len(loc_cnt))] += loc_cnt
 
         if self.len_accumulator is not None:
             if estimate is None:
@@ -299,25 +359,34 @@ class IntegerMultinomialAccumulator(TorchStatisticAccumulator):
             else:
                 self.len_accumulator.seq_update(tenc, weights, estimate.len_dist)
 
-    def seq_initialize(self, x: 'IntegerMultinomialTorchSequence', weights: tn.Tensor, rng: Optional[tn.Generator]) -> None:
+    def seq_initialize(
+        self,
+        x: "IntegerMultinomialTorchSequence",
+        weights: tn.Tensor,
+        rng: Optional[tn.Generator],
+    ) -> None:
         self.seq_update(x, weights, None)
 
-    def combine(self, suff_stat: Tuple[int, np.ndarray, Optional[SS]]) -> 'IntegerMultinomialAccumulator':
+    def combine(
+        self, suff_stat: Tuple[int, np.ndarray, Optional[SS]]
+    ) -> "IntegerMultinomialAccumulator":
         if self.count_vec is None and suff_stat[1] is not None:
-            self.min_val   = suff_stat[0]
-            self.max_val   = suff_stat[0] + len(suff_stat[1]) - 1
+            self.min_val = suff_stat[0]
+            self.max_val = suff_stat[0] + len(suff_stat[1]) - 1
             self.count_vec = suff_stat[1]
 
         elif self.count_vec is not None and suff_stat[1] is not None:
 
-            if self.min_val == suff_stat[0] and len(self.count_vec) == len(suff_stat[1]):
+            if self.min_val == suff_stat[0] and len(self.count_vec) == len(
+                suff_stat[1]
+            ):
                 self.count_vec += suff_stat[1]
 
             else:
                 min_val = min(self.min_val, suff_stat[0])
                 max_val = max(self.max_val, suff_stat[0] + len(suff_stat[1]) - 1)
 
-                count_vec = np.zeros(max_val-min_val+1)
+                count_vec = np.zeros(max_val - min_val + 1)
 
                 i0 = self.min_val - min_val
                 i1 = self.max_val - min_val + 1
@@ -327,8 +396,8 @@ class IntegerMultinomialAccumulator(TorchStatisticAccumulator):
                 i1 = (suff_stat[0] + len(suff_stat[1]) - 1) - min_val + 1
                 count_vec[i0:i1] += suff_stat[1]
 
-                self.min_val   = min_val
-                self.max_val   = max_val
+                self.min_val = min_val
+                self.max_val = max_val
                 self.count_vec = count_vec
 
         self.len_accumulator.combine(suff_stat[2])
@@ -338,9 +407,11 @@ class IntegerMultinomialAccumulator(TorchStatisticAccumulator):
     def value(self) -> Tuple[int, np.ndarray, Optional[Any]]:
         return self.min_val, self.count_vec, self.len_accumulator.value()
 
-    def from_value(self, x: Tuple[int, np.ndarray, Optional[SS]]) -> 'IntegerMultinomialAccumulator':
-        self.min_val   = x[0]
-        self.max_val   = x[0] + len(x[1]) - 1
+    def from_value(
+        self, x: Tuple[int, np.ndarray, Optional[SS]]
+    ) -> "IntegerMultinomialAccumulator":
+        self.min_val = x[0]
+        self.max_val = x[0] + len(x[1]) - 1
         self.count_vec = x[1]
 
         self.len_accumulator.from_value(x[2])
@@ -366,7 +437,7 @@ class IntegerMultinomialAccumulator(TorchStatisticAccumulator):
         if self.len_accumulator is not None:
             self.len_accumulator.key_replace(stats_dict)
 
-    def acc_to_encoder(self) -> 'IntegerMultinomialDataEncoder':
+    def acc_to_encoder(self) -> "IntegerMultinomialDataEncoder":
         len_encoder = self.len_accumulator.acc_to_encoder()
         return IntegerMultinomialDataEncoder(len_encoder=len_encoder)
 
@@ -383,9 +454,15 @@ class IntegerMultinomialAccumulatorFactory(TorchStatisticAccumulatorFactory):
 
     """
 
-    def __init__(self, min_val: Optional[int] = None, max_val: Optional[int] = None,
-                 keys: Optional[str] = None,
-                 len_factory: Optional[TorchStatisticAccumulatorFactory] = NullAccumulatorFactory()) -> None:
+    def __init__(
+        self,
+        min_val: Optional[int] = None,
+        max_val: Optional[int] = None,
+        keys: Optional[str] = None,
+        len_factory: Optional[
+            TorchStatisticAccumulatorFactory
+        ] = NullAccumulatorFactory(),
+    ) -> None:
         """IntegerMultinomialAccumulatorFactory object.
 
         Args:
@@ -398,13 +475,22 @@ class IntegerMultinomialAccumulatorFactory(TorchStatisticAccumulatorFactory):
         """
         self.min_val = min_val
         self.max_val = max_val
-        self.len_factory = len_factory if len_factory is not None else NullAccumulatorFactory()
+        self.len_factory = (
+            len_factory if len_factory is not None else NullAccumulatorFactory()
+        )
         self.keys = keys
 
-    def make(self, device: Optional[tn.device] = None) -> 'IntegerMultinomialAccumulator':
+    def make(
+        self, device: Optional[tn.device] = None
+    ) -> "IntegerMultinomialAccumulator":
         len_acc = self.len_factory.make(device=device)
-        return IntegerMultinomialAccumulator(min_val=self.min_val, max_val=self.max_val,
-                                             keys=self.keys, len_accumulator=len_acc, device=device)
+        return IntegerMultinomialAccumulator(
+            min_val=self.min_val,
+            max_val=self.max_val,
+            keys=self.keys,
+            len_accumulator=len_acc,
+            device=device,
+        )
 
 
 class IntegerMultinomialEstimator(TorchParameterEstimator):
@@ -424,12 +510,16 @@ class IntegerMultinomialEstimator(TorchParameterEstimator):
 
     """
 
-    def __init__(self, min_val: Optional[int] = None, max_val: Optional[int] = None,
-                 len_estimator: Optional[TorchParameterEstimator] = NullEstimator(),
-                 len_dist: Optional[TorchProbabilityDistribution] = None,
-                 pseudo_count: Optional[float] = None,
-                 suff_stat: Optional[Tuple[int, np.ndarray]] = None,
-                 keys: Optional[str] = None) -> None:
+    def __init__(
+        self,
+        min_val: Optional[int] = None,
+        max_val: Optional[int] = None,
+        len_estimator: Optional[TorchParameterEstimator] = NullEstimator(),
+        len_dist: Optional[TorchProbabilityDistribution] = None,
+        pseudo_count: Optional[float] = None,
+        suff_stat: Optional[Tuple[int, np.ndarray]] = None,
+        keys: Optional[str] = None,
+    ) -> None:
         """IntegerMultinomialEstimator object.
 
         Args:
@@ -447,11 +537,13 @@ class IntegerMultinomialEstimator(TorchParameterEstimator):
         self.pseudo_count = pseudo_count
         self.min_val = min_val
         self.max_val = max_val
-        self.len_estimator = len_estimator if len_estimator is not None else NullEstimator()
+        self.len_estimator = (
+            len_estimator if len_estimator is not None else NullEstimator()
+        )
         self.len_dist = len_dist
         self.keys = keys
 
-    def accumulator_factory(self) -> 'IntegerMultinomialAccumulatorFactory':
+    def accumulator_factory(self) -> "IntegerMultinomialAccumulatorFactory":
         min_val = None
         max_val = None
 
@@ -463,22 +555,40 @@ class IntegerMultinomialEstimator(TorchParameterEstimator):
             max_val = self.max_val
 
         len_factory = self.len_estimator.accumulator_factory()
-        return IntegerMultinomialAccumulatorFactory(min_val=min_val, max_val=max_val, keys=self.keys,
-                                                    len_factory=len_factory)
+        return IntegerMultinomialAccumulatorFactory(
+            min_val=min_val, max_val=max_val, keys=self.keys, len_factory=len_factory
+        )
 
-    def estimate(self, nobs: Optional[float], suff_stat: Tuple[int, np.ndarray, Optional[SS]], device: Optional[tn.device] = None)\
-            -> 'IntegerMultinomialDistribution':
+    def estimate(
+        self,
+        nobs: Optional[float],
+        suff_stat: Tuple[int, np.ndarray, Optional[SS]],
+        device: Optional[tn.device] = None,
+    ) -> "IntegerMultinomialDistribution":
 
-        len_dist = self.len_dist.to(device) if self.len_dist is not None else self.len_estimator.estimate(nobs, suff_stat[2], device=device)
+        len_dist = (
+            self.len_dist.to(device)
+            if self.len_dist is not None
+            else self.len_estimator.estimate(nobs, suff_stat[2], device=device)
+        )
 
         if self.pseudo_count is not None and self.suff_stat is None:
             pseudo_count_per_level = self.pseudo_count / float(len(suff_stat[1]))
             adjusted_nobs = suff_stat[1].sum() + self.pseudo_count
 
-            return IntegerMultinomialDistribution(suff_stat[0], (suff_stat[1]+pseudo_count_per_level)/adjusted_nobs,
-                                                  len_dist=len_dist, keys=self.keys, device=device)
+            return IntegerMultinomialDistribution(
+                suff_stat[0],
+                (suff_stat[1] + pseudo_count_per_level) / adjusted_nobs,
+                len_dist=len_dist,
+                keys=self.keys,
+                device=device,
+            )
 
-        elif self.pseudo_count is not None and self.min_val is not None and self.max_val is not None:
+        elif (
+            self.pseudo_count is not None
+            and self.min_val is not None
+            and self.max_val is not None
+        ):
             min_val = min(self.min_val, suff_stat[0])
             max_val = max(self.max_val, suff_stat[0] + len(suff_stat[1]) - 1)
 
@@ -491,8 +601,13 @@ class IntegerMultinomialEstimator(TorchParameterEstimator):
             pseudo_count_per_level = self.pseudo_count / float(len(count_vec))
             adjusted_nobs = suff_stat[1].sum() + self.pseudo_count
 
-            return IntegerMultinomialDistribution(min_val, (count_vec+pseudo_count_per_level)/adjusted_nobs,
-                                                  len_dist=len_dist, keys=self.keys, device=device)
+            return IntegerMultinomialDistribution(
+                min_val,
+                (count_vec + pseudo_count_per_level) / adjusted_nobs,
+                len_dist=len_dist,
+                keys=self.keys,
+                device=device,
+            )
 
         elif self.pseudo_count is not None and self.suff_stat is not None:
             s_max_val = self.suff_stat[0] + len(self.suff_stat[1]) - 1
@@ -505,17 +620,27 @@ class IntegerMultinomialEstimator(TorchParameterEstimator):
 
             i0 = s_min_val - min_val
             i1 = s_max_val - min_val + 1
-            count_vec[i0:i1] = self.suff_stat[1]*self.pseudo_count
+            count_vec[i0:i1] = self.suff_stat[1] * self.pseudo_count
 
             i0 = suff_stat[0] - min_val
             i1 = (suff_stat[0] + len(suff_stat[1]) - 1) - min_val + 1
             count_vec[i0:i1] += suff_stat[1]
 
-            return IntegerMultinomialDistribution(min_val, count_vec/(count_vec.sum()), len_dist=len_dist,
-                                                  keys=self.keys, device=device)
+            return IntegerMultinomialDistribution(
+                min_val,
+                count_vec / (count_vec.sum()),
+                len_dist=len_dist,
+                keys=self.keys,
+                device=device,
+            )
         else:
-            return IntegerMultinomialDistribution(suff_stat[0], suff_stat[1]/(suff_stat[1].sum()), len_dist=len_dist,
-                                                  keys=self.keys, device=device)
+            return IntegerMultinomialDistribution(
+                suff_stat[0],
+                suff_stat[1] / (suff_stat[1].sum()),
+                len_dist=len_dist,
+                keys=self.keys,
+                device=device,
+            )
 
 
 class IntegerMultinomialDataEncoder(TorchSequenceEncoder):
@@ -527,7 +652,9 @@ class IntegerMultinomialDataEncoder(TorchSequenceEncoder):
 
     """
 
-    def __init__(self, len_encoder: Optional[TorchSequenceEncoder] = NullDataEncoder()) -> None:
+    def __init__(
+        self, len_encoder: Optional[TorchSequenceEncoder] = NullDataEncoder()
+    ) -> None:
         """IntegerMultinomialDataEncoder object.
 
         Args:
@@ -538,7 +665,9 @@ class IntegerMultinomialDataEncoder(TorchSequenceEncoder):
         self.len_encoder = len_encoder if len_encoder is not None else NullDataEncoder()
 
     def __str__(self) -> str:
-        return "IntegerMultinomialDataEncoder(len_encoder=" + str(self.len_encoder) + ")"
+        return (
+            "IntegerMultinomialDataEncoder(len_encoder=" + str(self.len_encoder) + ")"
+        )
 
     def __eq__(self, other: object) -> bool:
         if isinstance(other, IntegerMultinomialDataEncoder):
@@ -546,7 +675,11 @@ class IntegerMultinomialDataEncoder(TorchSequenceEncoder):
         else:
             return False
 
-    def seq_encode(self, x: Sequence[Sequence[Tuple[int, float]]], device: Optional[tn.device] = None) -> 'IntegerMultinomialTorchSequence':
+    def seq_encode(
+        self,
+        x: Sequence[Sequence[Tuple[int, float]]],
+        device: Optional[tn.device] = None,
+    ) -> "IntegerMultinomialTorchSequence":
         idx = []
         cnt = []
         val = []
@@ -568,13 +701,19 @@ class IntegerMultinomialDataEncoder(TorchSequenceEncoder):
 
         tcnt = self.len_encoder.seq_encode(tcnt, device=device)
 
-        return IntegerMultinomialTorchSequence(data=(sz, idx, cnt, val, tcnt), device=device)
+        return IntegerMultinomialTorchSequence(
+            data=(sz, idx, cnt, val, tcnt), device=device
+        )
 
 
 class IntegerMultinomialTorchSequence(TorchEncodedSequence):
 
-    def __init__(self, data: Tuple[int, tn.tensor, tn.tensor, tn.tensor, TorchEncodedSequence], device: Optional[tn.device] = None):
+    def __init__(
+        self,
+        data: Tuple[int, tn.tensor, tn.tensor, tn.tensor, TorchEncodedSequence],
+        device: Optional[tn.device] = None,
+    ):
         super().__init__(data=data, device=device)
 
     def __str__(self) -> str:
-        return f'IntegerMultinomialTorchSequence(device={repr(self.device)})'
+        return f"IntegerMultinomialTorchSequence(device={repr(self.device)})"

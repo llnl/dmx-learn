@@ -7,27 +7,39 @@ The SelectDistribution samples from a set of SequenceEncodableProbabilityDistrib
 maps an observation a distribution from the set of distributions.
 
 """
+
+from typing import Any, Callable, Dict, List, Optional, Sequence, Tuple, TypeVar
+
 import numpy as np
 from numpy.random import RandomState
+
 from dmx.arithmetic import *
-from dmx.stats.pdist import SequenceEncodableProbabilityDistribution, SequenceEncodableStatisticAccumulator, \
-    ParameterEstimator, DistributionSampler, DataSequenceEncoder, StatisticAccumulatorFactory, EncodedDataSequence
+from dmx.stats.pdist import (
+    DataSequenceEncoder,
+    DistributionSampler,
+    EncodedDataSequence,
+    ParameterEstimator,
+    SequenceEncodableProbabilityDistribution,
+    SequenceEncodableStatisticAccumulator,
+    StatisticAccumulatorFactory,
+)
 
-from typing import Callable, Dict, Tuple, Any, Optional, Sequence, TypeVar, List
-
-T = TypeVar('T')
+T = TypeVar("T")
 
 
 class SelectDistribution(SequenceEncodableProbabilityDistribution):
 
-    def __init__(self, dists: Sequence[SequenceEncodableProbabilityDistribution],
-                 choice_function: Callable[[T], int]) -> None:
+    def __init__(
+        self,
+        dists: Sequence[SequenceEncodableProbabilityDistribution],
+        choice_function: Callable[[T], int],
+    ) -> None:
         self.dists = dists
         self.choice_function = choice_function
         self.count = len(dists)
 
     def __str__(self):
-        return 'SelectDistribution(' + ','.join([str(u) for u in self.dists]) + ')'
+        return "SelectDistribution(" + ",".join([str(u) for u in self.dists]) + ")"
 
     def density(self, x: T) -> float:
         idx = self.choice_function(x)
@@ -37,10 +49,10 @@ class SelectDistribution(SequenceEncodableProbabilityDistribution):
         idx = self.choice_function(x)
         return self.dists[idx].log_density(x)
 
-    def seq_log_density(self, x: 'SelectEncodedDataSequence') -> np.ndarray:
+    def seq_log_density(self, x: "SelectEncodedDataSequence") -> np.ndarray:
 
         if not isinstance(x, SelectEncodedDataSequence):
-            raise Exception('Requires SelectEncodedDataSequence for `seq_` calls.')
+            raise Exception("Requires SelectEncodedDataSequence for `seq_` calls.")
 
         xi, idx, enc_tuple = x.data
         rv = np.zeros(len(xi))
@@ -48,22 +60,29 @@ class SelectDistribution(SequenceEncodableProbabilityDistribution):
             rv[xi[i]] = self.dists[i].seq_log_density(enc_tuple[i])
         return rv
 
-    def sampler(self, seed: Optional[int] = None) -> 'SelectSampler':
+    def sampler(self, seed: Optional[int] = None) -> "SelectSampler":
         return SelectSampler(self, seed)
 
-    def estimator(self, pseudo_count: Optional[float] = None) -> 'SelectEstimator':
-        return SelectEstimator([d.estimator(pseudo_count=pseudo_count) for d in self.dists], self.choice_function)
+    def estimator(self, pseudo_count: Optional[float] = None) -> "SelectEstimator":
+        return SelectEstimator(
+            [d.estimator(pseudo_count=pseudo_count) for d in self.dists],
+            self.choice_function,
+        )
 
-    def dist_to_encoder(self) -> 'SelectDataEncoder':
+    def dist_to_encoder(self) -> "SelectDataEncoder":
         encoders = [d.dist_to_encoder() for d in self.dists]
-        return SelectDataEncoder(encoders=encoders, choice_function=self.choice_function)
+        return SelectDataEncoder(
+            encoders=encoders, choice_function=self.choice_function
+        )
 
 
 class SelectSampler(DistributionSampler):
     def __init__(self, dist: SelectDistribution, seed: Optional[int] = None) -> None:
         self.dist = dist
         self.rng = RandomState(seed)
-        self.dist_samplers = [d.sampler(seed=self.rng.randint(maxint)) for d in dist.dists]
+        self.dist_samplers = [
+            d.sampler(seed=self.rng.randint(maxint)) for d in dist.dists
+        ]
 
     def sample(self, size: Optional[int] = None):
 
@@ -74,8 +93,11 @@ class SelectSampler(DistributionSampler):
 
 
 class SelectEstimatorAccumulator(SequenceEncodableStatisticAccumulator):
-    def __init__(self, accumulators: Sequence[SequenceEncodableStatisticAccumulator],
-                 choice_function: Callable[[T], int]) -> None:
+    def __init__(
+        self,
+        accumulators: Sequence[SequenceEncodableStatisticAccumulator],
+        choice_function: Callable[[T], int],
+    ) -> None:
         self.accumulators = accumulators
         self.choice_function = choice_function
         self.weights = [zero] * len(accumulators)
@@ -84,14 +106,18 @@ class SelectEstimatorAccumulator(SequenceEncodableStatisticAccumulator):
         self._rng_init = False
         self._acc_rng: Optional[List[RandomState]] = None
 
-    def update(self, x: T, weight: float, estimate: Optional[SelectDistribution]) -> None:
+    def update(
+        self, x: T, weight: float, estimate: Optional[SelectDistribution]
+    ) -> None:
         # cf  = pickle.loads(self.choice_function)
         idx = self.choice_function(x)
         self.accumulators[idx].update(x, weight, None)
         self.weights[idx] += weight
 
     def _rng_initialize(self, rng: RandomState) -> None:
-        self._acc_rng = [RandomState(seed=rng.randint(0, maxrandint)) for xx in range(self.count)]
+        self._acc_rng = [
+            RandomState(seed=rng.randint(0, maxrandint)) for xx in range(self.count)
+        ]
         self._rng_init = True
 
     def initialize(self, x: T, weight: float, rng: RandomState) -> None:
@@ -102,14 +128,21 @@ class SelectEstimatorAccumulator(SequenceEncodableStatisticAccumulator):
         self.accumulators[idx].initialize(x, weight, self._acc_rng[idx])
         self.weights[idx] += weight
 
-    def seq_update(self, x: 'SelectEncodedDataSequence', weights: np.ndarray, estimate: SelectDistribution) -> None:
+    def seq_update(
+        self,
+        x: "SelectEncodedDataSequence",
+        weights: np.ndarray,
+        estimate: SelectDistribution,
+    ) -> None:
         xi, idx, enc_tuple = x.data
         for i in range(len(idx)):
             w = weights[xi[i]]
             self.accumulators[i].seq_update(enc_tuple[i], w, estimate.dists[i])
             self.weights[i] += np.sum(w)
 
-    def seq_initialize(self, x: 'SelectEncodedDataSequence', weights: np.ndarray, rng: RandomState) -> None:
+    def seq_initialize(
+        self, x: "SelectEncodedDataSequence", weights: np.ndarray, rng: RandomState
+    ) -> None:
         if not self._rng_init:
             self._rng_initialize(rng)
 
@@ -119,7 +152,7 @@ class SelectEstimatorAccumulator(SequenceEncodableStatisticAccumulator):
             self.accumulators[i].seq_initialize(enc_tuple[i], w, self._acc_rng[i])
             self.weights[i] += np.sum(w)
 
-    def combine(self, suff_stat) -> 'SelectEstimatorAccumulator':
+    def combine(self, suff_stat) -> "SelectEstimatorAccumulator":
         for i in range(0, self.count):
             self.weights[i] += suff_stat[i][0]
             self.accumulators[i].combine(suff_stat[i][1])
@@ -129,7 +162,7 @@ class SelectEstimatorAccumulator(SequenceEncodableStatisticAccumulator):
     def value(self):
         return zip(self.weights, [x.value() for x in self.accumulators])
 
-    def from_value(self, x) -> 'SelectEstimatorAccumulator':
+    def from_value(self, x) -> "SelectEstimatorAccumulator":
         for i, u in enumerate(x):
             self.weights[i] = u[0]
             self.accumulators[i].from_value(u[1])
@@ -142,9 +175,11 @@ class SelectEstimatorAccumulator(SequenceEncodableStatisticAccumulator):
     def key_replace(self, stats_dict: Dict[str, Any]) -> None:
         pass
 
-    def acc_to_encoder(self) -> 'SelectDataEncoder':
+    def acc_to_encoder(self) -> "SelectDataEncoder":
         encoders = [acc.acc_to_encoder() for acc in self.accumulators]
-        return SelectDataEncoder(encoders=encoders, choice_function=self.choice_function)
+        return SelectDataEncoder(
+            encoders=encoders, choice_function=self.choice_function
+        )
 
 
 class SelectEstimatorAccumulatorFactory(StatisticAccumulatorFactory):
@@ -154,8 +189,10 @@ class SelectEstimatorAccumulatorFactory(StatisticAccumulatorFactory):
         self.choice_function = choice_function
 
     def make(self):
-        return SelectEstimatorAccumulator([x.accumulatorFactory().make() for x in self.estimators],
-                                          self.choice_function)
+        return SelectEstimatorAccumulator(
+            [x.accumulatorFactory().make() for x in self.estimators],
+            self.choice_function,
+        )
 
 
 class SelectEstimator(ParameterEstimator):
@@ -168,13 +205,19 @@ class SelectEstimator(ParameterEstimator):
         return SelectEstimatorAccumulatorFactory(self.estimators, self.choice_function)
 
     def estimate(self, nobs, suff_stat):
-        return (SelectDistribution([est.estimate(ss[0], ss[1]) for est, ss in zip(self.estimators, suff_stat)],
-                                   self.choice_function))
+        return SelectDistribution(
+            [est.estimate(ss[0], ss[1]) for est, ss in zip(self.estimators, suff_stat)],
+            self.choice_function,
+        )
 
 
 class SelectDataEncoder(DataSequenceEncoder):
 
-    def __init__(self, encoders: Sequence[DataSequenceEncoder], choice_function: Callable[[T], int]) -> None:
+    def __init__(
+        self,
+        encoders: Sequence[DataSequenceEncoder],
+        choice_function: Callable[[T], int],
+    ) -> None:
         self.encoders = encoders
         self.choice_function = choice_function
 
@@ -190,7 +233,7 @@ class SelectDataEncoder(DataSequenceEncoder):
         else:
             return False
 
-    def seq_encode(self, x: Sequence[T]) -> 'SelectEncodedDataSequence':
+    def seq_encode(self, x: Sequence[T]) -> "SelectEncodedDataSequence":
         cnt = 0
         idx_dict = dict()
 
@@ -211,14 +254,20 @@ class SelectDataEncoder(DataSequenceEncoder):
             idx_xi.append(np.asarray(vals[0]))
             idx_enc_vals.append(self.encoders[keys].seq_encode(vals[1]))
 
-        return SelectEncodedDataSequence(data=(tuple(idx_xi), tuple(idx_keys), tuple(idx_enc_vals)))
+        return SelectEncodedDataSequence(
+            data=(tuple(idx_xi), tuple(idx_keys), tuple(idx_enc_vals))
+        )
 
 
 class SelectEncodedDataSequence(EncodedDataSequence):
 
-    def __init__(self, data: Tuple[Tuple[np.ndarray, ...], Tuple[int, ...], Tuple[EncodedDataSequence, ...]]):
+    def __init__(
+        self,
+        data: Tuple[
+            Tuple[np.ndarray, ...], Tuple[int, ...], Tuple[EncodedDataSequence, ...]
+        ],
+    ):
         super().__init__(data=data)
 
     def __repr__(self) -> str:
-        return f'SelectEncodedDataSequence(data=f{self.data})'
-
+        return f"SelectEncodedDataSequence(data=f{self.data})"

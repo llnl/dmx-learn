@@ -15,13 +15,21 @@ dimension equal to K representing the mean of the rank variables, and rho is a c
 
 """
 
+import itertools
+from typing import Any, Dict, List, Optional, Sequence, Tuple, Union
+
 import numpy as np
 from numpy.random import RandomState
-from dmx.stats.pdist import SequenceEncodableProbabilityDistribution, SequenceEncodableStatisticAccumulator, \
-    ParameterEstimator, DistributionSampler, DataSequenceEncoder, StatisticAccumulatorFactory, EncodedDataSequence
-import itertools
 
-from typing import Optional, Sequence, Union, Any, Dict, List, Tuple
+from dmx.stats.pdist import (
+    DataSequenceEncoder,
+    DistributionSampler,
+    EncodedDataSequence,
+    ParameterEstimator,
+    SequenceEncodableProbabilityDistribution,
+    SequenceEncodableStatisticAccumulator,
+    StatisticAccumulatorFactory,
+)
 
 
 class SpearmanRankingDistribution(SequenceEncodableProbabilityDistribution):
@@ -36,8 +44,13 @@ class SpearmanRankingDistribution(SequenceEncodableProbabilityDistribution):
 
     """
 
-    def __init__(self, sigma: Union[Sequence[float], np.ndarray], rho: float = 1.0, name: Optional[str] = None,
-                 keys: Optional[str] = None) -> None:
+    def __init__(
+        self,
+        sigma: Union[Sequence[float], np.ndarray],
+        rho: float = 1.0,
+        name: Optional[str] = None,
+        keys: Optional[str] = None,
+    ) -> None:
         """SpearmanRankingDistribution object.
 
         Args:
@@ -54,11 +67,22 @@ class SpearmanRankingDistribution(SequenceEncodableProbabilityDistribution):
         self.keys = keys
 
         perms = map(np.asarray, map(list, itertools.permutations(range(self.dim))))
-        self.log_const = np.log(sum(map(lambda u: np.exp(-rho * np.dot(self.sigma - u, self.sigma - u)), perms)))
+        self.log_const = np.log(
+            sum(
+                map(
+                    lambda u: np.exp(-rho * np.dot(self.sigma - u, self.sigma - u)),
+                    perms,
+                )
+            )
+        )
 
     def __str__(self) -> str:
-        return 'SpearmanRankingDistribution(sigma=%s, rho=%s, name=%s, keys=%s)' % (
-            repr(self.sigma.tolist()), repr(self.rho), repr(self.name), repr(self.keys))
+        return "SpearmanRankingDistribution(sigma=%s, rho=%s, name=%s, keys=%s)" % (
+            repr(self.sigma.tolist()),
+            repr(self.rho),
+            repr(self.name),
+            repr(self.keys),
+        )
 
     def density(self, x: List[int]) -> float:
         return np.exp(self.log_density(x))
@@ -67,10 +91,12 @@ class SpearmanRankingDistribution(SequenceEncodableProbabilityDistribution):
         temp = np.subtract(x, self.sigma)
         return -self.rho * np.dot(temp, temp) - self.log_const
 
-    def seq_log_density(self, x: 'SpearmanRankingEncodedDataSequence') -> np.ndarray:
+    def seq_log_density(self, x: "SpearmanRankingEncodedDataSequence") -> np.ndarray:
 
         if not isinstance(x, SpearmanRankingEncodedDataSequence):
-            raise Exception('SpearmanRankingEncodedDataSequence required for seq_log_density().')
+            raise Exception(
+                "SpearmanRankingEncodedDataSequence required for seq_log_density()."
+            )
 
         temp = x.data - self.sigma
         temp *= temp
@@ -78,13 +104,17 @@ class SpearmanRankingDistribution(SequenceEncodableProbabilityDistribution):
         rv -= self.log_const
         return rv
 
-    def sampler(self, seed: Optional[int] = None) -> 'SpearmanRankingSampler':
+    def sampler(self, seed: Optional[int] = None) -> "SpearmanRankingSampler":
         return SpearmanRankingSampler(self, seed)
 
-    def estimator(self, pseudo_count: Optional[float] = None) -> 'SpearmanRankingEstimator':
-        return SpearmanRankingEstimator(self.dim, pseudo_count=pseudo_count, name=self.name, keys=self.keys)
+    def estimator(
+        self, pseudo_count: Optional[float] = None
+    ) -> "SpearmanRankingEstimator":
+        return SpearmanRankingEstimator(
+            self.dim, pseudo_count=pseudo_count, name=self.name, keys=self.keys
+        )
 
-    def dist_to_encoder(self) -> 'SpearmanRankingDataEncoder':
+    def dist_to_encoder(self) -> "SpearmanRankingDataEncoder":
         return SpearmanRankingDataEncoder()
 
 
@@ -99,7 +129,9 @@ class SpearmanRankingSampler(DistributionSampler):
 
     """
 
-    def __init__(self, dist: SpearmanRankingDistribution, seed: Optional[int] = None) -> None:
+    def __init__(
+        self, dist: SpearmanRankingDistribution, seed: Optional[int] = None
+    ) -> None:
         """SpearmanRankingSampler object..
 
         Args:
@@ -114,7 +146,9 @@ class SpearmanRankingSampler(DistributionSampler):
         encoder = self.dist.dist_to_encoder()
         self.probs = np.exp(dist.seq_log_density(encoder.seq_encode(self.perms)))
 
-    def sample(self, size: Optional[int] = None) -> Union[List[int], Sequence[List[int]]]:
+    def sample(
+        self, size: Optional[int] = None
+    ) -> Union[List[int], Sequence[List[int]]]:
         idx = self.rng.choice(len(self.perms), p=self.probs, replace=True, size=size)
 
         if size is None:
@@ -133,7 +167,9 @@ class SpearmanRankingAccumulator(SequenceEncodableStatisticAccumulator):
         name (Optional[str]): Name for object.
     """
 
-    def __init__(self, dim: int, name: Optional[str] = None, keys: Optional[str] = None) -> None:
+    def __init__(
+        self, dim: int, name: Optional[str] = None, keys: Optional[str] = None
+    ) -> None:
         """SpearmanRankingAccumulator object.
 
         Args:
@@ -147,24 +183,42 @@ class SpearmanRankingAccumulator(SequenceEncodableStatisticAccumulator):
         self.keys = keys
         self.name = name
 
-    def update(self, x: Union[List[int], np.ndarray], weight: float, estimate: Optional[SpearmanRankingDistribution])\
-            -> None:
+    def update(
+        self,
+        x: Union[List[int], np.ndarray],
+        weight: float,
+        estimate: Optional[SpearmanRankingDistribution],
+    ) -> None:
         self.sum += np.multiply(x, weight)
         self.count += weight
 
-    def initialize(self, x: Union[List[int], np.ndarray], weight: float, rng: RandomState) -> None:
+    def initialize(
+        self, x: Union[List[int], np.ndarray], weight: float, rng: RandomState
+    ) -> None:
         if weight != 0:
             self.sum += np.multiply(x, weight)
             self.count += 0
 
-    def seq_update(self, x: 'SpearmanRankingEncodedDataSequence', weights: np.ndarray, estimate: Optional[SpearmanRankingDistribution]) -> None:
+    def seq_update(
+        self,
+        x: "SpearmanRankingEncodedDataSequence",
+        weights: np.ndarray,
+        estimate: Optional[SpearmanRankingDistribution],
+    ) -> None:
         self.sum += np.dot(x.data.T, weights)
         self.count += weights.sum()
 
-    def seq_initialize(self, x: 'SpearmanRankingEncodedDataSequence', weights: np.ndarray, rng: RandomState) -> None:
+    def seq_initialize(
+        self,
+        x: "SpearmanRankingEncodedDataSequence",
+        weights: np.ndarray,
+        rng: RandomState,
+    ) -> None:
         self.seq_update(x, weights, None)
 
-    def combine(self, suff_stat: Tuple[float, np.ndarray]) -> 'SpearmanRankingAccumulator':
+    def combine(
+        self, suff_stat: Tuple[float, np.ndarray]
+    ) -> "SpearmanRankingAccumulator":
         self.sum += suff_stat[1]
         self.count += suff_stat[0]
         return self
@@ -172,7 +226,7 @@ class SpearmanRankingAccumulator(SequenceEncodableStatisticAccumulator):
     def value(self) -> Tuple[float, np.ndarray]:
         return self.count, self.sum
 
-    def from_value(self, x: Tuple[float, np.ndarray]) -> 'SpearmanRankingAccumulator':
+    def from_value(self, x: Tuple[float, np.ndarray]) -> "SpearmanRankingAccumulator":
         self.sum = x[1]
         self.count = x[0]
         return self
@@ -192,7 +246,7 @@ class SpearmanRankingAccumulator(SequenceEncodableStatisticAccumulator):
                 self.count = vals[0]
                 self.sum = vals[1]
 
-    def acc_to_encoder(self) -> 'SpearmanRankingDataEncoder':
+    def acc_to_encoder(self) -> "SpearmanRankingDataEncoder":
         return SpearmanRankingDataEncoder()
 
 
@@ -206,7 +260,9 @@ class SpearmanRankingAccumulatorFactory(StatisticAccumulatorFactory):
 
     """
 
-    def __init__(self, dim: int, name: Optional[str] = None, keys: Optional[str] = None) -> None:
+    def __init__(
+        self, dim: int, name: Optional[str] = None, keys: Optional[str] = None
+    ) -> None:
         """SpearmanRankingAccumulatorFactory object.
 
         Args:
@@ -219,7 +275,7 @@ class SpearmanRankingAccumulatorFactory(StatisticAccumulatorFactory):
         self.keys = keys
         self.name = name
 
-    def make(self) -> 'SpearmanRankingAccumulator':
+    def make(self) -> "SpearmanRankingAccumulator":
         return SpearmanRankingAccumulator(dim=self.dim, name=self.name, keys=self.keys)
 
 
@@ -235,9 +291,14 @@ class SpearmanRankingEstimator(ParameterEstimator):
 
     """
 
-    def __init__(self, dim: int, pseudo_count: Optional[float] = None, suff_stat: Optional[Tuple[float, np.ndarray]] = None,
-                 name: Optional[str] = None,
-                 keys: Optional[str] = None) -> None:
+    def __init__(
+        self,
+        dim: int,
+        pseudo_count: Optional[float] = None,
+        suff_stat: Optional[Tuple[float, np.ndarray]] = None,
+        name: Optional[str] = None,
+        keys: Optional[str] = None,
+    ) -> None:
         """SpearmanRankingEstimator object.
 
         Args:
@@ -251,7 +312,9 @@ class SpearmanRankingEstimator(ParameterEstimator):
         if isinstance(keys, str) or keys is None:
             self.keys = keys
         else:
-            raise TypeError("SpearmanRankingEstimator requires keys to be of type 'str'.")
+            raise TypeError(
+                "SpearmanRankingEstimator requires keys to be of type 'str'."
+            )
 
         self.dim = dim
         self.pseudo_count = pseudo_count
@@ -259,10 +322,12 @@ class SpearmanRankingEstimator(ParameterEstimator):
         self.keys = keys
         self.name = name
 
-    def accumulator_factory(self) -> 'SpearmanRankingAccumulatorFactory':
+    def accumulator_factory(self) -> "SpearmanRankingAccumulatorFactory":
         return SpearmanRankingAccumulatorFactory(self.dim, self.name, self.keys)
 
-    def estimate(self, nobs: Optional[float], suff_stat: Tuple[float, np.ndarray]) -> 'SpearmanRankingDistribution':
+    def estimate(
+        self, nobs: Optional[float], suff_stat: Tuple[float, np.ndarray]
+    ) -> "SpearmanRankingDistribution":
 
         count, vsum = suff_stat
 
@@ -277,18 +342,21 @@ class SpearmanRankingEstimator(ParameterEstimator):
 
 
 class SpearmanRankingDataEncoder(DataSequenceEncoder):
-    """SpearmanRankingDataEncoder for encoding sequences of spearman rho observations. """
+    """SpearmanRankingDataEncoder for encoding sequences of spearman rho observations."""
 
     def __str__(self) -> str:
-        return 'SpearmanRankingDataEncoder'
+        return "SpearmanRankingDataEncoder"
 
     def __eq__(self, other: object) -> bool:
         return isinstance(other, SpearmanRankingDataEncoder)
 
-    def seq_encode(self, x: Sequence[List[int]]) -> 'SpearmanRankingEncodedDataSequence':
+    def seq_encode(
+        self, x: Sequence[List[int]]
+    ) -> "SpearmanRankingEncodedDataSequence":
         rv = np.asarray(x)
 
         return SpearmanRankingEncodedDataSequence(data=rv)
+
 
 class SpearmanRankingEncodedDataSequence(EncodedDataSequence):
     """SpearmanRankingEncodedDataSequence object for vectorized function calls.
@@ -308,5 +376,4 @@ class SpearmanRankingEncodedDataSequence(EncodedDataSequence):
         super().__init__(data=data)
 
     def __repr__(self) -> str:
-        return f'SpearmanRankingEncodedDataSequence(data={self.data})'
-
+        return f"SpearmanRankingEncodedDataSequence(data={self.data})"

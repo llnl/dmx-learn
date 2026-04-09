@@ -71,8 +71,7 @@ from dmx.torch_stats.pdist import (
     TorchStatisticAccumulatorFactory,
 )
 from dmx.torch_utils.estimation import empirical_kl_divergence
-from dmx.torch_utils.vector import set_default_float_dtype, float_dtype_for_device
-
+from dmx.torch_utils.vector import float_dtype_for_device, set_default_float_dtype
 
 # ---------------------------------------------------------------------------
 # Tolerance: float64 on CPU/CUDA gives ~1e-14; we allow 1e-10 as a safe
@@ -118,6 +117,7 @@ def _tol_for_device(device: torch.device) -> float:
 # ---------------------------------------------------------------------------
 # Module-level helper functions (mirror of stats_tests.py style)
 # ---------------------------------------------------------------------------
+
 
 def sampler_repeat_test(dist: TorchProbabilityDistribution):
     """Verify that the same seed produces identical samples across two calls.
@@ -354,9 +354,7 @@ def device_test(
     enc_data = [(sz, encoder.seq_encode(data, device=device))]
     est = dist.estimator()
     try:
-        model = seq_initialize(
-            enc_data=enc_data, estimator=est, seed=42, device=device
-        )
+        model = seq_initialize(enc_data=enc_data, estimator=est, seed=42, device=device)
         model.to(torch.device("cpu"))
         return True, "device movement succeeded"
     except Exception as exc:
@@ -366,6 +364,7 @@ def device_test(
 # ---------------------------------------------------------------------------
 # Abstract base test class
 # ---------------------------------------------------------------------------
+
 
 class TorchStatsTestClass(unittest.TestCase, metaclass=abc.ABCMeta):
     """Abstract base class for torch_stats distribution test cases.
@@ -495,7 +494,12 @@ class TorchStatsTestClass(unittest.TestCase, metaclass=abc.ABCMeta):
     # Test 08 – seq_update does not decrease log-likelihood
     # ------------------------------------------------------------------
     @pytest.mark.dependency(
-        depends=["torch_sampler", "torch_log_density", "torch_estimator_factory", "torch_factory_make"],
+        depends=[
+            "torch_sampler",
+            "torch_log_density",
+            "torch_estimator_factory",
+            "torch_factory_make",
+        ],
         name="torch_seq_update",
     )
     def test_08_seq_update(self):

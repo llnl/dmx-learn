@@ -1,8 +1,9 @@
 """Tests for PoissonDistribution and related torch_stats classes."""
-import torch
+
 import numpy as np
 import pytest
-from tests.torch_stats.torch_stats_tests import *
+import torch
+
 from dmx.torch_stats import *
 from dmx.torch_stats.poisson import (
     PoissonAccumulator,
@@ -10,6 +11,7 @@ from dmx.torch_stats.poisson import (
     PoissonDataEncoder,
     PoissonTorchSequence,
 )
+from tests.torch_stats.torch_stats_tests import *
 
 
 class PoissonDistributionTestCase(TorchStatsTestClass):
@@ -55,7 +57,9 @@ class PoissonDistributionTestCase(TorchStatsTestClass):
     def test_sampler_nonnegative(self):
         """All sampled values must be non-negative integers."""
         data = self._dists[0].sampler(seed=1).sample(size=500)
-        self.assertTrue(all(x >= 0 for x in data), "Poisson samples must be non-negative")
+        self.assertTrue(
+            all(x >= 0 for x in data), "Poisson samples must be non-negative"
+        )
 
     def test_mean_approx(self):
         """Sample mean should be close to lambda."""

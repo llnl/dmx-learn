@@ -1,18 +1,20 @@
-from pyspark import SparkContext
-from numpy.random import RandomState
-from dmx.arithmetic import *
-import numpy as np
 import pickle
+from typing import Optional
+
+import numpy as np
+from numpy.random import RandomState
+from pyspark import SparkContext
+
+from dmx.arithmetic import *
 from dmx.arithmetic import maxrandint
 from dmx.stats.pdist import SequenceEncodableProbabilityDistribution
-from typing import Optional
 
 
 def take_sample(
     rdd: SparkContext.parallelize,
     with_replacement: bool,
     n: int,
-    seed: Optional[int] = None
+    seed: Optional[int] = None,
 ) -> list:
     """
     Takes a sample from an RDD.
@@ -27,7 +29,9 @@ def take_sample(
         list: A list of samples from the RDD.
     """
     rng = RandomState(seed)
-    sample = rdd.zipWithUniqueId().takeSample(with_replacement, n, rng.randint(0, maxrandint))
+    sample = rdd.zipWithUniqueId().takeSample(
+        with_replacement, n, rng.randint(0, maxrandint)
+    )
     sidx = np.argsort([u[1] for u in sample])
     sample = [sample[i][0] for i in sidx]
     sidx = np.argsort(rng.uniform(size=n))
@@ -40,7 +44,7 @@ def sample_seq_as_rdd(
     seq_len: int,
     count_per_split: int,
     num_splits: int,
-    seed: Optional[int] = None
+    seed: Optional[int] = None,
 ) -> SparkContext.parallelize:
     """
     Samples sequences from a distribution and returns them as an RDD.
@@ -62,7 +66,9 @@ def sample_seq_as_rdd(
     def fmap(u):
         ddist = distB.value
         sampler = [ddist.sampler(seed=h) for h in u]
-        return iter([v for h in sampler for v in h.sample_seq(seq_len, size=count_per_split)])
+        return iter(
+            [v for h in sampler for v in h.sample_seq(seq_len, size=count_per_split)]
+        )
 
     return sc.parallelize(seeds, num_splits).mapPartitions(fmap, True)
 
@@ -72,7 +78,7 @@ def sample_rdd(
     dist: SequenceEncodableProbabilityDistribution,
     count_per_split: int,
     num_splits: int,
-    seed: Optional[int] = None
+    seed: Optional[int] = None,
 ) -> SparkContext.parallelize:
     """
     Samples data from a distribution and returns it as an RDD.

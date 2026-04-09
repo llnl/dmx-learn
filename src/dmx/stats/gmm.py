@@ -7,20 +7,23 @@ The GaussianMixtureDistribution allows users to key the variance parameter acros
 MixtureDistribution([GaussianDistribution()]*K), as you cannot key the variance parameter while allowing for different
 means in components.
 """
+
+from typing import Any, Dict, List, Optional, Sequence, Tuple, TypeVar, Union
+
 import numpy as np
-from dmx.stats.pdist import (
-    SequenceEncodableProbabilityDistribution,
-    ParameterEstimator,
-    DistributionSampler,
-    StatisticAccumulatorFactory,
-    SequenceEncodableStatisticAccumulator,
-    DataSequenceEncoder,
-    EncodedDataSequence,
-)
 from numpy.random import RandomState
+
 import dmx.utils.vector as vec
 from dmx.arithmetic import maxrandint
-from typing import List, Union, Tuple, Any, Optional, TypeVar, Sequence, Dict
+from dmx.stats.pdist import (
+    DataSequenceEncoder,
+    DistributionSampler,
+    EncodedDataSequence,
+    ParameterEstimator,
+    SequenceEncodableProbabilityDistribution,
+    SequenceEncodableStatisticAccumulator,
+    StatisticAccumulatorFactory,
+)
 
 E = np.ndarray
 SS = Tuple[np.ndarray, np.ndarray, np.ndarray, np.ndarray, np.ndarray]
@@ -48,7 +51,7 @@ class GaussianMixtureDistribution(SequenceEncodableProbabilityDistribution):
         sigma2: Union[Sequence[float], np.ndarray, float],
         w: Union[np.ndarray, List[float]],
         name: Optional[str] = None,
-        keys: Tuple[Optional[str], Optional[str]] = (None, None)
+        keys: Tuple[Optional[str], Optional[str]] = (None, None),
     ) -> None:
         """Initialize GaussianMixtureDistribution.
 
@@ -65,14 +68,18 @@ class GaussianMixtureDistribution(SequenceEncodableProbabilityDistribution):
             self.log_c = -0.5 * np.log(2 * np.pi)
         else:
             self._tied = False
-            self.sigma2 = sigma2 if isinstance(sigma2, np.ndarray) else np.asarray(sigma2, dtype=np.float64)
+            self.sigma2 = (
+                sigma2
+                if isinstance(sigma2, np.ndarray)
+                else np.asarray(sigma2, dtype=np.float64)
+            )
             self.sigma2 = np.reshape(self.sigma2, (1, -1))
             self.log_c = -0.5 * np.log(2 * np.pi)
 
         self.mu = mu if isinstance(mu, np.ndarray) else np.asarray(mu, dtype=np.float64)
         self.mu = np.reshape(self.mu, (1, -1))
         self.w = w if isinstance(w, np.ndarray) else np.asarray(w, dtype=np.float64)
-        self.zw = (self.w == 0.0)
+        self.zw = self.w == 0.0
         self.log_w = np.log(self.w + self.zw)
         self.log_w[self.zw] = -np.inf
 
@@ -87,7 +94,7 @@ class GaussianMixtureDistribution(SequenceEncodableProbabilityDistribution):
         s3 = repr(list(self.w))
         s4 = repr(self.name)
         s5 = repr(self.keys)
-        return f'GaussianMixtureDistribution(mu={s1}, sigma2={s2}, w={s3}, name={s4}, keys={s5})'
+        return f"GaussianMixtureDistribution(mu={s1}, sigma2={s2}, w={s3}, name={s4}, keys={s5})"
 
     def density(self, x: float) -> float:
         """Evaluate the density of the mixture at x.
@@ -110,7 +117,10 @@ class GaussianMixtureDistribution(SequenceEncodableProbabilityDistribution):
             float: Log-density at x.
         """
         return vec.log_sum(
-            -0.5 * (x - self.mu) ** 2 / self.sigma2 - 0.5 * np.log(self.sigma2) + self.log_c + self.log_w
+            -0.5 * (x - self.mu) ** 2 / self.sigma2
+            - 0.5 * np.log(self.sigma2)
+            + self.log_c
+            + self.log_w
         )
 
     def component_log_density(self, x: float) -> np.ndarray:
@@ -122,7 +132,11 @@ class GaussianMixtureDistribution(SequenceEncodableProbabilityDistribution):
         Returns:
             np.ndarray: Log-density for each component.
         """
-        return -0.5 * (x - self.mu) ** 2 / self.sigma2 - 0.5 * np.log(self.sigma2) + self.log_c
+        return (
+            -0.5 * (x - self.mu) ** 2 / self.sigma2
+            - 0.5 * np.log(self.sigma2)
+            + self.log_c
+        )
 
     def posterior(self, x: float) -> np.ndarray:
         """Compute the posterior probabilities for each component given x.
@@ -133,7 +147,11 @@ class GaussianMixtureDistribution(SequenceEncodableProbabilityDistribution):
         Returns:
             np.ndarray: Posterior probabilities for each component.
         """
-        comp_log_density = -0.5 * (x - self.mu) ** 2 / self.sigma2 - 0.5 * np.log(self.sigma2) + self.log_c
+        comp_log_density = (
+            -0.5 * (x - self.mu) ** 2 / self.sigma2
+            - 0.5 * np.log(self.sigma2)
+            + self.log_c
+        )
         comp_log_density += self.log_w
         comp_log_density[self.w == 0] = -np.inf
 
@@ -146,7 +164,9 @@ class GaussianMixtureDistribution(SequenceEncodableProbabilityDistribution):
             comp_log_density /= comp_log_density.sum()
             return comp_log_density
 
-    def seq_component_log_density(self, x: 'GaussianMixtureEncodedDataSequence') -> np.ndarray:
+    def seq_component_log_density(
+        self, x: "GaussianMixtureEncodedDataSequence"
+    ) -> np.ndarray:
         """Vectorized log-density for each component for encoded data.
 
         Args:
@@ -156,13 +176,15 @@ class GaussianMixtureDistribution(SequenceEncodableProbabilityDistribution):
             np.ndarray: Log-density matrix (n_samples, n_components).
         """
         if not isinstance(x, GaussianMixtureEncodedDataSequence):
-            raise Exception("GaussianMixtureEncodedDataSequence required for seq_component_log_density().")
+            raise Exception(
+                "GaussianMixtureEncodedDataSequence required for seq_component_log_density()."
+            )
 
         rv = -0.5 * (x.data[:, None] - self.mu) ** 2 / self.sigma2 + self.log_c
         rv[:, self.zw] = -np.inf
         return rv
 
-    def seq_log_density(self, x: 'GaussianMixtureEncodedDataSequence') -> np.ndarray:
+    def seq_log_density(self, x: "GaussianMixtureEncodedDataSequence") -> np.ndarray:
         """Vectorized log-density for encoded data.
 
         Args:
@@ -172,9 +194,15 @@ class GaussianMixtureDistribution(SequenceEncodableProbabilityDistribution):
             np.ndarray: Log-density values for each observation.
         """
         if not isinstance(x, GaussianMixtureEncodedDataSequence):
-            raise Exception("GaussianMixtureEncodedDataSequence required for seq_log_density().")
+            raise Exception(
+                "GaussianMixtureEncodedDataSequence required for seq_log_density()."
+            )
 
-        ll_mat = -0.5 * (x.data[:, None] - self.mu) ** 2 / self.sigma2 + self.log_c - 0.5 * np.log(self.sigma2)
+        ll_mat = (
+            -0.5 * (x.data[:, None] - self.mu) ** 2 / self.sigma2
+            + self.log_c
+            - 0.5 * np.log(self.sigma2)
+        )
         ll_mat += self.log_w[None, :]
         ll_mat[:, self.zw] = -np.inf
 
@@ -201,7 +229,7 @@ class GaussianMixtureDistribution(SequenceEncodableProbabilityDistribution):
             rv[~good_rows] = -np.inf
             return rv
 
-    def seq_posterior(self, x: 'GaussianMixtureEncodedDataSequence') -> np.ndarray:
+    def seq_posterior(self, x: "GaussianMixtureEncodedDataSequence") -> np.ndarray:
         """Vectorized posterior probabilities for encoded data.
 
         Args:
@@ -211,7 +239,9 @@ class GaussianMixtureDistribution(SequenceEncodableProbabilityDistribution):
             np.ndarray: Posterior probabilities (n_samples, n_components).
         """
         if not isinstance(x, GaussianMixtureEncodedDataSequence):
-            raise Exception("GaussianMixtureEncodedDataSequence required for seq_posterior().")
+            raise Exception(
+                "GaussianMixtureEncodedDataSequence required for seq_posterior()."
+            )
 
         ll_mat = -0.5 * (x.data[:, None] - self.mu) ** 2 / self.sigma2 + self.log_c
         ll_mat += self.log_w[None, :]
@@ -230,7 +260,7 @@ class GaussianMixtureDistribution(SequenceEncodableProbabilityDistribution):
 
         return ll_mat
 
-    def sampler(self, seed: Optional[int] = None) -> 'GaussianMixtureSampler':
+    def sampler(self, seed: Optional[int] = None) -> "GaussianMixtureSampler":
         """Return a GaussianMixtureSampler for this distribution.
 
         Args:
@@ -241,7 +271,9 @@ class GaussianMixtureDistribution(SequenceEncodableProbabilityDistribution):
         """
         return GaussianMixtureSampler(self, seed)
 
-    def estimator(self, pseudo_count: Optional[float] = None) -> 'GaussianMixtureEstimator':
+    def estimator(
+        self, pseudo_count: Optional[float] = None
+    ) -> "GaussianMixtureEstimator":
         """Return a GaussianMixtureEstimator for this distribution.
 
         Args:
@@ -256,10 +288,10 @@ class GaussianMixtureDistribution(SequenceEncodableProbabilityDistribution):
             pseudo_count=pc,
             tied=self._tied,
             name=self.name,
-            keys=self.keys
+            keys=self.keys,
         )
 
-    def dist_to_encoder(self) -> 'GaussianMixtureDataEncoder':
+    def dist_to_encoder(self) -> "GaussianMixtureDataEncoder":
         """Return a GaussianMixtureDataEncoder for this distribution.
 
         Returns:
@@ -277,7 +309,9 @@ class GaussianMixtureSampler(DistributionSampler):
         _tied (bool): True if variance is tied across components.
     """
 
-    def __init__(self, dist: GaussianMixtureDistribution, seed: Optional[int] = None) -> None:
+    def __init__(
+        self, dist: GaussianMixtureDistribution, seed: Optional[int] = None
+    ) -> None:
         """Initialize GaussianMixtureSampler.
 
         Args:
@@ -303,13 +337,15 @@ class GaussianMixtureSampler(DistributionSampler):
         )
         if self._tied:
             z = self.rng.normal(
-                loc=self.dist.mu[0, comp_state], scale=np.sqrt(self.dist.sigma2), size=size
+                loc=self.dist.mu[0, comp_state],
+                scale=np.sqrt(self.dist.sigma2),
+                size=size,
             )
         else:
             z = self.rng.normal(
                 loc=self.dist.mu[0, comp_state],
                 scale=np.sqrt(self.dist.sigma2[0, comp_state]),
-                size=size
+                size=size,
             )
         return z if size is None else z.tolist()
 
@@ -336,7 +372,7 @@ class GaussianMixtureAccumulator(SequenceEncodableStatisticAccumulator):
         num_components: int,
         tied: bool = False,
         keys: Tuple[Optional[str], Optional[str]] = (None, None),
-        name: Optional[str] = None
+        name: Optional[str] = None,
     ) -> None:
         """Initialize GaussianMixtureAccumulator.
 
@@ -361,7 +397,9 @@ class GaussianMixtureAccumulator(SequenceEncodableStatisticAccumulator):
         self._acc_rng: Optional[List[RandomState]] = None
         self.name = name
 
-    def update(self, x: float, weight: float, estimate: 'GaussianMixtureDistribution') -> None:
+    def update(
+        self, x: float, weight: float, estimate: "GaussianMixtureDistribution"
+    ) -> None:
         """Update accumulator with a new observation.
 
         Args:
@@ -375,7 +413,7 @@ class GaussianMixtureAccumulator(SequenceEncodableStatisticAccumulator):
         self.wcnt += posterior
         self.wcnt2 += posterior
         self.xw = x * posterior
-        self.x2w = x ** 2 * posterior
+        self.x2w = x**2 * posterior
 
     def _rng_initialize(self, rng: RandomState) -> None:
         """Initialize random number generators for accumulator.
@@ -383,7 +421,7 @@ class GaussianMixtureAccumulator(SequenceEncodableStatisticAccumulator):
         Args:
             rng (RandomState): Random number generator.
         """
-        seeds = rng.randint(2 ** 31, size=self.num_components)
+        seeds = rng.randint(2**31, size=self.num_components)
         self._acc_rng = [RandomState(seed=seed) for seed in seeds]
         self._w_rng = RandomState(seed=rng.randint(maxrandint))
         self._init_rng = True
@@ -400,19 +438,22 @@ class GaussianMixtureAccumulator(SequenceEncodableStatisticAccumulator):
             self._rng_initialize(rng)
 
         if weight != 0:
-            ww = self._w_rng.dirichlet(np.ones(self.num_components) / (self.num_components * self.num_components))
+            ww = self._w_rng.dirichlet(
+                np.ones(self.num_components)
+                / (self.num_components * self.num_components)
+            )
             ww *= weight
             self.xw = x * ww
-            self.x2w = x ** 2 * ww
+            self.x2w = x**2 * ww
             self.wcnt += ww
             self.wcnt2 += ww
             self.comp_counts += ww
 
     def seq_initialize(
         self,
-        x: 'GaussianMixtureEncodedDataSequence',
+        x: "GaussianMixtureEncodedDataSequence",
         weights: np.ndarray,
-        rng: RandomState
+        rng: RandomState,
     ) -> None:
         """Vectorized initialization for encoded data.
 
@@ -429,9 +470,11 @@ class GaussianMixtureAccumulator(SequenceEncodableStatisticAccumulator):
         keep_len = np.count_nonzero(keep_idx)
         ww = np.zeros((sz, self.num_components))
 
-        c = 20 ** 2 if self.num_components > 20 else self.num_components ** 2
+        c = 20**2 if self.num_components > 20 else self.num_components**2
         if keep_len > 0:
-            ww[keep_idx, :] = self._w_rng.dirichlet(alpha=np.ones(self.num_components), size=keep_len)
+            ww[keep_idx, :] = self._w_rng.dirichlet(
+                alpha=np.ones(self.num_components), size=keep_len
+            )
         ww *= np.reshape(weights, (sz, 1))
 
         w_sum = ww.sum(axis=0)
@@ -440,13 +483,13 @@ class GaussianMixtureAccumulator(SequenceEncodableStatisticAccumulator):
         self.wcnt2 += w_sum
 
         self.xw += np.dot(x.data, ww)
-        self.x2w += np.dot(x.data ** 2, ww)
+        self.x2w += np.dot(x.data**2, ww)
 
     def seq_update(
         self,
-        x: 'GaussianMixtureEncodedDataSequence',
+        x: "GaussianMixtureEncodedDataSequence",
         weights: np.ndarray,
-        estimate: 'GaussianMixtureDistribution'
+        estimate: "GaussianMixtureDistribution",
     ) -> None:
         """Vectorized update for encoded data.
 
@@ -455,7 +498,10 @@ class GaussianMixtureAccumulator(SequenceEncodableStatisticAccumulator):
             weights (np.ndarray): Weights for each observation.
             estimate (GaussianMixtureDistribution): Distribution for posterior calculation.
         """
-        ll_mat = -0.5 * (x.data[:, None] - estimate.mu) ** 2 / estimate.sigma2 + estimate.log_c
+        ll_mat = (
+            -0.5 * (x.data[:, None] - estimate.mu) ** 2 / estimate.sigma2
+            + estimate.log_c
+        )
         ll_mat += estimate.log_w[None, :]
         ll_mat[:, estimate.zw] = -np.inf
 
@@ -476,9 +522,9 @@ class GaussianMixtureAccumulator(SequenceEncodableStatisticAccumulator):
         self.wcnt2 += w_sum
 
         self.xw += np.dot(x.data, ll_mat)
-        self.x2w += np.dot(x.data ** 2, ll_mat)
+        self.x2w += np.dot(x.data**2, ll_mat)
 
-    def combine(self, suff_stat: SS) -> 'GaussianMixtureAccumulator':
+    def combine(self, suff_stat: SS) -> "GaussianMixtureAccumulator":
         """Aggregate sufficient statistics with this accumulator.
 
         Args:
@@ -502,7 +548,7 @@ class GaussianMixtureAccumulator(SequenceEncodableStatisticAccumulator):
         """
         return self.comp_counts, self.xw, self.x2w, self.wcnt, self.wcnt2
 
-    def from_value(self, x: SS) -> 'GaussianMixtureAccumulator':
+    def from_value(self, x: SS) -> "GaussianMixtureAccumulator":
         """Set the sufficient statistics from a tuple.
 
         Args:
@@ -550,7 +596,7 @@ class GaussianMixtureAccumulator(SequenceEncodableStatisticAccumulator):
             if self.comp_key in stats_dict:
                 self.xw, self.x2w, self.wcnt, self.wcnt2 = stats_dict[self.comp_key]
 
-    def acc_to_encoder(self) -> 'GaussianMixtureDataEncoder':
+    def acc_to_encoder(self) -> "GaussianMixtureDataEncoder":
         """Return a GaussianMixtureDataEncoder for this accumulator.
 
         Returns:
@@ -574,7 +620,7 @@ class GaussianMixtureAccumulatorFactory(StatisticAccumulatorFactory):
         num_components: int,
         keys: Tuple[Optional[str], Optional[str]] = (None, None),
         name: Optional[str] = None,
-        tied: bool = False
+        tied: bool = False,
     ) -> None:
         """Initialize GaussianMixtureAccumulatorFactory.
 
@@ -589,14 +635,17 @@ class GaussianMixtureAccumulatorFactory(StatisticAccumulatorFactory):
         self.tied = tied
         self.name = name
 
-    def make(self) -> 'GaussianMixtureAccumulator':
+    def make(self) -> "GaussianMixtureAccumulator":
         """Create a new GaussianMixtureAccumulator.
 
         Returns:
             GaussianMixtureAccumulator: New accumulator instance.
         """
         return GaussianMixtureAccumulator(
-            keys=self.keys, num_components=self.num_components, tied=self.tied, name=self.name
+            keys=self.keys,
+            num_components=self.num_components,
+            tied=self.tied,
+            name=self.name,
         )
 
 
@@ -620,11 +669,17 @@ class GaussianMixtureEstimator(ParameterEstimator):
         self,
         num_components: int,
         fixed_weights: Optional[Union[List[float], np.ndarray]] = None,
-        suff_stat: Tuple[Optional[np.ndarray], Optional[np.ndarray], Optional[np.ndarray]] = (None, None, None),
-        pseudo_count: Tuple[Optional[float], Optional[float], Optional[float]] = (None, None, None),
+        suff_stat: Tuple[
+            Optional[np.ndarray], Optional[np.ndarray], Optional[np.ndarray]
+        ] = (None, None, None),
+        pseudo_count: Tuple[Optional[float], Optional[float], Optional[float]] = (
+            None,
+            None,
+            None,
+        ),
         tied: bool = False,
         keys: Tuple[Optional[str], Optional[str]] = (None, None),
-        name: Optional[str] = None
+        name: Optional[str] = None,
     ) -> None:
         """Initialize GaussianMixtureEstimator.
 
@@ -647,27 +702,36 @@ class GaussianMixtureEstimator(ParameterEstimator):
         ):
             self.keys = keys
         else:
-            raise TypeError("GaussianMixtureEstimator requires keys (Tuple[Optional[str], Optional[str]]).")
+            raise TypeError(
+                "GaussianMixtureEstimator requires keys (Tuple[Optional[str], Optional[str]])."
+            )
 
         self.num_components = num_components
         self.pseudo_count = pseudo_count
         self.suff_stat = suff_stat
         self.keys = keys
         self.tied = tied
-        self.fixed_weights = np.asarray(fixed_weights) if fixed_weights is not None else None
+        self.fixed_weights = (
+            np.asarray(fixed_weights) if fixed_weights is not None else None
+        )
         self.name = name
 
-    def accumulator_factory(self) -> 'GaussianMixtureAccumulatorFactory':
+    def accumulator_factory(self) -> "GaussianMixtureAccumulatorFactory":
         """Return a GaussianMixtureAccumulatorFactory for this estimator.
 
         Returns:
             GaussianMixtureAccumulatorFactory: Factory object.
         """
         return GaussianMixtureAccumulatorFactory(
-            keys=self.keys, tied=self.tied, num_components=self.num_components, name=self.name
+            keys=self.keys,
+            tied=self.tied,
+            num_components=self.num_components,
+            name=self.name,
         )
 
-    def estimate(self, nobs: Optional[float], suff_stat: SS) -> 'GaussianMixtureDistribution':
+    def estimate(
+        self, nobs: Optional[float], suff_stat: SS
+    ) -> "GaussianMixtureDistribution":
         """Estimate a GaussianMixtureDistribution from sufficient statistics.
 
         Args:
@@ -682,7 +746,9 @@ class GaussianMixtureEstimator(ParameterEstimator):
 
         # Estimate mean
         if self.pseudo_count[1] is not None and self.suff_stat[1] is not None:
-            mu = (xw + self.pseudo_count[1] * self.suff_stat[1]) / (wcnts + self.pseudo_count[1])
+            mu = (xw + self.pseudo_count[1] * self.suff_stat[1]) / (
+                wcnts + self.pseudo_count[1]
+            )
         else:
             nobs_loc = wcnts.copy()
             nobs_loc[nobs_loc == 0.0] = 1.0
@@ -691,15 +757,17 @@ class GaussianMixtureEstimator(ParameterEstimator):
         # Estimate variance
         if self.tied:
             if self.pseudo_count[2] is not None and self.suff_stat[2] is not None:
-                sigma2 = np.sum(x2w - mu * mu * wcnts + self.pseudo_count[2] * self.suff_stat[2])
+                sigma2 = np.sum(
+                    x2w - mu * mu * wcnts + self.pseudo_count[2] * self.suff_stat[2]
+                )
                 sigma2 /= np.sum(wcnts + self.pseudo_count[2])
             else:
                 sigma2 = np.sum(x2w - mu * mu * wcnts) / np.sum(wcnts)
         else:
             if self.pseudo_count[2] is not None and self.suff_stat[2] is not None:
-                sigma2 = (x2w - mu * mu * wcnts + self.pseudo_count[2] * self.suff_stat[2]) / (
-                    wcnts + self.pseudo_count[2]
-                )
+                sigma2 = (
+                    x2w - mu * mu * wcnts + self.pseudo_count[2] * self.suff_stat[2]
+                ) / (wcnts + self.pseudo_count[2])
             else:
                 nobs_loc = wcnts.copy()
                 nobs_loc[nobs_loc == 0.0] = 1.0
@@ -731,7 +799,7 @@ class GaussianMixtureDataEncoder(DataSequenceEncoder):
 
     def __str__(self) -> str:
         """Return string representation."""
-        return 'GaussianMixtureDataEncoder'
+        return "GaussianMixtureDataEncoder"
 
     def __eq__(self, other: object) -> bool:
         """Check equality with another encoder.
@@ -744,7 +812,9 @@ class GaussianMixtureDataEncoder(DataSequenceEncoder):
         """
         return isinstance(other, GaussianMixtureDataEncoder)
 
-    def seq_encode(self, x: Union[Sequence[float], np.ndarray]) -> 'GaussianMixtureEncodedDataSequence':
+    def seq_encode(
+        self, x: Union[Sequence[float], np.ndarray]
+    ) -> "GaussianMixtureEncodedDataSequence":
         """Encode a sequence of Gaussian mixture observations.
 
         Args:
@@ -753,7 +823,9 @@ class GaussianMixtureDataEncoder(DataSequenceEncoder):
         Returns:
             GaussianMixtureEncodedDataSequence: Encoded data sequence.
         """
-        return GaussianMixtureEncodedDataSequence(x if isinstance(x, np.ndarray) else np.asarray(x, dtype=float))
+        return GaussianMixtureEncodedDataSequence(
+            x if isinstance(x, np.ndarray) else np.asarray(x, dtype=float)
+        )
 
 
 class GaussianMixtureEncodedDataSequence(EncodedDataSequence):
@@ -773,8 +845,4 @@ class GaussianMixtureEncodedDataSequence(EncodedDataSequence):
 
     def __repr__(self) -> str:
         """Return string representation."""
-        return f'GaussianMixtureEncodedDataSequence(data={self.data})'
-
-
-
-
+        return f"GaussianMixtureEncodedDataSequence(data={self.data})"

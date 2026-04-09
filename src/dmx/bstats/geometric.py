@@ -1,34 +1,56 @@
 from typing import Optional
-from dmx.bstats.pdist import ProbabilityDistribution, StatisticAccumulator, ParameterEstimator
-from dmx.bstats.beta import BetaDistribution
-from dmx.bstats.nulldist import NullDistribution, null_dist
-from numpy.random import RandomState
-from scipy.special import digamma
+
 import mpmath
 import numpy as np
+from numpy.random import RandomState
+from scipy.special import digamma
+
+from dmx.bstats.beta import BetaDistribution
+from dmx.bstats.nulldist import NullDistribution, null_dist
+from dmx.bstats.pdist import (
+    ParameterEstimator,
+    ProbabilityDistribution,
+    StatisticAccumulator,
+)
 
 default_prior = BetaDistribution(1.0, 1.0)
 
+
 class GeometricDistribution(ProbabilityDistribution):
 
-    def __init__(self, p: float, name: Optional[str] = None, prior: ProbabilityDistribution = default_prior, keys: Optional[str] = None):
+    def __init__(
+        self,
+        p: float,
+        name: Optional[str] = None,
+        prior: ProbabilityDistribution = default_prior,
+        keys: Optional[str] = None,
+    ):
         self.parents = []
-        self.p      = p
-        self.log_p  = np.log(p)
+        self.p = p
+        self.log_p = np.log(p)
         self.log_1p = np.log1p(-p)
         self.name = name
         self.keys = keys
         self.set_prior(prior)
 
     def __str__(self):
-        return 'GeometricDistribution(%f, prior=%s, keys=%s, name=%s)'%(self.p, str(self.prior), str(self.keys), str(self.name))
+        return "GeometricDistribution(%f, prior=%s, keys=%s, name=%s)" % (
+            self.p,
+            str(self.prior),
+            str(self.keys),
+            str(self.name),
+        )
 
     def set_prior(self, dist: ProbabilityDistribution) -> None:
         self.prior = dist
 
         if isinstance(dist, BetaDistribution):
             self.has_conj_prior = True
-            self.conj_prior_params = (digamma(dist.a), digamma(dist.b), digamma(dist.a + dist.b))
+            self.conj_prior_params = (
+                digamma(dist.a),
+                digamma(dist.b),
+                digamma(dist.a + dist.b),
+            )
         else:
             self.has_conj_prior = False
             self.conj_prior_params = (0, 0, 0)
@@ -44,22 +66,22 @@ class GeometricDistribution(ProbabilityDistribution):
 
     def entropy(self) -> float:
         p = self.p
-        return -(np.log1p(-p)*(1-p)/p + np.log(p))
+        return -(np.log1p(-p) * (1 - p) / p + np.log(p))
 
     def cross_entropy(self, dist) -> float:
         if isinstance(dist, GeometricDistribution):
             pp = dist.p
             p = self.p
-            return -(np.log1p(-pp)*(1-p)/p + np.log(pp))
+            return -(np.log1p(-pp) * (1 - p) / p + np.log(pp))
         else:
             return None
 
     def moment(self, p):
         p_loc = self.p
         if p == 1:
-            return 1.0/p_loc
+            return 1.0 / p_loc
         elif p == 2:
-            return (2-p_loc)/(p_loc*p_loc)
+            return (2 - p_loc) / (p_loc * p_loc)
         else:
             aa = mpmath.polylog(-1, 1 - p)
             return float(mpmath.nstr(aa, 12)) * p / (1 - p)
@@ -73,7 +95,7 @@ class GeometricDistribution(ProbabilityDistribution):
         elif self.p == 0.0:
             return 0.0
         else:
-            return (x-1)*self.log_1p + self.log_p
+            return (x - 1) * self.log_1p + self.log_p
 
     def expected_log_density(self, x: int) -> float:
         if self.has_conj_prior:
@@ -81,12 +103,12 @@ class GeometricDistribution(ProbabilityDistribution):
             if x < 1:
                 return -np.inf
             else:
-                return (gb-gab)*(x-1) + (ga - gab)
+                return (gb - gab) * (x - 1) + (ga - gab)
         else:
             return None
 
     def seq_log_density(self, x: np.ndarray) -> np.ndarray:
-        rv = x-1
+        rv = x - 1
         rv *= self.log_1p
         rv += self.log_p
         return rv
@@ -95,14 +117,13 @@ class GeometricDistribution(ProbabilityDistribution):
 
         if self.has_conj_prior:
             ga, gb, gab = self.conj_prior_params
-            rv = x-1
-            rv *= (gb - gab)
-            rv += (ga - gab)
+            rv = x - 1
+            rv *= gb - gab
+            rv += ga - gab
             rv[x < 1] = -np.inf
             return rv
         else:
             return None
-
 
     def seq_encode(self, x):
         rv = np.asarray(x, dtype=float)
@@ -118,7 +139,7 @@ class GeometricDistribution(ProbabilityDistribution):
 class GeometricSampler(object):
 
     def __init__(self, dist, seed=None):
-        self.rng  = RandomState(seed)
+        self.rng = RandomState(seed)
         self.dist = dist
 
     def sample(self, size=None):
@@ -128,14 +149,14 @@ class GeometricSampler(object):
 class GeometricAccumulator(StatisticAccumulator):
 
     def __init__(self, keys, name):
-        self.sum   = 0.0
+        self.sum = 0.0
         self.count = 0.0
-        self.key   = keys
-        self.name  = name
+        self.key = keys
+        self.name = name
 
     def update(self, x, weight, estimate):
         if x >= 0:
-            self.sum  += x*weight
+            self.sum += x * weight
             self.count += weight
 
     def seq_update(self, x, weights, estimate):
@@ -149,7 +170,7 @@ class GeometricAccumulator(StatisticAccumulator):
         self.seq_update(x, weights, None)
 
     def combine(self, suff_stat):
-        self.sum   += suff_stat[1]
+        self.sum += suff_stat[1]
         self.count += suff_stat[0]
         return self
 
@@ -174,15 +195,17 @@ class GeometricAccumulator(StatisticAccumulator):
             if self.key in stats_dict:
                 vals = stats_dict[self.key]
                 self.count = vals[0]
-                self.sum   = vals[1]
+                self.sum = vals[1]
 
-class GeometricAccumulatorFactory():
+
+class GeometricAccumulatorFactory:
     def __init__(self, keys, name):
         self.keys = keys
         self.name = name
 
     def make(self):
         return GeometricAccumulator(self.keys, self.name)
+
 
 class GeometricEstimator(ParameterEstimator):
 
@@ -192,9 +215,14 @@ class GeometricEstimator(ParameterEstimator):
     keys: Optional[str]
     prior: ProbabilityDistribution
 
-    def __init__(self, name: Optional[str] = None, keys: Optional[str] = None, prior: ProbabilityDistribution = default_prior):
+    def __init__(
+        self,
+        name: Optional[str] = None,
+        keys: Optional[str] = None,
+        prior: ProbabilityDistribution = default_prior,
+    ):
 
-        self.keys  = keys
+        self.keys = keys
         self.name = name
         self.set_prior(prior)
 
@@ -229,7 +257,7 @@ class GeometricEstimator(ParameterEstimator):
             b = old_b + osum - ocnt
 
             if a > 1 and b > 1:
-                p = (a-1)/(a+b-2)
+                p = (a - 1) / (a + b - 2)
             elif a <= 1 and b > 1:
                 p = 0.0
             elif a > 1 and b <= 1:
@@ -237,14 +265,16 @@ class GeometricEstimator(ParameterEstimator):
             else:
                 p = 0.5
 
-            return GeometricDistribution(p, name=self.name, prior=BetaDistribution(a,b), keys=self.keys)
+            return GeometricDistribution(
+                p, name=self.name, prior=BetaDistribution(a, b), keys=self.keys
+            )
 
         else:
 
-            return GeometricDistribution(ocnt/osum, name=self.name, keys=self.keys)
+            return GeometricDistribution(ocnt / osum, name=self.name, keys=self.keys)
 
 
-if __name__ == '__main__':
+if __name__ == "__main__":
 
     dist = GeometricDistribution(0.2)
 

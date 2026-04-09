@@ -1,8 +1,9 @@
 """Tests for GammaDistribution and related torch_stats classes."""
-import torch
+
 import numpy as np
 import pytest
-from tests.torch_stats.torch_stats_tests import *
+import torch
+
 from dmx.torch_stats import *
 from dmx.torch_stats.gamma import (
     GammaAccumulator,
@@ -10,6 +11,7 @@ from dmx.torch_stats.gamma import (
     GammaDataEncoder,
     GammaTorchEncodedSequence,
 )
+from tests.torch_stats.torch_stats_tests import *
 
 
 class GammaDistributionTestCase(TorchStatsTestClass):

@@ -1,8 +1,9 @@
 """Tests for HeterogeneousMixtureDistribution and related torch_stats classes."""
-import torch
+
 import numpy as np
 import pytest
-from tests.torch_stats.torch_stats_tests import *
+import torch
+
 from dmx.torch_stats import *
 from dmx.torch_stats.heterogenous_mixture import (
     HeterogeneousMixtureAccumulator,
@@ -10,6 +11,7 @@ from dmx.torch_stats.heterogenous_mixture import (
     HeterogeneousMixtureDataEncoder,
     HeterogeneousMixtureTorchSequence,
 )
+from tests.torch_stats.torch_stats_tests import *
 
 
 class HeterogeneousMixtureDistributionTestCase(TorchStatsTestClass):
@@ -57,12 +59,16 @@ class HeterogeneousMixtureDistributionTestCase(TorchStatsTestClass):
     def test_encoder_type(self):
         """dist_to_encoder() must return a HeterogeneousMixtureDataEncoder."""
         for dist in self._dists:
-            self.assertIsInstance(dist.dist_to_encoder(), HeterogeneousMixtureDataEncoder)
+            self.assertIsInstance(
+                dist.dist_to_encoder(), HeterogeneousMixtureDataEncoder
+            )
 
     def test_accumulator_type(self):
         """factory.make() must return a HeterogeneousMixtureAccumulator."""
         for f in self._factories:
-            self.assertIsInstance(f.make(device=self.device), HeterogeneousMixtureAccumulator)
+            self.assertIsInstance(
+                f.make(device=self.device), HeterogeneousMixtureAccumulator
+            )
 
     def test_seq_posterior_sums_to_one(self):
         """Posterior probabilities must sum to 1 across components for each observation."""

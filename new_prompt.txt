@@ -1,0 +1,37 @@
+I'm working on improving the dmx-learn Python repository following a comprehensive documentation and code quality improvement plan outlined in DOC_UPDATE.md.
+
+**Phase 1 Status: COMPLETE ✅**
+- All code quality tools configured (Black, isort, pylint, mypy, pydocstyle)
+- Pre-commit hooks installed and active
+- 28 dev dependencies installed
+- Developer documentation created (CONTRIBUTING.md, IDE configs)
+- Commits: eb5288f, 6b845cd, 94a0969, debefc9
+
+**Current Branch:** feature/update-docs
+
+**Ready to Start: Phase 2 - Establish Baseline & Fix Critical Issues**
+
+Please read DOC_UPDATE.md to understand the full context and Phase 2 plan. I want to work through Phase 2 step by step, similar to how we completed Phase 1:
+
+1. Start with Step 2.1 (Run Initial Assessment)
+2. Check with me after completing each step
+3. Verify exit criteria are met before moving to the next step
+4. Update DOC_UPDATE.md as we progress
+5. I will manually commit work at appropriate checkpoints
+
+Key Context:
+- Pydocstyle is configured but disabled in pre-commit hooks until Phase 3
+- The codebase has many files that were already modified by pre-commit (trailing whitespace fixes)
+- We're following a gradual enforcement approach: fix auto-fixable issues now, defer docstring fixes to Phase 3
+
+Let's begin with Step 2.1: Run Initial Assessment. Please read the DOC_UPDATE.md file first to understand the complete plan, then we'll start the assessment.
+```
+
+This prompt:
+- Summarizes Phase 1 completion
+- Provides key commit references
+- States you're ready for Phase 2
+- Asks me to read DOC_UPDATE.md for context
+- Sets expectations for step-by-step execution
+- Includes important context about the gradual enforcement approach
+- Explicitly requests starting with Step 2.1

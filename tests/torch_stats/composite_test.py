@@ -1,16 +1,18 @@
 """Tests for CompositeDistribution and related torch_stats classes."""
-import torch
+
 import numpy as np
 import pytest
-from tests.torch_stats.torch_stats_tests import *
+import torch
+
 from dmx.torch_stats import *
 from dmx.torch_stats.composite import (
-    CompositeEstimator,
     CompositeAccumulator,
     CompositeAccumulatorFactory,
     CompositeDataEncoder,
+    CompositeEstimator,
     CompositeTorchEncodedSequence,
 )
+from tests.torch_stats.torch_stats_tests import *
 
 
 class CompositeDistributionTestCase(TorchStatsTestClass):
@@ -74,8 +76,11 @@ class CompositeDistributionTestCase(TorchStatsTestClass):
             data = dist.sampler(seed=1).sample(size=20)
             num_dists = len(dist.dists)
             for obs in data:
-                self.assertEqual(len(obs), num_dists,
-                                 f"Expected tuple of length {num_dists}, got {len(obs)}")
+                self.assertEqual(
+                    len(obs),
+                    num_dists,
+                    f"Expected tuple of length {num_dists}, got {len(obs)}",
+                )
 
     def test_log_density_additivity(self):
         """log_density of composite == sum of component log densities."""

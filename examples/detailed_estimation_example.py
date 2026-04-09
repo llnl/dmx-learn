@@ -1,27 +1,43 @@
 """Detailed example of estimation and model validation with a test set."""
+
 import numpy as np
+
 from dmx.stats import *
 from dmx.utils.estimation import empirical_kl_divergence, partition_data
 
-if __name__ == '__main__':
+if __name__ == "__main__":
 
     rng = np.random.RandomState(1)
 
     # Create distribution
-    d10 = MixtureDistribution([GaussianDistribution(-3.0, 1.0), GaussianDistribution(0.0, 1.0)], [0.5, 0.5])
-    d11 = OptionalDistribution(CategoricalDistribution({'a': 0.5, 'b': 0.4, 'c': 0.1}), p=0.1)
-    d12 = MarkovChainDistribution({'a': 0.5, 'b': 0.5}, {'a': {'a': 0.2, 'b': 0.8}, 'b': {'a': 0.8, 'b': 0.2}},
-                                  len_dist=PoissonDistribution(8.0))
-    d13 = BernoulliSetDistribution({'a': 0.1, 'b': 0.3})
+    d10 = MixtureDistribution(
+        [GaussianDistribution(-3.0, 1.0), GaussianDistribution(0.0, 1.0)], [0.5, 0.5]
+    )
+    d11 = OptionalDistribution(
+        CategoricalDistribution({"a": 0.5, "b": 0.4, "c": 0.1}), p=0.1
+    )
+    d12 = MarkovChainDistribution(
+        {"a": 0.5, "b": 0.5},
+        {"a": {"a": 0.2, "b": 0.8}, "b": {"a": 0.8, "b": 0.2}},
+        len_dist=PoissonDistribution(8.0),
+    )
+    d13 = BernoulliSetDistribution({"a": 0.1, "b": 0.3})
     d14 = MultivariateGaussianDistribution([-1.0, -1.0], [[2.0, 1.0], [1.0, 2.0]])
 
     d1 = CompositeDistribution([d10, d11, d12, d13, d14])
     sampler1 = d1.sampler()
-    d20 = MixtureDistribution([GaussianDistribution(0.0, 1.0), GaussianDistribution(6.0, 1.0)], [0.5, 0.5])
-    d21 = OptionalDistribution(CategoricalDistribution({'a': 0.1, 'b': 0.1, 'c': 0.8}), p=0.2)
-    d22 = MarkovChainDistribution({'a': 0.5, 'b': 0.5}, {'a': {'a': 0.8, 'b': 0.2}, 'b': {'a': 0.2, 'b': 0.8}},
-                                  len_dist=PoissonDistribution(8.0))
-    d23 = BernoulliSetDistribution({'a': 0.9, 'b': 0.8})
+    d20 = MixtureDistribution(
+        [GaussianDistribution(0.0, 1.0), GaussianDistribution(6.0, 1.0)], [0.5, 0.5]
+    )
+    d21 = OptionalDistribution(
+        CategoricalDistribution({"a": 0.1, "b": 0.1, "c": 0.8}), p=0.2
+    )
+    d22 = MarkovChainDistribution(
+        {"a": 0.5, "b": 0.5},
+        {"a": {"a": 0.8, "b": 0.2}, "b": {"a": 0.2, "b": 0.8}},
+        len_dist=PoissonDistribution(8.0),
+    )
+    d23 = BernoulliSetDistribution({"a": 0.9, "b": 0.8})
     d24 = MultivariateGaussianDistribution([1.0, 1.0], [[2.0, 1.0], [1.0, 2.0]])
 
     d2 = CompositeDistribution([d20, d21, d22, d23, d24])
@@ -29,7 +45,7 @@ if __name__ == '__main__':
     dist = MixtureDistribution([d1, d2], [0.5, 0.5])
 
     # sample from the distribution
-    sampler = dist.sampler(seed=rng.randint(2 ** 31))
+    sampler = dist.sampler(seed=rng.randint(2**31))
     data = sampler.sample(size=2000)
 
     # perform train test split
@@ -37,11 +53,15 @@ if __name__ == '__main__':
 
     # Make the component estimator
     e0 = MixtureEstimator([GaussianEstimator()] * 2, pseudo_count=1.0)
-    e1 = OptionalEstimator(CategoricalEstimator(pseudo_count=1.0), est_prob=False, pseudo_count=1.0)
+    e1 = OptionalEstimator(
+        CategoricalEstimator(pseudo_count=1.0), est_prob=False, pseudo_count=1.0
+    )
     e2 = MarkovChainEstimator(pseudo_count=1.0, len_estimator=PoissonEstimator())
     e3 = BernoulliSetEstimator()
     e4 = MultivariateGaussianEstimator()
-    iest = MixtureEstimator([CompositeEstimator((e0, e1, e2, e3, e4))] * 2, pseudo_count=1.0)
+    iest = MixtureEstimator(
+        [CompositeEstimator((e0, e1, e2, e3, e4))] * 2, pseudo_count=1.0
+    )
 
     e0 = MixtureEstimator([GaussianEstimator()] * 2)
     e1 = OptionalEstimator(CategoricalEstimator(), est_prob=False)
@@ -89,7 +109,10 @@ if __name__ == '__main__':
 
         mm = mm_next
 
-        print('Iteration %d. LL=%e, VLL=%e, dLL=%e, KL[Est||True|data]=%f' % (its_cnt, tll, ll, dtll, kl))
+        print(
+            "Iteration %d. LL=%e, VLL=%e, dLL=%e, KL[Est||True|data]=%f"
+            % (its_cnt, tll, ll, dtll, kl)
+        )
         old_ll = ll
         old_tll = tll
 

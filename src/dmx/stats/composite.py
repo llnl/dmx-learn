@@ -8,19 +8,21 @@ independent observations of 'n'-tupled data. Each component 'k' of the Composite
 must be compatible with data type T_k.
 """
 
+from typing import Any, Dict, List, Optional, Sequence, Tuple, Union
+
 import numpy as np
 from numpy.random import RandomState
-from dmx.stats.pdist import (
-    SequenceEncodableProbabilityDistribution,
-    ParameterEstimator,
-    DistributionSampler,
-    StatisticAccumulatorFactory,
-    SequenceEncodableStatisticAccumulator,
-    DataSequenceEncoder,
-    EncodedDataSequence,
-)
-from typing import Optional, List, Union, Any, Tuple, Sequence, Dict
+
 from dmx.arithmetic import maxrandint
+from dmx.stats.pdist import (
+    DataSequenceEncoder,
+    DistributionSampler,
+    EncodedDataSequence,
+    ParameterEstimator,
+    SequenceEncodableProbabilityDistribution,
+    SequenceEncodableStatisticAccumulator,
+    StatisticAccumulatorFactory,
+)
 
 
 class CompositeDistribution(SequenceEncodableProbabilityDistribution):
@@ -57,10 +59,10 @@ class CompositeDistribution(SequenceEncodableProbabilityDistribution):
         Returns:
             str: String representation.
         """
-        s0 = ','.join(map(str, self.dists))
+        s0 = ",".join(map(str, self.dists))
         s1 = repr(self.name)
         s2 = repr(self.keys)
-        return f'CompositeDistribution(dists=[{s0}], name={s1}, keys={s2})'
+        return f"CompositeDistribution(dists=[{s0}], name={s1}, keys={s2})"
 
     def density(self, x: Tuple[Any, ...]) -> float:
         """Evaluate density of CompositeDistribution for a single observation tuple x.
@@ -90,7 +92,7 @@ class CompositeDistribution(SequenceEncodableProbabilityDistribution):
             rv += self.dists[i].log_density(x[i])
         return rv
 
-    def seq_log_density(self, x: 'CompositeEncodedDataSequence') -> np.ndarray:
+    def seq_log_density(self, x: "CompositeEncodedDataSequence") -> np.ndarray:
         """Vectorized evaluation of log density for CompositeEncodedDataSequence.
 
         Args:
@@ -103,13 +105,15 @@ class CompositeDistribution(SequenceEncodableProbabilityDistribution):
             Exception: If input is not a CompositeEncodedDataSequence.
         """
         if not isinstance(x, CompositeEncodedDataSequence):
-            raise Exception('CompositeDistribution.seq_log_density() requires CompositeEncodedDataSequence.')
+            raise Exception(
+                "CompositeDistribution.seq_log_density() requires CompositeEncodedDataSequence."
+            )
         rv = self.dists[0].seq_log_density(x.data[0])
         for i in range(1, self.count):
             rv += self.dists[i].seq_log_density(x.data[i])
         return rv
 
-    def sampler(self, seed: Optional[int] = None) -> 'CompositeSampler':
+    def sampler(self, seed: Optional[int] = None) -> "CompositeSampler":
         """Create CompositeSampler for sampling from CompositeDistribution instance.
 
         Args:
@@ -120,7 +124,7 @@ class CompositeDistribution(SequenceEncodableProbabilityDistribution):
         """
         return CompositeSampler(self, seed)
 
-    def estimator(self, pseudo_count: Optional[float] = None) -> 'CompositeEstimator':
+    def estimator(self, pseudo_count: Optional[float] = None) -> "CompositeEstimator":
         """Create CompositeEstimator for estimating CompositeDistribution.
 
         Args:
@@ -135,7 +139,7 @@ class CompositeDistribution(SequenceEncodableProbabilityDistribution):
             keys=self.keys,
         )
 
-    def dist_to_encoder(self) -> 'CompositeDataEncoder':
+    def dist_to_encoder(self) -> "CompositeDataEncoder":
         """Return a CompositeDataEncoder for this distribution.
 
         Returns:
@@ -155,9 +159,7 @@ class CompositeSampler(DistributionSampler):
     """
 
     def __init__(
-        self,
-        dist: 'CompositeDistribution',
-        seed: Optional[int] = None
+        self, dist: "CompositeDistribution", seed: Optional[int] = None
     ) -> None:
         """Initialize CompositeSampler.
 
@@ -171,7 +173,9 @@ class CompositeSampler(DistributionSampler):
             d.sampler(seed=self.rng.randint(maxrandint)) for d in dist.dists
         ]
 
-    def sample(self, size: Optional[int] = None) -> Union[List[Tuple[Any, ...]], Tuple[Any, ...]]:
+    def sample(
+        self, size: Optional[int] = None
+    ) -> Union[List[Tuple[Any, ...]], Tuple[Any, ...]]:
         """Generate independent samples from a CompositeDistribution.
 
         If size is None, draw one sample and return as Tuple of length = len(dists). If size > 0,
@@ -205,7 +209,7 @@ class CompositeAccumulator(SequenceEncodableStatisticAccumulator):
         self,
         accumulators: Sequence[SequenceEncodableStatisticAccumulator],
         keys: Optional[str] = None,
-        name: Optional[str] = None
+        name: Optional[str] = None,
     ) -> None:
         """Initialize CompositeAccumulator.
 
@@ -214,7 +218,9 @@ class CompositeAccumulator(SequenceEncodableStatisticAccumulator):
             keys (Optional[str], optional): All CompositeAccumulators with same key will have suff-stats merged. Defaults to None.
             name (Optional[str], optional): Name of the object. Defaults to None.
         """
-        self.accumulators: List[SequenceEncodableStatisticAccumulator] = list(accumulators)
+        self.accumulators: List[SequenceEncodableStatisticAccumulator] = list(
+            accumulators
+        )
         self.count: int = len(accumulators)
         self.key: Optional[str] = keys
         self.name: Optional[str] = name
@@ -225,7 +231,7 @@ class CompositeAccumulator(SequenceEncodableStatisticAccumulator):
         self,
         x: Tuple[Any, ...],
         weight: float,
-        estimate: Optional['CompositeDistribution']
+        estimate: Optional["CompositeDistribution"],
     ) -> None:
         """Update accumulators with a new observation.
 
@@ -247,16 +253,11 @@ class CompositeAccumulator(SequenceEncodableStatisticAccumulator):
         Args:
             rng (RandomState): Random number generator.
         """
-        seeds = rng.randint(2 ** 31, size=self.count)
+        seeds = rng.randint(2**31, size=self.count)
         self._acc_rng = [RandomState(seed=seed) for seed in seeds]
         self._init_rng = True
 
-    def initialize(
-        self,
-        x: Tuple[Any, ...],
-        weight: float,
-        rng: RandomState
-    ) -> None:
+    def initialize(self, x: Tuple[Any, ...], weight: float, rng: RandomState) -> None:
         """Initialize accumulators with a new observation.
 
         Args:
@@ -270,10 +271,7 @@ class CompositeAccumulator(SequenceEncodableStatisticAccumulator):
             self.accumulators[i].initialize(x[i], weight, self._acc_rng[i])
 
     def seq_initialize(
-        self,
-        x: 'CompositeEncodedDataSequence',
-        weights: np.ndarray,
-        rng: RandomState
+        self, x: "CompositeEncodedDataSequence", weights: np.ndarray, rng: RandomState
     ) -> None:
         """Vectorized initialization for encoded data.
 
@@ -300,9 +298,9 @@ class CompositeAccumulator(SequenceEncodableStatisticAccumulator):
 
     def seq_update(
         self,
-        x: 'CompositeEncodedDataSequence',
+        x: "CompositeEncodedDataSequence",
         weights: np.ndarray,
-        estimate: Optional['CompositeDistribution']
+        estimate: Optional["CompositeDistribution"],
     ) -> None:
         """Vectorized update for encoded data.
 
@@ -316,7 +314,7 @@ class CompositeAccumulator(SequenceEncodableStatisticAccumulator):
                 x.data[i], weights, estimate.dists[i] if estimate is not None else None
             )
 
-    def combine(self, suff_stat: Tuple[Any, ...]) -> 'CompositeAccumulator':
+    def combine(self, suff_stat: Tuple[Any, ...]) -> "CompositeAccumulator":
         """Combine another accumulator's sufficient statistics into this one.
 
         Args:
@@ -337,7 +335,7 @@ class CompositeAccumulator(SequenceEncodableStatisticAccumulator):
         """
         return tuple([x.value() for x in self.accumulators])
 
-    def from_value(self, x: Tuple[Any, ...]) -> 'CompositeAccumulator':
+    def from_value(self, x: Tuple[Any, ...]) -> "CompositeAccumulator":
         """Set the sufficient statistics from a tuple.
 
         Args:
@@ -346,7 +344,9 @@ class CompositeAccumulator(SequenceEncodableStatisticAccumulator):
         Returns:
             CompositeAccumulator: Self after setting values.
         """
-        self.accumulators = [self.accumulators[i].from_value(x[i]) for i in range(len(x))]
+        self.accumulators = [
+            self.accumulators[i].from_value(x[i]) for i in range(len(x))
+        ]
         self.count = len(x)
         return self
 
@@ -376,7 +376,7 @@ class CompositeAccumulator(SequenceEncodableStatisticAccumulator):
         for u in self.accumulators:
             u.key_replace(stats_dict)
 
-    def acc_to_encoder(self) -> 'CompositeDataEncoder':
+    def acc_to_encoder(self) -> "CompositeDataEncoder":
         """Return a CompositeDataEncoder for this accumulator.
 
         Returns:
@@ -399,7 +399,7 @@ class CompositeAccumulatorFactory(StatisticAccumulatorFactory):
         self,
         factories: Sequence[StatisticAccumulatorFactory],
         keys: Optional[str] = None,
-        name: Optional[str] = None
+        name: Optional[str] = None,
     ) -> None:
         """Initialize CompositeAccumulatorFactory.
 
@@ -412,13 +412,15 @@ class CompositeAccumulatorFactory(StatisticAccumulatorFactory):
         self.keys: Optional[str] = keys
         self.name: Optional[str] = name
 
-    def make(self) -> 'CompositeAccumulator':
+    def make(self) -> "CompositeAccumulator":
         """Create a new CompositeAccumulator.
 
         Returns:
             CompositeAccumulator: New accumulator instance.
         """
-        return CompositeAccumulator([u.make() for u in self.factories], keys=self.keys, name=self.name)
+        return CompositeAccumulator(
+            [u.make() for u in self.factories], keys=self.keys, name=self.name
+        )
 
 
 class CompositeEstimator(ParameterEstimator):
@@ -435,7 +437,7 @@ class CompositeEstimator(ParameterEstimator):
         self,
         estimators: Sequence[ParameterEstimator],
         keys: Optional[str] = None,
-        name: Optional[str] = None
+        name: Optional[str] = None,
     ) -> None:
         """Initialize CompositeEstimator.
 
@@ -455,7 +457,7 @@ class CompositeEstimator(ParameterEstimator):
         self.count: int = len(estimators)
         self.name: Optional[str] = name
 
-    def accumulator_factory(self) -> 'CompositeAccumulatorFactory':
+    def accumulator_factory(self) -> "CompositeAccumulatorFactory":
         """Return a CompositeAccumulatorFactory for this estimator.
 
         Returns:
@@ -464,14 +466,12 @@ class CompositeEstimator(ParameterEstimator):
         return CompositeAccumulatorFactory(
             [u.accumulator_factory() for u in self.estimators],
             keys=self.keys,
-            name=self.name
+            name=self.name,
         )
 
     def estimate(
-        self,
-        nobs: Optional[float],
-        suff_stat: Tuple[Any, ...]
-    ) -> 'CompositeDistribution':
+        self, nobs: Optional[float], suff_stat: Tuple[Any, ...]
+    ) -> "CompositeDistribution":
         """Estimate a CompositeDistribution from aggregated sufficient statistics.
 
         Args:
@@ -482,7 +482,9 @@ class CompositeEstimator(ParameterEstimator):
             CompositeDistribution: Estimated distribution.
         """
         return CompositeDistribution(
-            tuple([est.estimate(nobs, ss) for est, ss in zip(self.estimators, suff_stat)])
+            tuple(
+                [est.estimate(nobs, ss) for est, ss in zip(self.estimators, suff_stat)]
+            )
         )
 
 
@@ -526,13 +528,15 @@ class CompositeDataEncoder(DataSequenceEncoder):
         Returns:
             str: String representation.
         """
-        s = 'CompositeDataEncoder(['
+        s = "CompositeDataEncoder(["
         for d in self.encoders[:-1]:
-            s += str(d) + ','
-        s += str(self.encoders[-1]) + '])'
+            s += str(d) + ","
+        s += str(self.encoders[-1]) + "])"
         return s
 
-    def seq_encode(self, x: Sequence[Tuple[Any, ...]]) -> 'CompositeEncodedDataSequence':
+    def seq_encode(
+        self, x: Sequence[Tuple[Any, ...]]
+    ) -> "CompositeEncodedDataSequence":
         """Encode sequence of tuples of data for use with vectorized "seq_" functions.
 
         The input x must be a Sequence of Tuples of length equal to the length of encoders. Each component tuple
@@ -564,6 +568,4 @@ class CompositeEncodedDataSequence(EncodedDataSequence):
         super().__init__(data)
 
     def __repr__(self) -> str:
-        return f'CompositeEncodedDataSequence(data={self.data})'
-
-
+        return f"CompositeEncodedDataSequence(data={self.data})"

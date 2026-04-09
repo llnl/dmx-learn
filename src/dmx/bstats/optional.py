@@ -1,36 +1,60 @@
-from typing import Optional, Any, Dict, Union
+from typing import Any, Dict, Optional, Union
+
+import numpy as np
+import scipy.integrate
 from numpy.random import RandomState
-from dmx.bstats.pdist import ParameterEstimator, ProbabilityDistribution, StatisticAccumulator
+from scipy.optimize import minimize_scalar
+from scipy.special import digamma, exp1, gammaln
+
 from dmx.bstats.beta import BetaDistribution
 from dmx.bstats.composite import CompositeDistribution
 from dmx.bstats.nulldist import NullDistribution, null_dist
+from dmx.bstats.pdist import (
+    ParameterEstimator,
+    ProbabilityDistribution,
+    StatisticAccumulator,
+)
 from dmx.utils.special import stirling2
-import numpy as np
-from scipy.special import gammaln, digamma, exp1
-from scipy.optimize import minimize_scalar
-import scipy.integrate
-
 
 default_prior = BetaDistribution(1.0001, 1.0001)
 
 
 class OptionalDistribution(ProbabilityDistribution):
 
-
-    def __init__(self, dist: ProbabilityDistribution, p: float = 0.5, missing_value: Any = None, name: Optional[str] = None, prior: ProbabilityDistribution = default_prior, keys: Optional[str] = None):
+    def __init__(
+        self,
+        dist: ProbabilityDistribution,
+        p: float = 0.5,
+        missing_value: Any = None,
+        name: Optional[str] = None,
+        prior: ProbabilityDistribution = default_prior,
+        keys: Optional[str] = None,
+    ):
 
         self.name = name
         self.keys = keys
         self.dist = dist
-        self.p    = p
+        self.p = p
         self.log_p0 = np.log(p)
         self.log_p1 = np.log1p(-p)
         self.missing_value = missing_value
         self._set_prior(prior)
-        self.mv_is_nan = False if not np.isscalar(missing_value) else np.isnan(missing_value)
+        self.mv_is_nan = (
+            False if not np.isscalar(missing_value) else np.isnan(missing_value)
+        )
 
     def __str__(self) -> str:
-        return 'OptionalDistribution(%s, p=%s, missing_value=%s, name=%s, prior=%s, keys=%s)' % (str(self.dist), repr(self.p), repr(self.missing_value), repr(self.name), str(self.prior), repr(self.keys))
+        return (
+            "OptionalDistribution(%s, p=%s, missing_value=%s, name=%s, prior=%s, keys=%s)"
+            % (
+                str(self.dist),
+                repr(self.p),
+                repr(self.missing_value),
+                repr(self.name),
+                str(self.prior),
+                repr(self.keys),
+            )
+        )
 
     def get_parameters(self):
         return self.p, self.dist.get_parameters()
@@ -39,7 +63,7 @@ class OptionalDistribution(ProbabilityDistribution):
         self.p = params[0]
         self.log_p0 = np.log(params[0])
         self.log_p1 = np.log1p(-params[0])
-        #self.missing_value = params[0][1]
+        # self.missing_value = params[0][1]
         self.dist.set_parameters(params[1])
 
     def get_prior(self) -> ProbabilityDistribution:
@@ -54,7 +78,7 @@ class OptionalDistribution(ProbabilityDistribution):
 
         if isinstance(prior, BetaDistribution):
             a, b = self.prior.get_parameters()
-            self.conj_prior_params = (digamma(a), digamma(b), digamma(a+b))
+            self.conj_prior_params = (digamma(a), digamma(b), digamma(a + b))
             self.has_conj_prior = True
             self.has_prior = True
         elif isinstance(prior, NullDistribution) or prior is None:
@@ -71,7 +95,9 @@ class OptionalDistribution(ProbabilityDistribution):
         return np.exp(self.log_density(x))
 
     def log_density(self, x) -> float:
-        if (x is self.missing_value) or (self.mv_is_nan and np.isscalar(x) and np.isnan(x)):
+        if (x is self.missing_value) or (
+            self.mv_is_nan and np.isscalar(x) and np.isnan(x)
+        ):
             return self.log_p0
         else:
             return self.log_p1 + self.dist.log_density(x)
@@ -80,7 +106,9 @@ class OptionalDistribution(ProbabilityDistribution):
 
         if self.has_conj_prior:
             da, db, dab = self.conj_prior_params
-            if (x is self.missing_value) or (self.mv_is_nan and np.isscalar(x) and np.isnan(x)):
+            if (x is self.missing_value) or (
+                self.mv_is_nan and np.isscalar(x) and np.isnan(x)
+            ):
                 return da - dab
             else:
                 return db - dab + self.dist.expected_log_density(x)
@@ -124,10 +152,12 @@ class OptionalDistribution(ProbabilityDistribution):
         nz_val = []
         cnt = 0
 
-        for i,xx in enumerate(x):
+        for i, xx in enumerate(x):
             cnt += 1
 
-            if  (xx is self.missing_value) or (self.mv_is_nan and np.isscalar(xx) and np.isnan(xx)):
+            if (xx is self.missing_value) or (
+                self.mv_is_nan and np.isscalar(xx) and np.isnan(xx)
+            ):
                 iz_idx.append(i)
             else:
                 nz_idx.append(i)
@@ -149,7 +179,7 @@ class OptionalDistribution(ProbabilityDistribution):
 class OptionalSampler(object):
 
     def __init__(self, dist, seed=None):
-        rng  = np.random.RandomState(seed)
+        rng = np.random.RandomState(seed)
         self.dist = dist
         self.obs_sampler = dist.dist.sampler(rng.randint(0, 2**31))
         self.mis_sampler = np.random.RandomState(rng.randint(0, 2**31))
@@ -167,13 +197,15 @@ class OptionalSampler(object):
 class OptionalEstimatorAccumulator(StatisticAccumulator):
 
     def __init__(self, accumulator, missing_value, name, keys):
-        self.acc   = accumulator
-        self.name  = name
-        self.key   = keys
-        self.psum  = 0.0
-        self.nsum  = 0.0
+        self.acc = accumulator
+        self.name = name
+        self.key = keys
+        self.psum = 0.0
+        self.nsum = 0.0
         self.missing_value = missing_value
-        self.mv_is_nan = False if not np.isscalar(missing_value) else np.isnan(missing_value)
+        self.mv_is_nan = (
+            False if not np.isscalar(missing_value) else np.isnan(missing_value)
+        )
 
     def initialize(self, x, weight, rng):
         self.update(x, weight, None)
@@ -182,7 +214,9 @@ class OptionalEstimatorAccumulator(StatisticAccumulator):
         self.seq_update(x, weights, None)
 
     def update(self, x, weight, estimate):
-        if (x is self.missing_value) or (self.mv_is_nan and np.isscalar(x) and np.isnan(x)):
+        if (x is self.missing_value) or (
+            self.mv_is_nan and np.isscalar(x) and np.isnan(x)
+        ):
             self.psum += weight
         else:
             self.nsum += weight
@@ -193,7 +227,9 @@ class OptionalEstimatorAccumulator(StatisticAccumulator):
 
         self.psum += weights[iz_idx].sum()
         self.nsum += weights[nz_idx].sum()
-        self.acc.seq_update(nz_val, weights[nz_idx], None if estimate is None else estimate.dist)
+        self.acc.seq_update(
+            nz_val, weights[nz_idx], None if estimate is None else estimate.dist
+        )
 
     def combine(self, suff_stat):
         self.psum += suff_stat[0]
@@ -233,16 +269,26 @@ class OptionalEstimatorAccumulatorFactory(object):
 
     def make(self):
         acc = None if self.acc_factory is None else self.acc_factory.make()
-        return OptionalEstimatorAccumulator(acc, self.missing_value, self.name, self.keys)
+        return OptionalEstimatorAccumulator(
+            acc, self.missing_value, self.name, self.keys
+        )
 
 
 class OptionalEstimator(ParameterEstimator):
 
-    def __init__(self, estimator: ParameterEstimator, missing_value: Any = None, fixed_prob: Optional[float] = None, name: Optional[str] = None, keys: Optional[str] = None, prior: ProbabilityDistribution = default_prior):
+    def __init__(
+        self,
+        estimator: ParameterEstimator,
+        missing_value: Any = None,
+        fixed_prob: Optional[float] = None,
+        name: Optional[str] = None,
+        keys: Optional[str] = None,
+        prior: ProbabilityDistribution = default_prior,
+    ):
 
         self.estimator = estimator
-        self.name  = name
-        self.keys  = keys
+        self.name = name
+        self.keys = keys
         self.prior = prior
         self.fixed_prob = fixed_prob
         self.missing_value = missing_value
@@ -250,14 +296,20 @@ class OptionalEstimator(ParameterEstimator):
         self.has_prior = not isinstance(prior, NullDistribution) and prior is not None
 
     def accumulator_factory(self) -> OptionalEstimatorAccumulatorFactory:
-        acc_factory = None if self.estimator is None else self.estimator.accumulator_factory()
-        return OptionalEstimatorAccumulatorFactory(acc_factory, self.missing_value, self.name, self.keys)
+        acc_factory = (
+            None if self.estimator is None else self.estimator.accumulator_factory()
+        )
+        return OptionalEstimatorAccumulatorFactory(
+            acc_factory, self.missing_value, self.name, self.keys
+        )
 
     def set_prior(self, prior) -> None:
         if isinstance(prior, CompositeDistribution):
             self.prior = prior.dists[0]
             self.has_conj_prior = isinstance(self.prior, BetaDistribution)
-            self.has_prior = not isinstance(self.prior, NullDistribution) and self.prior is not None
+            self.has_prior = (
+                not isinstance(self.prior, NullDistribution) and self.prior is not None
+            )
             self.estimator.set_prior(prior.dists[1])
 
     def get_prior(self) -> ProbabilityDistribution:
@@ -274,14 +326,21 @@ class OptionalEstimator(ParameterEstimator):
             a, b = self.prior.get_parameters()
             new_a = a + psum
             new_b = b + nsum
-            new_p = (psum + a - 1.0)/(psum + nsum + a + b - 2.0)
+            new_p = (psum + a - 1.0) / (psum + nsum + a + b - 2.0)
             new_prior = BetaDistribution(new_a, new_b)
 
         else:
-            new_p = psum/(psum + nsum)
+            new_p = psum / (psum + nsum)
             new_prior = self.prior
 
         if self.fixed_prob is not None:
             new_p = self.fixed_prob
 
-        return OptionalDistribution(dist, p=new_p, missing_value=self.missing_value, name=self.name, prior=new_prior, keys=self.keys)
+        return OptionalDistribution(
+            dist,
+            p=new_p,
+            missing_value=self.missing_value,
+            name=self.name,
+            prior=new_prior,
+            keys=self.keys,
+        )

@@ -13,23 +13,23 @@ where:
 - :math:`p` is the probability of drawing from the length distribution, with :math:`0 < p \leq 1`
 """
 
-from typing import List, Union, Tuple, Any, Optional, TypeVar, Sequence, Dict
+from typing import Any, Dict, List, Optional, Sequence, Tuple, TypeVar, Union
 
 import numpy as np
 from numpy.random import RandomState
 
 from dmx.arithmetic import maxrandint
 from dmx.stats.pdist import (
-    SequenceEncodableProbabilityDistribution,
-    ParameterEstimator,
-    DistributionSampler,
-    StatisticAccumulatorFactory,
-    SequenceEncodableStatisticAccumulator,
     DataSequenceEncoder,
+    DistributionSampler,
     EncodedDataSequence,
+    ParameterEstimator,
+    SequenceEncodableProbabilityDistribution,
+    SequenceEncodableStatisticAccumulator,
+    StatisticAccumulatorFactory,
 )
 
-SS0 = TypeVar('SS0')  # Type of component suff_stat
+SS0 = TypeVar("SS0")  # Type of component suff_stat
 key_type = Union[Tuple[str, str], Tuple[None, None]]
 
 
@@ -50,7 +50,7 @@ class DiracMixtureDistribution(SequenceEncodableProbabilityDistribution):
         p: float,
         v: int = 0,
         name: Optional[str] = None,
-        keys: Tuple[Optional[str], Optional[str]] = (None, None)
+        keys: Tuple[Optional[str], Optional[str]] = (None, None),
     ) -> None:
         """Initialize DiracMixtureDistribution.
 
@@ -65,8 +65,8 @@ class DiracMixtureDistribution(SequenceEncodableProbabilityDistribution):
             Exception: If p is not in (0, 1].
         """
         if not 0 < p <= 1:
-            raise Exception('p must be between (0,1].')
-        with np.errstate(divide='ignore'):
+            raise Exception("p must be between (0,1].")
+        with np.errstate(divide="ignore"):
             self.p = p
             self.v = v
             self.log_p = np.log(p)
@@ -82,7 +82,9 @@ class DiracMixtureDistribution(SequenceEncodableProbabilityDistribution):
         s3 = repr(self.v)
         s4 = repr(self.name)
         s5 = repr(self.keys)
-        return f'DiracMixtureDistribution(dist={s1}, p={s2}, v={s3}, name={s4}, keys={s5})'
+        return (
+            f"DiracMixtureDistribution(dist={s1}, p={s2}, v={s3}, name={s4}, keys={s5})"
+        )
 
     def density(self, x: int) -> float:
         """Evaluate density of Dirac mixture distribution at observation x.
@@ -161,7 +163,9 @@ class DiracMixtureDistribution(SequenceEncodableProbabilityDistribution):
 
         return comp_log_density
 
-    def seq_component_log_density(self, x: 'DiracMixtureEncodedDataSequence') -> np.ndarray:
+    def seq_component_log_density(
+        self, x: "DiracMixtureEncodedDataSequence"
+    ) -> np.ndarray:
         """Vectorized evaluation of the log density for the components of the Dirac mixture.
 
         The components are Dirac spike and `dist`.
@@ -173,7 +177,9 @@ class DiracMixtureDistribution(SequenceEncodableProbabilityDistribution):
             np.ndarray: Log-densities for each component.
         """
         if not isinstance(x, DiracMixtureEncodedDataSequence):
-            raise Exception('DiracMixtureEncodedDataSequence required for `seq_` function calls.')
+            raise Exception(
+                "DiracMixtureEncodedDataSequence required for `seq_` function calls."
+            )
 
         sz, idx_v, idx_nv, enc_x = x.data
         ll_mat = np.zeros((sz, 2), dtype=np.float64)
@@ -183,7 +189,7 @@ class DiracMixtureDistribution(SequenceEncodableProbabilityDistribution):
 
         return ll_mat
 
-    def seq_log_density(self, x: 'DiracMixtureEncodedDataSequence') -> np.ndarray:
+    def seq_log_density(self, x: "DiracMixtureEncodedDataSequence") -> np.ndarray:
         """Vectorized log-density for DiracMixtureEncodedDataSequence.
 
         Args:
@@ -193,7 +199,9 @@ class DiracMixtureDistribution(SequenceEncodableProbabilityDistribution):
             np.ndarray: Log-density values.
         """
         if not isinstance(x, DiracMixtureEncodedDataSequence):
-            raise Exception('DiracMixtureEncodedDataSequence required for `seq_` function calls.')
+            raise Exception(
+                "DiracMixtureEncodedDataSequence required for `seq_` function calls."
+            )
 
         sz, idx_v, idx_nv, enc_x = x.data
         ll_mat = np.zeros((sz, 2), dtype=np.float64)
@@ -225,7 +233,7 @@ class DiracMixtureDistribution(SequenceEncodableProbabilityDistribution):
             rv[~good_rows] = -np.inf
             return rv
 
-    def seq_posterior(self, x: 'DiracMixtureEncodedDataSequence') -> np.ndarray:
+    def seq_posterior(self, x: "DiracMixtureEncodedDataSequence") -> np.ndarray:
         """Vectorized evaluation of the posterior for the components of the Dirac mixture.
 
         The components are Dirac spike and `dist`.
@@ -237,7 +245,9 @@ class DiracMixtureDistribution(SequenceEncodableProbabilityDistribution):
             np.ndarray: Posterior probabilities for each component.
         """
         if not isinstance(x, DiracMixtureEncodedDataSequence):
-            raise Exception('DiracMixtureEncodedDataSequence required for `seq_` function calls.')
+            raise Exception(
+                "DiracMixtureEncodedDataSequence required for `seq_` function calls."
+            )
 
         sz, idx_v, idx_nv, enc_x = x.data
         rv = np.zeros((sz, 2), dtype=np.float64)
@@ -257,7 +267,7 @@ class DiracMixtureDistribution(SequenceEncodableProbabilityDistribution):
 
         return rv
 
-    def sampler(self, seed: Optional[int] = None) -> 'DiracMixtureSampler':
+    def sampler(self, seed: Optional[int] = None) -> "DiracMixtureSampler":
         """Return a DiracMixtureSampler for this distribution.
 
         Args:
@@ -268,7 +278,9 @@ class DiracMixtureDistribution(SequenceEncodableProbabilityDistribution):
         """
         return DiracMixtureSampler(self, seed)
 
-    def estimator(self, pseudo_count: Optional[float] = None) -> 'DiracMixtureEstimator':
+    def estimator(
+        self, pseudo_count: Optional[float] = None
+    ) -> "DiracMixtureEstimator":
         """Return a DiracMixtureEstimator for this distribution.
 
         Args:
@@ -285,13 +297,15 @@ class DiracMixtureDistribution(SequenceEncodableProbabilityDistribution):
                 pseudo_count=pseudo_count,
                 suff_stat=self.p,
                 name=self.name,
-                keys=self.keys
+                keys=self.keys,
             )
         else:
             est = self.dist.estimator()
-            return DiracMixtureEstimator(estimator=est, v=self.v, name=self.name, keys=self.keys)
+            return DiracMixtureEstimator(
+                estimator=est, v=self.v, name=self.name, keys=self.keys
+            )
 
-    def dist_to_encoder(self) -> 'DiracMixtureDataEncoder':
+    def dist_to_encoder(self) -> "DiracMixtureDataEncoder":
         """Return a DiracMixtureDataEncoder for this distribution.
 
         Returns:
@@ -311,7 +325,9 @@ class DiracMixtureSampler(DistributionSampler):
         v (int): Dirac location.
     """
 
-    def __init__(self, dist: DiracMixtureDistribution, seed: Optional[int] = None) -> None:
+    def __init__(
+        self, dist: DiracMixtureDistribution, seed: Optional[int] = None
+    ) -> None:
         """Initialize DiracMixtureSampler.
 
         Args:
@@ -345,7 +361,9 @@ class DiracMixtureSampler(DistributionSampler):
             rv.fill(self.v)
             idx = np.flatnonzero(comp_state == 1)
             if len(idx) > 0:
-                rv[idx] = np.asarray(self.dist_sampler.sample(size=len(idx)), dtype=np.int32)
+                rv[idx] = np.asarray(
+                    self.dist_sampler.sample(size=len(idx)), dtype=np.int32
+                )
             return list(rv)
 
 
@@ -366,7 +384,7 @@ class DiracMixtureAccumulator(SequenceEncodableStatisticAccumulator):
         accumulator: SequenceEncodableStatisticAccumulator,
         v: int = 0,
         keys: Tuple[Optional[str], Optional[str]] = (None, None),
-        name: Optional[str] = None
+        name: Optional[str] = None,
     ) -> None:
         """Initialize DiracMixtureAccumulator.
 
@@ -390,9 +408,9 @@ class DiracMixtureAccumulator(SequenceEncodableStatisticAccumulator):
 
     def seq_update(
         self,
-        x: 'DiracMixtureEncodedDataSequence',
+        x: "DiracMixtureEncodedDataSequence",
         weights: np.ndarray,
-        estimate: 'DiracMixtureDistribution'
+        estimate: "DiracMixtureDistribution",
     ) -> None:
         """Vectorized update for encoded data.
 
@@ -417,7 +435,9 @@ class DiracMixtureAccumulator(SequenceEncodableStatisticAccumulator):
             bad_rows = np.isinf(rv.flatten())
 
             if np.any(bad_rows):
-                rv[bad_rows, :] = np.array([estimate.log_p, estimate.log_1p], dtype=np.float64)
+                rv[bad_rows, :] = np.array(
+                    [estimate.log_p, estimate.log_1p], dtype=np.float64
+                )
                 rv_max[bad_rows] = np.max(np.asarray([estimate.log_p, estimate.log_1p]))
             rv -= rv_max
 
@@ -431,7 +451,9 @@ class DiracMixtureAccumulator(SequenceEncodableStatisticAccumulator):
         self.comp_counts += ll_mat.sum(axis=0)
         self.accumulator.seq_update(enc_x, ll_mat[:, 0], estimate.dist)
 
-    def update(self, x: int, weight: float, estimate: 'DiracMixtureDistribution') -> None:
+    def update(
+        self, x: int, weight: float, estimate: "DiracMixtureDistribution"
+    ) -> None:
         """Update accumulator with a new observation.
 
         Args:
@@ -450,7 +472,7 @@ class DiracMixtureAccumulator(SequenceEncodableStatisticAccumulator):
         Args:
             rng (RandomState): Random number generator.
         """
-        seeds = rng.randint(2 ** 31, size=2)
+        seeds = rng.randint(2**31, size=2)
         self._acc_rng = RandomState(seed=seeds[0])
         self._w_rng = RandomState(seed=rng.randint(maxrandint))
         self._init_rng = True
@@ -476,9 +498,9 @@ class DiracMixtureAccumulator(SequenceEncodableStatisticAccumulator):
 
     def seq_initialize(
         self,
-        x: 'DiracMixtureEncodedDataSequence',
+        x: "DiracMixtureEncodedDataSequence",
         weights: np.ndarray,
-        rng: np.random.RandomState
+        rng: np.random.RandomState,
     ) -> None:
         """Vectorized initialization for encoded data.
 
@@ -505,7 +527,7 @@ class DiracMixtureAccumulator(SequenceEncodableStatisticAccumulator):
         self.comp_counts[0] += np.sum(ww[:, 0])
         self.comp_counts[1] += np.sum(ww[xi_v, 1])
 
-    def combine(self, suff_stat: Tuple[np.ndarray, SS0]) -> 'DiracMixtureAccumulator':
+    def combine(self, suff_stat: Tuple[np.ndarray, SS0]) -> "DiracMixtureAccumulator":
         """Combine another accumulator's sufficient statistics into this one.
 
         Args:
@@ -526,7 +548,7 @@ class DiracMixtureAccumulator(SequenceEncodableStatisticAccumulator):
         """
         return self.comp_counts, self.accumulator.value()
 
-    def from_value(self, x: Tuple[np.ndarray, SS0]) -> 'DiracMixtureAccumulator':
+    def from_value(self, x: Tuple[np.ndarray, SS0]) -> "DiracMixtureAccumulator":
         """Set the sufficient statistics from a tuple.
 
         Args:
@@ -576,7 +598,7 @@ class DiracMixtureAccumulator(SequenceEncodableStatisticAccumulator):
 
         self.accumulator.key_replace(stats_dict)
 
-    def acc_to_encoder(self) -> 'DiracMixtureDataEncoder':
+    def acc_to_encoder(self) -> "DiracMixtureDataEncoder":
         """Return a DiracMixtureDataEncoder for this accumulator.
 
         Returns:
@@ -601,7 +623,7 @@ class DiracMixtureAccumulatorFactory(StatisticAccumulatorFactory):
         factory: StatisticAccumulatorFactory,
         v: int = 0,
         keys: Tuple[Optional[str], Optional[str]] = (None, None),
-        name: Optional[str] = None
+        name: Optional[str] = None,
     ) -> None:
         """Initialize DiracMixtureAccumulatorFactory.
 
@@ -616,13 +638,15 @@ class DiracMixtureAccumulatorFactory(StatisticAccumulatorFactory):
         self.keys = keys
         self.name = name
 
-    def make(self) -> 'DiracMixtureAccumulator':
+    def make(self) -> "DiracMixtureAccumulator":
         """Create a new DiracMixtureAccumulator.
 
         Returns:
             DiracMixtureAccumulator: New accumulator instance.
         """
-        return DiracMixtureAccumulator(accumulator=self.factory.make(), v=self.v, keys=self.keys, name=self.name)
+        return DiracMixtureAccumulator(
+            accumulator=self.factory.make(), v=self.v, keys=self.keys, name=self.name
+        )
 
 
 class DiracMixtureEstimator(ParameterEstimator):
@@ -646,7 +670,7 @@ class DiracMixtureEstimator(ParameterEstimator):
         suff_stat: Optional[float] = None,
         pseudo_count: Optional[float] = None,
         name: Optional[str] = None,
-        keys: Tuple[Optional[str], Optional[str]] = (None, None)
+        keys: Tuple[Optional[str], Optional[str]] = (None, None),
     ) -> None:
         """Initialize DiracMixtureEstimator.
 
@@ -669,7 +693,9 @@ class DiracMixtureEstimator(ParameterEstimator):
         ):
             self.keys = keys
         else:
-            raise TypeError("DiracMixtureEstimator requires keys (Tuple[Optional[str], Optional[str]]).")
+            raise TypeError(
+                "DiracMixtureEstimator requires keys (Tuple[Optional[str], Optional[str]])."
+            )
 
         self.estimator = estimator
         self.v = v
@@ -678,23 +704,25 @@ class DiracMixtureEstimator(ParameterEstimator):
         self.keys = keys
         self.name = name
         self.fixed_p_vec = (
-            np.asarray([fixed_p, 1 - fixed_p]) if fixed_p is not None and 0 < fixed_p <= 1 else None
+            np.asarray([fixed_p, 1 - fixed_p])
+            if fixed_p is not None and 0 < fixed_p <= 1
+            else None
         )
 
-    def accumulator_factory(self) -> 'DiracMixtureAccumulatorFactory':
+    def accumulator_factory(self) -> "DiracMixtureAccumulatorFactory":
         """Return a DiracMixtureAccumulatorFactory for this estimator.
 
         Returns:
             DiracMixtureAccumulatorFactory: Factory object.
         """
         factory = self.estimator.accumulator_factory()
-        return DiracMixtureAccumulatorFactory(factory=factory, v=self.v, keys=self.keys, name=self.name)
+        return DiracMixtureAccumulatorFactory(
+            factory=factory, v=self.v, keys=self.keys, name=self.name
+        )
 
     def estimate(
-        self,
-        nobs: Optional[float],
-        suff_stat: Tuple[np.ndarray, SS0]
-    ) -> 'DiracMixtureDistribution':
+        self, nobs: Optional[float], suff_stat: Tuple[np.ndarray, SS0]
+    ) -> "DiracMixtureDistribution":
         """Estimate a DiracMixtureDistribution from sufficient statistics.
 
         Args:
@@ -748,7 +776,9 @@ class DiracMixtureDataEncoder(DataSequenceEncoder):
 
     def __str__(self) -> str:
         """Return string representation."""
-        return f'DiracMixtureDataEncoder(encoder={repr(self.encoder)}, v={repr(self.v)})'
+        return (
+            f"DiracMixtureDataEncoder(encoder={repr(self.encoder)}, v={repr(self.v)})"
+        )
 
     def __eq__(self, other: object) -> bool:
         """Check equality with another encoder.
@@ -767,7 +797,7 @@ class DiracMixtureDataEncoder(DataSequenceEncoder):
         else:
             return False
 
-    def seq_encode(self, x: Sequence[int]) -> 'DiracMixtureEncodedDataSequence':
+    def seq_encode(self, x: Sequence[int]) -> "DiracMixtureEncodedDataSequence":
         """Encode a sequence of integers for DiracMixtureDistribution.
 
         Args:
@@ -779,7 +809,9 @@ class DiracMixtureDataEncoder(DataSequenceEncoder):
         x = np.asarray(x, dtype=np.int32)
         xi_v = np.flatnonzero(x == self.v).astype(np.int32)
         xi_nv = np.flatnonzero(x != self.v).astype(np.int32)
-        return DiracMixtureEncodedDataSequence(data=(len(x), xi_v, xi_nv, self.encoder.seq_encode(x)))
+        return DiracMixtureEncodedDataSequence(
+            data=(len(x), xi_v, xi_nv, self.encoder.seq_encode(x))
+        )
 
 
 class DiracMixtureEncodedDataSequence(EncodedDataSequence):
@@ -789,7 +821,9 @@ class DiracMixtureEncodedDataSequence(EncodedDataSequence):
         data (Tuple[int, np.ndarray, np.ndarray, EncodedDataSequence]): Encoded sequence of iid Dirac mixture observations.
     """
 
-    def __init__(self, data: Tuple[int, np.ndarray, np.ndarray, EncodedDataSequence]) -> None:
+    def __init__(
+        self, data: Tuple[int, np.ndarray, np.ndarray, EncodedDataSequence]
+    ) -> None:
         """Initialize DiracMixtureEncodedDataSequence.
 
         Args:
@@ -799,5 +833,4 @@ class DiracMixtureEncodedDataSequence(EncodedDataSequence):
 
     def __repr__(self) -> str:
         """Return string representation."""
-        return f'DiracMixtureEncodedDataSequence(data={self.data})'
-
+        return f"DiracMixtureEncodedDataSequence(data={self.data})"

@@ -1,8 +1,9 @@
 """Tests for BinomialDistribution and related torch_stats classes."""
-import torch
+
 import numpy as np
 import pytest
-from tests.torch_stats.torch_stats_tests import *
+import torch
+
 from dmx.torch_stats import *
 from dmx.torch_stats.binomial import (
     BinomialAccumulator,
@@ -10,6 +11,7 @@ from dmx.torch_stats.binomial import (
     BinomialDataEncoder,
     BinomialTorchEncodedSequence,
 )
+from tests.torch_stats.torch_stats_tests import *
 
 
 class BinomialDistributionTestCase(TorchStatsTestClass):
@@ -56,8 +58,10 @@ class BinomialDistributionTestCase(TorchStatsTestClass):
         """Sampled values must be in [0, n]."""
         for dist in self._dists:
             data = dist.sampler(seed=1).sample(size=500)
-            self.assertTrue(all(0 <= x <= dist.n for x in data),
-                            f"Binomial samples out of [0, {dist.n}]")
+            self.assertTrue(
+                all(0 <= x <= dist.n for x in data),
+                f"Binomial samples out of [0, {dist.n}]",
+            )
 
     def test_mean_approx(self):
         """Sample mean should be close to n * p."""

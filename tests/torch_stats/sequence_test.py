@@ -1,8 +1,9 @@
 """Tests for SequenceDistribution and related torch_stats classes."""
-import torch
+
 import numpy as np
 import pytest
-from tests.torch_stats.torch_stats_tests import *
+import torch
+
 from dmx.torch_stats import *
 from dmx.torch_stats.sequence import (
     SequenceAccumulator,
@@ -10,6 +11,7 @@ from dmx.torch_stats.sequence import (
     SequenceDataEncoder,
     SequenceTorchEncodedSequence,
 )
+from tests.torch_stats.torch_stats_tests import *
 
 
 class SequenceDistributionTestCase(TorchStatsTestClass):
@@ -69,8 +71,9 @@ class SequenceDistributionTestCase(TorchStatsTestClass):
         for dist in self._dists:
             data = dist.sampler(seed=1).sample(size=20)
             for seq in data:
-                self.assertIsInstance(seq, (list, np.ndarray),
-                                      f"Expected sequence, got {type(seq)}")
+                self.assertIsInstance(
+                    seq, (list, np.ndarray), f"Expected sequence, got {type(seq)}"
+                )
 
     def test_sample_length_distribution(self):
         """Sample lengths should follow the specified length distribution (approx)."""
