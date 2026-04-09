@@ -10,11 +10,13 @@ T = TypeVar("T")
 T1 = TypeVar("T1")
 
 
-def get_parent_directory(filepath: str, levels=0) -> Path:
+def get_parent_directory(filepath: str, levels: int = 0) -> Path:
     """Get the parent directory of a file.
+
     Args:
         filepath (str): The full path of the file
         levels (int): Number of levels to move up to reach parent.
+
     Returns:
         Path object containing path to parent directory.
 
@@ -38,7 +40,7 @@ def map_to_integers(x: Sequence[T], val_map: Dict[T, int]) -> List[int]:
         Returns x mapped to a list of integers.
 
     """
-    rv = [None] * len(x)
+    rv: List[int] = [0] * len(x)
     for i, u in enumerate(x):
         if u not in val_map:
             val_map[u] = len(val_map)
@@ -56,17 +58,17 @@ def get_inv_map(val_map: Dict[T, T1]) -> Dict[T1, T]:
         Inverse mapping of val_map.
 
     """
-    max_val = max(val_map.values())
+    max_val = max(val_map.values())  # type: ignore[type-var]
 
-    rv = [None] * (max_val + 1)
+    rv: List[Optional[T]] = [None] * (max_val + 1)  # type: ignore[operator]
 
     for k, v in val_map.items():
-        rv[v] = k
+        rv[v] = k  # type: ignore[call-overload]
 
-    return rv
+    return rv  # type: ignore[return-value]
 
 
-def text_file(f) -> List[str]:
+def text_file(f: str) -> List[str]:
     """Open a file and split by newline.
 
     Args
@@ -76,13 +78,12 @@ def text_file(f) -> List[str]:
         List of strings split on newline character.
 
     """
-    fin = open(f, "r")
-    rv = fin.read()
+    with open(f, "r", encoding="utf-8") as fin:
+        rv = fin.read()
 
     if rv is not None and len(rv) > 0 and rv[-1] == "\n":
         return rv[:-1].split("\n")
-    else:
-        return rv.split("\n")
+    return rv.split("\n")
 
 
 def reduce_by_key(f: Callable[[T1, T1], T1], x: Sequence[Tuple[T, T1]]) -> Dict[T, T1]:
@@ -96,7 +97,7 @@ def reduce_by_key(f: Callable[[T1, T1], T1], x: Sequence[Tuple[T, T1]]) -> Dict[
         Dictionary mapping key types T to value types T1.
 
     """
-    rv = dict()
+    rv: Dict[T, T1] = {}
 
     for key, val in x:
         if key in rv:
@@ -117,11 +118,11 @@ def sum_by_key(x: Sequence[Tuple[T, T1]]) -> Dict[T, T1]:
         Dictionary of keys with summed values.
 
     """
-    rv = dict()
+    rv: Dict[T, T1] = {}
 
     for key, val in x:
         if key in rv:
-            rv[key] += val
+            rv[key] += val  # type: ignore[operator]
         else:
             rv[key] = val
 
@@ -176,7 +177,7 @@ def count_by_value(x: Union[Sequence[T], np.ndarray]) -> Dict[T, int]:
         Dictionary mapping value (type T) to value-count.
 
     """
-    rv = dict()
+    rv: Dict[T, int] = {}
 
     for u in x:
         rv[u] = rv.get(u, 0) + 1
@@ -204,8 +205,7 @@ def least_occurring(
     percent: Optional[float] = None,
     keep_freq: bool = True,
 ) -> Union[List[T], Callable]:
-    """
-    Identifies the least occurring elements in a sequence.
+    """Identifies the least occurring elements in a sequence.
 
     This function finds the least frequently occurring elements in a given sequence
     based on the specified `count` or `percent`. Optionally, it can return the filtered
@@ -236,12 +236,11 @@ def least_occurring(
     elif percent is not None:
         n = max(int(len(s_idx) * percent), 1)
     else:
-        return x
+        return x  # type: ignore[return-value]
 
-    vals = [cnt_map[i][0] for i in s_idx[:n]]
+    vals = [list(cnt_map)[i][0] for i in s_idx[:n]]
 
     if keep_freq:
-        vals = set(vals)
-        return filter(lambda u: u in vals, x)
-    else:
-        return vals
+        vals_set = set(vals)
+        return list(filter(lambda u: u in vals_set, x))
+    return vals

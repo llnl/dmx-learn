@@ -8,16 +8,24 @@ Data type: (float): The GammaDistribution with shape k > 0.0 and scale theta > 0
 
 """
 
-from dmx.utils.special import gammaln, digamma, trigamma
+from typing import Any, Dict, List, Optional, Tuple, Union
 
-import torch as tn
 import numpy as np
+import torch as tn
 from numpy.random import RandomState
-from dmx.arithmetic import *
-from dmx.torch_stats.pdist import TorchProbabilityDistribution, TorchParameterEstimator, TorchSequenceEncoder, \
-    TorchStatisticAccumulator, TorchStatisticAccumulatorFactory, DistributionSampler, TorchEncodedSequence
-from typing import Optional, Tuple, List, Dict, Union, Any
+
 import dmx.torch_utils.vector as vec
+from dmx.arithmetic import *
+from dmx.torch_stats.pdist import (
+    DistributionSampler,
+    TorchEncodedSequence,
+    TorchParameterEstimator,
+    TorchProbabilityDistribution,
+    TorchSequenceEncoder,
+    TorchStatisticAccumulator,
+    TorchStatisticAccumulatorFactory,
+)
+from dmx.utils.special import digamma, gammaln, trigamma
 
 
 class GammaDistribution(TorchProbabilityDistribution):
@@ -30,7 +38,9 @@ class GammaDistribution(TorchProbabilityDistribution):
 
     """
 
-    def __init__(self, k: float, theta: float, device: Optional[tn.device] = None) -> None:
+    def __init__(
+        self, k: float, theta: float, device: Optional[tn.device] = None
+    ) -> None:
         """GammaDistribution object.
 
         Args:
@@ -50,7 +60,7 @@ class GammaDistribution(TorchProbabilityDistribution):
     def __repr__(self) -> str:
         s0, s1 = repr(self.k), repr(self.theta)
 
-        return 'GammaDistribution(%s, %s)' % (s0, s1)
+        return "GammaDistribution(%s, %s)" % (s0, s1)
 
     def density(self, x: float) -> float:
         """Density of gamma distribution evaluated at x.
@@ -83,10 +93,12 @@ class GammaDistribution(TorchProbabilityDistribution):
         """
         return self.log_const + (self.k - one) * log(x) - x / self.theta
 
-    def seq_log_density(self, x: 'GammaTorchEncodedSequence') -> tn.Tensor:
+    def seq_log_density(self, x: "GammaTorchEncodedSequence") -> tn.Tensor:
 
         if not isinstance(x, GammaTorchEncodedSequence):
-            raise Exception('Requires GammaTorchEncodedSequence for `seq_` function calls. ')
+            raise Exception(
+                "Requires GammaTorchEncodedSequence for `seq_` function calls. "
+            )
 
         rv = x.data[0] * (-1.0 / self.theta)
         if self.k != 1.0:
@@ -95,17 +107,19 @@ class GammaDistribution(TorchProbabilityDistribution):
 
         return rv
 
-    def sampler(self, seed: Optional[int] = None) -> 'GammaSampler':
+    def sampler(self, seed: Optional[int] = None) -> "GammaSampler":
         return GammaSampler(self, seed)
 
-    def estimator(self, pseudo_count: Optional[float] = None) -> 'GammaEstimator':
+    def estimator(self, pseudo_count: Optional[float] = None) -> "GammaEstimator":
         if pseudo_count is None:
             return GammaEstimator()
         else:
             suff_stat = (self.k * self.theta, exp(digamma(self.k) + log(self.theta)))
-            return GammaEstimator(pseudo_count=(pseudo_count, pseudo_count), suff_stat=suff_stat)
+            return GammaEstimator(
+                pseudo_count=(pseudo_count, pseudo_count), suff_stat=suff_stat
+            )
 
-    def dist_to_encoder(self) -> 'GammaDataEncoder':
+    def dist_to_encoder(self) -> "GammaDataEncoder":
         return GammaDataEncoder()
 
 
@@ -119,7 +133,7 @@ class GammaSampler(DistributionSampler):
 
     """
 
-    def __init__(self, dist: 'GammaDistribution', seed: Optional[int] = None) -> None:
+    def __init__(self, dist: "GammaDistribution", seed: Optional[int] = None) -> None:
         """GammaSampler object.
 
         Args:
@@ -156,7 +170,9 @@ class GammaAccumulator(TorchStatisticAccumulator):
 
     """
 
-    def __init__(self, keys: Optional[str] = None, device: Optional[tn.device] = None) -> None:
+    def __init__(
+        self, keys: Optional[str] = None, device: Optional[tn.device] = None
+    ) -> None:
         """GammaAccumulator object used to accumulate sufficient statistics from observations.
 
         Args:
@@ -170,15 +186,25 @@ class GammaAccumulator(TorchStatisticAccumulator):
         self.sum_of_logs = zero
         self.key = keys
 
-    def seq_initialize(self, x: 'GammaTorchEncodedSequence', weights: tn.Tensor, tng: Optional[tn.Generator]) -> None:
+    def seq_initialize(
+        self,
+        x: "GammaTorchEncodedSequence",
+        weights: tn.Tensor,
+        tng: Optional[tn.Generator],
+    ) -> None:
         self.seq_update(x, weights, None)
 
-    def seq_update(self, x: 'GammaTorchEncodedSequence', weights: tn.Tensor, estimate: Optional['GammaDistribution']) -> None:
+    def seq_update(
+        self,
+        x: "GammaTorchEncodedSequence",
+        weights: tn.Tensor,
+        estimate: Optional["GammaDistribution"],
+    ) -> None:
         self.sum += float(tn.dot(x.data[0], weights))
         self.sum_of_logs += float(tn.dot(x.data[1], weights))
         self.nobs += float(tn.sum(weights))
 
-    def combine(self, suff_stat: Tuple[float, float, float]) -> 'GammaAccumulator':
+    def combine(self, suff_stat: Tuple[float, float, float]) -> "GammaAccumulator":
 
         self.nobs += suff_stat[0]
         self.sum += suff_stat[1]
@@ -189,7 +215,7 @@ class GammaAccumulator(TorchStatisticAccumulator):
     def value(self) -> Tuple[float, float, float]:
         return self.nobs, self.sum, self.sum_of_logs
 
-    def from_value(self, x: Tuple[float, float, float]) -> 'GammaAccumulator':
+    def from_value(self, x: Tuple[float, float, float]) -> "GammaAccumulator":
 
         self.nobs = x[0]
         self.sum = x[1]
@@ -197,7 +223,7 @@ class GammaAccumulator(TorchStatisticAccumulator):
 
         return self
 
-    def key_merge(self, stats_dict: Dict[str,  Any]) -> None:
+    def key_merge(self, stats_dict: Dict[str, Any]) -> None:
 
         if self.key is not None:
             if self.key in stats_dict:
@@ -218,7 +244,7 @@ class GammaAccumulator(TorchStatisticAccumulator):
                 self.sum = x1
                 self.sum_of_logs = x2
 
-    def acc_to_encoder(self) -> 'GammaDataEncoder':
+    def acc_to_encoder(self) -> "GammaDataEncoder":
         return GammaDataEncoder()
 
 
@@ -239,7 +265,7 @@ class GammaAccumulatorFactory(TorchStatisticAccumulatorFactory):
         """
         self.keys = keys
 
-    def make(self, device: Optional[tn.device] = None) -> 'GammaAccumulator':
+    def make(self, device: Optional[tn.device] = None) -> "GammaAccumulator":
         return GammaAccumulator(keys=self.keys, device=device)
 
 
@@ -254,8 +280,13 @@ class GammaEstimator(TorchParameterEstimator):
 
     """
 
-    def __init__(self, pseudo_count: Tuple[float, float] = (0.0, 0.0), suff_stat: Tuple[float, float] = (1.0, 0.0),
-                 threshold: float = 1.0e-8, keys: Optional[str] = None) -> None:
+    def __init__(
+        self,
+        pseudo_count: Tuple[float, float] = (0.0, 0.0),
+        suff_stat: Tuple[float, float] = (1.0, 0.0),
+        threshold: float = 1.0e-8,
+        keys: Optional[str] = None,
+    ) -> None:
         """GammaEstimator object.
 
         Args:
@@ -270,10 +301,15 @@ class GammaEstimator(TorchParameterEstimator):
         self.threshold = threshold
         self.keys = keys
 
-    def accumulator_factory(self) -> 'GammaAccumulatorFactory':
+    def accumulator_factory(self) -> "GammaAccumulatorFactory":
         return GammaAccumulatorFactory(keys=self.keys)
 
-    def estimate(self, nobs: Optional[float], suff_stat: Tuple[float, float, float], device: Optional[tn.device] = None) -> 'GammaDistribution':
+    def estimate(
+        self,
+        nobs: Optional[float],
+        suff_stat: Tuple[float, float, float],
+        device: Optional[tn.device] = None,
+    ) -> "GammaDistribution":
         """Obtain GammaDistribution from aggregated sufficient statistics of observed data.
 
         Takes sufficient statistic aggregated from observed data:
@@ -309,7 +345,9 @@ class GammaEstimator(TorchParameterEstimator):
         return GammaDistribution(k, adj_sum / (k * adj_lcnt), device=device)
 
     @staticmethod
-    def estimate_shape(avg_sum: float, avg_sum_of_logs: float, threshold: float) -> float:
+    def estimate_shape(
+        avg_sum: float, avg_sum_of_logs: float, threshold: float
+    ) -> float:
         """Estimates the shape parameter of GammaDistribution.
 
         Args:
@@ -334,12 +372,14 @@ class GammaDataEncoder(TorchSequenceEncoder):
     """GammaDataEncoder object for encoding sequences of iid Gamma observations with data type float."""
 
     def __str__(self) -> str:
-        return 'GammaDataEncoder'
+        return "GammaDataEncoder"
 
     def __eq__(self, other: object) -> bool:
         return isinstance(other, GammaDataEncoder)
 
-    def seq_encode(self, x: Union[List[float], np.ndarray], device: Optional[tn.device] = None) -> 'GammaTorchEncodedSequence':
+    def seq_encode(
+        self, x: Union[List[float], np.ndarray], device: Optional[tn.device] = None
+    ) -> "GammaTorchEncodedSequence":
         """Encode iid sequence of gamma observations for vectorized "seq_" function calls.
 
         Note: Each entry of x must be positive float.
@@ -355,7 +395,7 @@ class GammaDataEncoder(TorchSequenceEncoder):
         rv1 = vec.tensor(x, device=device)
 
         if tn.any(rv1 <= 0) or tn.any(tn.isnan(rv1)):
-            raise Exception('GammaDistribution has support x > 0.')
+            raise Exception("GammaDistribution has support x > 0.")
         else:
             rv2 = tn.log(rv1)
             return GammaTorchEncodedSequence(data=(rv1, rv2))
@@ -363,9 +403,10 @@ class GammaDataEncoder(TorchSequenceEncoder):
 
 class GammaTorchEncodedSequence(TorchEncodedSequence):
 
-    def __init__(self, data: Tuple[tn.tensor, tn.tensor], device: Optional[tn.device] = None):
+    def __init__(
+        self, data: Tuple[tn.tensor, tn.tensor], device: Optional[tn.device] = None
+    ):
         super().__init__(data=data, device=device)
 
     def __str__(self) -> str:
-        return f'GammaTorchEncodedSequence(device={repr(self.device)})'
-
+        return f"GammaTorchEncodedSequence(device={repr(self.device)})"

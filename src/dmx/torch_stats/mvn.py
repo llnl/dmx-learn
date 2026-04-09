@@ -14,21 +14,23 @@ The log-density is given by
     log(p(x)) = -0.5*k*log(2*pi) - 0.5*det(covar) - 0.5*(x-mu)' covar^{-1} (x-mu).
 
 """
+
+from typing import Any, Dict, List, Optional, Sequence, Tuple, Union
+
 import numpy as np
 import torch as tn
+
+import dmx.torch_utils.vector as vec
 from dmx.arithmetic import *
-from dmx.torch_stats.pdist import DistributionSampler
 from dmx.torch_stats.pdist import (
+    DistributionSampler,
+    TorchEncodedSequence,
     TorchParameterEstimator,
     TorchProbabilityDistribution,
     TorchSequenceEncoder,
     TorchStatisticAccumulator,
     TorchStatisticAccumulatorFactory,
-    TorchEncodedSequence
 )
-import dmx.torch_utils.vector as vec
-
-from typing import Sequence, Optional, Dict, Any, Tuple, List, Union
 
 
 class MultivariateGaussianDistribution(TorchProbabilityDistribution):
@@ -46,8 +48,13 @@ class MultivariateGaussianDistribution(TorchProbabilityDistribution):
 
     """
 
-    def __init__(self, mu: Union[List[float], np.ndarray], covar: Union[List[List[float]], np.ndarray],
-                 keys: Optional[str] = None, device: Optional[tn.device] = None) -> None:
+    def __init__(
+        self,
+        mu: Union[List[float], np.ndarray],
+        covar: Union[List[List[float]], np.ndarray],
+        keys: Optional[str] = None,
+        device: Optional[tn.device] = None,
+    ) -> None:
         """MultivariateGaussianDistribution object.
 
         Args:
@@ -59,16 +66,22 @@ class MultivariateGaussianDistribution(TorchProbabilityDistribution):
         super().__init__(device)
         self.dim = len(mu)
         self.mu = vec.tensor(mu, device=self._device)
-        self.covar = vec.tensor(covar, device=self._device).reshape((self.dim, self.dim))
+        self.covar = vec.tensor(covar, device=self._device).reshape(
+            (self.dim, self.dim)
+        )
         self.chol = tn.linalg.cholesky(self.covar)
         self.keys = keys
-        self.chol_const = -0.5 * (len(self.mu) * np.log(2.0 * pi) + 2.0 * tn.log(tn.diag(self.chol)).sum())
+        self.chol_const = -0.5 * (
+            len(self.mu) * np.log(2.0 * pi) + 2.0 * tn.log(tn.diag(self.chol)).sum()
+        )
 
     def to(self, device: Optional[tn.device] = None) -> None:
         self.mu = self.mu.to(device)
         self.covar = self.covar.to(device)
         self.chol = self.chol.to(device)
-        self.chol_const = -0.5 * (len(self.mu) * np.log(2.0 * pi) + 2.0 * tn.log(tn.diag(self.chol)).sum())
+        self.chol_const = -0.5 * (
+            len(self.mu) * np.log(2.0 * pi) + 2.0 * tn.log(tn.diag(self.chol)).sum()
+        )
         self._device = device
 
     def __repr__(self) -> str:
@@ -76,7 +89,7 @@ class MultivariateGaussianDistribution(TorchProbabilityDistribution):
         s2 = repr([list(u) for u in self.covar.data.cpu().tolist()])
         s3 = repr(self.keys)
 
-        return 'MultivariateGaussianDistribution(%s, %s, keys=%s)' % (s1, s2, s3)
+        return "MultivariateGaussianDistribution(%s, %s, keys=%s)" % (s1, s2, s3)
 
     def density(self, x: np.ndarray) -> float:
         """Evaluate the density at x.
@@ -103,8 +116,8 @@ class MultivariateGaussianDistribution(TorchProbabilityDistribution):
 
         """
         try:
-            if self.model_device().type == 'mps':
-                x_cpu = vec.tensor(x, device=tn.device('cpu'))
+            if self.model_device().type == "mps":
+                x_cpu = vec.tensor(x, device=tn.device("cpu"))
                 mu_cpu = self.mu.detach().cpu()
                 chol_cpu = self.chol.detach().cpu()
                 diff = mu_cpu - x_cpu
@@ -121,10 +134,12 @@ class MultivariateGaussianDistribution(TorchProbabilityDistribution):
         except Exception as e:
             raise e
 
-    def seq_log_density(self, x: 'MultivariateGaussianTorchSequence') -> tn.Tensor:
+    def seq_log_density(self, x: "MultivariateGaussianTorchSequence") -> tn.Tensor:
         if not isinstance(x, MultivariateGaussianTorchSequence):
-            raise Exception('Requires MultivariateGaussianTorchSequence for `seq_` function calls.')
-        if self.model_device().type == 'mps':
+            raise Exception(
+                "Requires MultivariateGaussianTorchSequence for `seq_` function calls."
+            )
+        if self.model_device().type == "mps":
             x_cpu = x.data.detach().cpu()
             mu_cpu = self.mu.detach().cpu()
             chol_cpu = self.chol.detach().cpu()
@@ -146,15 +161,19 @@ class MultivariateGaussianDistribution(TorchProbabilityDistribution):
             return MultivariateGaussianEstimator()
         else:
             pseudo_count = (pseudo_count, pseudo_count)
-            return MultivariateGaussianEstimator(pseudo_count=pseudo_count, suff_stat=(self.mu, self.covar))
+            return MultivariateGaussianEstimator(
+                pseudo_count=pseudo_count, suff_stat=(self.mu, self.covar)
+            )
 
-    def dist_to_encoder(self) -> 'MultivariateGaussianDataEncoder':
+    def dist_to_encoder(self) -> "MultivariateGaussianDataEncoder":
         return MultivariateGaussianDataEncoder(dim=self.dim)
 
 
 class MultivariateGaussianSampler(DistributionSampler):
 
-    def __init__(self, dist: 'MultivariateGaussianDistribution', seed: Optional[int] = None) -> None:
+    def __init__(
+        self, dist: "MultivariateGaussianDistribution", seed: Optional[int] = None
+    ) -> None:
         self.rng = np.random.RandomState(seed)
         self.mu = dist.mu.data.cpu().numpy()
         self.covar = dist.covar.data.cpu().numpy()
@@ -164,7 +183,12 @@ class MultivariateGaussianSampler(DistributionSampler):
 
 
 class MultivariateGaussianAccumulator(TorchStatisticAccumulator):
-    def __init__(self, dim: Optional[int] = None, keys: Optional[str] = None, device: Optional[tn.device] = None) -> None:
+    def __init__(
+        self,
+        dim: Optional[int] = None,
+        keys: Optional[str] = None,
+        device: Optional[tn.device] = None,
+    ) -> None:
         super().__init__(device=device)
         self.dim = dim
         self.count = 0.0
@@ -177,7 +201,12 @@ class MultivariateGaussianAccumulator(TorchStatisticAccumulator):
             self.sum = None
             self.sum2 = None
 
-    def seq_update(self, x: 'MultivariateGaussianTorchSequence', weights: tn.Tensor, estimate: Optional[MultivariateGaussianDistribution]) -> None:
+    def seq_update(
+        self,
+        x: "MultivariateGaussianTorchSequence",
+        weights: tn.Tensor,
+        estimate: Optional[MultivariateGaussianDistribution],
+    ) -> None:
         if self.dim is None:
             self.dim = x.data.shape[1]
             self.sum = np.zeros(self.dim, dtype=np.float64)
@@ -186,12 +215,19 @@ class MultivariateGaussianAccumulator(TorchStatisticAccumulator):
         x_weight = tn.multiply(x.data.T, weights)
         self.count += float(weights.sum())
         self.sum += x_weight.sum(dim=1).cpu().detach().numpy()
-        self.sum2 += tn.einsum('ji,ik->jk', x_weight, x.data).cpu().detach().numpy()
+        self.sum2 += tn.einsum("ji,ik->jk", x_weight, x.data).cpu().detach().numpy()
 
-    def seq_initialize(self, x: 'MultivariateGaussianTorchSequence', weights: tn.Tensor, tng: Optional[tn.Generator]) -> None:
+    def seq_initialize(
+        self,
+        x: "MultivariateGaussianTorchSequence",
+        weights: tn.Tensor,
+        tng: Optional[tn.Generator],
+    ) -> None:
         self.seq_update(x, weights, None)
 
-    def combine(self, suff_stat: Tuple[np.ndarray, np.ndarray, float]) -> 'MultivariateGaussianAccumulator':
+    def combine(
+        self, suff_stat: Tuple[np.ndarray, np.ndarray, float]
+    ) -> "MultivariateGaussianAccumulator":
         if suff_stat[0] is not None and self.sum is not None:
             self.sum += suff_stat[0]
             self.sum2 += suff_stat[1]
@@ -207,7 +243,9 @@ class MultivariateGaussianAccumulator(TorchStatisticAccumulator):
     def value(self) -> Tuple[np.ndarray, np.ndarray, float]:
         return self.sum, self.sum2, self.count
 
-    def from_value(self, x: Tuple[np.ndarray, np.ndarray, float]) -> 'MultivariateGaussianAccumulator':
+    def from_value(
+        self, x: Tuple[np.ndarray, np.ndarray, float]
+    ) -> "MultivariateGaussianAccumulator":
         self.sum = x[0]
         self.sum2 = x[1]
         self.count = x[2]
@@ -223,7 +261,7 @@ class MultivariateGaussianAccumulator(TorchStatisticAccumulator):
             if self.key in stats_dict:
                 self.from_value(stats_dict[self.key])
 
-    def acc_to_encoder(self) -> 'MultivariateGaussianDataEncoder':
+    def acc_to_encoder(self) -> "MultivariateGaussianDataEncoder":
         return MultivariateGaussianDataEncoder(dim=self.dim)
 
 
@@ -233,8 +271,12 @@ class MultivariateGaussianAccumulatorFactory(TorchStatisticAccumulatorFactory):
         self.dim = dim
         self.key = keys
 
-    def make(self, device: Optional[tn.device] = None) -> 'MultivariateGaussianAccumulator':
-        return MultivariateGaussianAccumulator(dim=self.dim, keys=self.key, device=device)
+    def make(
+        self, device: Optional[tn.device] = None
+    ) -> "MultivariateGaussianAccumulator":
+        return MultivariateGaussianAccumulator(
+            dim=self.dim, keys=self.key, device=device
+        )
 
 
 class MultivariateGaussianEstimator(TorchParameterEstimator):
@@ -249,10 +291,16 @@ class MultivariateGaussianEstimator(TorchParameterEstimator):
 
     """
 
-    def __init__(self, dim: Optional[int] = None,
-                 pseudo_count: Optional[Tuple[Optional[float], Optional[float]]] = (None, None),
-                 suff_stat: Optional[Tuple[Optional[np.ndarray], Optional[np.ndarray]]] = (None, None),
-                 keys: Optional[str] = None) -> None:
+    def __init__(
+        self,
+        dim: Optional[int] = None,
+        pseudo_count: Optional[Tuple[Optional[float], Optional[float]]] = (None, None),
+        suff_stat: Optional[Tuple[Optional[np.ndarray], Optional[np.ndarray]]] = (
+            None,
+            None,
+        ),
+        keys: Optional[str] = None,
+    ) -> None:
         """MultivariateGaussianEstimator object.
 
         Args:
@@ -264,21 +312,37 @@ class MultivariateGaussianEstimator(TorchParameterEstimator):
 
         """
 
-        dim_loc = dim if dim is not None else (
-            (None if suff_stat[1] is None else int(np.sqrt(np.size(suff_stat[1])))) if suff_stat[0] is None else len(
-                suff_stat[0]))
+        dim_loc = (
+            dim
+            if dim is not None
+            else (
+                (None if suff_stat[1] is None else int(np.sqrt(np.size(suff_stat[1]))))
+                if suff_stat[0] is None
+                else len(suff_stat[0])
+            )
+        )
 
         self.dim = dim_loc
         self.pseudo_count = pseudo_count
-        self.prior_mu = None if suff_stat[0] is None else np.reshape(suff_stat[0], dim_loc)
-        self.prior_covar = None if suff_stat[1] is None else np.reshape(suff_stat[1], (dim_loc, dim_loc))
+        self.prior_mu = (
+            None if suff_stat[0] is None else np.reshape(suff_stat[0], dim_loc)
+        )
+        self.prior_covar = (
+            None
+            if suff_stat[1] is None
+            else np.reshape(suff_stat[1], (dim_loc, dim_loc))
+        )
         self.key = keys
 
-    def accumulator_factory(self) -> 'MultivariateGaussianAccumulatorFactory':
+    def accumulator_factory(self) -> "MultivariateGaussianAccumulatorFactory":
         return MultivariateGaussianAccumulatorFactory(dim=self.dim, keys=self.key)
 
-    def estimate(self, nobs: Optional[float], suff_stat: Tuple[np.ndarray, np.ndarray, float], device: Optional[tn.device] = None) \
-            -> 'MultivariateGaussianDistribution':
+    def estimate(
+        self,
+        nobs: Optional[float],
+        suff_stat: Tuple[np.ndarray, np.ndarray, float],
+        device: Optional[tn.device] = None,
+    ) -> "MultivariateGaussianDistribution":
         nobs = suff_stat[2]
         pc1, pc2 = self.pseudo_count
 
@@ -288,7 +352,9 @@ class MultivariateGaussianEstimator(TorchParameterEstimator):
             mu = suff_stat[0] / nobs
 
         if pc2 is not None and self.prior_covar is not None:
-            covar = (suff_stat[1] + (pc2 * self.prior_covar) - np.outer(mu, mu * nobs)) / (nobs + pc2)
+            covar = (
+                suff_stat[1] + (pc2 * self.prior_covar) - np.outer(mu, mu * nobs)
+            ) / (nobs + pc2)
         else:
             covar = (suff_stat[1] / nobs) - np.outer(mu, mu)
 
@@ -301,15 +367,25 @@ class MultivariateGaussianDataEncoder(TorchSequenceEncoder):
         self.dim = dim
 
     def __str__(self) -> str:
-        return 'MultivariateGaussianDataEncoder(dim=' + str(self.dim) + ')'
+        return "MultivariateGaussianDataEncoder(dim=" + str(self.dim) + ")"
 
     def __eq__(self, other: object) -> bool:
-        return other.dim == self.dim if isinstance(other, MultivariateGaussianDataEncoder) else False
+        return (
+            other.dim == self.dim
+            if isinstance(other, MultivariateGaussianDataEncoder)
+            else False
+        )
 
-    def seq_encode(self, x: Union[Sequence[List[float]], Sequence[List[np.ndarray]], np.ndarray], device: Optional[tn.device] = None) -> 'MultivariateGaussianTorchSequence':
+    def seq_encode(
+        self,
+        x: Union[Sequence[List[float]], Sequence[List[np.ndarray]], np.ndarray],
+        device: Optional[tn.device] = None,
+    ) -> "MultivariateGaussianTorchSequence":
         self.dim = len(x[0]) if self.dim is None else self.dim
 
-        return MultivariateGaussianTorchSequence(data=vec.tensor(np.reshape(np.asarray(x), (-1, self.dim)), device=device))
+        return MultivariateGaussianTorchSequence(
+            data=vec.tensor(np.reshape(np.asarray(x), (-1, self.dim)), device=device)
+        )
 
 
 class MultivariateGaussianTorchSequence(TorchEncodedSequence):
@@ -319,4 +395,4 @@ class MultivariateGaussianTorchSequence(TorchEncodedSequence):
 
     def __str__(self) -> str:
 
-        return f'MultivariateGaussianTorchSequence(device={repr(self.device)})'
+        return f"MultivariateGaussianTorchSequence(device={repr(self.device)})"

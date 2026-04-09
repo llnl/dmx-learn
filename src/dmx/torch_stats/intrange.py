@@ -14,21 +14,23 @@ and vector of probabilities p_vec (np.ndarray[float]) that sum to 1.0. The range
 for x in {min_val,min_val+1, ..., min_val + length(p_vec) - 1}, else 0.0.
 
 """
+
+from typing import Any, Dict, List, Optional, Tuple, Union
+
 import numpy as np
 import torch as tn
-from typing import List, Union, Tuple, Optional, Dict, Any
 
+import dmx.torch_utils.vector as vec
 from dmx.arithmetic import *
-from dmx.torch_stats.pdist import DistributionSampler
 from dmx.torch_stats.pdist import (
+    DistributionSampler,
+    TorchEncodedSequence,
     TorchParameterEstimator,
     TorchProbabilityDistribution,
     TorchSequenceEncoder,
     TorchStatisticAccumulator,
     TorchStatisticAccumulatorFactory,
-    TorchEncodedSequence
 )
-import dmx.torch_utils.vector as vec
 
 
 class IntegerCategoricalDistribution(TorchProbabilityDistribution):
@@ -46,10 +48,12 @@ class IntegerCategoricalDistribution(TorchProbabilityDistribution):
 
     """
 
-    def __init__(self,
-                 min_val: int,
-                 p_vec: Union[List[float], np.ndarray],
-                 device: Optional[tn.device] = None) -> None:
+    def __init__(
+        self,
+        min_val: int,
+        p_vec: Union[List[float], np.ndarray],
+        device: Optional[tn.device] = None,
+    ) -> None:
         """IntegerCategoricalDistribution object.
 
         Args:
@@ -67,9 +71,9 @@ class IntegerCategoricalDistribution(TorchProbabilityDistribution):
 
     def __repr__(self) -> str:
         s1 = str(self.min_val)
-        s2 = ','.join([str(x) for x in self.p_vec.data.cpu().tolist()])
+        s2 = ",".join([str(x) for x in self.p_vec.data.cpu().tolist()])
 
-        return 'IntegerCategoricalDistribution(min_val=%s, p_vec=[%s])' % (s1, s2)
+        return "IntegerCategoricalDistribution(min_val=%s, p_vec=[%s])" % (s1, s2)
 
     def to(self, device: tn.device):
         self.p_vec = self.p_vec.to(device)
@@ -89,7 +93,11 @@ class IntegerCategoricalDistribution(TorchProbabilityDistribution):
             float: Density at x.
 
         """
-        return 0.0 if x < self.min_val or x > self.max_val else float(self.p_vec[x - self.min_val])
+        return (
+            0.0
+            if x < self.min_val or x > self.max_val
+            else float(self.p_vec[x - self.min_val])
+        )
 
     def log_density(self, x: int) -> float:
         """Evaluate the log-density of the integer categorical at observation x.
@@ -104,11 +112,17 @@ class IntegerCategoricalDistribution(TorchProbabilityDistribution):
             float: Log-density at x.
 
         """
-        return -inf if (x < self.min_val or x > self.max_val) else float(self.log_p_vec[x - self.min_val])
+        return (
+            -inf
+            if (x < self.min_val or x > self.max_val)
+            else float(self.log_p_vec[x - self.min_val])
+        )
 
-    def seq_log_density(self, x: 'IntegerCategoricalTorchSequence') -> tn.Tensor:
+    def seq_log_density(self, x: "IntegerCategoricalTorchSequence") -> tn.Tensor:
         if not isinstance(x, IntegerCategoricalTorchSequence):
-            raise Exception('Requires IntegerCategoricalTorchSequence for `seq_` function calls.')
+            raise Exception(
+                "Requires IntegerCategoricalTorchSequence for `seq_` function calls."
+            )
         v = x.data - self.min_val
         u = tn.bitwise_and(v >= 0, v < self.num_vals)
         rv = vec.zeros(len(x.data), device=self.model_device())
@@ -120,10 +134,12 @@ class IntegerCategoricalDistribution(TorchProbabilityDistribution):
 
         return rv
 
-    def sampler(self, seed: Optional[int] = None) -> 'IntegerCategoricalSampler':
+    def sampler(self, seed: Optional[int] = None) -> "IntegerCategoricalSampler":
         return IntegerCategoricalSampler(self, seed)
 
-    def estimator(self, pseudo_count: Optional[float] = None) -> 'IntegerCategoricalEstimator':
+    def estimator(
+        self, pseudo_count: Optional[float] = None
+    ) -> "IntegerCategoricalEstimator":
         if pseudo_count is None:
             est = IntegerCategoricalEstimator()
         else:
@@ -133,7 +149,7 @@ class IntegerCategoricalDistribution(TorchProbabilityDistribution):
             )
         return est
 
-    def dist_to_encoder(self) -> 'IntegerCategoricalDataEncoder':
+    def dist_to_encoder(self) -> "IntegerCategoricalDataEncoder":
         return IntegerCategoricalDataEncoder()
 
 
@@ -148,7 +164,9 @@ class IntegerCategoricalSampler(DistributionSampler):
 
     """
 
-    def __init__(self, dist: 'IntegerCategoricalDistribution', seed: Optional[int] = None) -> None:
+    def __init__(
+        self, dist: "IntegerCategoricalDistribution", seed: Optional[int] = None
+    ) -> None:
         """IntegerCategoricalSampler object.
 
         Args:
@@ -161,7 +179,9 @@ class IntegerCategoricalSampler(DistributionSampler):
         self.p_vec = dist.p_vec.cpu().numpy()
         self.min_val = dist.min_val
         self.max_val = dist.max_val
-        self.rng = np.random.RandomState(seed) if seed is not None else np.random.RandomState()
+        self.rng = (
+            np.random.RandomState(seed) if seed is not None else np.random.RandomState()
+        )
 
     def sample(self, size: Optional[int] = None) -> Union[int, List[int]]:
         """Draw iid samples from IntegerCategoricalSampler object.
@@ -177,7 +197,10 @@ class IntegerCategoricalSampler(DistributionSampler):
                 instance.
 
         """
-        return self.rng.choice(len(self.p_vec), size=size, replace=True, p=self.p_vec) + self.min_val
+        return (
+            self.rng.choice(len(self.p_vec), size=size, replace=True, p=self.p_vec)
+            + self.min_val
+        )
 
 
 class IntegerCategoricalAccumulator(TorchStatisticAccumulator):
@@ -198,11 +221,13 @@ class IntegerCategoricalAccumulator(TorchStatisticAccumulator):
 
     """
 
-    def __init__(self,
-                 min_val: Optional[int] = None,
-                 max_val: Optional[int] = None,
-                 keys: Optional[str] = None,
-                 device: Optional[tn.device] = None) -> None:
+    def __init__(
+        self,
+        min_val: Optional[int] = None,
+        max_val: Optional[int] = None,
+        keys: Optional[str] = None,
+        device: Optional[tn.device] = None,
+    ) -> None:
         """IntegerCategoricalAccumulator object.
 
         Args:
@@ -225,13 +250,20 @@ class IntegerCategoricalAccumulator(TorchStatisticAccumulator):
 
         self.key = keys
 
-    def seq_initialize(self, x: 'IntegerCategoricalTorchSequence', weights: tn.Tensor, tng: tn.Generator) -> None:
+    def seq_initialize(
+        self,
+        x: "IntegerCategoricalTorchSequence",
+        weights: tn.Tensor,
+        tng: tn.Generator,
+    ) -> None:
         return self.seq_update(x, weights, None)
 
-    def seq_update(self,
-                   x: 'IntegerCategoricalTorchSequence',
-                   weights: tn.Tensor,
-                   estimate: Optional['IntegerCategoricalDistribution']) -> None:
+    def seq_update(
+        self,
+        x: "IntegerCategoricalTorchSequence",
+        weights: tn.Tensor,
+        estimate: Optional["IntegerCategoricalDistribution"],
+    ) -> None:
         min_x = int(x.data.min())
         max_x = int(x.data.max())
 
@@ -249,19 +281,23 @@ class IntegerCategoricalAccumulator(TorchStatisticAccumulator):
             temp = self.count_vec
             prev_diff = prev_min - self.min_val
             self.count_vec = np.zeros(self.max_val - self.min_val + 1, dtype=np.float64)
-            self.count_vec[prev_diff:(prev_diff + len(temp))] = temp
+            self.count_vec[prev_diff : (prev_diff + len(temp))] = temp
 
         min_diff = min_x - self.min_val
-        self.count_vec[min_diff:(min_diff + len(loc_cnt))] += loc_cnt
+        self.count_vec[min_diff : (min_diff + len(loc_cnt))] += loc_cnt
 
-    def combine(self, suff_stat: Tuple[Optional[int], Optional[np.ndarray]]) -> 'IntegerCategoricalAccumulator':
+    def combine(
+        self, suff_stat: Tuple[Optional[int], Optional[np.ndarray]]
+    ) -> "IntegerCategoricalAccumulator":
         if self.count_vec is None and suff_stat[1] is not None:
             self.min_val = suff_stat[0]
             self.max_val = suff_stat[0] + len(suff_stat[1]) - 1
             self.count_vec = suff_stat[1]
 
         elif self.count_vec is not None and suff_stat[1] is not None:
-            if self.min_val == suff_stat[0] and len(self.count_vec) == len(suff_stat[1]):
+            if self.min_val == suff_stat[0] and len(self.count_vec) == len(
+                suff_stat[1]
+            ):
                 self.count_vec += suff_stat[1]
 
             else:
@@ -287,7 +323,7 @@ class IntegerCategoricalAccumulator(TorchStatisticAccumulator):
     def value(self) -> Tuple[int, np.ndarray]:
         return self.min_val, self.count_vec
 
-    def from_value(self, x: Tuple[int, np.ndarray]) -> 'IntegerCategoricalAccumulator':
+    def from_value(self, x: Tuple[int, np.ndarray]) -> "IntegerCategoricalAccumulator":
         self.min_val = x[0]
         self.max_val = x[0] + len(x[1]) - 1
         self.count_vec = x[1]
@@ -308,7 +344,7 @@ class IntegerCategoricalAccumulator(TorchStatisticAccumulator):
             if self.key in stats_dict:
                 self.from_value(stats_dict[self.key].value())
 
-    def acc_to_encoder(self) -> 'IntegerCategoricalDataEncoder':
+    def acc_to_encoder(self) -> "IntegerCategoricalDataEncoder":
         """Return IntegerCategoricalDataEncoder object for encoding sequences of
         iid integer categorical observations."""
         return IntegerCategoricalDataEncoder()
@@ -323,9 +359,12 @@ class IntegerCategoricalAccumulatorFactory(TorchStatisticAccumulatorFactory):
 
     """
 
-    def __init__(self, min_val: Optional[int] = None,
-                 max_val: Optional[int] = None,
-                 keys: Optional[str] = None) -> None:
+    def __init__(
+        self,
+        min_val: Optional[int] = None,
+        max_val: Optional[int] = None,
+        keys: Optional[str] = None,
+    ) -> None:
         """IntegerCategoricalAccumulatorFactory object.
 
         Args:
@@ -338,8 +377,12 @@ class IntegerCategoricalAccumulatorFactory(TorchStatisticAccumulatorFactory):
         self.max_val = max_val
         self.keys = keys
 
-    def make(self, device: Optional[tn.device] = None) -> 'IntegerCategoricalAccumulator':
-        return IntegerCategoricalAccumulator(min_val=self.min_val, max_val=self.max_val, keys=self.keys, device=device)
+    def make(
+        self, device: Optional[tn.device] = None
+    ) -> "IntegerCategoricalAccumulator":
+        return IntegerCategoricalAccumulator(
+            min_val=self.min_val, max_val=self.max_val, keys=self.keys, device=device
+        )
 
 
 class IntegerCategoricalEstimator(TorchParameterEstimator):
@@ -356,12 +399,14 @@ class IntegerCategoricalEstimator(TorchParameterEstimator):
 
     """
 
-    def __init__(self,
-                 min_val: Optional[int] = None,
-                 max_val: Optional[int] = None,
-                 pseudo_count: Optional[float] = None,
-                 suff_stat: Optional[Tuple[int, np.ndarray]] = None,
-                 keys: Optional[str] = None) -> None:
+    def __init__(
+        self,
+        min_val: Optional[int] = None,
+        max_val: Optional[int] = None,
+        pseudo_count: Optional[float] = None,
+        suff_stat: Optional[Tuple[int, np.ndarray]] = None,
+        keys: Optional[str] = None,
+    ) -> None:
         """IntegerCategoricalEstimator object.
 
         Args:
@@ -380,7 +425,7 @@ class IntegerCategoricalEstimator(TorchParameterEstimator):
         self.suff_stat = suff_stat
         self.keys = keys
 
-    def accumulator_factory(self) -> 'IntegerCategoricalAccumulatorFactory':
+    def accumulator_factory(self) -> "IntegerCategoricalAccumulatorFactory":
         min_val = None
         max_val = None
 
@@ -391,14 +436,16 @@ class IntegerCategoricalEstimator(TorchParameterEstimator):
             min_val = self.min_val
             max_val = self.max_val
 
-        return IntegerCategoricalAccumulatorFactory(min_val=min_val, max_val=max_val, keys=self.keys)
+        return IntegerCategoricalAccumulatorFactory(
+            min_val=min_val, max_val=max_val, keys=self.keys
+        )
 
     def estimate(
-            self,
-            nobs: Optional[float],
-            suff_stat: Optional[Tuple[int, np.ndarray]],
-            device: Optional[tn.device] = None
-    ) -> 'IntegerCategoricalDistribution':
+        self,
+        nobs: Optional[float],
+        suff_stat: Optional[Tuple[int, np.ndarray]],
+        device: Optional[tn.device] = None,
+    ) -> "IntegerCategoricalDistribution":
         if self.pseudo_count is not None and self.suff_stat is None:
 
             pseudo_count_per_level = self.pseudo_count / float(len(suff_stat[1]))
@@ -406,7 +453,11 @@ class IntegerCategoricalEstimator(TorchParameterEstimator):
             min_val = suff_stat[0]
             p_vec = (suff_stat[1] + pseudo_count_per_level) / adjusted_nobs
 
-        elif self.pseudo_count is not None and self.min_val is not None and self.max_val is not None:
+        elif (
+            self.pseudo_count is not None
+            and self.min_val is not None
+            and self.max_val is not None
+        ):
 
             min_val = min(self.min_val, suff_stat[0])
             max_val = max(self.max_val, suff_stat[0] + len(suff_stat[1]) - 1)
@@ -446,20 +497,26 @@ class IntegerCategoricalEstimator(TorchParameterEstimator):
             min_val = suff_stat[0]
             p_vec = suff_stat[1] / np.sum(suff_stat[1])
 
-        return IntegerCategoricalDistribution(min_val=min_val, p_vec=p_vec, device=device)
+        return IntegerCategoricalDistribution(
+            min_val=min_val, p_vec=p_vec, device=device
+        )
 
 
 class IntegerCategoricalDataEncoder(TorchSequenceEncoder):
     """IntegerCategoricalDataEncoder object for encoding sequences of iid integer categorical observations."""
 
     def __str__(self) -> str:
-        return 'IntegerCategoricalDataEncoder'
+        return "IntegerCategoricalDataEncoder"
 
     def __eq__(self, other: object) -> bool:
         return isinstance(other, IntegerCategoricalDataEncoder)
 
-    def seq_encode(self, x: Union[List[int], np.ndarray], device: Optional[tn.device] = None) -> 'IntegerCategoricalTorchSequence':
-        return IntegerCategoricalTorchSequence(data=vec.int_tensor(x, device=device), device=device)
+    def seq_encode(
+        self, x: Union[List[int], np.ndarray], device: Optional[tn.device] = None
+    ) -> "IntegerCategoricalTorchSequence":
+        return IntegerCategoricalTorchSequence(
+            data=vec.int_tensor(x, device=device), device=device
+        )
 
 
 class IntegerCategoricalTorchSequence(TorchEncodedSequence):
@@ -468,4 +525,4 @@ class IntegerCategoricalTorchSequence(TorchEncodedSequence):
         super().__init__(data=data, device=device)
 
     def __str__(self) -> str:
-        return f'IntegerCategoricalTorchSequence(device={repr(self.device)})'
+        return f"IntegerCategoricalTorchSequence(device={repr(self.device)})"

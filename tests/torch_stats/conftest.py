@@ -2,16 +2,19 @@
 
 This conftest.py automatically skips all torch_stats tests if PyTorch is not installed.
 """
+
 import os
 import sys
+
 import pytest
 
 # Set environment variable for torch tests
-os.environ['NUMBA_DISABLE_JIT'] = '1'
+os.environ["NUMBA_DISABLE_JIT"] = "1"
 
 # Check if torch is available
 try:
     import torch
+
     TORCH_AVAILABLE = True
 except ImportError:
     TORCH_AVAILABLE = False
@@ -43,7 +46,7 @@ def pytest_configure(config):
     """Register custom markers."""
     config.addinivalue_line(
         "markers",
-        "torch: mark test as requiring PyTorch (skipped if torch not installed)"
+        "torch: mark test as requiring PyTorch (skipped if torch not installed)",
     )
 
 
@@ -51,6 +54,7 @@ def pytest_report_header(config):
     """Add torch availability info to pytest header."""
     if TORCH_AVAILABLE:
         import torch
+
         return [f"PyTorch: {torch.__version__} (available)"]
     else:
         return ["PyTorch: not installed (torch_stats tests will be skipped)"]

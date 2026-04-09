@@ -1,9 +1,11 @@
 """Example for Spearman Rho Ranking distribution."""
+
 import numpy as np
+
 from dmx.stats.spearman_rho import SpearmanRankingDistribution, SpearmanRankingEstimator
 from dmx.utils.estimation import optimize
 
-if __name__ == '__main__':
+if __name__ == "__main__":
     dist = SpearmanRankingDistribution([2, 3, 0, 1])
 
     data = dist.sampler(1).sample(1000)

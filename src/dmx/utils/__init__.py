@@ -1,1 +1,1 @@
-__all__ = ['optsutil', 'vector']
+__all__ = ["optsutil", "vector"]

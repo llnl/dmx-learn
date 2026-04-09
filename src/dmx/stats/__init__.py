@@ -2,6 +2,7 @@
 
 This module initializes the stats subpackage.
 """
+
 __all__ = [
     "initialize",
     "estimate",
@@ -105,86 +106,141 @@ __all__ = [
     "VonMisesFisherDistribution",
     "VonMisesFisherEstimator",
     "WeightedDistribution",
-    "WeightedEstimator"
+    "WeightedEstimator",
 ]
+
+import pickle
+from typing import Any, List, Optional, Sequence, Tuple, TypeVar, Union
+
+### imports
+import numpy as np
 
 # Abstract Classes
 import pyspark.rdd
-from dmx.stats.pdist import SequenceEncodableProbabilityDistribution, ParameterEstimator, DataSequenceEncoder, \
-    EncodedDataSequence
+from numpy.random import RandomState
 
 # Discrete base distributions
 from dmx.stats.binomial import BinomialDistribution, BinomialEstimator
+
+# Generic Distributions
 from dmx.stats.categorical import CategoricalDistribution, CategoricalEstimator
-from dmx.stats.poisson import PoissonDistribution, PoissonEstimator
-from dmx.stats.geometric import GeometricDistribution, GeometricEstimator
-from dmx.stats.int_spike import SpikeAndSlabDistribution, SpikeAndSlabEstimator
-from dmx.stats.intrange import IntegerCategoricalDistribution, IntegerCategoricalEstimator
 from dmx.stats.catmultinomial import MultinomialDistribution, MultinomialEstimator
-from dmx.stats.intmultinomial import IntegerMultinomialDistribution, IntegerMultinomialEstimator
+
+# combinators distributions
+from dmx.stats.composite import CompositeDistribution, CompositeEstimator
+from dmx.stats.conditional import (
+    ConditionalDistribution,
+    ConditionalDistributionEstimator,
+)
+from dmx.stats.dirac_length import DiracMixtureDistribution, DiracMixtureEstimator
+from dmx.stats.dirichlet import DirichletDistribution, DirichletEstimator
+from dmx.stats.dmvn import DiagonalGaussianDistribution, DiagonalGaussianEstimator
+from dmx.stats.dmvn_mixture import (
+    DiagonalGaussianMixtureDistribution,
+    DiagonalGaussianMixtureEstimator,
+)
 
 # Continuous base distributions
 from dmx.stats.exponential import ExponentialDistribution, ExponentialEstimator
 from dmx.stats.gamma import GammaDistribution, GammaEstimator
 from dmx.stats.gaussian import GaussianDistribution, GaussianEstimator
-from dmx.stats.dirichlet import DirichletDistribution, DirichletEstimator
-from dmx.stats.vmf import VonMisesFisherDistribution, VonMisesFisherEstimator
-from dmx.stats.log_gaussian import LogGaussianDistribution, LogGaussianEstimator
+from dmx.stats.geometric import GeometricDistribution, GeometricEstimator
 from dmx.stats.gmm import GaussianMixtureDistribution, GaussianMixtureEstimator
-
-
-# combinators distributions
-from dmx.stats.composite import CompositeDistribution, CompositeEstimator
-from dmx.stats.conditional import ConditionalDistribution, ConditionalDistributionEstimator
-from dmx.stats.sequence import SequenceDistribution, SequenceEstimator
-from dmx.stats.ignored import IgnoredDistribution, IgnoredEstimator
-from dmx.stats.optional import OptionalDistribution, OptionalEstimator
-from dmx.stats.weighted import WeightedDistribution, WeightedEstimator
-
-# Generic Distributions
-from dmx.stats.categorical import CategoricalDistribution, CategoricalEstimator
-from dmx.stats.mixture import MixtureDistribution, MixtureEstimator
-from dmx.stats.heterogeneous_mixture import HeterogeneousMixtureDistribution, HeterogeneousMixtureEstimator
-from dmx.stats.markovchain import MarkovChainDistribution, MarkovChainEstimator
-from dmx.stats.null_dist import NullDistribution, NullEstimator
-from dmx.stats.hidden_association import HiddenAssociationDistribution, HiddenAssociationEstimator
-from dmx.stats.hidden_markov import HiddenMarkovModelDistribution, HiddenMarkovEstimator
-from dmx.stats.jmixture import JointMixtureDistribution, JointMixtureEstimator
-from dmx.stats.tree_hmm import TreeHiddenMarkovModelDistribution, TreeHiddenMarkovEstimator
-# from dmx.stats.lda import LDADistribution, LDAEstimator
-from dmx.stats.markovchain import MarkovChainDistribution, MarkovChainEstimator
-from dmx.stats.setdist import BernoulliSetDistribution, BernoulliSetEstimator
-from dmx.stats.spearman_rho import SpearmanRankingDistribution, SpearmanRankingEstimator
-from dmx.stats.look_back_hmm import LookbackHiddenMarkovDistribution, LookbackHiddenMarkovEstimator
-from dmx.stats.lda import LDADistribution, LDAEstimator
+from dmx.stats.heterogeneous_mixture import (
+    HeterogeneousMixtureDistribution,
+    HeterogeneousMixtureEstimator,
+)
+from dmx.stats.hidden_association import (
+    HiddenAssociationDistribution,
+    HiddenAssociationEstimator,
+)
+from dmx.stats.hidden_markov import HiddenMarkovEstimator, HiddenMarkovModelDistribution
 
 # Reduced Generic Distributions
-from dmx.stats.hmixture import HierarchicalMixtureDistribution, HierarchicalMixtureEstimator
-from dmx.stats.int_edit_setdist import IntegerBernoulliEditDistribution, IntegerBernoulliEditEstimator
-from dmx.stats.int_edit_stepsetdist import IntegerStepBernoulliEditDistribution, IntegerStepBernoulliEditEstimator
-from dmx.stats.int_markovchain import IntegerMarkovChainDistribution, IntegerMarkovChainEstimator
-from dmx.stats.int_plsi import IntegerPLSIDistribution, IntegerPLSIEstimator
+from dmx.stats.hmixture import (
+    HierarchicalMixtureDistribution,
+    HierarchicalMixtureEstimator,
+)
 from dmx.stats.icltree import ICLTreeDistribution, ICLTreeEstimator
-from dmx.stats.intsetdist import IntegerBernoulliSetDistribution, IntegerBernoulliSetEstimator
-from dmx.stats.mvn import MultivariateGaussianDistribution, MultivariateGaussianEstimator
-from dmx.stats.int_hidden_association import IntegerHiddenAssociationDistribution, IntegerHiddenAssociationEstimator
-from dmx.stats.int_hidden_markov import IntegerHiddenMarkovModelDistribution, IntegerHiddenMarkovEstimator
-from dmx.stats.sparse_markov_transform import SparseMarkovAssociationDistribution, SparseMarkovAssociationEstimator
-from dmx.stats.dmvn import DiagonalGaussianDistribution, DiagonalGaussianEstimator
-from dmx.stats.ss_mixture import SemiSupervisedMixtureDistribution, SemiSupervisedMixtureEstimator
-from dmx.stats.dirac_length import DiracMixtureDistribution, DiracMixtureEstimator
-from dmx.stats.dmvn_mixture import DiagonalGaussianMixtureDistribution, DiagonalGaussianMixtureEstimator
+from dmx.stats.ignored import IgnoredDistribution, IgnoredEstimator
+from dmx.stats.int_edit_setdist import (
+    IntegerBernoulliEditDistribution,
+    IntegerBernoulliEditEstimator,
+)
+from dmx.stats.int_edit_stepsetdist import (
+    IntegerStepBernoulliEditDistribution,
+    IntegerStepBernoulliEditEstimator,
+)
+from dmx.stats.int_hidden_association import (
+    IntegerHiddenAssociationDistribution,
+    IntegerHiddenAssociationEstimator,
+)
+from dmx.stats.int_hidden_markov import (
+    IntegerHiddenMarkovEstimator,
+    IntegerHiddenMarkovModelDistribution,
+)
+from dmx.stats.int_markovchain import (
+    IntegerMarkovChainDistribution,
+    IntegerMarkovChainEstimator,
+)
+from dmx.stats.int_plsi import IntegerPLSIDistribution, IntegerPLSIEstimator
+from dmx.stats.int_spike import SpikeAndSlabDistribution, SpikeAndSlabEstimator
+from dmx.stats.intmultinomial import (
+    IntegerMultinomialDistribution,
+    IntegerMultinomialEstimator,
+)
+from dmx.stats.intrange import (
+    IntegerCategoricalDistribution,
+    IntegerCategoricalEstimator,
+)
+from dmx.stats.intsetdist import (
+    IntegerBernoulliSetDistribution,
+    IntegerBernoulliSetEstimator,
+)
+from dmx.stats.jmixture import JointMixtureDistribution, JointMixtureEstimator
+from dmx.stats.lda import LDADistribution, LDAEstimator
+from dmx.stats.log_gaussian import LogGaussianDistribution, LogGaussianEstimator
+from dmx.stats.look_back_hmm import (
+    LookbackHiddenMarkovDistribution,
+    LookbackHiddenMarkovEstimator,
+)
 
+# from dmx.stats.lda import LDADistribution, LDAEstimator
+from dmx.stats.markovchain import MarkovChainDistribution, MarkovChainEstimator
+from dmx.stats.mixture import MixtureDistribution, MixtureEstimator
+from dmx.stats.mvn import (
+    MultivariateGaussianDistribution,
+    MultivariateGaussianEstimator,
+)
+from dmx.stats.null_dist import NullDistribution, NullEstimator
+from dmx.stats.optional import OptionalDistribution, OptionalEstimator
+from dmx.stats.pdist import (
+    DataSequenceEncoder,
+    EncodedDataSequence,
+    ParameterEstimator,
+    SequenceEncodableProbabilityDistribution,
+)
+from dmx.stats.poisson import PoissonDistribution, PoissonEstimator
+from dmx.stats.sequence import SequenceDistribution, SequenceEstimator
+from dmx.stats.setdist import BernoulliSetDistribution, BernoulliSetEstimator
+from dmx.stats.sparse_markov_transform import (
+    SparseMarkovAssociationDistribution,
+    SparseMarkovAssociationEstimator,
+)
+from dmx.stats.spearman_rho import SpearmanRankingDistribution, SpearmanRankingEstimator
+from dmx.stats.ss_mixture import (
+    SemiSupervisedMixtureDistribution,
+    SemiSupervisedMixtureEstimator,
+)
+from dmx.stats.tree_hmm import (
+    TreeHiddenMarkovEstimator,
+    TreeHiddenMarkovModelDistribution,
+)
+from dmx.stats.vmf import VonMisesFisherDistribution, VonMisesFisherEstimator
+from dmx.stats.weighted import WeightedDistribution, WeightedEstimator
 
-### imports
-import numpy as np
-import pickle
-from numpy.random import RandomState
-
-from typing import Optional, TypeVar, List, Tuple, Any, Union, Sequence
-
-T = TypeVar('T')
-T_D = TypeVar('T_D', bound=SequenceEncodableProbabilityDistribution)
+T = TypeVar("T")
+T_D = TypeVar("T_D", bound=SequenceEncodableProbabilityDistribution)
 
 
 def load_models(x: str) -> SequenceEncodableProbabilityDistribution:
@@ -215,7 +271,7 @@ def initialize(
     data: Union[Sequence[T], pyspark.rdd.RDD],
     estimator: ParameterEstimator,
     rng: np.random.RandomState,
-    p: float = 0.1
+    p: float = 0.1,
 ) -> SequenceEncodableProbabilityDistribution:
     """Randomly initialize a model corresponding to ParameterEstimator for iid observations data.
 
@@ -233,16 +289,18 @@ def initialize(
         sc = data.context
 
         num_partitions = data.getNumPartitions()
-        seeds = rng.randint(2 ** 31, size=num_partitions)
+        seeds = rng.randint(2**31, size=num_partitions)
 
         estimator_broadcast = sc.broadcast(estimator)
         seeds_broadcast = sc.broadcast(seeds)
 
         def acc(split_index, itr):
-            accumulator_for_split = estimator_broadcast.value.accumulator_factory().make()
+            accumulator_for_split = (
+                estimator_broadcast.value.accumulator_factory().make()
+            )
             counts_for_split = 0.0
             rng_loc = np.random.RandomState(seeds_broadcast.value[split_index])
-            rng_w = np.random.RandomState(seed=rng_loc.randint(2 ** 31))
+            rng_w = np.random.RandomState(seed=rng_loc.randint(2**31))
 
             for x in itr:
                 w = rng.binomial(n=1, p=p)
@@ -269,7 +327,7 @@ def initialize(
         idata = iter(data)
         accumulator = estimator.accumulator_factory().make()
         nobs = 0.0
-        rng_w = np.random.RandomState(seed=rng.randint(2 ** 31))
+        rng_w = np.random.RandomState(seed=rng.randint(2**31))
 
         for i, x in enumerate(idata):
             w = rng_w.binomial(n=1, p=p)
@@ -286,7 +344,7 @@ def initialize(
 def estimate(
     data: Union[Sequence[T], pyspark.rdd.RDD],
     estimator: ParameterEstimator,
-    prev_estimate: Optional[SequenceEncodableProbabilityDistribution] = None
+    prev_estimate: Optional[SequenceEncodableProbabilityDistribution] = None,
 ) -> SequenceEncodableProbabilityDistribution:
     """Perform E-step in EM algorithm by iterating over all observations in 'data'.
 
@@ -309,7 +367,9 @@ def estimate(
         temp_estimate_b = sc.broadcast(temp_estimate)
 
         def acc(split_index, itr):
-            accumulator_for_split = estimator_broadcast.value.accumulator_factory().make()
+            accumulator_for_split = (
+                estimator_broadcast.value.accumulator_factory().make()
+            )
             counts_for_split = 0.0
             loc_prev_estimate = pickle.loads(temp_estimate_b.value)
 
@@ -347,8 +407,8 @@ def seq_encode(
     estimator: Optional[ParameterEstimator] = None,
     model: Optional[SequenceEncodableProbabilityDistribution] = None,
     num_chunks: int = 1,
-    chunk_size: Optional[int] = None
-) -> Union['pyspark.rdd.RDD', List[Tuple[int, EncodedDataSequence]]]:
+    chunk_size: Optional[int] = None,
+) -> Union["pyspark.rdd.RDD", List[Tuple[int, EncodedDataSequence]]]:
     """Sequence encode a sequence of iid observations from a distribution corresponding to 'encoder'.
 
     Args:
@@ -369,7 +429,9 @@ def seq_encode(
         elif estimator is not None:
             encoder = estimator.accumulator_factory().make().acc_to_encoder()
         else:
-            raise Exception('At least one arg: encoder, estimator, or dist must be passed.')
+            raise Exception(
+                "At least one arg: encoder, estimator, or dist must be passed."
+            )
 
     if isinstance(data, pyspark.rdd.RDD):
         sc = data.context
@@ -379,7 +441,9 @@ def seq_encode(
         enc_data = (
             data.glom()
             .map(lambda x: list(x))
-            .map(lambda x: (len(x), pickle.loads(encoder_broadcast.value).seq_encode(x)))
+            .map(
+                lambda x: (len(x), pickle.loads(encoder_broadcast.value).seq_encode(x))
+            )
         )
 
         return enc_data
@@ -400,8 +464,10 @@ def seq_encode(
         return rv
 
 
-def seq_log_density_sum(enc_data: Union[List[Tuple[int, EncodedDataSequence]], 'pyspark.rdd.RDD'],
-                        estimate: SequenceEncodableProbabilityDistribution) -> Tuple[float, float]:
+def seq_log_density_sum(
+    enc_data: Union[List[Tuple[int, EncodedDataSequence]], "pyspark.rdd.RDD"],
+    estimate: SequenceEncodableProbabilityDistribution,
+) -> Tuple[float, float]:
     """Vectorized evaluation of the sum of log_density values for a given SequenceEncodableProbabilityDistribution
         over encoded data.
 
@@ -447,9 +513,13 @@ def seq_log_density_sum(enc_data: Union[List[Tuple[int, EncodedDataSequence]], '
         )
 
 
-def seq_log_density(enc_data: Union[List[Tuple[int, EncodedDataSequence]], 'pyspark.rdd.RDD'],
-                    estimate: Union[Sequence[SequenceEncodableProbabilityDistribution],
-                                     SequenceEncodableProbabilityDistribution]) -> List[np.ndarray]:
+def seq_log_density(
+    enc_data: Union[List[Tuple[int, EncodedDataSequence]], "pyspark.rdd.RDD"],
+    estimate: Union[
+        Sequence[SequenceEncodableProbabilityDistribution],
+        SequenceEncodableProbabilityDistribution,
+    ],
+) -> List[np.ndarray]:
     """Vectorized evaluation of 'estimate' log-density for each observation in enc_data.
 
     Notes:
@@ -499,9 +569,11 @@ def seq_log_density(enc_data: Union[List[Tuple[int, EncodedDataSequence]], 'pysp
             return [estimate.seq_log_density(u[1]) for u in enc_data]
 
 
-def seq_estimate(enc_data: Union[List[Tuple[int, EncodedDataSequence]], 'pyspark.rdd.RDD'],
-                 estimator: ParameterEstimator,
-                 prev_estimate: T_D) -> T_D:
+def seq_estimate(
+    enc_data: Union[List[Tuple[int, EncodedDataSequence]], "pyspark.rdd.RDD"],
+    estimator: ParameterEstimator,
+    prev_estimate: T_D,
+) -> T_D:
     """Perform vectorized E-step in EM algorithm for encoded sequence of observations in 'enc_data'.
 
     Notes:
@@ -531,7 +603,9 @@ def seq_estimate(enc_data: Union[List[Tuple[int, EncodedDataSequence]], 'pyspark
         estimate_broadcast = sc.broadcast(pickle.dumps(prev_estimate, protocol=0))
 
         def acc(split_index, itr):
-            accumulator_for_split = estimator_broadcast.value.accumulator_factory().make()
+            accumulator_for_split = (
+                estimator_broadcast.value.accumulator_factory().make()
+            )
             counts_for_split = 0.0
             local_estimate = pickle.loads(estimate_broadcast.value)
 
@@ -539,7 +613,9 @@ def seq_estimate(enc_data: Union[List[Tuple[int, EncodedDataSequence]], 'pyspark
                 counts_for_split = counts_for_split + sz
                 accumulator_for_split.seq_update(x, np.ones(sz), local_estimate)
 
-            rv = pickle.dumps((counts_for_split, accumulator_for_split.value()), protocol=0)
+            rv = pickle.dumps(
+                (counts_for_split, accumulator_for_split.value()), protocol=0
+            )
 
             return [rv]
 
@@ -589,10 +665,12 @@ def seq_estimate(enc_data: Union[List[Tuple[int, EncodedDataSequence]], 'pyspark
         return estimator.estimate(nobs, accumulator.value())
 
 
-def seq_initialize(enc_data: Union[List[Tuple[int, T]], 'pyspark.rdd.RDD'],
-                   estimator: ParameterEstimator,
-                   rng: np.random.RandomState,
-                   p: float = 0.1) -> 'SequenceEncodableProbabilityDistribution':
+def seq_initialize(
+    enc_data: Union[List[Tuple[int, T]], "pyspark.rdd.RDD"],
+    estimator: ParameterEstimator,
+    rng: np.random.RandomState,
+    p: float = 0.1,
+) -> "SequenceEncodableProbabilityDistribution":
     """Vectorized initialization of a model corresponding to ParameterEstimator for encoded sequences of iid data
         observations.
 
@@ -624,16 +702,18 @@ def seq_initialize(enc_data: Union[List[Tuple[int, T]], 'pyspark.rdd.RDD'],
     if isinstance(enc_data, pyspark.rdd.RDD):
         sc = enc_data.context
         num_partitions = enc_data.getNumPartitions()
-        seeds = rng.randint(2 ** 31, size=num_partitions)
+        seeds = rng.randint(2**31, size=num_partitions)
 
         estimator_broadcast = sc.broadcast(estimator)
         seeds_broadcast = sc.broadcast(pickle.dumps(seeds, protocol=0))
 
         def acc(split_index, itr):
-            accumulator_for_split = estimator_broadcast.value.accumulator_factory().make()
+            accumulator_for_split = (
+                estimator_broadcast.value.accumulator_factory().make()
+            )
             counts_for_split = 0.0
             rng_loc = np.random.RandomState(seeds_broadcast.value[split_index])
-            rng_loc_w = np.random.RandomState(seed=rng_loc.randint(2 ** 31))
+            rng_loc_w = np.random.RandomState(seed=rng_loc.randint(2**31))
 
             for sz, x in itr:
                 w = np.zeros(sz, dtype=float)
@@ -643,7 +723,9 @@ def seq_initialize(enc_data: Union[List[Tuple[int, T]], 'pyspark.rdd.RDD'],
                 counts_for_split += np.sum(w)
                 accumulator_for_split.seq_initialize(x, w, rng_loc)
 
-            rv = pickle.dumps((counts_for_split, accumulator_for_split.value()), protocol=0)
+            rv = pickle.dumps(
+                (counts_for_split, accumulator_for_split.value()), protocol=0
+            )
             return [rv]
 
         def red(x, y):
@@ -680,7 +762,7 @@ def seq_initialize(enc_data: Union[List[Tuple[int, T]], 'pyspark.rdd.RDD'],
     else:
         accumulator = estimator.accumulator_factory().make()
         nobs = 0.0
-        rng_w = np.random.RandomState(seed=rng.randint(2**31-1))
+        rng_w = np.random.RandomState(seed=rng.randint(2**31 - 1))
 
         for sz, enc_x in enc_data:
             w = rng_w.binomial(n=1, p=p, size=sz).astype(dtype=np.float64)
@@ -692,4 +774,3 @@ def seq_initialize(enc_data: Union[List[Tuple[int, T]], 'pyspark.rdd.RDD'],
         accumulator.key_replace(stats_dict)
 
         return estimator.estimate(nobs, accumulator.value())
-

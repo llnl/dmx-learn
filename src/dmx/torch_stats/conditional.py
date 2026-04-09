@@ -12,26 +12,33 @@ P_given(X0).
 
 """
 
-import torch as tn
-from dmx.torch_stats.null_dist import *
-from dmx.torch_stats.pdist import TorchProbabilityDistribution, TorchParameterEstimator, TorchSequenceEncoder, \
-    TorchStatisticAccumulator, TorchStatisticAccumulatorFactory, DistributionSampler, TorchEncodedSequence
+from typing import Any, Dict, List, Optional, Tuple, TypeVar, Union
 
+import torch as tn
 from torch import Generator
 
 import dmx.torch_utils.vector as vec
 from dmx.arithmetic import maxrandint
-from typing import List, Union, Tuple, Any, Optional, TypeVar, Dict
+from dmx.torch_stats.null_dist import *
+from dmx.torch_stats.pdist import (
+    DistributionSampler,
+    TorchEncodedSequence,
+    TorchParameterEstimator,
+    TorchProbabilityDistribution,
+    TorchSequenceEncoder,
+    TorchStatisticAccumulator,
+    TorchStatisticAccumulatorFactory,
+)
 
-T0 = TypeVar('T0')
-T1 = TypeVar('T1')
+T0 = TypeVar("T0")
+T1 = TypeVar("T1")
 
-E0 = TypeVar('E0')
-E1 = TypeVar('E1')
+E0 = TypeVar("E0")
+E1 = TypeVar("E1")
 E = Tuple[int, Tuple[T0, ...], Tuple[tn.Tensor, ...], Tuple[E0, ...], Optional[E1]]
-SS0 = TypeVar('SS0')
-SS1 = TypeVar('SS1')
-SS2 = TypeVar('SS2')
+SS0 = TypeVar("SS0")
+SS1 = TypeVar("SS1")
+SS2 = TypeVar("SS2")
 
 
 class ConditionalDistribution(TorchProbabilityDistribution):
@@ -60,13 +67,16 @@ class ConditionalDistribution(TorchProbabilityDistribution):
 
     """
 
-    def __init__(self,
-                 dmap: Union[Dict[Any, TorchProbabilityDistribution],
-                             List[TorchProbabilityDistribution]],
-                 default_dist: Optional[TorchProbabilityDistribution] = NullDistribution(),
-                 given_dist: Optional[TorchProbabilityDistribution] = NullDistribution(),
-                 keys: Optional[str] = None,
-                 device: Optional[tn.device] = None) -> None:
+    def __init__(
+        self,
+        dmap: Union[
+            Dict[Any, TorchProbabilityDistribution], List[TorchProbabilityDistribution]
+        ],
+        default_dist: Optional[TorchProbabilityDistribution] = NullDistribution(),
+        given_dist: Optional[TorchProbabilityDistribution] = NullDistribution(),
+        keys: Optional[str] = None,
+        device: Optional[tn.device] = None,
+    ) -> None:
         """ConditionalDistribution object.
         Args:
             dmap Union[Dict[Any, TorchProbabilityDistribution],
@@ -86,7 +96,9 @@ class ConditionalDistribution(TorchProbabilityDistribution):
             dmap = dict(zip(range(len(dmap)), dmap))
 
         self.dmap = dmap
-        self.default_dist = default_dist if default_dist is not None else NullDistribution()
+        self.default_dist = (
+            default_dist if default_dist is not None else NullDistribution()
+        )
         self.given_dist = given_dist if given_dist is not None else NullDistribution()
 
         self.has_default = not isinstance(self.default_dist, NullDistribution)
@@ -99,7 +111,10 @@ class ConditionalDistribution(TorchProbabilityDistribution):
         s3 = repr(self.given_dist)
         s4 = repr(self.keys)
 
-        return 'ConditionalDistribution(%s, default_dist=%s, given_dist=%s, keys=%s)' % (s1, s2, s3, s4)
+        return (
+            "ConditionalDistribution(%s, default_dist=%s, given_dist=%s, keys=%s)"
+            % (s1, s2, s3, s4)
+        )
 
     def to(self, device: tn.device) -> None:
         self._device = device
@@ -151,10 +166,12 @@ class ConditionalDistribution(TorchProbabilityDistribution):
 
         return rv
 
-    def seq_log_density(self, x: 'ConditionalTorchEncodedSequence') -> tn.Tensor:
+    def seq_log_density(self, x: "ConditionalTorchEncodedSequence") -> tn.Tensor:
 
         if not isinstance(x, ConditionalTorchEncodedSequence):
-            raise Exception('Requires ConditionalTorchEncodedSequence for `seq_` function calls.')
+            raise Exception(
+                "Requires ConditionalTorchEncodedSequence for `seq_` function calls."
+            )
 
         sz, cond_vals, eobs_vals, idx_vals, given_enc = x.data
         rv = vec.zeros(sz, device=self._device)
@@ -162,7 +179,9 @@ class ConditionalDistribution(TorchProbabilityDistribution):
         for i in range(len(cond_vals)):
             idx = idx_vals[i].to(device=rv.device)
             if self.has_default:
-                rv[idx] = self.dmap.get(cond_vals[i], self.default_dist).seq_log_density(eobs_vals[i])
+                rv[idx] = self.dmap.get(
+                    cond_vals[i], self.default_dist
+                ).seq_log_density(eobs_vals[i])
             else:
                 if cond_vals[i] in self.dmap:
                     rv[idx] += self.dmap[cond_vals[i]].seq_log_density(eobs_vals[i])
@@ -172,28 +191,42 @@ class ConditionalDistribution(TorchProbabilityDistribution):
 
         return rv
 
-    def sampler(self, seed: Optional[int] = None) -> 'ConditionalDistributionSampler':
+    def sampler(self, seed: Optional[int] = None) -> "ConditionalDistributionSampler":
         return ConditionalDistributionSampler(self, seed=seed)
 
-    def estimator(self, pseudo_count: Optional[float] = None) -> "ConditionalDistributionEstimator":
+    def estimator(
+        self, pseudo_count: Optional[float] = None
+    ) -> "ConditionalDistributionEstimator":
         est_map = {k: v.estimator(pseudo_count) for k, v in self.dmap.items()}
         default_est = self.default_dist.estimator(pseudo_count)
         given_est = self.given_dist.estimator(pseudo_count)
 
-        return ConditionalDistributionEstimator(estimator_map=est_map,
-                                                default_estimator=default_est,
-                                                given_estimator=given_est,
-                                                keys=self.keys)
+        return ConditionalDistributionEstimator(
+            estimator_map=est_map,
+            default_estimator=default_est,
+            given_estimator=given_est,
+            keys=self.keys,
+        )
 
-    def dist_to_encoder(self) -> 'ConditionalDistributionDataEncoder':
+    def dist_to_encoder(self) -> "ConditionalDistributionDataEncoder":
 
         encoder_map = {k: v.dist_to_encoder() for k, v in self.dmap.items()}
-        default_encoder = NullDataEncoder() if not self.has_default else self.default_dist.dist_to_encoder()
-        given_encoder = NullDataEncoder() if not self.has_given else self.given_dist.dist_to_encoder()
+        default_encoder = (
+            NullDataEncoder()
+            if not self.has_default
+            else self.default_dist.dist_to_encoder()
+        )
+        given_encoder = (
+            NullDataEncoder()
+            if not self.has_given
+            else self.given_dist.dist_to_encoder()
+        )
 
-        return ConditionalDistributionDataEncoder(encoder_map=encoder_map,
-                                                  default_encoder=default_encoder,
-                                                  given_encoder=given_encoder)
+        return ConditionalDistributionDataEncoder(
+            encoder_map=encoder_map,
+            default_encoder=default_encoder,
+            given_encoder=given_encoder,
+        )
 
 
 class ConditionalDistributionSampler(ConditionalSampler, DistributionSampler):
@@ -212,7 +245,9 @@ class ConditionalDistributionSampler(ConditionalSampler, DistributionSampler):
 
     """
 
-    def __init__(self, dist: ConditionalDistribution, seed: Optional[int] = None) -> None:
+    def __init__(
+        self, dist: ConditionalDistribution, seed: Optional[int] = None
+    ) -> None:
         """ConditionalDistributionSampler object.
 
         Args:
@@ -232,7 +267,9 @@ class ConditionalDistributionSampler(ConditionalSampler, DistributionSampler):
         self.given_sampler = dist.given_dist.sampler(loc_seed)
         self.has_given_sampler = isinstance(dist.given_dist, NullDistribution)
 
-        self.samplers = {k: u.sampler(rng.randint(0, maxrandint)) for k, u in self.dist.dmap.items()}
+        self.samplers = {
+            k: u.sampler(rng.randint(0, maxrandint)) for k, u in self.dist.dmap.items()
+        }
 
     def single_sample(self) -> Tuple[Any, Any]:
         """Generates a simple sample from the ConditionalDistribution.
@@ -251,7 +288,9 @@ class ConditionalDistributionSampler(ConditionalSampler, DistributionSampler):
             x1 = self.default_sampler.sample()
         return x0, x1
 
-    def sample(self, size: Optional[int] = None) -> Union[Tuple[Any, Any], List[Tuple[Any, Any]]]:
+    def sample(
+        self, size: Optional[int] = None
+    ) -> Union[Tuple[Any, Any], List[Tuple[Any, Any]]]:
         """Sample 'size' independent samples from ConditionalDistribution.
 
         Sequence of 'size' calls to single_sample(). If size is None, size is taken to be 1.
@@ -291,7 +330,7 @@ class ConditionalDistributionSampler(ConditionalSampler, DistributionSampler):
             return self.default_sampler.sample()
 
         else:
-            raise Exception('Conditional default distribution unspecified.')
+            raise Exception("Conditional default distribution unspecified.")
 
 
 class ConditionalDistributionAccumulator(TorchStatisticAccumulator):
@@ -315,12 +354,14 @@ class ConditionalDistributionAccumulator(TorchStatisticAccumulator):
 
     """
 
-    def __init__(self,
-                 accumulator_map: Dict[T0, TorchStatisticAccumulator],
-                 default_accumulator: Optional[TorchStatisticAccumulator] = NullAccumulator(),
-                 given_accumulator: Optional[TorchStatisticAccumulator] = NullAccumulator(),
-                 keys: Optional[str] = None,
-                 device: Optional[tn.device] = None) -> None:
+    def __init__(
+        self,
+        accumulator_map: Dict[T0, TorchStatisticAccumulator],
+        default_accumulator: Optional[TorchStatisticAccumulator] = NullAccumulator(),
+        given_accumulator: Optional[TorchStatisticAccumulator] = NullAccumulator(),
+        keys: Optional[str] = None,
+        device: Optional[tn.device] = None,
+    ) -> None:
         """ConditionalDistributionAccumulator object.
 
         Args:
@@ -336,8 +377,14 @@ class ConditionalDistributionAccumulator(TorchStatisticAccumulator):
         """
         super().__init__(device)
         self.accumulator_map = accumulator_map
-        self.default_accumulator = default_accumulator if default_accumulator is not None else NullAccumulator()
-        self.given_accumulator = given_accumulator if given_accumulator is not None else NullAccumulator()
+        self.default_accumulator = (
+            default_accumulator
+            if default_accumulator is not None
+            else NullAccumulator()
+        )
+        self.given_accumulator = (
+            given_accumulator if given_accumulator is not None else NullAccumulator()
+        )
 
         self.has_default = not isinstance(default_accumulator, NullAccumulator)
         self.has_given = not isinstance(given_accumulator, NullAccumulator)
@@ -359,7 +406,9 @@ class ConditionalDistributionAccumulator(TorchStatisticAccumulator):
         self._default_tng = Generator().manual_seed(int(seeds[0]))
         self._given_tng = Generator().manual_seed(int(seeds[1]))
 
-    def seq_initialize(self, x: 'ConditionalTorchEncodedSequence', weights: tn.Tensor, tng: Generator) -> None:
+    def seq_initialize(
+        self, x: "ConditionalTorchEncodedSequence", weights: tn.Tensor, tng: Generator
+    ) -> None:
 
         sz, cond_vals, eobs_vals, idx_vals, given_enc = x.data
 
@@ -368,38 +417,54 @@ class ConditionalDistributionAccumulator(TorchStatisticAccumulator):
 
         for i in range(len(cond_vals)):
             if cond_vals[i] in self.accumulator_map:
-                self.accumulator_map[cond_vals[i]].seq_initialize(eobs_vals[i], weights[idx_vals[i]],
-                                                                  self._acc_tng[cond_vals[i]])
+                self.accumulator_map[cond_vals[i]].seq_initialize(
+                    eobs_vals[i], weights[idx_vals[i]], self._acc_tng[cond_vals[i]]
+                )
             else:
                 if self.has_default:
-                    self.default_accumulator.seq_initialize(eobs_vals[i], weights[idx_vals[i]], self._default_tng)
+                    self.default_accumulator.seq_initialize(
+                        eobs_vals[i], weights[idx_vals[i]], self._default_tng
+                    )
 
         if self.has_given:
             self.given_accumulator.seq_initialize(given_enc, weights, self._given_tng)
 
-    def seq_update(self, x: 'ConditionalTorchEncodedSequence', weights: tn.Tensor, estimate: 'ConditionalDistribution') -> None:
+    def seq_update(
+        self,
+        x: "ConditionalTorchEncodedSequence",
+        weights: tn.Tensor,
+        estimate: "ConditionalDistribution",
+    ) -> None:
 
         sz, cond_vals, eobs_vals, idx_vals, given_enc = x.data
 
         for i in range(len(cond_vals)):
             if cond_vals[i] in self.accumulator_map:
-                self.accumulator_map[cond_vals[i]].seq_update(eobs_vals[i], weights[idx_vals[i]],
-                                                              estimate.dmap[cond_vals[i]])
+                self.accumulator_map[cond_vals[i]].seq_update(
+                    eobs_vals[i], weights[idx_vals[i]], estimate.dmap[cond_vals[i]]
+                )
             else:
                 if self.has_default:
                     if estimate is None:
-                        self.default_accumulator.seq_update(eobs_vals[i], weights[idx_vals[i]], None)
+                        self.default_accumulator.seq_update(
+                            eobs_vals[i], weights[idx_vals[i]], None
+                        )
                     else:
-                        self.default_accumulator.seq_update(eobs_vals[i], weights[idx_vals[i]], estimate.default_dist)
+                        self.default_accumulator.seq_update(
+                            eobs_vals[i], weights[idx_vals[i]], estimate.default_dist
+                        )
 
         if self.has_given:
             if estimate is None:
                 self.given_accumulator.seq_update(given_enc, weights, None)
             else:
-                self.given_accumulator.seq_update(given_enc, weights, estimate.given_dist)
+                self.given_accumulator.seq_update(
+                    given_enc, weights, estimate.given_dist
+                )
 
-    def combine(self, suff_stat: Tuple[Dict[T0, SS0], Optional[SS1], Optional[SS2]]) \
-            -> 'ConditionalDistributionAccumulator':
+    def combine(
+        self, suff_stat: Tuple[Dict[T0, SS0], Optional[SS1], Optional[SS2]]
+    ) -> "ConditionalDistributionAccumulator":
 
         for k, v in suff_stat[0].items():
             if k in self.accumulator_map:
@@ -422,7 +487,9 @@ class ConditionalDistributionAccumulator(TorchStatisticAccumulator):
 
         return rv1, rv2, rv3
 
-    def from_value(self, x: Tuple[Dict[T0, SS0], Optional[SS1], Optional[SS1]]) -> 'ConditionalDistributionAccumulator':
+    def from_value(
+        self, x: Tuple[Dict[T0, SS0], Optional[SS1], Optional[SS1]]
+    ) -> "ConditionalDistributionAccumulator":
 
         for k, v in x[0].items():
             self.accumulator_map[k].from_value(v)
@@ -457,15 +524,17 @@ class ConditionalDistributionAccumulator(TorchStatisticAccumulator):
         if self.has_given:
             self.given_accumulator.key_replace(stats_dict)
 
-    def acc_to_encoder(self) -> 'ConditionalDistributionDataEncoder':
+    def acc_to_encoder(self) -> "ConditionalDistributionDataEncoder":
 
         encoder_map = {k: v.acc_to_encoder() for k, v in self.accumulator_map.items()}
         default_encoder = self.default_accumulator.acc_to_encoder()
         given_encoder = self.given_accumulator.acc_to_encoder()
 
-        return ConditionalDistributionDataEncoder(encoder_map=encoder_map,
-                                                  default_encoder=default_encoder,
-                                                  given_encoder=given_encoder)
+        return ConditionalDistributionDataEncoder(
+            encoder_map=encoder_map,
+            default_encoder=default_encoder,
+            given_encoder=given_encoder,
+        )
 
 
 class ConditionalDistributionAccumulatorFactory(TorchStatisticAccumulatorFactory):
@@ -482,11 +551,13 @@ class ConditionalDistributionAccumulatorFactory(TorchStatisticAccumulatorFactory
 
     """
 
-    def __init__(self,
-                 factory_map: Dict[T0, TorchStatisticAccumulatorFactory],
-                 default_factory: TorchStatisticAccumulatorFactory = NullAccumulatorFactory(),
-                 given_factory: TorchStatisticAccumulatorFactory = NullAccumulatorFactory(),
-                 keys: Optional[str] = None) -> None:
+    def __init__(
+        self,
+        factory_map: Dict[T0, TorchStatisticAccumulatorFactory],
+        default_factory: TorchStatisticAccumulatorFactory = NullAccumulatorFactory(),
+        given_factory: TorchStatisticAccumulatorFactory = NullAccumulatorFactory(),
+        keys: Optional[str] = None,
+    ) -> None:
         """ConditionalDistributionAccumulatorFactory object.
 
         Args:
@@ -504,13 +575,17 @@ class ConditionalDistributionAccumulatorFactory(TorchStatisticAccumulatorFactory
         self.given_factory = given_factory
         self.keys = keys
 
-    def make(self, device: Optional[tn.device] = None) -> 'ConditionalDistributionAccumulator':
+    def make(
+        self, device: Optional[tn.device] = None
+    ) -> "ConditionalDistributionAccumulator":
 
         acc = {k: v.make() for k, v in self.factory_map.items()}
         def_acc = self.default_factory.make()
         given_acc = self.given_factory.make()
 
-        return ConditionalDistributionAccumulator(acc, def_acc, given_acc, self.keys, device=device)
+        return ConditionalDistributionAccumulator(
+            acc, def_acc, given_acc, self.keys, device=device
+        )
 
 
 class ConditionalDistributionEstimator(TorchParameterEstimator):
@@ -530,11 +605,13 @@ class ConditionalDistributionEstimator(TorchParameterEstimator):
 
     """
 
-    def __init__(self,
-                 estimator_map: Dict[T0, TorchParameterEstimator],
-                 default_estimator: Optional[TorchParameterEstimator] = NullEstimator(),
-                 given_estimator: Optional[TorchParameterEstimator] = NullEstimator(),
-                 keys: Optional[str] = None) -> None:
+    def __init__(
+        self,
+        estimator_map: Dict[T0, TorchParameterEstimator],
+        default_estimator: Optional[TorchParameterEstimator] = NullEstimator(),
+        given_estimator: Optional[TorchParameterEstimator] = NullEstimator(),
+        keys: Optional[str] = None,
+    ) -> None:
         """ConditionalDistributionEstimator object.
 
         Args:
@@ -545,19 +622,29 @@ class ConditionalDistributionEstimator(TorchParameterEstimator):
 
         """
         self.estimator_map = estimator_map
-        self.default_estimator = default_estimator if default_estimator is not None else NullEstimator()
+        self.default_estimator = (
+            default_estimator if default_estimator is not None else NullEstimator()
+        )
         self.keys = keys
-        self.given_estimator = given_estimator if given_estimator is not None else NullEstimator()
+        self.given_estimator = (
+            given_estimator if given_estimator is not None else NullEstimator()
+        )
 
-    def accumulator_factory(self) -> 'ConditionalDistributionAccumulatorFactory':
+    def accumulator_factory(self) -> "ConditionalDistributionAccumulatorFactory":
         emap_items = {k: v.accumulator_factory() for k, v in self.estimator_map.items()}
         def_factory = self.default_estimator.accumulator_factory()
         given_factory = self.given_estimator.accumulator_factory()
 
-        return ConditionalDistributionAccumulatorFactory(emap_items, def_factory, given_factory, self.keys)
+        return ConditionalDistributionAccumulatorFactory(
+            emap_items, def_factory, given_factory, self.keys
+        )
 
-    def estimate(self, nobs: Optional[float], suff_stat: Tuple[Dict[T0, SS0], Optional[SS1], Optional[SS2]], device: Optional[tn.device] = None) \
-            -> 'ConditionalDistribution':
+    def estimate(
+        self,
+        nobs: Optional[float],
+        suff_stat: Tuple[Dict[T0, SS0], Optional[SS1], Optional[SS2]],
+        device: Optional[tn.device] = None,
+    ) -> "ConditionalDistribution":
         """Estimate a ConditionalDistribution from aggregated data.
 
         Args:
@@ -569,12 +656,21 @@ class ConditionalDistributionEstimator(TorchParameterEstimator):
             ConditionalDistribution
 
         """
-        default_dist = self.default_estimator.estimate(None, suff_stat[1], device=device)
+        default_dist = self.default_estimator.estimate(
+            None, suff_stat[1], device=device
+        )
         given_dist = self.given_estimator.estimate(None, suff_stat[2], device=device)
-        dist_map = {k: self.estimator_map[k].estimate(None, v) for k, v in suff_stat[0].items()}
+        dist_map = {
+            k: self.estimator_map[k].estimate(None, v) for k, v in suff_stat[0].items()
+        }
 
-        return ConditionalDistribution(dist_map, default_dist=default_dist, given_dist=given_dist,
-                                       keys=self.keys, device=device)
+        return ConditionalDistribution(
+            dist_map,
+            default_dist=default_dist,
+            given_dist=given_dist,
+            keys=self.keys,
+            device=device,
+        )
 
 
 class ConditionalDistributionDataEncoder(TorchSequenceEncoder):
@@ -595,11 +691,12 @@ class ConditionalDistributionDataEncoder(TorchSequenceEncoder):
 
     """
 
-    def __init__(self,
-                 encoder_map: Dict[T0, TorchSequenceEncoder],
-                 default_encoder: TorchSequenceEncoder = NullDataEncoder(),
-                 given_encoder: TorchSequenceEncoder = NullDataEncoder()
-                 ) -> None:
+    def __init__(
+        self,
+        encoder_map: Dict[T0, TorchSequenceEncoder],
+        default_encoder: TorchSequenceEncoder = NullDataEncoder(),
+        given_encoder: TorchSequenceEncoder = NullDataEncoder(),
+    ) -> None:
         """ConditionalDistributionDataEncoder object.
 
         Args:
@@ -619,20 +716,20 @@ class ConditionalDistributionDataEncoder(TorchSequenceEncoder):
     def __str__(self) -> str:
 
         encoder_items = list(self.encoder_map.items())
-        encoder_str = 'ConditionalDataEncoder('
+        encoder_str = "ConditionalDataEncoder("
         for k, v in encoder_items[:-1]:
-            encoder_str += str(k) + ':' + str(v) + ','
-        encoder_str += str(encoder_items[-1][0]) + ':' + str(encoder_items[-1][1])
+            encoder_str += str(k) + ":" + str(v) + ","
+        encoder_str += str(encoder_items[-1][0]) + ":" + str(encoder_items[-1][1])
 
         if not self.null_default_encoder:
-            encoder_str += ',default=' + str(self.default_encoder)
+            encoder_str += ",default=" + str(self.default_encoder)
         else:
-            encoder_str += ',default=None'
+            encoder_str += ",default=None"
 
         if not self.null_given_encoder:
-            encoder_str += ',given=' + str(self.given_encoder)
+            encoder_str += ",given=" + str(self.given_encoder)
         else:
-            encoder_str += ',given=None)'
+            encoder_str += ",given=None)"
 
         return encoder_str
 
@@ -652,7 +749,9 @@ class ConditionalDistributionDataEncoder(TorchSequenceEncoder):
 
         return True
 
-    def seq_encode(self, x: List[Tuple[T0, T1]], device: Optional[tn.device] = None) -> 'ConditionalTorchEncodedSequence':
+    def seq_encode(
+        self, x: List[Tuple[T0, T1]], device: Optional[tn.device] = None
+    ) -> "ConditionalTorchEncodedSequence":
         """Encode sequence of iid observations from ConditionalDistribution for vectorized "seq_" function calls.
 
         Notes:
@@ -702,22 +801,41 @@ class ConditionalDistributionDataEncoder(TorchSequenceEncoder):
         for u in cond_enc_items:
             if self.null_default_encoder:
                 if u[0] in self.encoder_map:
-                    eobs_vals.append(self.encoder_map[u[0]].seq_encode(u[1][0], device=device))
+                    eobs_vals.append(
+                        self.encoder_map[u[0]].seq_encode(u[1][0], device=device)
+                    )
             else:
-                eobs_vals.append(self.encoder_map.get(u[0], self.default_encoder).seq_encode(u[1][0], device=device))
+                eobs_vals.append(
+                    self.encoder_map.get(u[0], self.default_encoder).seq_encode(
+                        u[1][0], device=device
+                    )
+                )
 
             idx_vals.append(vec.int_tensor(u[1][1], device=device))
 
         given_enc = self.given_encoder.seq_encode(given_vals, device=device)
 
-        return ConditionalTorchEncodedSequence(data=(len(x), cond_vals, tuple(eobs_vals), tuple(idx_vals), given_enc), device=device)
+        return ConditionalTorchEncodedSequence(
+            data=(len(x), cond_vals, tuple(eobs_vals), tuple(idx_vals), given_enc),
+            device=device,
+        )
 
 
 class ConditionalTorchEncodedSequence(TorchEncodedSequence):
 
-    def __init__(self, data: Tuple[int, Tuple[Any, ...], Tuple[TorchEncodedSequence, ...], Tuple[tn.tensor,...], TorchEncodedSequence], device: Optional[tn.device] = None):
+    def __init__(
+        self,
+        data: Tuple[
+            int,
+            Tuple[Any, ...],
+            Tuple[TorchEncodedSequence, ...],
+            Tuple[tn.tensor, ...],
+            TorchEncodedSequence,
+        ],
+        device: Optional[tn.device] = None,
+    ):
         super().__init__(data=data, device=device)
 
     def __str__(self) -> str:
 
-        return f'ConditionalTorchEncodedSequence(device={repr(self.device)})'
+        return f"ConditionalTorchEncodedSequence(device={repr(self.device)})"

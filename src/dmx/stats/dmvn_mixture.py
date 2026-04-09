@@ -6,22 +6,23 @@ MixtureEstimator([DiagonalGaussianEstimator()], keys=(None, 'comps')) keys both 
 DiagonalGaussianEstimator(tied=True) sets the covariance of each mixture component to be the same for each mixture component.
 """
 
+from typing import Any, Dict, List, Optional, Sequence, Tuple, TypeVar, Union
+
 import numba
 import numpy as np
-from dmx.stats.pdist import (
-    SequenceEncodableProbabilityDistribution,
-    ParameterEstimator,
-    DistributionSampler,
-    StatisticAccumulatorFactory,
-    SequenceEncodableStatisticAccumulator,
-    DataSequenceEncoder,
-    EncodedDataSequence,
-)
 from numpy.random import RandomState
 
 import dmx.utils.vector as vec
 from dmx.arithmetic import maxrandint
-from typing import List, Union, Tuple, Any, Optional, TypeVar, Sequence, Dict
+from dmx.stats.pdist import (
+    DataSequenceEncoder,
+    DistributionSampler,
+    EncodedDataSequence,
+    ParameterEstimator,
+    SequenceEncodableProbabilityDistribution,
+    SequenceEncodableStatisticAccumulator,
+    StatisticAccumulatorFactory,
+)
 
 E = np.ndarray
 SS = Tuple[np.ndarray, np.ndarray, np.ndarray, np.ndarray, np.ndarray]
@@ -51,7 +52,7 @@ class DiagonalGaussianMixtureDistribution(SequenceEncodableProbabilityDistributi
         w: Union[np.ndarray, List[float]],
         tied: bool = False,
         name: Optional[str] = None,
-        keys: Tuple[Optional[str], Optional[str]] = (None, None)
+        keys: Tuple[Optional[str], Optional[str]] = (None, None),
     ) -> None:
         """
         Initialize the diagonal Gaussian mixture distribution.
@@ -69,7 +70,7 @@ class DiagonalGaussianMixtureDistribution(SequenceEncodableProbabilityDistributi
         self.dim = self.mu.shape[1]
 
         self.w = np.asarray(w, dtype=np.float64)
-        self.zw = (self.w == 0.0)
+        self.zw = self.w == 0.0
         self.log_w = np.log(self.w + self.zw)
         self.log_w[self.zw] = -np.inf
         self.num_components = len(self.w)
@@ -81,13 +82,13 @@ class DiagonalGaussianMixtureDistribution(SequenceEncodableProbabilityDistributi
 
     def __repr__(self) -> str:
         """Return string representation."""
-        s1 = ','.join([repr(u.tolist()) for u in self.mu])
-        s2 = ','.join([repr(u.tolist()) for u in self.covar])
+        s1 = ",".join([repr(u.tolist()) for u in self.mu])
+        s2 = ",".join([repr(u.tolist()) for u in self.covar])
         s3 = repr(self.w.tolist())
         s4 = repr(self.tied)
         s5 = repr(self.name)
         s6 = repr(self.keys)
-        return f'DiagonalGaussianMixtureDistribution(mu=[{s1}], covar=[{s2}], w={s3}, tied={s4}, name={s5}, keys={s6})'
+        return f"DiagonalGaussianMixtureDistribution(mu=[{s1}], covar=[{s2}], w={s3}, tied={s4}, name={s5}, keys={s6})"
 
     def density(self, x: Union[Sequence[float], np.ndarray]) -> float:
         """Compute the density of the distribution at a given point.
@@ -110,12 +111,18 @@ class DiagonalGaussianMixtureDistribution(SequenceEncodableProbabilityDistributi
             float: Log density value.
         """
         z2 = (np.asarray(x)[None, :] - self.mu) ** 2 / self.covar
-        ll = -0.5 * np.sum(z2, axis=1) - 0.5 * np.sum(np.log(self.covar), axis=1) + self.log_c
+        ll = (
+            -0.5 * np.sum(z2, axis=1)
+            - 0.5 * np.sum(np.log(self.covar), axis=1)
+            + self.log_c
+        )
         ll += self.log_w
         ll_max = np.max(ll)
         return np.log(np.sum(np.exp(ll - ll_max))) + ll_max
 
-    def component_log_density(self, x: Union[Sequence[float], np.ndarray]) -> np.ndarray:
+    def component_log_density(
+        self, x: Union[Sequence[float], np.ndarray]
+    ) -> np.ndarray:
         """Compute the log density of the individual mixture components at a given point.
 
         Args:
@@ -125,7 +132,11 @@ class DiagonalGaussianMixtureDistribution(SequenceEncodableProbabilityDistributi
             np.ndarray: Log density values for each mixture component.
         """
         z2 = (np.asarray(x)[None, :] - self.mu) ** 2 / self.covar
-        ll = -0.5 * np.sum(z2, axis=1) - 0.5 * np.sum(np.log(self.covar), axis=1) + self.log_c
+        ll = (
+            -0.5 * np.sum(z2, axis=1)
+            - 0.5 * np.sum(np.log(self.covar), axis=1)
+            + self.log_c
+        )
         return ll
 
     def posterior(self, x: Union[Sequence[float], np.ndarray]) -> np.ndarray:
@@ -143,7 +154,9 @@ class DiagonalGaussianMixtureDistribution(SequenceEncodableProbabilityDistributi
         ll = np.exp(ll - ll_max)
         return ll / np.sum(ll)
 
-    def seq_component_log_density(self, x: 'DiagonalGaussianMixtureEncodedDataSequence') -> np.ndarray:
+    def seq_component_log_density(
+        self, x: "DiagonalGaussianMixtureEncodedDataSequence"
+    ) -> np.ndarray:
         """Compute the log density of the individual mixture components for a sequence of data points.
 
         Args:
@@ -153,13 +166,17 @@ class DiagonalGaussianMixtureDistribution(SequenceEncodableProbabilityDistributi
             np.ndarray: Log density values for each mixture component.
         """
         if not isinstance(x, DiagonalGaussianMixtureEncodedDataSequence):
-            raise Exception("DiagonalGaussianMixtureEncodedDataSequence required for seq_component_log_density().")
+            raise Exception(
+                "DiagonalGaussianMixtureEncodedDataSequence required for seq_component_log_density()."
+            )
         ll_mat = -0.5 * np.sum((x.data[:, None, :] - self.mu) ** 2 / self.covar, axis=2)
         ll_mat += -0.5 * np.sum(np.log(self.covar), axis=1)
         ll_mat += self.log_c
         return ll_mat
 
-    def seq_log_density(self, x: 'DiagonalGaussianMixtureEncodedDataSequence') -> np.ndarray:
+    def seq_log_density(
+        self, x: "DiagonalGaussianMixtureEncodedDataSequence"
+    ) -> np.ndarray:
         """Compute the log density for a sequence of data points.
 
         Args:
@@ -169,7 +186,9 @@ class DiagonalGaussianMixtureDistribution(SequenceEncodableProbabilityDistributi
             np.ndarray: Log density values for the sequence.
         """
         if not isinstance(x, DiagonalGaussianMixtureEncodedDataSequence):
-            raise Exception("DiagonalGaussianMixtureEncodedDataSequence required for seq_log_density().")
+            raise Exception(
+                "DiagonalGaussianMixtureEncodedDataSequence required for seq_log_density()."
+            )
 
         ll_mat = -0.5 * np.sum((x.data[:, None, :] - self.mu) ** 2 / self.covar, axis=2)
         ll_mat += -0.5 * np.sum(np.log(self.covar), axis=1)
@@ -200,7 +219,9 @@ class DiagonalGaussianMixtureDistribution(SequenceEncodableProbabilityDistributi
             rv[~good_rows] = -np.inf
             return rv
 
-    def seq_posterior(self, x: 'DiagonalGaussianMixtureEncodedDataSequence') -> np.ndarray:
+    def seq_posterior(
+        self, x: "DiagonalGaussianMixtureEncodedDataSequence"
+    ) -> np.ndarray:
         """Compute posterior probabilities for a sequence of data points.
 
         Args:
@@ -210,7 +231,9 @@ class DiagonalGaussianMixtureDistribution(SequenceEncodableProbabilityDistributi
             np.ndarray: Posterior probabilities with shape (N, K), where N is the number of samples and K is the number of mixture components.
         """
         if not isinstance(x, DiagonalGaussianMixtureEncodedDataSequence):
-            raise Exception("DiagonalGaussianMixtureEncodedDataSequence required for seq_posterior().")
+            raise Exception(
+                "DiagonalGaussianMixtureEncodedDataSequence required for seq_posterior()."
+            )
 
         ll_mat = -0.5 * np.sum((x.data[:, None, :] - self.mu) ** 2 / self.covar, axis=2)
         ll_mat += -0.5 * np.sum(np.log(self.covar), axis=1)
@@ -231,7 +254,9 @@ class DiagonalGaussianMixtureDistribution(SequenceEncodableProbabilityDistributi
 
         return ll_mat
 
-    def fast_seq_posterior(self, x: 'DiagonalGaussianMixtureEncodedDataSequence') -> np.ndarray:
+    def fast_seq_posterior(
+        self, x: "DiagonalGaussianMixtureEncodedDataSequence"
+    ) -> np.ndarray:
         """Compute posterior probabilities for a sequence of data points using numba.
 
         Args:
@@ -241,13 +266,17 @@ class DiagonalGaussianMixtureDistribution(SequenceEncodableProbabilityDistributi
             np.ndarray: Posterior probabilities with shape (N, K), where N is the number of samples and K is the number of mixture components.
         """
         if not isinstance(x, DiagonalGaussianMixtureEncodedDataSequence):
-            raise Exception('Requires DiagonalGaussianMixtureEncodedDataSequence for `seq_` calls.')
+            raise Exception(
+                "Requires DiagonalGaussianMixtureEncodedDataSequence for `seq_` calls."
+            )
 
         rv = np.zeros((x.data.shape[0], self.num_components), dtype=np.float64)
-        fast_seq_posterior(x=x.data, mu=self.mu, covar=self.covar, log_w=self.log_w, zw=self.zw, out=rv)
+        fast_seq_posterior(
+            x=x.data, mu=self.mu, covar=self.covar, log_w=self.log_w, zw=self.zw, out=rv
+        )
         return rv
 
-    def sampler(self, seed: Optional[int] = None) -> 'DiagonalGaussianMixtureSampler':
+    def sampler(self, seed: Optional[int] = None) -> "DiagonalGaussianMixtureSampler":
         """Return a DiagonalGaussianMixtureSampler for this distribution.
 
         Args:
@@ -258,7 +287,9 @@ class DiagonalGaussianMixtureDistribution(SequenceEncodableProbabilityDistributi
         """
         return DiagonalGaussianMixtureSampler(self, seed)
 
-    def estimator(self, pseudo_count: Optional[float] = None) -> 'DiagonalGaussianMixtureEstimator':
+    def estimator(
+        self, pseudo_count: Optional[float] = None
+    ) -> "DiagonalGaussianMixtureEstimator":
         """Return a DiagonalGaussianMixtureEstimator for this distribution.
 
         Args:
@@ -275,7 +306,7 @@ class DiagonalGaussianMixtureDistribution(SequenceEncodableProbabilityDistributi
                 dim=self.dim,
                 tied=self.tied,
                 name=self.name,
-                keys=self.keys
+                keys=self.keys,
             )
         else:
             return DiagonalGaussianMixtureEstimator(
@@ -283,10 +314,10 @@ class DiagonalGaussianMixtureDistribution(SequenceEncodableProbabilityDistributi
                 dim=self.dim,
                 num_components=self.num_components,
                 name=self.name,
-                keys=self.keys
+                keys=self.keys,
             )
 
-    def dist_to_encoder(self) -> 'DiagonalGaussianMixtureDataEncoder':
+    def dist_to_encoder(self) -> "DiagonalGaussianMixtureDataEncoder":
         """Return a DiagonalGaussianMixtureDataEncoder for this distribution.
 
         Returns:
@@ -303,7 +334,9 @@ class DiagonalGaussianMixtureSampler(DistributionSampler):
         rng (RandomState): Random number generator for sampling.
     """
 
-    def __init__(self, dist: DiagonalGaussianMixtureDistribution, seed: Optional[int] = None) -> None:
+    def __init__(
+        self, dist: DiagonalGaussianMixtureDistribution, seed: Optional[int] = None
+    ) -> None:
         """
         Initialize the sampler for the diagonal Gaussian mixture distribution.
 
@@ -324,7 +357,9 @@ class DiagonalGaussianMixtureSampler(DistributionSampler):
         Returns:
             Union[float, np.ndarray]: Generated sample(s).
         """
-        comp_state = self.rng.choice(range(0, self.dist.num_components), size=size, replace=True, p=self.dist.w)
+        comp_state = self.rng.choice(
+            range(0, self.dist.num_components), size=size, replace=True, p=self.dist.w
+        )
         sz = (1 if size is None else size, self.dist.dim)
         z = self.rng.normal(loc=0.0, scale=1.0, size=sz)
         z *= np.sqrt(self.dist.covar[comp_state])
@@ -349,7 +384,7 @@ class DiagonalGaussianMixtureAccumulator(SequenceEncodableStatisticAccumulator):
         dim: int,
         tied: bool = False,
         keys: Tuple[Optional[str], Optional[str]] = (None, None),
-        name: Optional[str] = None
+        name: Optional[str] = None,
     ) -> None:
         """
         Initialize the accumulator for sufficient statistics.
@@ -382,7 +417,7 @@ class DiagonalGaussianMixtureAccumulator(SequenceEncodableStatisticAccumulator):
         self,
         x: Union[List[float], np.ndarray],
         weight: float,
-        estimate: 'DiagonalGaussianMixtureDistribution'
+        estimate: "DiagonalGaussianMixtureDistribution",
     ) -> None:
         """Update accumulator with a new observation.
 
@@ -406,7 +441,7 @@ class DiagonalGaussianMixtureAccumulator(SequenceEncodableStatisticAccumulator):
         Args:
             rng (RandomState): Random number generator.
         """
-        seeds = rng.randint(2 ** 31, size=self.num_components)
+        seeds = rng.randint(2**31, size=self.num_components)
         self._acc_rng = [RandomState(seed=seed) for seed in seeds]
         self._w_rng = RandomState(seed=rng.randint(maxrandint))
         self._init_rng = True
@@ -415,7 +450,7 @@ class DiagonalGaussianMixtureAccumulator(SequenceEncodableStatisticAccumulator):
         self,
         x: Union[List[float], np.ndarray],
         weight: float,
-        rng: np.random.RandomState
+        rng: np.random.RandomState,
     ) -> None:
         """Initialize accumulator with a new observation.
 
@@ -429,7 +464,10 @@ class DiagonalGaussianMixtureAccumulator(SequenceEncodableStatisticAccumulator):
             self._rng_initialize(rng)
 
         if weight != 0:
-            ww = self._w_rng.dirichlet(np.ones(self.num_components) / (self.num_components * self.num_components))
+            ww = self._w_rng.dirichlet(
+                np.ones(self.num_components)
+                / (self.num_components * self.num_components)
+            )
             ww *= weight
             self.xw += x[None, :] * ww[:, None]
             self.x2w += x[None, :] ** 2 * ww[:, None]
@@ -439,9 +477,9 @@ class DiagonalGaussianMixtureAccumulator(SequenceEncodableStatisticAccumulator):
 
     def seq_initialize(
         self,
-        x: 'DiagonalGaussianMixtureEncodedDataSequence',
+        x: "DiagonalGaussianMixtureEncodedDataSequence",
         weights: np.ndarray,
-        rng: np.random.RandomState
+        rng: np.random.RandomState,
     ) -> None:
         """Vectorized initialization for encoded data.
 
@@ -458,9 +496,11 @@ class DiagonalGaussianMixtureAccumulator(SequenceEncodableStatisticAccumulator):
         keep_len = np.count_nonzero(keep_idx)
         ww = np.zeros((sz, self.num_components))
 
-        c = 20 ** 2 if self.num_components > 20 else self.num_components ** 2
+        c = 20**2 if self.num_components > 20 else self.num_components**2
         if keep_len > 0:
-            ww[keep_idx, :] = self._w_rng.dirichlet(alpha=np.ones(self.num_components) / c, size=keep_len)
+            ww[keep_idx, :] = self._w_rng.dirichlet(
+                alpha=np.ones(self.num_components) / c, size=keep_len
+            )
 
         ww *= np.reshape(weights, (sz, 1))
 
@@ -474,9 +514,9 @@ class DiagonalGaussianMixtureAccumulator(SequenceEncodableStatisticAccumulator):
 
     def seq_update(
         self,
-        x: 'DiagonalGaussianMixtureEncodedDataSequence',
+        x: "DiagonalGaussianMixtureEncodedDataSequence",
         weights: np.ndarray,
-        estimate: 'DiagonalGaussianMixtureDistribution'
+        estimate: "DiagonalGaussianMixtureDistribution",
     ) -> None:
         """Vectorized update for encoded data.
 
@@ -485,7 +525,14 @@ class DiagonalGaussianMixtureAccumulator(SequenceEncodableStatisticAccumulator):
             weights (np.ndarray): Weights for each observation.
             estimate (DiagonalGaussianMixtureDistribution): Distribution estimate for update.
         """
-        ll_mat = -0.5 * np.sum((x.data[:, None, :] - estimate.mu) ** 2 / np.sqrt(estimate.covar), axis=2) + estimate.log_c
+        ll_mat = (
+            -0.5
+            * np.sum(
+                (x.data[:, None, :] - estimate.mu) ** 2 / np.sqrt(estimate.covar),
+                axis=2,
+            )
+            + estimate.log_c
+        )
         ll_mat += estimate.log_w
         ll_mat[:, estimate.zw] = -np.inf
 
@@ -508,7 +555,7 @@ class DiagonalGaussianMixtureAccumulator(SequenceEncodableStatisticAccumulator):
         self.xw += np.sum(x.data[:, None, :] * ll_mat[:, :, None], axis=0)
         self.x2w += np.sum(x.data[:, None, :] ** 2 * ll_mat[:, :, None], axis=0)
 
-    def combine(self, suff_stat: SS) -> 'DiagonalGaussianMixtureAccumulator':
+    def combine(self, suff_stat: SS) -> "DiagonalGaussianMixtureAccumulator":
         """Combine another accumulator's sufficient statistics into this one.
 
         Args:
@@ -532,7 +579,7 @@ class DiagonalGaussianMixtureAccumulator(SequenceEncodableStatisticAccumulator):
         """
         return self.comp_counts, self.xw, self.x2w, self.wcnt, self.wcnt2
 
-    def from_value(self, x: SS) -> 'DiagonalGaussianMixtureAccumulator':
+    def from_value(self, x: SS) -> "DiagonalGaussianMixtureAccumulator":
         """Set the sufficient statistics from a tuple.
 
         Args:
@@ -580,7 +627,7 @@ class DiagonalGaussianMixtureAccumulator(SequenceEncodableStatisticAccumulator):
             if self.comp_key in stats_dict:
                 self.xw, self.x2w, self.wcnt, self.wcnt2 = stats_dict[self.comp_key]
 
-    def acc_to_encoder(self) -> 'DiagonalGaussianMixtureDataEncoder':
+    def acc_to_encoder(self) -> "DiagonalGaussianMixtureDataEncoder":
         """Return a DiagonalGaussianMixtureDataEncoder for this accumulator.
 
         Returns:
@@ -606,7 +653,7 @@ class DiagonalGaussianMixtureAccumulatorFactory(StatisticAccumulatorFactory):
         dim: int,
         keys: Tuple[Optional[str], Optional[str]] = (None, None),
         name: Optional[str] = None,
-        tied: bool = False
+        tied: bool = False,
     ) -> None:
         """
         Initialize the factory for creating accumulators.
@@ -624,7 +671,7 @@ class DiagonalGaussianMixtureAccumulatorFactory(StatisticAccumulatorFactory):
         self.num_components = num_components
         self.tied = tied
 
-    def make(self) -> 'DiagonalGaussianMixtureAccumulator':
+    def make(self) -> "DiagonalGaussianMixtureAccumulator":
         """Create a new DiagonalGaussianMixtureAccumulator.
 
         Returns:
@@ -635,7 +682,7 @@ class DiagonalGaussianMixtureAccumulatorFactory(StatisticAccumulatorFactory):
             num_components=self.num_components,
             dim=self.dim,
             tied=self.tied,
-            name=self.name
+            name=self.name,
         )
 
 
@@ -658,11 +705,17 @@ class DiagonalGaussianMixtureEstimator(ParameterEstimator):
         num_components: int,
         dim: int,
         fixed_weights: Optional[Union[List[float], np.ndarray]] = None,
-        suff_stat: Tuple[Optional[np.ndarray], Optional[np.ndarray], Optional[np.ndarray]] = (None, None, None),
-        pseudo_count: Tuple[Optional[float], Optional[float], Optional[float]] = (None, None, None),
+        suff_stat: Tuple[
+            Optional[np.ndarray], Optional[np.ndarray], Optional[np.ndarray]
+        ] = (None, None, None),
+        pseudo_count: Tuple[Optional[float], Optional[float], Optional[float]] = (
+            None,
+            None,
+            None,
+        ),
         tied: bool = False,
         keys: Tuple[Optional[str], Optional[str]] = (None, None),
-        name: Optional[str] = None
+        name: Optional[str] = None,
     ) -> None:
         """
         Initialize the estimator for diagonal Gaussian mixture distributions.
@@ -687,17 +740,33 @@ class DiagonalGaussianMixtureEstimator(ParameterEstimator):
         ):
             self.keys = keys
         else:
-            raise TypeError("DiagonalGaussianMixtureEstimator requires keys (Tuple[Optional[str], Optional[str]]).")
+            raise TypeError(
+                "DiagonalGaussianMixtureEstimator requires keys (Tuple[Optional[str], Optional[str]])."
+            )
 
-        dim_loc = dim if dim is not None else (
-            (None if suff_stat[1] is None else int(np.sqrt(np.size(suff_stat[1])))) if suff_stat[0] is None else len(
-                suff_stat[0]))
+        dim_loc = (
+            dim
+            if dim is not None
+            else (
+                (None if suff_stat[1] is None else int(np.sqrt(np.size(suff_stat[1]))))
+                if suff_stat[0] is None
+                else len(suff_stat[0])
+            )
+        )
 
         self.dim = dim_loc
         self.pseudo_count = pseudo_count
         self.prior_weights = None if suff_stat[0] is None else suff_stat[0]
-        self.prior_mu = None if suff_stat[1] is None else np.reshape(suff_stat[1], (num_components, dim_loc))
-        self.prior_covar = None if suff_stat[2] is None else np.reshape(suff_stat[2], (num_components, dim_loc))
+        self.prior_mu = (
+            None
+            if suff_stat[1] is None
+            else np.reshape(suff_stat[1], (num_components, dim_loc))
+        )
+        self.prior_covar = (
+            None
+            if suff_stat[2] is None
+            else np.reshape(suff_stat[2], (num_components, dim_loc))
+        )
         self.keys = keys
 
         self.num_components = num_components
@@ -706,10 +775,12 @@ class DiagonalGaussianMixtureEstimator(ParameterEstimator):
         self.suff_stat = suff_stat
         self.keys = keys
         self.tied = tied
-        self.fixed_weights = np.asarray(fixed_weights) if fixed_weights is not None else None
+        self.fixed_weights = (
+            np.asarray(fixed_weights) if fixed_weights is not None else None
+        )
         self.name = name
 
-    def accumulator_factory(self) -> 'DiagonalGaussianMixtureAccumulatorFactory':
+    def accumulator_factory(self) -> "DiagonalGaussianMixtureAccumulatorFactory":
         """Return a DiagonalGaussianMixtureAccumulatorFactory for this estimator.
 
         Returns:
@@ -720,10 +791,12 @@ class DiagonalGaussianMixtureEstimator(ParameterEstimator):
             tied=self.tied,
             num_components=self.num_components,
             dim=self.dim,
-            name=self.name
+            name=self.name,
         )
 
-    def estimate(self, nobs: Optional[float], suff_stat: SS) -> 'DiagonalGaussianMixtureDistribution':
+    def estimate(
+        self, nobs: Optional[float], suff_stat: SS
+    ) -> "DiagonalGaussianMixtureDistribution":
         """Estimate a DiagonalGaussianMixtureDistribution from sufficient statistics.
 
         Args:
@@ -757,7 +830,7 @@ class DiagonalGaussianMixtureEstimator(ParameterEstimator):
             covar = np.ones_like(x2w) * tmp
         else:
             if pc2 is not None and self.prior_covar is not None:
-                covar = (x2w + (pc2 * self.prior_covar) - (mu * mu * wcnts))
+                covar = x2w + (pc2 * self.prior_covar) - (mu * mu * wcnts)
                 covar /= np.sum(wcnts + pc2)
             else:
                 nobs_loc = wcnts.copy()
@@ -775,7 +848,9 @@ class DiagonalGaussianMixtureEstimator(ParameterEstimator):
             w = counts + p
             w /= w.sum()
         elif pc0 is not None and self.prior_weights is not None:
-            w = (counts + self.prior_weights * pc0) / (counts.sum() + pc0 * self.prior_weights.sum())
+            w = (counts + self.prior_weights * pc0) / (
+                counts.sum() + pc0 * self.prior_weights.sum()
+            )
         else:
             nobs_loc = counts.sum()
             if nobs_loc == 0:
@@ -783,7 +858,9 @@ class DiagonalGaussianMixtureEstimator(ParameterEstimator):
             else:
                 w = counts / counts.sum()
 
-        return DiagonalGaussianMixtureDistribution(mu=mu, covar=covar, w=w, tied=self.tied)
+        return DiagonalGaussianMixtureDistribution(
+            mu=mu, covar=covar, w=w, tied=self.tied
+        )
 
 
 class DiagonalGaussianMixtureDataEncoder(DataSequenceEncoder):
@@ -795,7 +872,7 @@ class DiagonalGaussianMixtureDataEncoder(DataSequenceEncoder):
         Returns:
             str: String representation of the encoder.
         """
-        return 'DiagonalGaussianMixtureDataEncoder'
+        return "DiagonalGaussianMixtureDataEncoder"
 
     def __eq__(self, other: object) -> bool:
         """Check equality with another encoder.
@@ -809,9 +886,8 @@ class DiagonalGaussianMixtureDataEncoder(DataSequenceEncoder):
         return isinstance(other, DiagonalGaussianMixtureDataEncoder)
 
     def seq_encode(
-        self,
-        x: Union[Sequence[Sequence[float]], np.ndarray]
-    ) -> 'DiagonalGaussianMixtureEncodedDataSequence':
+        self, x: Union[Sequence[Sequence[float]], np.ndarray]
+    ) -> "DiagonalGaussianMixtureEncodedDataSequence":
         """Encode a sequence of data points.
 
         Args:
@@ -846,11 +922,11 @@ class DiagonalGaussianMixtureEncodedDataSequence(EncodedDataSequence):
         Returns:
             str: String representation of the encoded data sequence.
         """
-        return f'DiagonalGaussianMixtureEncodedDataSequence(data={self.data})'
+        return f"DiagonalGaussianMixtureEncodedDataSequence(data={self.data})"
 
 
 @numba.njit(
-    'void(float64[:, :], float64[:, :], float64[:, :], float64[:], bool_[:], float64[:, :])',
+    "void(float64[:, :], float64[:, :], float64[:, :], float64[:], bool_[:], float64[:, :])",
     fastmath=True,
     parallel=True,
     cache=True,
@@ -881,7 +957,9 @@ def fast_seq_posterior(
             if not zw[k]:
                 tmp = 0.0
                 for d in range(dim):
-                    tmp += -0.5 * (x[i, d] - mu[k, d]) ** 2 / covar[k, d] - 0.5 * np.log(covar[k, d])
+                    tmp += -0.5 * (x[i, d] - mu[k, d]) ** 2 / covar[
+                        k, d
+                    ] - 0.5 * np.log(covar[k, d])
                 ll[k] = tmp + log_w[k]
             else:
                 ll[k] = -np.inf

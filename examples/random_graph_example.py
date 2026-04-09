@@ -1,9 +1,11 @@
 """Example use for IntegerBernoulliSetDistribution for random graph generation."""
+
 import numpy as np
+
 from dmx.stats import *
 from dmx.utils.estimation import optimize
 
-if __name__ == '__main__':
+if __name__ == "__main__":
     p_mat = np.zeros((4, 4))
     p_mat[0, :] = [0.0, 0.8, 0.1, 0.8]
     p_mat[1, :] = [0.8, 0.0, 0.8, 0.1]

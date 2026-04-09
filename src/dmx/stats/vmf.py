@@ -17,18 +17,27 @@ where dot is a dot product and
 log(B_{p/2-1}(kappa)) = denotes the modified Bessel function of the first kind at order p/2-1.
 
 """
-from dmx.arithmetic import *
-from dmx.stats.pdist import SequenceEncodableProbabilityDistribution, SequenceEncodableStatisticAccumulator, \
-    ParameterEstimator, DistributionSampler, DataSequenceEncoder, StatisticAccumulatorFactory, EncodedDataSequence
-from numpy.random import RandomState
-import dmx.utils.vector as vec
+
+import sys
+from typing import Any, Dict, Optional, Sequence, Tuple, Union
+
 import numpy as np
 import scipy.linalg
 import scipy.special
+from numpy.random import RandomState
 from scipy.special import gammaln
-import sys
 
-from typing import Union, Sequence, Any, Optional, Dict, Tuple
+import dmx.utils.vector as vec
+from dmx.arithmetic import *
+from dmx.stats.pdist import (
+    DataSequenceEncoder,
+    DistributionSampler,
+    EncodedDataSequence,
+    ParameterEstimator,
+    SequenceEncodableProbabilityDistribution,
+    SequenceEncodableStatisticAccumulator,
+    StatisticAccumulatorFactory,
+)
 
 
 def lniv_z(v: float, ln_z: float) -> float:
@@ -61,10 +70,10 @@ def lniv_h(v: float, ln_z: float) -> float:
         num = np.log(4.0 * v * v - (2 * i + 1) ** 2)
         den = np.log((i + 1) * 8) + ln_z
         cc *= 1.0
-        pt += (num - den)
+        pt += num - den
         rv += cc * np.exp(pt)
     rv = np.log(rv)
-    rv += (np.exp(ln_z) - 0.5 * (np.log(2.0 * np.pi) + ln_z))
+    rv += np.exp(ln_z) - 0.5 * (np.log(2.0 * np.pi) + ln_z)
     return rv
 
 
@@ -91,6 +100,7 @@ def lniv(v: float, ln_z: float) -> float:
         rv = 0
     return rv
 
+
 class VonMisesFisherDistribution(SequenceEncodableProbabilityDistribution):
     """Represents a von Mises-Fisher distribution.
 
@@ -103,8 +113,13 @@ class VonMisesFisherDistribution(SequenceEncodableProbabilityDistribution):
         keys (Optional[str]): Optional keys for the distribution instance.
     """
 
-    def __init__(self, mu: Union[Sequence[float], np.ndarray], kappa: float, name: Optional[str] = None,
-                 keys: Optional[str] = None) -> None:
+    def __init__(
+        self,
+        mu: Union[Sequence[float], np.ndarray],
+        kappa: float,
+        name: Optional[str] = None,
+        keys: Optional[str] = None,
+    ) -> None:
         """
         Args:
             mu (Union[Sequence[float], np.ndarray]): Mean direction vector. Norm should be 1.0.
@@ -138,7 +153,7 @@ class VonMisesFisherDistribution(SequenceEncodableProbabilityDistribution):
         s2 = repr(self.kappa)
         s3 = repr(self.name)
         s4 = repr(self.keys)
-        return 'VonMisesFisherDistribution(%s, %s, name=%s, keys=%s)' % (s1, s2, s3, s4)
+        return "VonMisesFisherDistribution(%s, %s, name=%s, keys=%s)" % (s1, s2, s3, s4)
 
     def density(self, x: Union[Sequence[float], np.ndarray]) -> float:
         return exp(self.log_density(x))
@@ -147,23 +162,27 @@ class VonMisesFisherDistribution(SequenceEncodableProbabilityDistribution):
         z = np.asarray(x).copy()
         return np.dot(z, self.mu) * self.kappa + self.log_const
 
-    def seq_log_density(self, x: 'VonMisesFisherEncodedDataSequence') -> np.ndarray:
+    def seq_log_density(self, x: "VonMisesFisherEncodedDataSequence") -> np.ndarray:
 
         if not isinstance(x, VonMisesFisherEncodedDataSequence):
-            raise Exception('VonMisesFisherEncodedDataSequence required for seq_log_density().')
+            raise Exception(
+                "VonMisesFisherEncodedDataSequence required for seq_log_density()."
+            )
         return np.dot(x.data, self.mu) * self.kappa + self.log_const
 
-    def sampler(self, seed: Optional[int] = None) -> 'VonMisesFisherSampler':
+    def sampler(self, seed: Optional[int] = None) -> "VonMisesFisherSampler":
         return VonMisesFisherSampler(self, seed)
 
-    def estimator(self, pseudo_count: Optional[float] = None) -> 'VonMisesFisherEstimator':
+    def estimator(
+        self, pseudo_count: Optional[float] = None
+    ) -> "VonMisesFisherEstimator":
 
         if pseudo_count is None:
             return VonMisesFisherEstimator(dim=self.dim, name=self.name, keys=self.keys)
         else:
             return VonMisesFisherEstimator(dim=self.dim, name=self.name, keys=self.keys)
 
-    def dist_to_encoder(self) -> 'VonMisesFisherDataEncoder':
+    def dist_to_encoder(self) -> "VonMisesFisherDataEncoder":
         return VonMisesFisherDataEncoder()
 
 
@@ -174,7 +193,10 @@ class VonMisesFisherSampler(DistributionSampler):
         rng (RandomState): Random number generator.
         dist (VonMisesFisherDistribution): The vmf distribution instance.
     """
-    def __init__(self, dist: 'VonMisesFisherDistribution', seed: Optional[int] = None) -> None:
+
+    def __init__(
+        self, dist: "VonMisesFisherDistribution", seed: Optional[int] = None
+    ) -> None:
         """
         Args:
             dist (VonMisesFisherDistribution): The vmf distribution instance.
@@ -249,7 +271,12 @@ class VonMisesFisherAccumulator(SequenceEncodableStatisticAccumulator):
         name (Optional[str]): Name for the accumulator instance.
     """
 
-    def __init__(self, dim: Optional[int] = None, name: Optional[str] = None, keys: Optional[str] = None) -> None:
+    def __init__(
+        self,
+        dim: Optional[int] = None,
+        name: Optional[str] = None,
+        keys: Optional[str] = None,
+    ) -> None:
         """
         Args:
             dim (Optional[int]): Dimension of the data.
@@ -267,8 +294,12 @@ class VonMisesFisherAccumulator(SequenceEncodableStatisticAccumulator):
         self.key = keys
         self.name = name
 
-    def update(self, x: Union[Sequence[float], np.ndarray], weight: float,
-               estimate: Optional[VonMisesFisherDistribution]) -> None:
+    def update(
+        self,
+        x: Union[Sequence[float], np.ndarray],
+        weight: float,
+        estimate: Optional[VonMisesFisherDistribution],
+    ) -> None:
         if self.dim is None:
             self.dim = len(x)
             self.ssum = vec.zeros(self.dim)
@@ -276,10 +307,17 @@ class VonMisesFisherAccumulator(SequenceEncodableStatisticAccumulator):
         self.ssum += x * weight
         self.count += weight
 
-    def initialize(self, x: Union[Sequence[float], np.ndarray], weight: float, rng: RandomState) -> None:
+    def initialize(
+        self, x: Union[Sequence[float], np.ndarray], weight: float, rng: RandomState
+    ) -> None:
         self.update(x, weight, None)
 
-    def seq_update(self, x: 'VonMisesFisherEncodedDataSequence', weights: np.ndarray, estimate: Optional[VonMisesFisherDistribution]) -> None:
+    def seq_update(
+        self,
+        x: "VonMisesFisherEncodedDataSequence",
+        weights: np.ndarray,
+        estimate: Optional[VonMisesFisherDistribution],
+    ) -> None:
         if self.dim is None:
             self.dim = x.data.shape[1]
             self.ssum = vec.zeros(self.dim)
@@ -293,10 +331,17 @@ class VonMisesFisherAccumulator(SequenceEncodableStatisticAccumulator):
         self.count += weights.sum()
         self.ssum += x_weight.sum(axis=1)
 
-    def seq_initialize(self, x: 'VonMisesFisherEncodedDataSequence', weights: np.ndarray, rng: RandomState) -> None:
+    def seq_initialize(
+        self,
+        x: "VonMisesFisherEncodedDataSequence",
+        weights: np.ndarray,
+        rng: RandomState,
+    ) -> None:
         self.seq_update(x, weights, None)
 
-    def combine(self, suff_stat: Tuple[float, np.ndarray]) -> 'VonMisesFisherAccumulator':
+    def combine(
+        self, suff_stat: Tuple[float, np.ndarray]
+    ) -> "VonMisesFisherAccumulator":
 
         if suff_stat[1] is not None and self.ssum is not None:
             self.ssum += suff_stat[1]
@@ -311,7 +356,7 @@ class VonMisesFisherAccumulator(SequenceEncodableStatisticAccumulator):
     def value(self) -> Tuple[float, np.ndarray]:
         return self.count, self.ssum
 
-    def from_value(self, x: Tuple[float, np.ndarray]) -> 'VonMisesFisherAccumulator':
+    def from_value(self, x: Tuple[float, np.ndarray]) -> "VonMisesFisherAccumulator":
         self.ssum = x[1]
         self.count = x[0]
 
@@ -329,7 +374,7 @@ class VonMisesFisherAccumulator(SequenceEncodableStatisticAccumulator):
             if self.key in stats_dict:
                 self.from_value(stats_dict[self.key].value())
 
-    def acc_to_encoder(self) -> 'VonMisesFisherDataEncoder':
+    def acc_to_encoder(self) -> "VonMisesFisherDataEncoder":
         return VonMisesFisherDataEncoder()
 
 
@@ -358,7 +403,7 @@ class VonMisesFisherAccumulatorFactory(StatisticAccumulatorFactory):
         self.keys = keys
         self.name = name
 
-    def make(self) -> 'SequenceEncodableStatisticAccumulator':
+    def make(self) -> "SequenceEncodableStatisticAccumulator":
         """Creates a new VonMisesFisherAccumulator instance.
 
         Returns:
@@ -394,7 +439,9 @@ class VonMisesFisherEstimator(ParameterEstimator):
         if isinstance(keys, str) or keys is None:
             self.keys = keys
         else:
-            raise TypeError("VonMisesFisherEstimator requires keys to be of type 'str'.")
+            raise TypeError(
+                "VonMisesFisherEstimator requires keys to be of type 'str'."
+            )
 
         self.dim = dim
         self.pseudo_count = pseudo_count
@@ -407,11 +454,13 @@ class VonMisesFisherEstimator(ParameterEstimator):
         Returns:
             VonMisesFisherAccumulatorFactory: A factory instance.
         """
-        return VonMisesFisherAccumulatorFactory(dim=self.dim, name=self.name, keys=self.keys)
+        return VonMisesFisherAccumulatorFactory(
+            dim=self.dim, name=self.name, keys=self.keys
+        )
 
     def estimate(
         self, nobs: Optional[float], suff_stat: Tuple[float, np.ndarray]
-    ) -> 'VonMisesFisherDistribution':
+    ) -> "VonMisesFisherDistribution":
         """Estimates the parameters of the vmf distribution.
 
         Args:
@@ -439,7 +488,7 @@ class VonMisesFisherEstimator(ParameterEstimator):
             if rhat != 1.0:
                 k = rhat * (dim - (rhat * rhat)) / (1.0 - (rhat * rhat))
             else:
-                k = 1.1 * (dim - 1.1 ** 2) / (1.0 - (1.1 ** 2))
+                k = 1.1 * (dim - 1.1**2) / (1.0 - (1.1**2))
             for _ in range(3):  # Perform a fixed number of iterations
                 k = _newton(dim, rhat, k)
         else:
@@ -453,7 +502,7 @@ class VonMisesFisherDataEncoder(DataSequenceEncoder):
 
     def __str__(self) -> str:
         """String representation of the encoder."""
-        return 'VonMisesFisherDataEncoder'
+        return "VonMisesFisherDataEncoder"
 
     def __eq__(self, other) -> bool:
         """Checks equality between encoders.
@@ -466,7 +515,9 @@ class VonMisesFisherDataEncoder(DataSequenceEncoder):
         """
         return isinstance(other, VonMisesFisherDataEncoder)
 
-    def seq_encode(self, x: Union[Sequence[float], np.ndarray]) -> 'VonMisesFisherEncodedDataSequence':
+    def seq_encode(
+        self, x: Union[Sequence[float], np.ndarray]
+    ) -> "VonMisesFisherEncodedDataSequence":
         """Encodes a sequence of data.
 
         Args:
@@ -495,4 +546,4 @@ class VonMisesFisherEncodedDataSequence(EncodedDataSequence):
 
     def __repr__(self) -> str:
         """String representation of the encoded data sequence."""
-        return f'VonMisesFisherEncodedDataSequence(data={self.data})'
+        return f"VonMisesFisherEncodedDataSequence(data={self.data})"

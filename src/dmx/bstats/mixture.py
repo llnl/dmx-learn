@@ -1,21 +1,28 @@
-from typing import TypeVar, Optional, Generic, List, Mapping
+from typing import Generic, List, Mapping, Optional, TypeVar
 
-from dmx.arithmetic import *
-from dmx.bstats.pdist import ProbabilityDistribution, StatisticAccumulator, ParameterEstimator
+import numpy as np
 from numpy.random import RandomState
+from scipy.special import digamma, gammaln
+
+import dmx.utils.vector as vec
+from dmx.arithmetic import *
 from dmx.bstats.composite import CompositeDistribution
 from dmx.bstats.dirichlet import DirichletDistribution
+from dmx.bstats.pdist import (
+    ParameterEstimator,
+    ProbabilityDistribution,
+    StatisticAccumulator,
+)
 from dmx.bstats.symdirichlet import SymmetricDirichletDistribution
-import numpy as np
-import dmx.utils.vector as vec
-from scipy.special import gammaln, digamma
-
 
 default_prior = SymmetricDirichletDistribution(1)
 
+
 class MixtureDistribution(ProbabilityDistribution):
 
-    def __init__(self, components, w, name=None, prior: Optional[ProbabilityDistribution] = None):
+    def __init__(
+        self, components, w, name=None, prior: Optional[ProbabilityDistribution] = None
+    ):
         self.set_name(name)
 
         if prior is None:
@@ -24,63 +31,89 @@ class MixtureDistribution(ProbabilityDistribution):
         self.components = components
         self.num_components = len(components)
         self.w = np.asarray(w)
-        self.zw = (self.w == 0.0)
-        self.log_w = np.log(w+self.zw)
+        self.zw = self.w == 0.0
+        self.log_w = np.log(w + self.zw)
         self.log_w[self.zw] = -np.inf
         self.prior = prior
 
-        #self.parents = []
-        #for d in self.components:
+        # self.parents = []
+        # for d in self.components:
         #    d.add_parent(self)
 
         if isinstance(self.prior, DirichletDistribution):
             self.conj_prior_params = self.prior.get_parameters()
-            self.expected_nparams  = digamma(self.conj_prior_params) - digamma(np.sum(self.conj_prior_params))
+            self.expected_nparams = digamma(self.conj_prior_params) - digamma(
+                np.sum(self.conj_prior_params)
+            )
         elif isinstance(self.prior, SymmetricDirichletDistribution):
-            self.conj_prior_params = np.ones(self.num_components)*self.prior.get_parameters()
-            self.expected_nparams = digamma(self.conj_prior_params) - digamma(np.sum(self.conj_prior_params))
+            self.conj_prior_params = (
+                np.ones(self.num_components) * self.prior.get_parameters()
+            )
+            self.expected_nparams = digamma(self.conj_prior_params) - digamma(
+                np.sum(self.conj_prior_params)
+            )
         else:
             self.conj_prior_params = None
-            self.expected_nparams  = None
+            self.expected_nparams = None
 
     def __str__(self):
-        return 'MixtureDistribution([%s], [%s], name=%s, prior=%s)' % (','.join([str(u) for u in self.components]), ','.join(map(str, self.w)), str(self.name), str(self.prior))
+        return "MixtureDistribution([%s], [%s], name=%s, prior=%s)" % (
+            ",".join([str(u) for u in self.components]),
+            ",".join(map(str, self.w)),
+            str(self.name),
+            str(self.prior),
+        )
 
     def get_prior(self):
-        return CompositeDistribution((self.prior, CompositeDistribution([d.get_prior() for d in self.components])))
+        return CompositeDistribution(
+            (
+                self.prior,
+                CompositeDistribution([d.get_prior() for d in self.components]),
+            )
+        )
 
     def set_prior(self, prior):
         self.prior = prior.dists[0]
-        for d,p in zip(self.components, prior.dists[1].dists):
+        for d, p in zip(self.components, prior.dists[1].dists):
             d.set_prior(p)
 
         if isinstance(self.prior, DirichletDistribution):
             self.conj_prior_params = self.prior.get_parameters()
-            self.expected_nparams  =  digamma(self.conj_prior_params) - digamma(np.sum(self.conj_prior_params))
+            self.expected_nparams = digamma(self.conj_prior_params) - digamma(
+                np.sum(self.conj_prior_params)
+            )
         elif isinstance(self.prior, SymmetricDirichletDistribution):
-            self.conj_prior_params = np.ones(self.num_components)*self.prior.get_parameters()
-            self.expected_nparams = digamma(self.conj_prior_params) - digamma(np.sum(self.conj_prior_params))
+            self.conj_prior_params = (
+                np.ones(self.num_components) * self.prior.get_parameters()
+            )
+            self.expected_nparams = digamma(self.conj_prior_params) - digamma(
+                np.sum(self.conj_prior_params)
+            )
         else:
             self.conj_prior_params = None
-            self.expected_nparams  = None
+            self.expected_nparams = None
 
     def get_parameters(self):
         return self.w, [u.get_parameters() for u in self.components]
 
     def set_parameters(self, params):
         self.w = params[0]
-        for d,p in zip(self.components, params[1]):
+        for d, p in zip(self.components, params[1]):
             d.set_parameters(p)
 
     def density(self, x):
         return exp(self.log_density(x))
 
     def log_density(self, x):
-        return vec.log_sum(np.asarray([u.log_density(x) for u in self.components]) + self.log_w)
+        return vec.log_sum(
+            np.asarray([u.log_density(x) for u in self.components]) + self.log_w
+        )
 
     def expected_log_density(self, x):
         cc = self.expected_nparams
-        return vec.log_sum(np.asarray([u.expected_log_density(x) for u in self.components]) + cc)
+        return vec.log_sum(
+            np.asarray([u.expected_log_density(x) for u in self.components]) + cc
+        )
 
     def seq_expected_log_density(self, x):
         cc = self.expected_nparams
@@ -104,11 +137,12 @@ class MixtureDistribution(ProbabilityDistribution):
             comp_log_density /= comp_log_density.sum()
             return comp_log_density
 
-
     def seq_log_density(self, x):
 
-        ll_mat = np.asarray([u.seq_log_density(x) for u in self.components]).T + self.log_w
-        ll_max  = ll_mat.max(axis=1, keepdims=True)
+        ll_mat = (
+            np.asarray([u.seq_log_density(x) for u in self.components]).T + self.log_w
+        )
+        ll_max = ll_mat.max(axis=1, keepdims=True)
 
         good_rows = np.isfinite(ll_max.flatten())
 
@@ -137,23 +171,24 @@ class MixtureDistribution(ProbabilityDistribution):
 
             return rv
 
-
     def seq_component_log_density(self, x):
         ll_mat = np.asarray([u.seq_log_density(x) for u in self.components]).T
         return ll_mat
 
     def seq_posterior(self, x):
 
-        ll_mat = np.asarray([u.seq_log_density(x) for u in self.components]).T + self.log_w
+        ll_mat = (
+            np.asarray([u.seq_log_density(x) for u in self.components]).T + self.log_w
+        )
         ll_max = ll_mat.max(axis=1, keepdims=True)
 
         bad_rows = np.isinf(ll_max.flatten())
 
-        #if np.any(bad_rows):
-        #	print('bad')
+        # if np.any(bad_rows):
+        # 	print('bad')
 
         ll_mat[bad_rows, :] = self.log_w
-        ll_max[bad_rows]    = np.max(self.log_w)
+        ll_max[bad_rows] = np.max(self.log_w)
 
         ll_mat -= ll_max
 
@@ -170,7 +205,9 @@ class MixtureDistribution(ProbabilityDistribution):
         return MixtureSampler(self, seed)
 
     def estimator(self):
-        return MixtureEstimator([u.estimator() for u in self.components], name=self.name, prior=self.prior)
+        return MixtureEstimator(
+            [u.estimator() for u in self.components], name=self.name, prior=self.prior
+        )
 
 
 class MixtureSampler(object):
@@ -181,16 +218,20 @@ class MixtureSampler(object):
 
         self.rng = RandomState(rng_loc.randint(maxint))
         self.dist = dist
-        self.compSamplers = [d.sampler(seed=rng_loc.randint(maxint)) for d in self.dist.components]
+        self.compSamplers = [
+            d.sampler(seed=rng_loc.randint(maxint)) for d in self.dist.components
+        ]
 
     def sample(self, size=None):
 
-        compState = self.rng.choice(range(0, self.dist.num_components), size=size, replace=True, p=self.dist.w)
+        compState = self.rng.choice(
+            range(0, self.dist.num_components), size=size, replace=True, p=self.dist.w
+        )
 
         if size is None:
-                return self.compSamplers[compState].sample()
+            return self.compSamplers[compState].sample()
         else:
-                return [self.compSamplers[i].sample() for i in compState]
+            return [self.compSamplers[i].sample() for i in compState]
 
 
 class MixtureEstimatorAccumulator(StatisticAccumulator):
@@ -204,7 +245,9 @@ class MixtureEstimatorAccumulator(StatisticAccumulator):
 
     def update(self, x, weight, estimate):
 
-        likelihood = np.asarray([estimate.components[i].log_density(x) for i in range(self.num_components)])
+        likelihood = np.asarray(
+            [estimate.components[i].log_density(x) for i in range(self.num_components)]
+        )
         likelihood += estimate.log_w
         max_likelihood = likelihood.max()
         likelihood -= max_likelihood
@@ -216,7 +259,9 @@ class MixtureEstimatorAccumulator(StatisticAccumulator):
         self.comp_counts += likelihood * weight
 
         for i in range(self.num_components):
-            self.accumulators[i].update(x, likelihood[i] * weight, estimate.components[i])
+            self.accumulators[i].update(
+                x, likelihood[i] * weight, estimate.components[i]
+            )
 
     def initialize(self, x, weight, rng):
 
@@ -224,27 +269,30 @@ class MixtureEstimatorAccumulator(StatisticAccumulator):
             for i in range(self.num_components):
                 self.accumulators[i].initialize(x, 0, rng)
         else:
-            wc  = rng.dirichlet(np.ones(self.num_components))
+            wc = rng.dirichlet(np.ones(self.num_components))
             for i in range(self.num_components):
-                w = weight*wc[i]
+                w = weight * wc[i]
                 self.accumulators[i].initialize(x, w, rng)
                 self.comp_counts[i] += w
 
     def seq_update(self, x, weights, estimate):
 
-        ll_mat = np.asarray([u.seq_log_density(x) for u in estimate.components]).T + estimate.log_w
+        ll_mat = (
+            np.asarray([u.seq_log_density(x) for u in estimate.components]).T
+            + estimate.log_w
+        )
         ll_max = ll_mat.max(axis=1, keepdims=True)
 
         bad_rows = np.isinf(ll_max.flatten())
 
-        #if np.any(bad_rows):
-        #	print('bad')
+        # if np.any(bad_rows):
+        # 	print('bad')
 
         ll_mat[bad_rows, :] = estimate.log_w
-        ll_max[bad_rows]    = np.max(estimate.log_w)
+        ll_max[bad_rows] = np.max(estimate.log_w)
 
-        #ll_mat[bad_rows, :] = -np.log(self.num_components)
-        #ll_max[bad_rows]    = -np.log(self.num_components)
+        # ll_mat[bad_rows, :] = -np.log(self.num_components)
+        # ll_max[bad_rows]    = -np.log(self.num_components)
 
         ll_mat -= ll_max
         np.exp(ll_mat, out=ll_mat)
@@ -254,12 +302,9 @@ class MixtureEstimatorAccumulator(StatisticAccumulator):
         ttt = 1
 
         for i in range(self.num_components):
-            w_loc = ll_mat[:, i]*weights
+            w_loc = ll_mat[:, i] * weights
             self.comp_counts[i] += w_loc.sum()
             self.accumulators[i].seq_update(x, w_loc, estimate.components[i])
-
-
-
 
     def combine(self, suff_stat):
 
@@ -311,6 +356,7 @@ class MixtureEstimatorAccumulator(StatisticAccumulator):
         for u in self.accumulators:
             u.key_replace(stats_dict)
 
+
 class MixtureEstimatorAccumulatorFactory(object):
     def __init__(self, factories, dim, keys):
         self.factories = factories
@@ -318,12 +364,21 @@ class MixtureEstimatorAccumulatorFactory(object):
         self.keys = keys
 
     def make(self):
-        return MixtureEstimatorAccumulator([self.factories[i].make() for i in range(self.dim)], self.keys)
+        return MixtureEstimatorAccumulator(
+            [self.factories[i].make() for i in range(self.dim)], self.keys
+        )
 
 
 class MixtureEstimator(ParameterEstimator):
 
-    def __init__(self, estimators, fixed_w=None, name=None, prior=default_prior, keys=(None, None)):
+    def __init__(
+        self,
+        estimators,
+        fixed_w=None,
+        name=None,
+        prior=default_prior,
+        keys=(None, None),
+    ):
 
         self.num_components = len(estimators)
         self.estimators = estimators
@@ -334,22 +389,31 @@ class MixtureEstimator(ParameterEstimator):
 
     def accumulator_factory(self):
         est_factories = [u.accumulator_factory() for u in self.estimators]
-        return MixtureEstimatorAccumulatorFactory(est_factories, self.num_components, self.keys)
+        return MixtureEstimatorAccumulatorFactory(
+            est_factories, self.num_components, self.keys
+        )
 
     def get_prior(self):
-        return CompositeDistribution((self.prior, CompositeDistribution([d.get_prior() for d in self.estimators], name=self.keys[1])))
+        return CompositeDistribution(
+            (
+                self.prior,
+                CompositeDistribution(
+                    [d.get_prior() for d in self.estimators], name=self.keys[1]
+                ),
+            )
+        )
 
     def set_prior(self, prior):
         self.prior = prior.dists[0]
-        for d,p in zip(self.estimators, prior.dists[1].dists):
+        for d, p in zip(self.estimators, prior.dists[1].dists):
             d.set_prior(p)
 
     def model_log_density(self, model: MixtureDistribution) -> float:
-        #rv = 0.0
-        #if self.keys[0] is not None and self.keys not in given:
+        # rv = 0.0
+        # if self.keys[0] is not None and self.keys not in given:
         #    rv += self.prior.log_density(model.w)
         #    given.add(self.keys[0])
-        #else
+        # else
         return self.get_prior().log_density(model.get_parameters())
 
     def estimate(self, suff_stat):
@@ -357,25 +421,31 @@ class MixtureEstimator(ParameterEstimator):
         num_components = self.num_components
         counts, comp_suff_stats = suff_stat
 
-        components = [self.estimators[i].estimate(comp_suff_stats[i]) for i in range(num_components)]
+        components = [
+            self.estimators[i].estimate(comp_suff_stats[i])
+            for i in range(num_components)
+        ]
 
         if self.fixed_w is not None:
             return MixtureDistribution(components, self.fixed_w)
 
+        if isinstance(
+            self.prior, (DirichletDistribution, SymmetricDirichletDistribution)
+        ):
 
-        if isinstance(self.prior, (DirichletDistribution, SymmetricDirichletDistribution)):
+            cpp = np.add(counts, self.prior.get_parameters()) - 1.0
+            w = cpp / (cpp.sum())
 
-            cpp = np.add(counts, self.prior.get_parameters())-1.0
-            w   = cpp/(cpp.sum())
-
-            return MixtureDistribution(components, w, name=self.name, prior=DirichletDistribution(cpp+1))
+            return MixtureDistribution(
+                components, w, name=self.name, prior=DirichletDistribution(cpp + 1)
+            )
 
         else:
 
             nobs_loc = counts.sum()
 
             if nobs_loc == 0:
-                w = np.ones(num_components)/float(num_components)
+                w = np.ones(num_components) / float(num_components)
             else:
                 w = counts / counts.sum()
 

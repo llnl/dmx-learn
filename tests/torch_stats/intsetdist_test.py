@@ -1,8 +1,9 @@
 """Tests for IntegerBernoulliSetDistribution and related torch_stats classes."""
-import torch
+
 import numpy as np
 import pytest
-from tests.torch_stats.torch_stats_tests import *
+import torch
+
 from dmx.torch_stats import *
 from dmx.torch_stats.intsetdist import (
     IntegerBernoulliSetAccumulator,
@@ -10,6 +11,7 @@ from dmx.torch_stats.intsetdist import (
     IntegerBernoulliSetDataEncoder,
     IntegerBernoulliSetTorchSequence,
 )
+from tests.torch_stats.torch_stats_tests import *
 
 
 class IntegerBernoulliSetDistributionTestCase(TorchStatsTestClass):
@@ -45,12 +47,16 @@ class IntegerBernoulliSetDistributionTestCase(TorchStatsTestClass):
     def test_encoder_type(self):
         """dist_to_encoder() must return an IntegerBernoulliSetDataEncoder."""
         for dist in self._dists:
-            self.assertIsInstance(dist.dist_to_encoder(), IntegerBernoulliSetDataEncoder)
+            self.assertIsInstance(
+                dist.dist_to_encoder(), IntegerBernoulliSetDataEncoder
+            )
 
     def test_accumulator_type(self):
         """factory.make() must return an IntegerBernoulliSetAccumulator."""
         for f in self._factories:
-            self.assertIsInstance(f.make(device=self.device), IntegerBernoulliSetAccumulator)
+            self.assertIsInstance(
+                f.make(device=self.device), IntegerBernoulliSetAccumulator
+            )
 
     def test_sampler_returns_sets(self):
         """Each sample must be a set-like collection of non-negative integers."""

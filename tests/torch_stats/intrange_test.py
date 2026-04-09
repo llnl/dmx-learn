@@ -1,8 +1,9 @@
 """Tests for IntegerCategoricalDistribution and related torch_stats classes."""
-import torch
+
 import numpy as np
 import pytest
-from tests.torch_stats.torch_stats_tests import *
+import torch
+
 from dmx.torch_stats import *
 from dmx.torch_stats.intrange import (
     IntegerCategoricalAccumulator,
@@ -10,6 +11,7 @@ from dmx.torch_stats.intrange import (
     IntegerCategoricalDataEncoder,
     IntegerCategoricalTorchSequence,
 )
+from tests.torch_stats.torch_stats_tests import *
 
 
 class IntegerCategoricalDistributionTestCase(TorchStatsTestClass):
@@ -50,7 +52,9 @@ class IntegerCategoricalDistributionTestCase(TorchStatsTestClass):
     def test_accumulator_type(self):
         """factory.make() must return an IntegerCategoricalAccumulator."""
         for f in self._factories:
-            self.assertIsInstance(f.make(device=self.device), IntegerCategoricalAccumulator)
+            self.assertIsInstance(
+                f.make(device=self.device), IntegerCategoricalAccumulator
+            )
 
     def test_sampler_range(self):
         """Samples must be within [min_val, min_val + len(p_vec) - 1]."""
@@ -58,8 +62,10 @@ class IntegerCategoricalDistributionTestCase(TorchStatsTestClass):
             data = dist.sampler(seed=1).sample(size=500)
             min_v = dist.min_val
             max_v = min_v + len(dist.p_vec) - 1
-            self.assertTrue(all(min_v <= x <= max_v for x in data),
-                            f"Sample out of [{min_v}, {max_v}]")
+            self.assertTrue(
+                all(min_v <= x <= max_v for x in data),
+                f"Sample out of [{min_v}, {max_v}]",
+            )
 
     def test_prob_approx(self):
         """Empirical frequencies should approximate the probability vector."""

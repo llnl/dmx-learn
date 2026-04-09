@@ -1,11 +1,15 @@
 """Defines the log-pseudo-determinant, polgamma, trigamma, and digamma inverse functions."""
-from typing import Union, Optional, List, Iterable
-from scipy.special import digamma, zeta, gamma, gammaln, betaln, beta
-import numpy as np
+
 import math
+from typing import Iterable, List, Optional, Union
+
+import numpy as np
+from scipy.special import beta, betaln, digamma, gamma, gammaln, zeta
+
 from dmx.arithmetic import *
 
 D1 = digamma(1.0)
+
 
 def logpdet(x_mat: np.ndarray) -> float:
     """Computes the log-pseudo-determinant for a symmetric dense matrix.
@@ -27,9 +31,7 @@ def logpdet(x_mat: np.ndarray) -> float:
 
 
 def polygamma_loc(
-    n: int,
-    y: float,
-    out: Optional[np.ndarray] = None
+    n: int, y: float, out: Optional[np.ndarray] = None
 ) -> Union[np.ndarray, float]:
     """
     Computes the localized polygamma function.
@@ -55,11 +57,13 @@ def polygamma_loc(
     else:
         fac2 = (-1.0) ** (n + 1) * gamma(n + 1.0) * zeta(n + 1, y)
 
-    return fac2
+    return fac2  # type: ignore[no-any-return]
 
 
-def trigamma(y: Union[np.ndarray, int, float, Iterable, List[float]], out: Optional[np.ndarray] = None) \
-        -> Union[np.ndarray, float]:
+def trigamma(
+    y: Union[np.ndarray, int, float, Iterable, List[float]],
+    out: Optional[np.ndarray] = None,
+) -> Union[np.ndarray, float]:
     """Trigamma function.
 
     Args:
@@ -70,9 +74,12 @@ def trigamma(y: Union[np.ndarray, int, float, Iterable, List[float]], out: Optio
         Numpy array of trigamma function evaluated at y.
 
     """
-    return zeta(2, y, out=out)
+    return zeta(2, y, out=out)  # type: ignore[no-any-return]
 
-def digammainv(y: Union[np.ndarray, float], out: Optional[np.ndarray] = None) -> Union[np.ndarray, float]:
+
+def digammainv(
+    y: Union[np.ndarray, float], out: Optional[np.ndarray] = None
+) -> Union[np.ndarray, float]:
     """Inverse digamma function evaluated on y.
 
     Args:
@@ -90,7 +97,7 @@ def digammainv(y: Union[np.ndarray, float], out: Optional[np.ndarray] = None) ->
 
         Q = np.isfinite(y)
         z = y[Q]
-        M = (z >= -2.22)
+        M = z >= -2.22
         x = M * (exp(z) + 0.5) + (1.0 - M) * (-1.0 / (z - D1))
 
         t1 = np.zeros(x.shape, dtype=float)
@@ -108,16 +115,16 @@ def digammainv(y: Union[np.ndarray, float], out: Optional[np.ndarray] = None) ->
         x = rv
 
     else:
-        m = (y >= -2.22)
+        m = y >= -2.22
         x = m * (exp(y) + 0.5) + (1.0 - m) * (-1.0 / (y - D1))
 
-        x -= ((digamma(x) - y) / trigamma(x))
-        x -= ((digamma(x) - y) / trigamma(x))
-        x -= ((digamma(x) - y) / trigamma(x))
-        x -= ((digamma(x) - y) / trigamma(x))
-        x -= ((digamma(x) - y) / trigamma(x))
+        x -= (digamma(x) - y) / trigamma(x)
+        x -= (digamma(x) - y) / trigamma(x)
+        x -= (digamma(x) - y) / trigamma(x)
+        x -= (digamma(x) - y) / trigamma(x)
+        x -= (digamma(x) - y) / trigamma(x)
 
-    return x
+    return x  # type: ignore[no-any-return]
 
 
 def stirling2(n: int, k: int) -> int:

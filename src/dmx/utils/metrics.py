@@ -1,11 +1,19 @@
 """Functions for classification evaluation. Create ROC curves and search depth rankings. """
-from typing import Sequence, TypeVar, Optional, List, Tuple, Union, Any, Callable
+
+from typing import Any, Callable, List, Optional, Sequence, Tuple, TypeVar, Union
+
 import numpy as np
+
 from dmx.stats.pdist import SequenceEncodableProbabilityDistribution
 
-T = TypeVar('T')
+T = TypeVar("T")
 
-def classify(data: Sequence[T], model: SequenceEncodableProbabilityDistribution, labels: Optional[List[T]] = None):
+
+def classify(
+    data: Sequence[T],
+    model: SequenceEncodableProbabilityDistribution,
+    labels: Optional[List[T]] = None,
+):
     """Classification of sequence of iid observation from model predictions. Labels may be provided.
 
     Returns
@@ -30,7 +38,9 @@ def classify(data: Sequence[T], model: SequenceEncodableProbabilityDistribution,
     u_labels, true_labels = np.unique(data_labels, return_inverse=True)
 
     other_labs = sorted(set(labels).difference(list(u_labels)))
-    u_label_map = dict(zip(list(u_labels) + other_labs, range(len(u_labels) + len(other_labs))))
+    u_label_map = dict(
+        zip(list(u_labels) + other_labs, range(len(u_labels) + len(other_labs)))
+    )
 
     for label in labels:
         idx = u_label_map[label]
@@ -51,8 +61,9 @@ def classify(data: Sequence[T], model: SequenceEncodableProbabilityDistribution,
     return class_rank, class_prob, data_labels, class_ll
 
 
-def roc_curve(pos_x: Union[List[float], np.ndarray], neg_x:  Union[List[float], np.ndarray]) \
-        -> Tuple[np.ndarray, np.ndarray]:
+def roc_curve(
+    pos_x: Union[List[float], np.ndarray], neg_x: Union[List[float], np.ndarray]
+) -> Tuple[np.ndarray, np.ndarray]:
     """Create ROC curve.
 
     Args:
@@ -63,25 +74,29 @@ def roc_curve(pos_x: Union[List[float], np.ndarray], neg_x:  Union[List[float], 
         (total positive rate, 1 - false positive rate)
 
     """
-    res = np.zeros((len(pos_x)+len(neg_x), 2))
-    res[:len(pos_x), 0] = np.asarray(pos_x)
-    res[:len(pos_x), 1] = 1
-    res[len(pos_x):, 0] = np.asarray(neg_x)
-    res[len(pos_x):, 1] = 0
+    res = np.zeros((len(pos_x) + len(neg_x), 2))
+    res[: len(pos_x), 0] = np.asarray(pos_x)
+    res[: len(pos_x), 1] = 1
+    res[len(pos_x) :, 0] = np.asarray(neg_x)
+    res[len(pos_x) :, 1] = 0
 
     sidx = np.argsort(-res[:, 0])
     res = res[sidx, :]
 
     pd = np.cumsum(res[:, 1])
-    fa = np.cumsum(1-res[:, 1])
+    fa = np.cumsum(1 - res[:, 1])
 
     pd /= float(len(pos_x))
     fa /= float(len(neg_x))
 
     return pd, fa
 
-def roc_percentiles(pos_x: Union[List[float], np.ndarray], neg_x:  Union[List[float], np.ndarray],
-                    perc_points: Union[List[float], np.ndarray]) -> np.ndarray:
+
+def roc_percentiles(
+    pos_x: Union[List[float], np.ndarray],
+    neg_x: Union[List[float], np.ndarray],
+    perc_points: Union[List[float], np.ndarray],
+) -> np.ndarray:
     """
     Computes the ROC (Receiver Operating Characteristic) curve percentiles.
 
@@ -102,7 +117,7 @@ def roc_percentiles(pos_x: Union[List[float], np.ndarray], neg_x:  Union[List[fl
 
     for i in range(len(perc_points)):
 
-        points = (pd <= perc_points[i])
+        points = pd <= perc_points[i]
 
         if np.sum(points) == 0:
             continue
@@ -113,10 +128,11 @@ def roc_percentiles(pos_x: Union[List[float], np.ndarray], neg_x:  Union[List[fl
 
     return np.asarray(rv)
 
+
 def ranking_depth(
     x: List[Tuple[Any, List[Tuple[Any, float]]]],
     k: Optional[int] = None,
-    comp_func: Callable[[Any, Any], bool] = lambda a, b: a == b
+    comp_func: Callable[[Any, Any], bool] = lambda a, b: a == b,
 ) -> Union[np.ndarray, List[np.ndarray]]:
     """
     Computes the ranking depth for a set of entries based on a comparison function.
@@ -169,5 +185,3 @@ def ranking_depth(
         idx += 1
 
     return retval
-
-

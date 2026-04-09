@@ -1,12 +1,19 @@
-from typing import Dict, Optional, Tuple, Sequence, TypeVar
-from dmx.arithmetic import maxint
-from dmx.bstats.pdist import ProbabilityDistribution, SequenceEncodableAccumulator, \
-    ParameterEstimator, EncodedDataSequence, DataSequenceEncoder
-from dmx.bstats.nulldist import NullDataEncoder, NullDistribution
-from numpy.random import RandomState
+from typing import Dict, Optional, Sequence, Tuple, TypeVar
+
 import numpy as np
-from dmx.bstats.nulldist import null_dist
-T1, T0 = TypeVar('T1'), TypeVar('T0')
+from numpy.random import RandomState
+
+from dmx.arithmetic import maxint
+from dmx.bstats.nulldist import NullDataEncoder, NullDistribution, null_dist
+from dmx.bstats.pdist import (
+    DataSequenceEncoder,
+    EncodedDataSequence,
+    ParameterEstimator,
+    ProbabilityDistribution,
+    SequenceEncodableAccumulator,
+)
+
+T1, T0 = TypeVar("T1"), TypeVar("T0")
 
 
 class ConditionalDistribution(ProbabilityDistribution):
@@ -19,8 +26,10 @@ class ConditionalDistribution(ProbabilityDistribution):
         self.pass_value = pass_value
 
     def __str__(self):
-        return 'ConditionalDistribution(%s, default_dist=%s)' % (
-        str({k: str(v) for k, v in self.dmap.items()}), str(self.default_dist))
+        return "ConditionalDistribution(%s, default_dist=%s)" % (
+            str({k: str(v) for k, v in self.dmap.items()}),
+            str(self.default_dist),
+        )
 
     def log_density(self, x):
         if self.pass_value:
@@ -36,11 +45,15 @@ class ConditionalDistribution(ProbabilityDistribution):
 
         if self.has_default:
             for i in range(len(cond_vals)):
-                rv[idx_vals[i]] = self.dmap.get(cond_vals[i], self.default_dist).seq_log_density(eobs_vals[i])
+                rv[idx_vals[i]] = self.dmap.get(
+                    cond_vals[i], self.default_dist
+                ).seq_log_density(eobs_vals[i])
         else:
             for i in range(len(cond_vals)):
                 if cond_vals[i] in self.dmap:
-                    rv[idx_vals[i]] = self.dmap[cond_vals[i]].seq_log_density(eobs_vals[i])
+                    rv[idx_vals[i]] = self.dmap[cond_vals[i]].seq_log_density(
+                        eobs_vals[i]
+                    )
                 else:
                     rv[idx_vals[i]] = -np.inf
 
@@ -63,7 +76,12 @@ class ConditionalDistribution(ProbabilityDistribution):
         cond_enc = list(cond_enc.items())
 
         cond_vals = tuple([u[0] for u in cond_enc])
-        eobs_vals = tuple([self.dmap.get(u[0], self.default_dist).seq_encode(u[1][0]) for u in cond_enc])
+        eobs_vals = tuple(
+            [
+                self.dmap.get(u[0], self.default_dist).seq_encode(u[1][0])
+                for u in cond_enc
+            ]
+        )
         idx_vals = tuple([np.asarray(u[1][1]) for u in cond_enc])
 
         return len(x), cond_vals, idx_vals, eobs_vals
@@ -74,15 +92,14 @@ class ConditionalDistribution(ProbabilityDistribution):
     def estimator(self, pseudo_count=None):
         pass
 
-    def dist_to_encoder(self) -> 'ConditionalDataEncoder':
+    def dist_to_encoder(self) -> "ConditionalDataEncoder":
         e0 = {k: v.dist_to_encoder() for k, v in self.dmap.items()}
         e1 = self.cond_dist.dist_to_encoder()
         e2 = self.default_dist.dist_to_encoder()
 
         return ConditionalDataEncoder(
-                encoder_map=e0,
-                given_encoder=e1,
-                default_encoder=e2)
+            encoder_map=e0, given_encoder=e1, default_encoder=e2
+        )
 
 
 class ConditionalDistributionSampler(object):
@@ -119,11 +136,14 @@ class ConditionalDistributionEstimatorAccumulator(SequenceEncodableAccumulator):
 
         for i in range(len(cond_vals)):
             if cond_vals[i] in self.accumulator_map:
-                self.accumulator_map[cond_vals[i]].seq_update(eobs_vals[i], weights[idx_vals[i]],
-                                                              estimate.dmap[cond_vals[i]])
+                self.accumulator_map[cond_vals[i]].seq_update(
+                    eobs_vals[i], weights[idx_vals[i]], estimate.dmap[cond_vals[i]]
+                )
             else:
                 if self.default_accumulator is not None:
-                    self.default_accumulator.seq_update(eobs_vals[i], weights[idx_vals[i]], estimate.default_dist)
+                    self.default_accumulator.seq_update(
+                        eobs_vals[i], weights[idx_vals[i]], estimate.default_dist
+                    )
 
     def combine(self, suff_stat):
 
@@ -139,7 +159,11 @@ class ConditionalDistributionEstimatorAccumulator(SequenceEncodableAccumulator):
         return self
 
     def value(self):
-        rv2 = None if self.default_accumulator is None else self.default_accumulator.value()
+        rv2 = (
+            None
+            if self.default_accumulator is None
+            else self.default_accumulator.value()
+        )
         rv1 = {k: v.value() for k, v in self.accumulator_map.items()}
         return rv1, rv2
 
@@ -160,15 +184,14 @@ class ConditionalDistributionEstimatorAccumulator(SequenceEncodableAccumulator):
         for k, v in self.accumulator_map.items():
             v.key_replace(stats_dict)
 
-    def acc_to_encoder(self) -> 'ConditionalDataEncoder':
+    def acc_to_encoder(self) -> "ConditionalDataEncoder":
         e0 = {k: v.acc_to_encoder() for k, v in self.accumulator_map.items()}
         e1 = NullDataEncoder()
         e2 = self.default_accumulator.acc_to_encoder()
 
         return ConditionalDataEncoder(
-                encoder_map=e0,
-                given_encoder=e1,
-                default_encoder=e2)
+            encoder_map=e0, given_encoder=e1, default_encoder=e2
+        )
 
 
 class ConditionalDistributionEstimator(ParameterEstimator):
@@ -180,14 +203,25 @@ class ConditionalDistributionEstimator(ParameterEstimator):
     def accumulator_factory(self):
         emap_items = self.estimator_map.items()
 
-        obj = type('', (object,), {'make': lambda o: ConditionalDistributionEstimatorAccumulator(
-            {k: v.accumulator_factory().make() for k, v in emap_items},
-            None if self.default_estimator is None else self.default_estimator.accumulator_factory().make(),
-            self.keys)})()
+        obj = type(
+            "",
+            (object,),
+            {
+                "make": lambda o: ConditionalDistributionEstimatorAccumulator(
+                    {k: v.accumulator_factory().make() for k, v in emap_items},
+                    (
+                        None
+                        if self.default_estimator is None
+                        else self.default_estimator.accumulator_factory().make()
+                    ),
+                    self.keys,
+                )
+            },
+        )()
         # def makeL():
-        #	return(CompositeEstimatorAccumulator([x.accumulatorFactory().make() for x in self.estimators]))
+        # 	return(CompositeEstimatorAccumulator([x.accumulatorFactory().make() for x in self.estimators]))
         # obj = AccumulatorFactory(makeL)
-        return (obj)
+        return obj
 
     def estimate(self, suff_stat):
 
@@ -196,16 +230,20 @@ class ConditionalDistributionEstimator(ParameterEstimator):
         else:
             default_dist = None
 
-        dist_map = {k: self.estimator_map[k].estimate(v) for k, v in suff_stat[0].items()}
+        dist_map = {
+            k: self.estimator_map[k].estimate(v) for k, v in suff_stat[0].items()
+        }
 
         return ConditionalDistribution(dist_map, default_dist)
 
 
 class ConditionalDataEncoder(DataSequenceEncoder):
-    def __init__(self,
-                 encoder_map: Dict[T0, DataSequenceEncoder],
-                 given_encoder: DataSequenceEncoder,
-                 default_encoder: DataSequenceEncoder):
+    def __init__(
+        self,
+        encoder_map: Dict[T0, DataSequenceEncoder],
+        given_encoder: DataSequenceEncoder,
+        default_encoder: DataSequenceEncoder,
+    ):
         self.encoder_map = encoder_map
         self.default_encoder = default_encoder
         self.given_encoder = given_encoder
@@ -232,24 +270,24 @@ class ConditionalDataEncoder(DataSequenceEncoder):
     def __str__(self) -> str:
 
         encoder_items = list(self.encoder_map.items())
-        encoder_str = 'ConditionalDataEncoder('
+        encoder_str = "ConditionalDataEncoder("
         for k, v in encoder_items[:-1]:
-            encoder_str += str(k) + ':' + str(v) + ','
-        encoder_str += str(encoder_items[-1][0]) + ':' + str(encoder_items[-1][1])
+            encoder_str += str(k) + ":" + str(v) + ","
+        encoder_str += str(encoder_items[-1][0]) + ":" + str(encoder_items[-1][1])
 
         if not self.null_default_encoder:
-            encoder_str += ',default=' + str(self.default_encoder)
+            encoder_str += ",default=" + str(self.default_encoder)
         else:
-            encoder_str += ',default=None'
+            encoder_str += ",default=None"
 
         if not self.null_given_encoder:
-            encoder_str += ',given=' + str(self.given_encoder)
+            encoder_str += ",given=" + str(self.given_encoder)
         else:
-            encoder_str += ',given=None)'
+            encoder_str += ",given=None)"
 
         return encoder_str
 
-    def seq_encode(self, x: Sequence[Tuple[T0, T1]]) -> 'ConditionalEncodedData':
+    def seq_encode(self, x: Sequence[Tuple[T0, T1]]) -> "ConditionalEncodedData":
         cond_enc = dict()
         given_vals = []
 
@@ -274,18 +312,30 @@ class ConditionalDataEncoder(DataSequenceEncoder):
                 if u[0] in self.encoder_map:
                     eobs_vals.append(self.encoder_map[u[0]].seq_encode(u[1][0]))
             else:
-                eobs_vals.append(self.encoder_map.get(u[0], self.default_encoder).seq_encode(u[1][0]))
+                eobs_vals.append(
+                    self.encoder_map.get(u[0], self.default_encoder).seq_encode(u[1][0])
+                )
 
             idx_vals.append(np.asarray(u[1][1]))
 
         given_enc = self.given_encoder.seq_encode(given_vals)
 
-        return ConditionalEncodedData(data=(len(x), cond_vals, tuple(eobs_vals), tuple(idx_vals), given_enc))
+        return ConditionalEncodedData(
+            data=(len(x), cond_vals, tuple(eobs_vals), tuple(idx_vals), given_enc)
+        )
 
 
 class ConditionalEncodedData(EncodedDataSequence):
-    def __init__(self, data: Tuple[
-        int, Tuple[T0, ...], Tuple[EncodedDataSequence], Tuple[np.ndarray], Optional[EncodedDataSequence]]):
+    def __init__(
+        self,
+        data: Tuple[
+            int,
+            Tuple[T0, ...],
+            Tuple[EncodedDataSequence],
+            Tuple[np.ndarray],
+            Optional[EncodedDataSequence],
+        ],
+    ):
         """ConditionalEncodedDataSequence object.
 
         Args:
@@ -295,4 +345,4 @@ class ConditionalEncodedData(EncodedDataSequence):
         super().__init__(data=data)
 
     def __repr__(self) -> str:
-        return f'ConditionalEncodedDataSequence(data={self.data})'
+        return f"ConditionalEncodedDataSequence(data={self.data})"

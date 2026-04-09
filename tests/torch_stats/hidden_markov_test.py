@@ -1,9 +1,11 @@
 """Tests for HiddenMarkovModelDistribution and related torch_stats classes."""
-import torch
+
+from typing import List, cast
+
 import numpy as np
 import pytest
-from typing import cast, List
-from tests.torch_stats.torch_stats_tests import *
+import torch
+
 from dmx.torch_stats import *
 from dmx.torch_stats.hmm import (
     HiddenMarkovAccumulator,
@@ -11,6 +13,7 @@ from dmx.torch_stats.hmm import (
     HiddenMarkovDataEncoder,
     HiddenMarkovTorchSequence,
 )
+from tests.torch_stats.torch_stats_tests import *
 
 
 class HiddenMarkovModelDistributionTestCase(TorchStatsTestClass):
@@ -80,8 +83,9 @@ class HiddenMarkovModelDistributionTestCase(TorchStatsTestClass):
         """Each sample must be a list/sequence of observations."""
         data = self._dist1.sampler(seed=1).sample(size=20)
         for seq in data:
-            self.assertIsInstance(seq, (list, np.ndarray),
-                                  f"Expected sequence, got {type(seq)}")
+            self.assertIsInstance(
+                seq, (list, np.ndarray), f"Expected sequence, got {type(seq)}"
+            )
 
     def test_log_density_finite(self):
         """log_density must return finite values for sampled observations."""
@@ -109,8 +113,9 @@ class HiddenMarkovModelDistributionTestCase(TorchStatsTestClass):
         for seq in data:
             seq_list = cast(List[float], seq)
             states = self._dist1.viterbi(seq_list)
-            self.assertEqual(len(states), len(seq_list),
-                             "Viterbi state sequence length mismatch")
+            self.assertEqual(
+                len(states), len(seq_list), "Viterbi state sequence length mismatch"
+            )
 
     def test_seq_initialize_with_empty_sequences(self):
         """seq_initialize must handle batches containing empty sequences."""

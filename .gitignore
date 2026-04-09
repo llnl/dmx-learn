@@ -10,6 +10,10 @@ generate_notebook_data/
 # C extensions
 *.so
 
+# Documentation builds
+docs/_build
+docs/_static
+
 # Distribution / packaging
 .idea
 .Python

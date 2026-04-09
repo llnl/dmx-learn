@@ -6,19 +6,21 @@ and the BinomialDataEncoder classes for use with dmx-learn.
 Data type: int.
 """
 
+from typing import Any, Dict, List, Optional, Sequence, Tuple, Union
+
 import numpy as np
 from numpy.random import RandomState
-from dmx.utils.vector import gammaln
+
 from dmx.stats.pdist import (
-    SequenceEncodableProbabilityDistribution,
-    ParameterEstimator,
-    DistributionSampler,
-    StatisticAccumulatorFactory,
-    SequenceEncodableStatisticAccumulator,
     DataSequenceEncoder,
+    DistributionSampler,
     EncodedDataSequence,
+    ParameterEstimator,
+    SequenceEncodableProbabilityDistribution,
+    SequenceEncodableStatisticAccumulator,
+    StatisticAccumulatorFactory,
 )
-from typing import Optional, Dict, List, Union, Tuple, Any, Sequence
+from dmx.utils.vector import gammaln
 
 E = Tuple[np.ndarray, np.ndarray, np.ndarray, int, int]
 
@@ -57,11 +59,11 @@ class BinomialDistribution(SequenceEncodableProbabilityDistribution):
             Exception: If p is not in (0, 1) or n is not positive.
         """
         if p <= 0.0 or p >= 1.0 or np.isnan(p):
-            raise Exception('Binomial distribution requires p in [0,1]')
+            raise Exception("Binomial distribution requires p in [0,1]")
         self.p = p
 
         if n < 0 or np.isinf(n) or np.isnan(n):
-            raise Exception('Binomial distribution requires n > 0.')
+            raise Exception("Binomial distribution requires n > 0.")
         self.n = n
 
         self.log_p = np.log(p)
@@ -73,8 +75,8 @@ class BinomialDistribution(SequenceEncodableProbabilityDistribution):
     def __str__(self) -> str:
         """Return string representation of BinomialDistribution."""
         return (
-            f'BinomialDistribution(p={self.p!r}, n={self.n!r}, min_val={self.min_val!r}, '
-            f'name={self.name!r}, keys={self.keys!r})'
+            f"BinomialDistribution(p={self.p!r}, n={self.n!r}, min_val={self.min_val!r}, "
+            f"name={self.name!r}, keys={self.keys!r})"
         )
 
     def density(self, x: int) -> float:
@@ -111,7 +113,7 @@ class BinomialDistribution(SequenceEncodableProbabilityDistribution):
             + self.log_p * xx
         )
 
-    def seq_log_density(self, x: 'BinomialEncodedDataSequence') -> np.ndarray:
+    def seq_log_density(self, x: "BinomialEncodedDataSequence") -> np.ndarray:
         """Vectorized log-density for encoded data.
 
         Args:
@@ -121,7 +123,9 @@ class BinomialDistribution(SequenceEncodableProbabilityDistribution):
             np.ndarray: Log-density values.
         """
         if not isinstance(x, BinomialEncodedDataSequence):
-            raise Exception('BinomialDistribution.seq_log_density() requires BinomialEncodedDataSequence.')
+            raise Exception(
+                "BinomialDistribution.seq_log_density() requires BinomialEncodedDataSequence."
+            )
 
         ux, ix, _, _, _ = x.data
         n = self.n
@@ -141,7 +145,7 @@ class BinomialDistribution(SequenceEncodableProbabilityDistribution):
         )
         return cc[ix]
 
-    def sampler(self, seed: Optional[int] = None) -> 'BinomialSampler':
+    def sampler(self, seed: Optional[int] = None) -> "BinomialSampler":
         """Return a BinomialSampler for this distribution.
 
         Args:
@@ -152,7 +156,7 @@ class BinomialDistribution(SequenceEncodableProbabilityDistribution):
         """
         return BinomialSampler(self, seed)
 
-    def estimator(self, pseudo_count: Optional[float] = None) -> 'BinomialEstimator':
+    def estimator(self, pseudo_count: Optional[float] = None) -> "BinomialEstimator":
         """Create a BinomialEstimator for this distribution.
 
         Args:
@@ -173,7 +177,7 @@ class BinomialDistribution(SequenceEncodableProbabilityDistribution):
                 keys=self.keys,
             )
 
-    def dist_to_encoder(self) -> 'BinomialDataEncoder':
+    def dist_to_encoder(self) -> "BinomialDataEncoder":
         """Return a BinomialDataEncoder."""
         return BinomialDataEncoder()
 
@@ -254,7 +258,7 @@ class BinomialAccumulator(SequenceEncodableStatisticAccumulator):
         self.min_val: Optional[int] = min_val
 
     def update(
-        self, x: int, weight: float, estimate: Optional['BinomialDistribution']
+        self, x: int, weight: float, estimate: Optional["BinomialDistribution"]
     ) -> None:
         """Update accumulator with a new observation.
 
@@ -276,9 +280,7 @@ class BinomialAccumulator(SequenceEncodableStatisticAccumulator):
         else:
             self.max_val = max(self.max_val, x)
 
-    def initialize(
-        self, x: int, weight: float, rng: Optional[RandomState]
-    ) -> None:
+    def initialize(self, x: int, weight: float, rng: Optional[RandomState]) -> None:
         """Initialize accumulator with a new observation.
 
         Args:
@@ -290,9 +292,9 @@ class BinomialAccumulator(SequenceEncodableStatisticAccumulator):
 
     def seq_update(
         self,
-        x: 'BinomialEncodedDataSequence',
+        x: "BinomialEncodedDataSequence",
         weights: np.ndarray,
-        estimate: Optional['BinomialDistribution'],
+        estimate: Optional["BinomialDistribution"],
     ) -> None:
         """Vectorized update for encoded data.
 
@@ -318,7 +320,7 @@ class BinomialAccumulator(SequenceEncodableStatisticAccumulator):
 
     def seq_initialize(
         self,
-        x: 'BinomialEncodedDataSequence',
+        x: "BinomialEncodedDataSequence",
         weights: np.ndarray,
         rng: Optional[RandomState],
     ) -> None:
@@ -333,7 +335,7 @@ class BinomialAccumulator(SequenceEncodableStatisticAccumulator):
 
     def combine(
         self, suff_stat: Tuple[float, float, Optional[int], Optional[int]]
-    ) -> 'BinomialAccumulator':
+    ) -> "BinomialAccumulator":
         """Combine another accumulator's sufficient statistics into this one.
 
         Args:
@@ -367,7 +369,7 @@ class BinomialAccumulator(SequenceEncodableStatisticAccumulator):
 
     def from_value(
         self, x: Tuple[float, float, Optional[int], Optional[int]]
-    ) -> 'BinomialAccumulator':
+    ) -> "BinomialAccumulator":
         """Set the sufficient statistics from a tuple.
 
         Args:
@@ -404,7 +406,7 @@ class BinomialAccumulator(SequenceEncodableStatisticAccumulator):
             if self.key in stats_dict:
                 self.from_value(stats_dict[self.key].value())
 
-    def acc_to_encoder(self) -> 'BinomialDataEncoder':
+    def acc_to_encoder(self) -> "BinomialDataEncoder":
         """Return a BinomialDataEncoder."""
         return BinomialDataEncoder()
 
@@ -495,10 +497,14 @@ class BinomialEstimator(ParameterEstimator):
 
     def accumulator_factory(self) -> BinomialAccumulatorFactory:
         """Return a BinomialAccumulatorFactory."""
-        return BinomialAccumulatorFactory(self.max_val, self.min_val, self.name, self.keys)
+        return BinomialAccumulatorFactory(
+            self.max_val, self.min_val, self.name, self.keys
+        )
 
     def estimate(
-        self, nobs: Optional[float], suff_stat: Tuple[float, float, Optional[int], Optional[int]]
+        self,
+        nobs: Optional[float],
+        suff_stat: Tuple[float, float, Optional[int], Optional[int]],
     ) -> BinomialDistribution:
         """Estimate a BinomialDistribution from sufficient statistics.
 
@@ -549,7 +555,7 @@ class BinomialDataEncoder(DataSequenceEncoder):
 
     def __str__(self) -> str:
         """Return string representation."""
-        return 'BinomialDataEncoder'
+        return "BinomialDataEncoder"
 
     def __eq__(self, other: object) -> bool:
         """Check equality with another encoder.
@@ -562,7 +568,7 @@ class BinomialDataEncoder(DataSequenceEncoder):
         """
         return isinstance(other, BinomialDataEncoder)
 
-    def seq_encode(self, x: Sequence[int]) -> 'BinomialEncodedDataSequence':
+    def seq_encode(self, x: Sequence[int]) -> "BinomialEncodedDataSequence":
         """Encode a sequence of integers for vectorized operations.
 
         Args:
@@ -577,7 +583,9 @@ class BinomialDataEncoder(DataSequenceEncoder):
         xx = np.array(x)
 
         if np.any(xx < 0) or np.any(np.isnan(xx)):
-            raise Exception('BinomialDistribution requires non-negative integer values for x.')
+            raise Exception(
+                "BinomialDistribution requires non-negative integer values for x."
+            )
 
         xx = np.asarray(x, dtype=np.int32)
         ux, ix = np.unique(xx, return_inverse=True)
@@ -594,7 +602,9 @@ class BinomialEncodedDataSequence(EncodedDataSequence):
         data (Tuple[np.ndarray, np.ndarray, np.ndarray, int, int]): Unique values, inverse mapping, original values, min, max.
     """
 
-    def __init__(self, data: Tuple[np.ndarray, np.ndarray, np.ndarray, int, int]) -> None:
+    def __init__(
+        self, data: Tuple[np.ndarray, np.ndarray, np.ndarray, int, int]
+    ) -> None:
         """Initialize BinomialEncodedDataSequence.
 
         Args:
@@ -604,5 +614,4 @@ class BinomialEncodedDataSequence(EncodedDataSequence):
 
     def __repr__(self) -> str:
         """Return string representation."""
-        return f'BinomialEncodedDataSequence(data={self.data})'
-
+        return f"BinomialEncodedDataSequence(data={self.data})"

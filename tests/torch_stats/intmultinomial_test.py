@@ -1,8 +1,9 @@
 """Tests for IntegerMultinomialDistribution and related torch_stats classes."""
-import torch
+
 import numpy as np
 import pytest
-from tests.torch_stats.torch_stats_tests import *
+import torch
+
 from dmx.torch_stats import *
 from dmx.torch_stats.intmultinomial import (
     IntegerMultinomialAccumulator,
@@ -10,6 +11,7 @@ from dmx.torch_stats.intmultinomial import (
     IntegerMultinomialDataEncoder,
     IntegerMultinomialTorchSequence,
 )
+from tests.torch_stats.torch_stats_tests import *
 
 
 class IntegerMultinomialDistributionTestCase(TorchStatsTestClass):
@@ -62,7 +64,9 @@ class IntegerMultinomialDistributionTestCase(TorchStatsTestClass):
     def test_accumulator_type(self):
         """factory.make() must return an IntegerMultinomialAccumulator."""
         for f in self._factories:
-            self.assertIsInstance(f.make(device=self.device), IntegerMultinomialAccumulator)
+            self.assertIsInstance(
+                f.make(device=self.device), IntegerMultinomialAccumulator
+            )
 
     def test_sampler_element_range(self):
         """Each (value, count) pair in samples must have value in [min_val, max_val]."""
@@ -72,8 +76,10 @@ class IntegerMultinomialDistributionTestCase(TorchStatsTestClass):
             max_v = min_v + len(dist.p_vec) - 1
             for bag in data:
                 for val, cnt in bag:
-                    self.assertGreaterEqual(val, min_v,
-                                            f"Value {val} below min_val={min_v}")
-                    self.assertLessEqual(val, max_v,
-                                         f"Value {val} above max_val={max_v}")
+                    self.assertGreaterEqual(
+                        val, min_v, f"Value {val} below min_val={min_v}"
+                    )
+                    self.assertLessEqual(
+                        val, max_v, f"Value {val} above max_val={max_v}"
+                    )
                     self.assertGreater(cnt, 0, "Count must be positive")

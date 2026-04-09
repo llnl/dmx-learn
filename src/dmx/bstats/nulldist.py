@@ -1,7 +1,14 @@
-from typing import Optional, Any
-from dmx.bstats.pdist import StatisticAccumulator, ParameterEstimator, ProbabilityDistribution
-from dmx.bstats.pdist import EncodedDataSequence, DataSequenceEncoder
+from typing import Any, Optional
+
 import numpy as np
+
+from dmx.bstats.pdist import (
+    DataSequenceEncoder,
+    EncodedDataSequence,
+    ParameterEstimator,
+    ProbabilityDistribution,
+    StatisticAccumulator,
+)
 
 
 class NullDistribution(ProbabilityDistribution[Any, None, None]):
@@ -11,7 +18,7 @@ class NullDistribution(ProbabilityDistribution[Any, None, None]):
         pass
 
     def __str__(self):
-        return 'NullDistribution()'
+        return "NullDistribution()"
 
     def get_prior(self):
         return self
@@ -58,7 +65,7 @@ class NullDistribution(ProbabilityDistribution[Any, None, None]):
     def estimator(self):
         return NullEstimator()
 
-    def dist_to_encoder(self) -> 'NullDataEncoder':
+    def dist_to_encoder(self) -> "NullDataEncoder":
         return NullDataEncoder()
 
 
@@ -109,7 +116,7 @@ class NullAccumulator(StatisticAccumulator):
     def key_replace(self, stats_dict):
         pass
 
-    def acc_to_encoder(self) -> 'NullDataEncoder':
+    def acc_to_encoder(self) -> "NullDataEncoder":
         return NullDataEncoder()
 
 
@@ -119,7 +126,7 @@ class NullEstimator(ParameterEstimator):
         pass
 
     def accumulator_factory(self):
-        obj = type('', (object,), {'make': lambda o: NullAccumulator()})()
+        obj = type("", (object,), {"make": lambda o: NullAccumulator()})()
         return obj
 
     def get_prior(self):
@@ -134,12 +141,12 @@ class NullEstimator(ParameterEstimator):
 
 class NullDataEncoder(DataSequenceEncoder):
     def __str__(self) -> str:
-        return 'NullDataEncoder'
+        return "NullDataEncoder"
 
     def __eq__(self, other: object) -> bool:
         return isinstance(other, NullDataEncoder)
 
-    def seq_encode(self, x: Any) -> 'NullEncodedData':
+    def seq_encode(self, x: Any) -> "NullEncodedData":
         return NullEncodedData(data=None)
 
 
@@ -148,7 +155,7 @@ class NullEncodedData(EncodedDataSequence):
         self.data = None
 
     def __repr__(self) -> str:
-        return 'NullEncodedData'
+        return "NullEncodedData"
 
 
 null_estimator = NullEstimator()

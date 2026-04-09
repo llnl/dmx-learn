@@ -1,8 +1,9 @@
 """Tests for GaussianDistribution and related torch_stats classes."""
-import torch
+
 import numpy as np
 import pytest
-from tests.torch_stats.torch_stats_tests import *
+import torch
+
 from dmx.torch_stats import *
 from dmx.torch_stats.gaussian import (
     GaussianAccumulator,
@@ -10,6 +11,7 @@ from dmx.torch_stats.gaussian import (
     GaussianDataEncoder,
     GaussianTorchEncodedSequence,
 )
+from tests.torch_stats.torch_stats_tests import *
 
 
 class GaussianDistributionTestCase(TorchStatsTestClass):

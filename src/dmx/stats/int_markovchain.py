@@ -20,19 +20,32 @@ for the initial distribution. If the sequence length is less than the lag, i.e. 
 Note: P_len() should be compatible with non-negative integers. P_init() must be compatible with sequences of ints.
 
 """
+
+from typing import Any, Dict, List, Optional, Sequence, Tuple, TypeVar, Union
+
 import numpy as np
 from numpy.random import RandomState
+
 from dmx.arithmetic import maxrandint
-from dmx.stats.pdist import SequenceEncodableProbabilityDistribution, SequenceEncodableStatisticAccumulator, \
-    ParameterEstimator, DataSequenceEncoder, DistributionSampler, StatisticAccumulatorFactory, EncodedDataSequence
+from dmx.stats.null_dist import (
+    NullAccumulator,
+    NullAccumulatorFactory,
+    NullDataEncoder,
+    NullDistribution,
+    NullEstimator,
+)
+from dmx.stats.pdist import (
+    DataSequenceEncoder,
+    DistributionSampler,
+    EncodedDataSequence,
+    ParameterEstimator,
+    SequenceEncodableProbabilityDistribution,
+    SequenceEncodableStatisticAccumulator,
+    StatisticAccumulatorFactory,
+)
 
-from dmx.stats.null_dist import NullDistribution, NullAccumulator, NullEstimator, NullDataEncoder, \
-    NullAccumulatorFactory
-from typing import Union, List, Sequence, Any, Optional, TypeVar, Tuple, Dict
-
-
-SS1 = TypeVar('SS1') ## suff stat of init
-SS2 = TypeVar('SS2') ## suff-stat of length
+SS1 = TypeVar("SS1")  ## suff stat of init
+SS2 = TypeVar("SS2")  ## suff-stat of length
 
 
 class IntegerMarkovChainDistribution(SequenceEncodableProbabilityDistribution):
@@ -53,11 +66,20 @@ class IntegerMarkovChainDistribution(SequenceEncodableProbabilityDistribution):
 
     """
 
-    def __init__(self, num_values: int, cond_dist: Union[List[List[float]], np.ndarray],
-                 lag: int = 1, init_dist: Optional[SequenceEncodableProbabilityDistribution] = NullDistribution(),
-                 len_dist: Optional[SequenceEncodableProbabilityDistribution] = NullDistribution(),
-                 keys: Optional[str] = None,
-                 name: Optional[str] = None) -> None:
+    def __init__(
+        self,
+        num_values: int,
+        cond_dist: Union[List[List[float]], np.ndarray],
+        lag: int = 1,
+        init_dist: Optional[
+            SequenceEncodableProbabilityDistribution
+        ] = NullDistribution(),
+        len_dist: Optional[
+            SequenceEncodableProbabilityDistribution
+        ] = NullDistribution(),
+        keys: Optional[str] = None,
+        name: Optional[str] = None,
+    ) -> None:
         """IntegerMarkovChainDistribution object.
 
 
@@ -93,8 +115,10 @@ class IntegerMarkovChainDistribution(SequenceEncodableProbabilityDistribution):
         s6 = repr(self.name)
         s7 = repr(self.keys)
 
-        return 'IntegerMarkovChainDistribution(%s, %s, lag=%s, init_dist=%s, len_dist=%s, name=%s, keys=%s)' % (
-        s1, s2, s3, s4, s5, s6, s7)
+        return (
+            "IntegerMarkovChainDistribution(%s, %s, lag=%s, init_dist=%s, len_dist=%s, name=%s, keys=%s)"
+            % (s1, s2, s3, s4, s5, s6, s7)
+        )
 
     def density(self, x: Sequence[int]) -> float:
         """Density of integer Markov chain evaluated at x.
@@ -140,18 +164,21 @@ class IntegerMarkovChainDistribution(SequenceEncodableProbabilityDistribution):
             rv += self.init_dist.log_density(x[:lag])
 
             for i in range(len(x) - lag):
-                idx = np.ravel_multi_index(x[i:(i + lag)], m_shape)
+                idx = np.ravel_multi_index(x[i : (i + lag)], m_shape)
                 rv += np.log(self.cond_dist[idx, x[i + lag]])
 
         rv += self.len_dist.log_density(len(x))
 
         return rv
 
-    def seq_log_density(self, x: 'IntegerMarkovChainEncodedDataSequence') -> np.ndarray:
+    def seq_log_density(self, x: "IntegerMarkovChainEncodedDataSequence") -> np.ndarray:
 
         seq_len, init_idx, seq_idx, u_seq_idx, u_seq_values, init_enc, len_enc = x.data
 
-        left_idx = [np.ravel_multi_index(u[0], [self.num_values] * self.lag) for u in u_seq_values]
+        left_idx = [
+            np.ravel_multi_index(u[0], [self.num_values] * self.lag)
+            for u in u_seq_values
+        ]
         right_idx = np.asarray([u[1] for u in u_seq_values])
         temp_prob = np.log(self.cond_dist[left_idx, right_idx])
         temp_prob = temp_prob[u_seq_idx]
@@ -166,21 +193,29 @@ class IntegerMarkovChainDistribution(SequenceEncodableProbabilityDistribution):
 
         return rv
 
-    def sampler(self, seed: Optional[int] = None) -> 'IntegerMarkovChainSampler':
+    def sampler(self, seed: Optional[int] = None) -> "IntegerMarkovChainSampler":
         return IntegerMarkovChainSampler(self, seed)
 
     def estimator(self, pseudo_count: Optional[float] = None):
         init_est = self.init_dist.estimator()
         len_est = self.len_dist.estimator()
 
-        return IntegerMarkovChainEstimator(num_values=self.num_values, lag=self.lag, init_estimator=init_est,
-                                           len_estimator=len_est, pseudo_count=pseudo_count, name=self.name,
-                                           keys=self.keys)
+        return IntegerMarkovChainEstimator(
+            num_values=self.num_values,
+            lag=self.lag,
+            init_estimator=init_est,
+            len_estimator=len_est,
+            pseudo_count=pseudo_count,
+            name=self.name,
+            keys=self.keys,
+        )
 
-    def dist_to_encoder(self) -> 'IntegerMarkovChainDataEncoder':
+    def dist_to_encoder(self) -> "IntegerMarkovChainDataEncoder":
         len_encoder = self.len_dist.dist_to_encoder()
         init_encoder = self.init_dist.dist_to_encoder()
-        return IntegerMarkovChainDataEncoder(lag=self.lag, len_encoder=len_encoder, init_encoder=init_encoder)
+        return IntegerMarkovChainDataEncoder(
+            lag=self.lag, len_encoder=len_encoder, init_encoder=init_encoder
+        )
 
 
 class IntegerMarkovChainSampler(DistributionSampler):
@@ -193,7 +228,9 @@ class IntegerMarkovChainSampler(DistributionSampler):
 
     """
 
-    def __init__(self, dist: IntegerMarkovChainDistribution, seed: Optional[int]) -> None:
+    def __init__(
+        self, dist: IntegerMarkovChainDistribution, seed: Optional[int]
+    ) -> None:
         """IntegerMarkovChainSampler object.
 
         Args:
@@ -209,12 +246,16 @@ class IntegerMarkovChainSampler(DistributionSampler):
         self.trans_sampler = np.random.RandomState(seeds[0])
 
         if isinstance(self.dist.init_dist, NullDistribution):
-            raise Exception('IntegerMarkovChainSampler requires init_dist for IntegerMarkovDistribution.')
+            raise Exception(
+                "IntegerMarkovChainSampler requires init_dist for IntegerMarkovDistribution."
+            )
         else:
             self.init_sampler = dist.init_dist.sampler(seeds[1])
 
         if isinstance(dist.len_dist, NullDistribution):
-            raise Exception('IntegerMarkovChainSampler requires len_dist for IntegerMarkovDistribution.')
+            raise Exception(
+                "IntegerMarkovChainSampler requires len_dist for IntegerMarkovDistribution."
+            )
         else:
             self.len_sampler = dist.len_dist.sampler(seeds[2])
 
@@ -226,15 +267,19 @@ class IntegerMarkovChainSampler(DistributionSampler):
         m_shape = [n_val] * lag
 
         if cnt >= lag:
-            rv = self.init_sampler.sample() ## must return a list
+            rv = self.init_sampler.sample()  ## must return a list
             for i in range(lag, cnt):
                 idx = np.ravel_multi_index(rv[-lag:], m_shape)
-                rv.append(self.trans_sampler.choice(n_val, p=self.dist.cond_dist[idx, :]))
+                rv.append(
+                    self.trans_sampler.choice(n_val, p=self.dist.cond_dist[idx, :])
+                )
             return rv
         else:
             return []
 
-    def sample(self, size: Optional[int] = None) -> Union[List[Sequence[int]], Sequence[int]]:
+    def sample(
+        self, size: Optional[int] = None
+    ) -> Union[List[Sequence[int]], Sequence[int]]:
         """Draw iid samples from an integer Markov chain distribution.
 
         Args:
@@ -288,9 +333,18 @@ class IntegerMarkovChainAccumulator(SequenceEncodableStatisticAccumulator):
 
     """
 
-    def __init__(self, lag: int, init_accumulator: Optional[SequenceEncodableStatisticAccumulator] = NullAccumulator(),
-                 len_accumulator: Optional[SequenceEncodableStatisticAccumulator] = NullAccumulator(),
-                 keys: Optional[str] = None, name: Optional[str] = None) -> None:
+    def __init__(
+        self,
+        lag: int,
+        init_accumulator: Optional[
+            SequenceEncodableStatisticAccumulator
+        ] = NullAccumulator(),
+        len_accumulator: Optional[
+            SequenceEncodableStatisticAccumulator
+        ] = NullAccumulator(),
+        keys: Optional[str] = None,
+        name: Optional[str] = None,
+    ) -> None:
         """IntegerMarkovChainAccumulator object.
 
         Args:
@@ -305,8 +359,12 @@ class IntegerMarkovChainAccumulator(SequenceEncodableStatisticAccumulator):
         """
         self.lag = lag
         self.trans_count_map = dict()
-        self.len_accumulator = len_accumulator if len_accumulator is not None else NullAccumulator()
-        self.init_accumulator = init_accumulator if init_accumulator is not None else NullAccumulator()
+        self.len_accumulator = (
+            len_accumulator if len_accumulator is not None else NullAccumulator()
+        )
+        self.init_accumulator = (
+            init_accumulator if init_accumulator is not None else NullAccumulator()
+        )
         self.max_value = -1
         self.keys = keys
 
@@ -314,17 +372,27 @@ class IntegerMarkovChainAccumulator(SequenceEncodableStatisticAccumulator):
         self._len_rng = None
         self._init_rng = False
 
-    def update(self, x: Sequence[int], weight: float, estimate: Optional[IntegerMarkovChainDistribution]) -> None:
+    def update(
+        self,
+        x: Sequence[int],
+        weight: float,
+        estimate: Optional[IntegerMarkovChainDistribution],
+    ) -> None:
 
         lag = self.lag
-        self.len_accumulator.update(max(len(x) - lag + 1, 0), weight,
-                                    estimate.len_dist if estimate is not None else None)
+        self.len_accumulator.update(
+            max(len(x) - lag + 1, 0),
+            weight,
+            estimate.len_dist if estimate is not None else None,
+        )
 
         if len(x) >= lag:
-            self.init_accumulator.update(x[:lag], weight, estimate.init_dist if estimate is not None else None)
+            self.init_accumulator.update(
+                x[:lag], weight, estimate.init_dist if estimate is not None else None
+            )
 
         for i in range(len(x) - lag):
-            entry = (tuple(x[i:(i + lag)]), x[i + lag])
+            entry = (tuple(x[i : (i + lag)]), x[i + lag])
             self.trans_count_map[entry] = self.trans_count_map.get(entry, 0) + weight
 
     def _rng_initialize(self, rng: RandomState) -> None:
@@ -346,12 +414,15 @@ class IntegerMarkovChainAccumulator(SequenceEncodableStatisticAccumulator):
             self.init_accumulator.initialize(x[:lag], weight, self._acc_rng)
 
         for i in range(len(x) - lag):
-            entry = (tuple(x[i:(i + lag)]), x[i + lag])
+            entry = (tuple(x[i : (i + lag)]), x[i + lag])
             self.trans_count_map[entry] = self.trans_count_map.get(entry, 0) + weight
 
-    def seq_update(self, x: 'IntegerMarkovChainEncodedDataSequence',
-                   weights: np.ndarray,
-                   estimate: Optional[IntegerMarkovChainDistribution]) -> None:
+    def seq_update(
+        self,
+        x: "IntegerMarkovChainEncodedDataSequence",
+        weights: np.ndarray,
+        estimate: Optional[IntegerMarkovChainDistribution],
+    ) -> None:
 
         seq_len, init_idx, seq_idx, u_seq_idx, u_seq_values, init_enc, len_enc = x.data
 
@@ -363,12 +434,22 @@ class IntegerMarkovChainAccumulator(SequenceEncodableStatisticAccumulator):
             for k, v in zip(u_seq_values, seq_cnt):
                 self.trans_count_map[k] = self.trans_count_map.get(k, 0) + v
 
-        self.init_accumulator.seq_update(init_enc, weights[init_idx],
-                                         estimate.init_dist if estimate is not None else None)
+        self.init_accumulator.seq_update(
+            init_enc,
+            weights[init_idx],
+            estimate.init_dist if estimate is not None else None,
+        )
 
-        self.len_accumulator.seq_update(len_enc, weights, estimate.len_dist if estimate is not None else None)
+        self.len_accumulator.seq_update(
+            len_enc, weights, estimate.len_dist if estimate is not None else None
+        )
 
-    def seq_initialize(self, x: 'IntegerMarkovChainEncodedDataSequence', weights: np.ndarray, rng: RandomState) -> None:
+    def seq_initialize(
+        self,
+        x: "IntegerMarkovChainEncodedDataSequence",
+        weights: np.ndarray,
+        rng: RandomState,
+    ) -> None:
 
         if not self._init_rng:
             self._rng_initialize(rng)
@@ -386,8 +467,12 @@ class IntegerMarkovChainAccumulator(SequenceEncodableStatisticAccumulator):
         self.init_accumulator.seq_initialize(init_enc, weights[init_idx], self._acc_rng)
         self.len_accumulator.seq_initialize(len_enc, weights, self._len_rng)
 
-    def combine(self, suff_stat: Tuple[Dict[Tuple[Tuple[int, ...], int], float], Optional[SS1], Optional[SS2]]) \
-            -> 'IntegerMarkovChainAccumulator':
+    def combine(
+        self,
+        suff_stat: Tuple[
+            Dict[Tuple[Tuple[int, ...], int], float], Optional[SS1], Optional[SS2]
+        ],
+    ) -> "IntegerMarkovChainAccumulator":
         for k, v in suff_stat[0].items():
             self.trans_count_map[k] = self.trans_count_map.get(k, 0) + v
 
@@ -399,11 +484,21 @@ class IntegerMarkovChainAccumulator(SequenceEncodableStatisticAccumulator):
 
         return self
 
-    def value(self) -> Tuple[Dict[Tuple[Tuple[int, ...], int], float], Optional[Any], Optional[Any]]:
-        return self.trans_count_map, self.init_accumulator.value(), self.len_accumulator.value()
+    def value(
+        self,
+    ) -> Tuple[Dict[Tuple[Tuple[int, ...], int], float], Optional[Any], Optional[Any]]:
+        return (
+            self.trans_count_map,
+            self.init_accumulator.value(),
+            self.len_accumulator.value(),
+        )
 
-    def from_value(self, x: Tuple[Dict[Tuple[Tuple[int, ...], int], float], Optional[SS1], Optional[SS2]]) \
-            -> 'IntegerMarkovChainAccumulator':
+    def from_value(
+        self,
+        x: Tuple[
+            Dict[Tuple[Tuple[int, ...], int], float], Optional[SS1], Optional[SS2]
+        ],
+    ) -> "IntegerMarkovChainAccumulator":
         self.trans_count_map = x[0]
         if x[1] is not None:
             self.init_accumulator = self.init_accumulator.from_value(x[1])
@@ -431,10 +526,12 @@ class IntegerMarkovChainAccumulator(SequenceEncodableStatisticAccumulator):
 
         self.len_accumulator.key_replace(stats_dict)
 
-    def acc_to_encoder(self) -> 'IntegerMarkovChainDataEncoder':
+    def acc_to_encoder(self) -> "IntegerMarkovChainDataEncoder":
         len_encoder = self.len_accumulator.acc_to_encoder()
         init_encoder = self.init_accumulator.acc_to_encoder()
-        return IntegerMarkovChainDataEncoder(lag=self.lag, len_encoder=len_encoder, init_encoder=init_encoder)
+        return IntegerMarkovChainDataEncoder(
+            lag=self.lag, len_encoder=len_encoder, init_encoder=init_encoder
+        )
 
 
 class IntegerMarkovChainAccumulatorFactory(StatisticAccumulatorFactory):
@@ -452,9 +549,14 @@ class IntegerMarkovChainAccumulatorFactory(StatisticAccumulatorFactory):
 
     """
 
-    def __init__(self, lag: int, init_factory: Optional[StatisticAccumulatorFactory] = NullAccumulatorFactory(),
-                 len_factory: Optional[StatisticAccumulatorFactory] = NullAccumulatorFactory(),
-                 keys: Optional[str] = None, name: Optional[str] = None) -> None:
+    def __init__(
+        self,
+        lag: int,
+        init_factory: Optional[StatisticAccumulatorFactory] = NullAccumulatorFactory(),
+        len_factory: Optional[StatisticAccumulatorFactory] = NullAccumulatorFactory(),
+        keys: Optional[str] = None,
+        name: Optional[str] = None,
+    ) -> None:
         """IntegerMarkovChainAccumulatorFactory object.
 
         Args:
@@ -469,15 +571,21 @@ class IntegerMarkovChainAccumulatorFactory(StatisticAccumulatorFactory):
 
         """
         self.lag = lag
-        self.init_factory = init_factory if init_factory is not None else NullAccumulatorFactory()
-        self.len_factory = len_factory if len_factory is not None else NullAccumulatorFactory()
+        self.init_factory = (
+            init_factory if init_factory is not None else NullAccumulatorFactory()
+        )
+        self.len_factory = (
+            len_factory if len_factory is not None else NullAccumulatorFactory()
+        )
         self.keys = keys
         self.name = name
 
-    def make(self) -> 'IntegerMarkovChainAccumulator':
+    def make(self) -> "IntegerMarkovChainAccumulator":
         init_acc = self.init_factory.make()
         len_acc = self.len_factory.make()
-        return IntegerMarkovChainAccumulator(self.lag, init_acc, len_acc, keys=self.keys, name=self.name)
+        return IntegerMarkovChainAccumulator(
+            self.lag, init_acc, len_acc, keys=self.keys, name=self.name
+        )
 
 
 class IntegerMarkovChainEstimator(ParameterEstimator):
@@ -502,14 +610,18 @@ class IntegerMarkovChainEstimator(ParameterEstimator):
 
     """
 
-    def __init__(self, num_values: int, lag: int = 1,
-                 init_estimator: Optional[ParameterEstimator] = NullEstimator(),
-                 len_estimator: Optional[ParameterEstimator] = NullEstimator(),
-                 init_dist: Optional[SequenceEncodableProbabilityDistribution] = None,
-                 len_dist: Optional[SequenceEncodableProbabilityDistribution] = None,
-                 pseudo_count: Optional[float] = None,
-                 name: Optional[str] = None,
-                 keys: Optional[str] = None) -> None:
+    def __init__(
+        self,
+        num_values: int,
+        lag: int = 1,
+        init_estimator: Optional[ParameterEstimator] = NullEstimator(),
+        len_estimator: Optional[ParameterEstimator] = NullEstimator(),
+        init_dist: Optional[SequenceEncodableProbabilityDistribution] = None,
+        len_dist: Optional[SequenceEncodableProbabilityDistribution] = None,
+        pseudo_count: Optional[float] = None,
+        name: Optional[str] = None,
+        keys: Optional[str] = None,
+    ) -> None:
         """IntegerMarkovChainEstimator object.
 
         Args:
@@ -539,25 +651,42 @@ class IntegerMarkovChainEstimator(ParameterEstimator):
         self.name = name
         self.keys = keys
 
-    def accumulator_factory(self) -> 'IntegerMarkovChainAccumulatorFactory':
+    def accumulator_factory(self) -> "IntegerMarkovChainAccumulatorFactory":
         len_factory = self.len_estimator.accumulator_factory()
         init_factory = self.init_estimator.accumulator_factory()
-        return IntegerMarkovChainAccumulatorFactory(self.lag, init_factory, len_factory, keys=self.keys)
+        return IntegerMarkovChainAccumulatorFactory(
+            self.lag, init_factory, len_factory, keys=self.keys
+        )
 
-    def estimate(self, nobs: Optional[float], suff_stat: Tuple[Dict[Tuple[Tuple[int, ...],int], float], Optional[SS1],
-                                                               Optional[SS2]]) -> 'IntegerMarkovChainDistribution':
+    def estimate(
+        self,
+        nobs: Optional[float],
+        suff_stat: Tuple[
+            Dict[Tuple[Tuple[int, ...], int], float], Optional[SS1], Optional[SS2]
+        ],
+    ) -> "IntegerMarkovChainDistribution":
         trans_count_map, init_ss, len_ss = suff_stat
         lag = self.lag
 
-        len_dist = self.len_dist if self.len_dist is not None else self.len_estimator.estimate(None, len_ss)
-        init_dist = self.init_dist if self.init_dist is not None else self.init_estimator.estimate(None, init_ss)
+        len_dist = (
+            self.len_dist
+            if self.len_dist is not None
+            else self.len_estimator.estimate(None, len_ss)
+        )
+        init_dist = (
+            self.init_dist
+            if self.init_dist is not None
+            else self.init_estimator.estimate(None, init_ss)
+        )
 
         num_values = 1 + max([max(max(u[0]), u[1]) for u in trans_count_map.keys()])
 
-        cond_mat = np.zeros((num_values ** lag, num_values), dtype=np.float32)
+        cond_mat = np.zeros((num_values**lag, num_values), dtype=np.float32)
 
         vv = list(trans_count_map.items())
-        yidx = np.asarray([np.ravel_multi_index(u[0], [num_values] * lag) for u, _ in vv])
+        yidx = np.asarray(
+            [np.ravel_multi_index(u[0], [num_values] * lag) for u, _ in vv]
+        )
         xidx = np.asarray([u[1] for u, _ in vv])
         zidx = np.asarray([u[1] for u in vv])
 
@@ -566,26 +695,36 @@ class IntegerMarkovChainEstimator(ParameterEstimator):
         if self.pseudo_count is not None:
             cond_mat += self.pseudo_count
 
-        cond_mat/= cond_mat.sum(axis=1, keepdims=True)
+        cond_mat /= cond_mat.sum(axis=1, keepdims=True)
 
-        return IntegerMarkovChainDistribution(num_values, cond_mat, init_dist=init_dist, lag=lag, len_dist=len_dist,
-                                              name=self.name)
+        return IntegerMarkovChainDistribution(
+            num_values,
+            cond_mat,
+            init_dist=init_dist,
+            lag=lag,
+            len_dist=len_dist,
+            name=self.name,
+        )
 
 
 class IntegerMarkovChainDataEncoder(DataSequenceEncoder):
     """IntegerMarkovChainDataEncoder object for encoding sequences of iid integer markov chain observations.
 
-     Attributes:
-         lag (int): Integer valued length of lag.
-         init_encoder (DataSequenceEncoder): DataSequenceEncoder object for initial lagged value. Should be a
-             DataSequenceEncoder for a Sequence of distribution with support on integers.
-         len_encoder (DataSequenceEncoder): DataSequenceEncoder for the length of observed sequences. Should be
-             a DataSequenceEncoder with support on the integers.
+    Attributes:
+        lag (int): Integer valued length of lag.
+        init_encoder (DataSequenceEncoder): DataSequenceEncoder object for initial lagged value. Should be a
+            DataSequenceEncoder for a Sequence of distribution with support on integers.
+        len_encoder (DataSequenceEncoder): DataSequenceEncoder for the length of observed sequences. Should be
+            a DataSequenceEncoder with support on the integers.
 
-     """
+    """
 
-    def __init__(self, lag: int, init_encoder: DataSequenceEncoder = NullDataEncoder(),
-                 len_encoder: DataSequenceEncoder = NullDataEncoder()) -> None:
+    def __init__(
+        self,
+        lag: int,
+        init_encoder: DataSequenceEncoder = NullDataEncoder(),
+        len_encoder: DataSequenceEncoder = NullDataEncoder(),
+    ) -> None:
         """IntegerMarkovChainDataEncoder object.
 
         Args:
@@ -599,8 +738,8 @@ class IntegerMarkovChainDataEncoder(DataSequenceEncoder):
         self.len_encoder = len_encoder
 
     def __str__(self) -> str:
-        rv = 'IntegerMarkovChainDataEncoder(len_encoder=' + str(self.len_encoder)
-        rv += ',init_encoder=' + str(self.init_encoder) + ',lag=' + str(self.lag) + ')'
+        rv = "IntegerMarkovChainDataEncoder(len_encoder=" + str(self.len_encoder)
+        rv += ",init_encoder=" + str(self.init_encoder) + ",lag=" + str(self.lag) + ")"
         return rv
 
     def __eq__(self, other: object) -> bool:
@@ -615,7 +754,9 @@ class IntegerMarkovChainDataEncoder(DataSequenceEncoder):
         else:
             return False
 
-    def seq_encode(self, x: List[Sequence[int]]) -> 'IntegerMarkovChainEncodedDataSequence':
+    def seq_encode(
+        self, x: List[Sequence[int]]
+    ) -> "IntegerMarkovChainEncodedDataSequence":
         """Encode sequence of iid observations from integer Markov chain.
 
         Returns a Tuple of length 7 containing:
@@ -665,7 +806,7 @@ class IntegerMarkovChainDataEncoder(DataSequenceEncoder):
 
             for j in range(len(xx) - lag):
                 seq_idx.append(i)
-                seq_entries[i1] = (tuple(xx[j:(j + lag)]), xx[j + lag])
+                seq_entries[i1] = (tuple(xx[j : (j + lag)]), xx[j + lag])
                 i1 += 1
 
         u_seq_values, u_seq_idx = np.unique(seq_entries, return_inverse=True)
@@ -677,7 +818,15 @@ class IntegerMarkovChainDataEncoder(DataSequenceEncoder):
         len_enc = self.len_encoder.seq_encode(seq_len)
         init_enc = self.init_encoder.seq_encode(init_entries)
 
-        rv_enc = (seq_len, init_idx, seq_idx, u_seq_idx, u_seq_values, init_enc, len_enc)
+        rv_enc = (
+            seq_len,
+            init_idx,
+            seq_idx,
+            u_seq_idx,
+            u_seq_values,
+            init_enc,
+            len_enc,
+        )
 
         return IntegerMarkovChainEncodedDataSequence(data=rv_enc)
 
@@ -693,7 +842,18 @@ class IntegerMarkovChainEncodedDataSequence(EncodedDataSequence):
 
     """
 
-    def __init__(self, data: Tuple[np.ndarray, np.ndarray, np.ndarray, np.ndarray, np.ndarray, EncodedDataSequence, EncodedDataSequence]):
+    def __init__(
+        self,
+        data: Tuple[
+            np.ndarray,
+            np.ndarray,
+            np.ndarray,
+            np.ndarray,
+            np.ndarray,
+            EncodedDataSequence,
+            EncodedDataSequence,
+        ],
+    ):
         """IntegerMarkovChainEncodedDataSequence object.
 
         Args:
@@ -703,5 +863,4 @@ class IntegerMarkovChainEncodedDataSequence(EncodedDataSequence):
         super().__init__(data=data)
 
     def __repr__(self) -> str:
-        return f'IntegerMarkovChainEncodedDataSequence(data={self.data})'
-
+        return f"IntegerMarkovChainEncodedDataSequence(data={self.data})"

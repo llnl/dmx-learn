@@ -1,23 +1,32 @@
-import sys
 import os
 import sys
-from typing import Tuple, List, TypeVar, Optional, IO, Sequence
+from typing import IO, List, Optional, Sequence, Tuple, TypeVar
 
 import numpy as np
 import torch as tn
 import torch.distributed
 
 from dmx.torch_stats import *
-from dmx.torch_stats.pdist import TorchProbabilityDistribution, TorchParameterEstimator, TorchEncodedSequence
-from dmx.torch_utils.vector import resolve_device, float_dtype_for_device, set_default_float_dtype
+from dmx.torch_stats.pdist import (
+    TorchEncodedSequence,
+    TorchParameterEstimator,
+    TorchProbabilityDistribution,
+)
+from dmx.torch_utils.vector import (
+    float_dtype_for_device,
+    resolve_device,
+    set_default_float_dtype,
+)
 
-T = TypeVar('T')
-E0 = TypeVar('E0')
+T = TypeVar("T")
+E0 = TypeVar("E0")
 
-def empirical_kl_divergence(dist1: TorchProbabilityDistribution,
-                            dist2: TorchProbabilityDistribution,
-                            enc_data: List[Tuple[int, TorchEncodedSequence]]
-                            ) -> Tuple[float, float, float]:
+
+def empirical_kl_divergence(
+    dist1: TorchProbabilityDistribution,
+    dist2: TorchProbabilityDistribution,
+    enc_data: List[Tuple[int, TorchEncodedSequence]],
+) -> Tuple[float, float, float]:
     """Computes the empirical KL-divergence between two densities.
 
     Compute the KL-divergence between dist1 and dist2, for encoded sequence of data. Dists must both have the
@@ -54,20 +63,24 @@ def empirical_kl_divergence(dist1: TorchProbabilityDistribution,
 
     return float(r1), float(r2), float(r3)
 
-def optimize(data: Optional[Sequence[T]],
-             estimator: TorchParameterEstimator,
-             seed: Optional[int] = None,
-             max_its: int = 10,
-             delta: Optional[float] = 1.0e-9,
-             init_estimator: Optional[TorchParameterEstimator] = None,
-             init_p: float = 0.1,
-             device: Optional[tn.device] = None,
-             prev_estimate: Optional[TorchProbabilityDistribution] = None,
-             vdata: Optional[Sequence[T]] = None,
-             enc_data: Optional[List[Tuple[int, E0]]] = None,
-             enc_vdata: Optional[List[Tuple[int, E0]]] = None,
-             out: IO = sys.stdout,
-             print_iter: int = 1, num_chunks: int = 1) -> TorchProbabilityDistribution:
+
+def optimize(
+    data: Optional[Sequence[T]],
+    estimator: TorchParameterEstimator,
+    seed: Optional[int] = None,
+    max_its: int = 10,
+    delta: Optional[float] = 1.0e-9,
+    init_estimator: Optional[TorchParameterEstimator] = None,
+    init_p: float = 0.1,
+    device: Optional[tn.device] = None,
+    prev_estimate: Optional[TorchProbabilityDistribution] = None,
+    vdata: Optional[Sequence[T]] = None,
+    enc_data: Optional[List[Tuple[int, E0]]] = None,
+    enc_vdata: Optional[List[Tuple[int, E0]]] = None,
+    out: IO = sys.stdout,
+    print_iter: int = 1,
+    num_chunks: int = 1,
+) -> TorchProbabilityDistribution:
     """Estimation of 'estimator' via EM algorithm for max_its iterations or until
         new_loglikelihood - old_loglikelihood < delta.
 
@@ -103,7 +116,7 @@ def optimize(data: Optional[Sequence[T]],
     set_default_float_dtype(float_dtype_for_device(device))
 
     if data is None and enc_data is None:
-        raise Exception('Optimization called with empty data or enc_data.')
+        raise Exception("Optimization called with empty data or enc_data.")
 
     est = estimator if init_estimator is None else init_estimator
 
@@ -114,7 +127,9 @@ def optimize(data: Optional[Sequence[T]],
         data_encoder = prev_estimate.dist_to_encoder()
 
     if enc_data is None:
-        enc_data = seq_encode(data=data, encoder=data_encoder, num_chunks=num_chunks, device=device)
+        enc_data = seq_encode(
+            data=data, encoder=data_encoder, num_chunks=num_chunks, device=device
+        )
 
     if prev_estimate is None:
         if init_p <= 0.0:
@@ -123,14 +138,18 @@ def optimize(data: Optional[Sequence[T]],
             p = min(max(init_p, 0.0), 1.0)
 
         seed = seed if seed is not None else np.random.randint(2**31)
-        mm = seq_initialize(enc_data=enc_data, estimator=est, seed=seed, p=p, device=device)
+        mm = seq_initialize(
+            enc_data=enc_data, estimator=est, seed=seed, p=p, device=device
+        )
     else:
         mm = prev_estimate
 
     _, old_ll = seq_log_density_sum(enc_data=enc_data, estimate=mm)
 
     if enc_vdata is None and vdata is not None:
-        enc_vdata = seq_encode(data=vdata, encoder=data_encoder, num_chunks=num_chunks, device=device)
+        enc_vdata = seq_encode(
+            data=vdata, encoder=data_encoder, num_chunks=num_chunks, device=device
+        )
 
     if enc_vdata is not None:
         _, old_vll = seq_log_density_sum(enc_vdata, mm)
@@ -158,21 +177,27 @@ def optimize(data: Optional[Sequence[T]],
         if (delta is not None) and (dll < delta):
             if enc_vdata is not None:
                 out.write(
-                    'Iteration %d: ln[p_mat(Data|Model)]=%e, ln[p_mat(Data|Model)]-ln[p_mat(Data|PrevModel)]=%e, '
-                    'ln[p_mat(Valid Data|Model)]=%e\n' % (
-                    i + 1, ll, dll, vll))
+                    "Iteration %d: ln[p_mat(Data|Model)]=%e, ln[p_mat(Data|Model)]-ln[p_mat(Data|PrevModel)]=%e, "
+                    "ln[p_mat(Valid Data|Model)]=%e\n" % (i + 1, ll, dll, vll)
+                )
             else:
-                out.write('Iteration %d: ln[p_mat(Data|Model)]=%e, ln[p_mat(Data|Model)]-ln[p_mat(Data|PrevModel)]=%e\n' %
-                          (i + 1, ll, dll))
+                out.write(
+                    "Iteration %d: ln[p_mat(Data|Model)]=%e, ln[p_mat(Data|Model)]-ln[p_mat(Data|PrevModel)]=%e\n"
+                    % (i + 1, ll, dll)
+                )
             break
 
         if (i + 1) % print_iter == 0:
             if enc_vdata is not None:
-                out.write('Iteration %d: ln[p_mat(Data|Model)]=%e, ln[p_mat(Data|Model)]-ln[p_mat(Data|PrevModel)]=%e, '
-                          'ln[p_mat(Valid Data|Model)]=%e\n' % (i + 1, ll, dll, vll))
+                out.write(
+                    "Iteration %d: ln[p_mat(Data|Model)]=%e, ln[p_mat(Data|Model)]-ln[p_mat(Data|PrevModel)]=%e, "
+                    "ln[p_mat(Valid Data|Model)]=%e\n" % (i + 1, ll, dll, vll)
+                )
             else:
-                out.write('Iteration %d: ln[p_mat(Data|Model)]=%e, ln[p_mat(Data|Model)]-ln[p_mat(Data|PrevModel)]=%e\n' %
-                          (i + 1, ll, dll))
+                out.write(
+                    "Iteration %d: ln[p_mat(Data|Model)]=%e, ln[p_mat(Data|Model)]-ln[p_mat(Data|PrevModel)]=%e\n"
+                    % (i + 1, ll, dll)
+                )
 
         old_ll = ll
 
@@ -182,21 +207,25 @@ def optimize(data: Optional[Sequence[T]],
 
     return best_model
 
+
 def optimize_mp(
-        world_rank: int,
-        world_size: int,
-        data: Optional[Sequence[T]],
-        estimator: TorchParameterEstimator,
-        max_its: int = 10,
-        delta: Optional[float] = 1.0e-9,
-        init_estimator: Optional[TorchParameterEstimator] = None, init_p: float = 0.1,
-        seed: Optional[int] = None,
-        prev_estimate: Optional[TorchProbabilityDistribution] = None,
-        vdata: Optional[Sequence[T]] = None,
-        enc_data: Optional[List[Tuple[int, E0]]] = None,
-        enc_vdata: Optional[List[Tuple[int, E0]]] = None,
-        out: IO = sys.stdout,
-        print_iter: int = 1, num_chunks: int = 1) -> TorchProbabilityDistribution:
+    world_rank: int,
+    world_size: int,
+    data: Optional[Sequence[T]],
+    estimator: TorchParameterEstimator,
+    max_its: int = 10,
+    delta: Optional[float] = 1.0e-9,
+    init_estimator: Optional[TorchParameterEstimator] = None,
+    init_p: float = 0.1,
+    seed: Optional[int] = None,
+    prev_estimate: Optional[TorchProbabilityDistribution] = None,
+    vdata: Optional[Sequence[T]] = None,
+    enc_data: Optional[List[Tuple[int, E0]]] = None,
+    enc_vdata: Optional[List[Tuple[int, E0]]] = None,
+    out: IO = sys.stdout,
+    print_iter: int = 1,
+    num_chunks: int = 1,
+) -> TorchProbabilityDistribution:
     """Estimation of 'estimator' via EM algorithm for max_its iterations or until
         new_loglikelihood - old_loglikelihood < delta.
 
@@ -231,7 +260,7 @@ def optimize_mp(
     """
     # data on all nodes assumed for now. Can change this later.
     if data is None and enc_data is None:
-        raise Exception('Optimization called with empty data or enc_data.')
+        raise Exception("Optimization called with empty data or enc_data.")
 
     # estimator defined on all nodes
     est = estimator if init_estimator is None else init_estimator
@@ -244,24 +273,45 @@ def optimize_mp(
 
     # encode the data. Chunked to each worker.
     if enc_data is None:
-        enc_data = seq_encode_mp(world_rank=world_rank, world_size=world_size, data=data, encoder=data_encoder)
+        enc_data = seq_encode_mp(
+            world_rank=world_rank,
+            world_size=world_size,
+            data=data,
+            encoder=data_encoder,
+        )
 
     if prev_estimate is None:
         p = 0.10 if init_p <= 0.0 else min(max(init_p, 0.0), 1.0)
         seed = np.random.randint(2**31) if seed is None else seed
-        mm = seq_initialize_mp(world_rank=world_rank, world_size=world_size, enc_data=enc_data, estimator=est, seed=seed, p=p)
+        mm = seq_initialize_mp(
+            world_rank=world_rank,
+            world_size=world_size,
+            enc_data=enc_data,
+            estimator=est,
+            seed=seed,
+            p=p,
+        )
 
     else:
         mm = prev_estimate
 
     # none on all except master
-    _, old_ll = seq_log_density_sum_mp(world_rank=world_rank, enc_data=enc_data, estimate=mm)
+    _, old_ll = seq_log_density_sum_mp(
+        world_rank=world_rank, enc_data=enc_data, estimate=mm
+    )
 
     if enc_vdata is None and vdata is not None:
-        enc_vdata = seq_encode_mp(world_rank=world_rank, world_size=world_size, data=vdata, encoder=data_encoder)
+        enc_vdata = seq_encode_mp(
+            world_rank=world_rank,
+            world_size=world_size,
+            data=vdata,
+            encoder=data_encoder,
+        )
 
     if enc_vdata is not None:
-        _, old_vll = seq_log_density_sum_mp(world_rank=world_rank, enc_data=enc_vdata, estimate=mm)
+        _, old_vll = seq_log_density_sum_mp(
+            world_rank=world_rank, enc_data=enc_vdata, estimate=mm
+        )
     else:
         old_vll = old_ll
 
@@ -274,11 +324,21 @@ def optimize_mp(
         update_model = [False]
         vflag = [False]
 
-        mm_next = seq_estimate_mp(world_rank=world_rank, world_size=world_size, enc_data=enc_data, estimator=est, prev_estimate=mm)
-        cnt, ll = seq_log_density_sum_mp(world_rank=world_rank, enc_data=enc_data, estimate=mm_next)
+        mm_next = seq_estimate_mp(
+            world_rank=world_rank,
+            world_size=world_size,
+            enc_data=enc_data,
+            estimator=est,
+            prev_estimate=mm,
+        )
+        cnt, ll = seq_log_density_sum_mp(
+            world_rank=world_rank, enc_data=enc_data, estimate=mm_next
+        )
 
         if enc_vdata is not None:
-            _, vll = seq_log_density_sum_mp(world_rank=world_rank, enc_data=enc_vdata, estimate=mm_next)
+            _, vll = seq_log_density_sum_mp(
+                world_rank=world_rank, enc_data=enc_vdata, estimate=mm_next
+            )
         else:
             vll = ll
 
@@ -297,21 +357,27 @@ def optimize_mp(
             if (delta is not None) and (dll < delta):
                 if enc_vdata is not None:
                     out.write(
-                        'Iteration %d: ln[p_mat(Data|Model)]=%e, ln[p_mat(Data|Model)]-ln[p_mat(Data|PrevModel)]=%e, '
-                        'ln[p_mat(Valid Data|Model)]=%e\n' % (
-                        i + 1, ll, dll, vll))
+                        "Iteration %d: ln[p_mat(Data|Model)]=%e, ln[p_mat(Data|Model)]-ln[p_mat(Data|PrevModel)]=%e, "
+                        "ln[p_mat(Valid Data|Model)]=%e\n" % (i + 1, ll, dll, vll)
+                    )
                 else:
-                    out.write('Iteration %d: ln[p_mat(Data|Model)]=%e, ln[p_mat(Data|Model)]-ln[p_mat(Data|PrevModel)]=%e\n' %
-                              (i + 1, ll, dll))
+                    out.write(
+                        "Iteration %d: ln[p_mat(Data|Model)]=%e, ln[p_mat(Data|Model)]-ln[p_mat(Data|PrevModel)]=%e\n"
+                        % (i + 1, ll, dll)
+                    )
                 break_cond = [True]
 
             if (i + 1) % print_iter == 0:
                 if enc_vdata is not None:
-                    out.write('Iteration %d: ln[p_mat(Data|Model)]=%e, ln[p_mat(Data|Model)]-ln[p_mat(Data|PrevModel)]=%e, '
-                              'ln[p_mat(Valid Data|Model)]=%e\n' % (i + 1, ll, dll, vll))
+                    out.write(
+                        "Iteration %d: ln[p_mat(Data|Model)]=%e, ln[p_mat(Data|Model)]-ln[p_mat(Data|PrevModel)]=%e, "
+                        "ln[p_mat(Valid Data|Model)]=%e\n" % (i + 1, ll, dll, vll)
+                    )
                 else:
-                    out.write('Iteration %d: ln[p_mat(Data|Model)]=%e, ln[p_mat(Data|Model)]-ln[p_mat(Data|PrevModel)]=%e\n' %
-                              (i + 1, ll, dll))
+                    out.write(
+                        "Iteration %d: ln[p_mat(Data|Model)]=%e, ln[p_mat(Data|Model)]-ln[p_mat(Data|PrevModel)]=%e\n"
+                        % (i + 1, ll, dll)
+                    )
 
         # master broadcasts to workers if EM is done or continues
         tn.distributed.broadcast_object_list(break_cond, src=0)
@@ -331,4 +397,3 @@ def optimize_mp(
             best_model = mm
 
     return best_model
-
