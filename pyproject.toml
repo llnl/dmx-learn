@@ -67,6 +67,15 @@ optional = true
 [tool.poetry.group.dev.dependencies]
 pytest = "^8.0.0"
 pytest-dependency = "^0.6.0"
+pytest-cov = "^4.1.0"
+black = "^24.1.0"
+isort = "^5.13.0"
+pylint = "^3.0.0"
+mypy = "^1.8.0"
+pydocstyle = {extras = ["toml"], version = "^6.3.0"}
+pre-commit = "^3.6.0"
+types-setuptools = "^69.0.0"
+pandas-stubs = "^2.1.0"
 
 [tool.poetry.group.docs]
 optional = true

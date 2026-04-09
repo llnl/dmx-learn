@@ -20,24 +20,24 @@ disable=
     # Format-related (handled by black)
     C0330,  # Wrong hanging indentation
     C0326,  # Bad whitespace
-    
+
     # Too strict for scientific code
     R0913,  # Too many arguments (common in scientific functions)
     R0914,  # Too many local variables (common in algorithms)
     R0912,  # Too many branches (common in numerical code)
     R0915,  # Too many statements (common in implementations)
-    
+
     # Documentation (handled by pydocstyle)
     C0114,  # Missing module docstring (checked by pydocstyle)
     C0115,  # Missing class docstring (checked by pydocstyle)
     C0116,  # Missing function docstring (checked by pydocstyle)
-    
+
     # Variable naming (allow mathematical conventions)
     C0103,  # Invalid name (allow x, y, mu, sigma, etc.)
-    
+
     # Numpy/scientific conventions
     E1101,  # No member (numpy has dynamic members)
-    
+
     # Allow TODO comments
     W0511,  # fixme/todo
 
