@@ -41,3 +41,8 @@ pip-log.txt
 pip-delete-this-directory.txt
 
 .vscode
+
+notebooks/misspelled.py
+
+docs/_build
+docs/_static
