@@ -127,10 +127,10 @@ class SequenceEncodableProbabilityDistribution(ProbabilityDistribution):
         """
         ...
 
-    def seq_log_density_lambda(self):
+    def seq_log_density_lambda(self) -> list[Any]:
         return [self.seq_log_density]
 
-    def seq_ld_lambda(self):
+    def seq_ld_lambda(self) -> None:
         pass
 
 
@@ -183,7 +183,7 @@ class ConditionalSampler(object):
     """
 
     @abstractmethod
-    def sample_given(self, x: Any):
+    def sample_given(self, x: Any) -> Any:
         """Sample at conditional value.
 
         Args:
@@ -294,7 +294,7 @@ class StatisticAccumulator(Generic[SS]):
 
 class SequenceEncodableStatisticAccumulator(StatisticAccumulator[SS]):
 
-    def get_seq_lambda(self):
+    def get_seq_lambda(self) -> None:
         pass
 
     @abstractmethod
@@ -359,7 +359,7 @@ class ParameterEstimator(Generic[SS]):
     """Abstract class for ParameterEstimator object."""
 
     @abstractmethod
-    def __init__(self, *args):
+    def __init__(self, *args: Any) -> None:
         """Must implement constructor for ParameterEstimator"""
         ...
 

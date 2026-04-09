@@ -57,7 +57,7 @@ def polygamma_loc(
     else:
         fac2 = (-1.0) ** (n + 1) * gamma(n + 1.0) * zeta(n + 1, y)
 
-    return fac2
+    return fac2  # type: ignore[no-any-return]
 
 
 def trigamma(
@@ -74,7 +74,7 @@ def trigamma(
         Numpy array of trigamma function evaluated at y.
 
     """
-    return zeta(2, y, out=out)
+    return zeta(2, y, out=out)  # type: ignore[no-any-return]
 
 
 def digammainv(
@@ -124,7 +124,7 @@ def digammainv(
         x -= (digamma(x) - y) / trigamma(x)
         x -= (digamma(x) - y) / trigamma(x)
 
-    return x
+    return x  # type: ignore[no-any-return]
 
 
 def stirling2(n: int, k: int) -> int:

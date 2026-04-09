@@ -17,7 +17,7 @@ def count_by_value(x: Union[Sequence[T], np.ndarray, tn.Tensor]) -> Dict[T, int]
         Dictionary mapping value (type T) to value-count.
 
     """
-    rv = dict()
+    rv: Dict[T, int] = dict()
 
     for u in x:
         rv[u] = rv.get(u, 0) + 1
@@ -35,15 +35,15 @@ def int_count_by_value(x: Union[Sequence[T], np.ndarray, tn.Tensor]) -> Dict[T, 
         Dictionary mapping value (type T) to value-count.
 
     """
-    rv = dict()
+    rv: Dict[int, int] = dict()
 
     for u in x:
-        rv[int(u)] = rv.get(int(u), 0) + 1
+        rv[int(u)] = rv.get(int(u), 0) + 1  # type: ignore[arg-type]
 
-    return rv
+    return rv  # type: ignore[return-value]
 
 
-def bincount1(xv, w, nv):
+def bincount1(xv: tn.Tensor, w: tn.Tensor, nv: int) -> tn.Tensor:
     """Take bincount S by N by ids in xv with total number of values nv.
 
     Args:

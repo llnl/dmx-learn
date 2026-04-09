@@ -23,7 +23,7 @@ class TorchProbabilityDistribution(object):
         return self._device
 
     @abstractmethod
-    def to(self, device: TorchDevice): ...
+    def to(self, device: TorchDevice) -> "TorchProbabilityDistribution": ...
 
     @abstractmethod
     def density(self, x: Any) -> float:
@@ -56,19 +56,19 @@ class DistributionSampler(object):
 
 class ConditionalSampler(object):
     @abstractmethod
-    def sample_given(self, x): ...
+    def sample_given(self, x: Any) -> Any: ...
 
 
 class TorchStatisticAccumulator(Generic[SS]):
 
-    def __init__(self, device: Optional[str] = None):
+    def __init__(self, device: Optional[str] = None) -> None:
         self._device = TorchDevice("cpu") if device is None else device
 
     @abstractmethod
-    def seq_update(self, x, weights: tn.Tensor, estimate) -> None: ...
+    def seq_update(self, x: Any, weights: tn.Tensor, estimate: Any) -> None: ...
 
     @abstractmethod
-    def seq_initialize(self, x, weights: tn.Tensor, tng: tn.Generator) -> None: ...
+    def seq_initialize(self, x: Any, weights: tn.Tensor, tng: tn.Generator) -> None: ...
 
     @abstractmethod
     def combine(self, suff_stat: SS) -> "TorchStatisticAccumulator": ...

@@ -121,7 +121,7 @@ def make(
     return np.asarray(x)
 
 
-def make_pdf(x: Union[np.ndarray, Sequence[float], List[np.ndarray]]):
+def make_pdf(x: Union[np.ndarray, Sequence[float], List[np.ndarray]]) -> np.ndarray:
     """Takes log density values and normalizes on the log-scale, returning an ndarray that s.t. np.exp(rv).sum() == 1.0.
 
     Arg data type for x: Union[np.ndarray, Sequence[float], List[np.ndarray]]).
@@ -154,7 +154,7 @@ def zeros(n: Union[int, Iterable, Tuple[int]]) -> np.ndarray:
         Return numpy array of shape n, with default dtype=float64.
 
     """
-    return np.zeros(n)
+    return np.zeros(n)  # type: ignore[arg-type]
 
 
 def mat_inv(
@@ -173,7 +173,7 @@ def mat_inv(
     return np.linalg.inv(x)
 
 
-def dot(
+def dot(  # type: ignore[no-redef]
     x: Union[np.ndarray, Iterable, int, float],
     y: Union[np.ndarray, Iterable, int, float],
 ) -> Union[np.ndarray, float]:
@@ -186,7 +186,7 @@ def dot(
         Returns float/int if x and y are both 1d vectors, returns 1d vector if x xor y is scalar, and matrix else.
 
     """
-    return np.dot(x, y)
+    return np.dot(x, y)  # type: ignore[arg-type,no-any-return]
 
 
 def outer(
@@ -202,7 +202,7 @@ def outer(
     Returns: (M, N) ndarray.
 
     """
-    return np.outer(x, y)
+    return np.outer(x, y)  # type: ignore[arg-type]
 
 
 def diag(x: np.ndarray) -> np.ndarray:
@@ -257,7 +257,7 @@ def cholesky(x_mat: np.ndarray) -> Optional[Tuple[np.ndarray, bool]]:
     except np.linalg.LinAlgError:
         rv = None
 
-    return rv
+    return rv  # type: ignore[no-any-return]
 
 
 def cho_solve(a_mat: Tuple[np.ndarray, bool], b: np.ndarray) -> np.ndarray:
@@ -271,7 +271,7 @@ def cho_solve(a_mat: Tuple[np.ndarray, bool], b: np.ndarray) -> np.ndarray:
         The solution to the system a_mat*x = b.
 
     """
-    return scipy.linalg.cho_solve(a_mat, b)
+    return scipy.linalg.cho_solve(a_mat, b)  # type: ignore[no-any-return]
 
 
 def maximum(
@@ -298,7 +298,7 @@ def maximum(
     Returns:
         ndarray or scalar. The maximum of x and y, element-wise. This is a scalar if both x and y are scalars.
     """
-    return np.maximum(x, y, output=output)
+    return np.maximum(x, y, output=output)  # type: ignore[arg-type,no-any-return]
 
 
 def log_sum(x: np.ndarray) -> float:
@@ -316,7 +316,7 @@ def log_sum(x: np.ndarray) -> float:
     else:
         rv = x - max_val
         np.exp(rv, out=rv)
-        return np.log(rv.sum()) + max_val
+        return np.log(rv.sum()) + max_val  # type: ignore[no-any-return]
 
 
 def weighted_log_sum(x: np.ndarray, w: np.ndarray) -> float:
@@ -366,10 +366,10 @@ def log_posterior(x: np.ndarray) -> np.ndarray:
     max_val = x.max()
 
     if isinf(max_val) or isnan(max_val):
-        return zeros(len(x)) - log(len(x))
+        return zeros(len(x)) - log(len(x))  # type: ignore[no-any-return]
 
     mass = log(exp(x - max_val).sum()) + max_val
-    return x - mass
+    return x - mass  # type: ignore[no-any-return]
 
 
 def posterior(
@@ -447,7 +447,7 @@ def log_posterior_sum(x: np.ndarray) -> Tuple[np.ndarray, float]:
 
     max_val = x.max()
     if isinf(max_val) or isnan(max_val):
-        return zeros(len(x)) - log(len(x))
+        return zeros(len(x)) - log(len(x)), -np.inf
 
     mass = log(exp(x - max_val).sum()) + max_val
     return x - mass, mass
@@ -637,15 +637,15 @@ def row_choice(p_mat: np.ndarray, rng: Optional[np.random.RandomState]) -> np.nd
      An N dim np.ndarray of ints is returned.
 
     Args:
-        p_mat (np.ndarray): N by S matrix with weights
-        rng (Optional[RandomState]): Set see for sampling.
+        p_mat (np.ndarray): N x S numpy array.
+        rng (Optional[np.random.RandomState]): RandomState for sampling.
 
     Returns:
         N dim numpy array of ints.
 
     """
     N, m = p_mat.shape
-    u = rng.rand(N)
+    u = rng.rand(N) if rng is not None else np.random.rand(N)
     rv = np.zeros(N, dtype=int)
 
     bins = np.hstack((np.zeros((N, 1)), np.cumsum(p_mat, axis=1)))
