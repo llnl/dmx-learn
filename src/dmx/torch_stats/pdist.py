@@ -4,16 +4,21 @@ This module provides the torch-based equivalents of the dmx.stats.pdist classes,
 optimized for GPU computation and PyTorch tensor operations.
 
 Classes:
-    TorchProbabilityDistribution: Abstract base class for torch probability distributions
-    DistributionSampler: Abstract sampler for probability distributions
-    ConditionalSampler: Abstract sampler for conditional distributions
-    TorchStatisticAccumulator: Abstract accumulator for sufficient statistics
-    TorchStatisticAccumulatorFactory: Factory for creating statistic accumulators
-    TorchParameterEstimator: Abstract estimator for distribution parameters
-    TorchSequenceEncoder: Abstract encoder for data sequences
-    TorchEncodedSequence: Container for encoded sequence data
+    TorchProbabilityDistribution: Abstract base class for torch probability distributions.
+    DistributionSampler: Abstract sampler for probability distributions.
+    ConditionalSampler: Abstract sampler for conditional distributions.
+    TorchStatisticAccumulator: Abstract accumulator for sufficient statistics.
+    TorchStatisticAccumulatorFactory: Factory for creating statistic accumulators.
+    TorchParameterEstimator: Abstract estimator for distribution parameters.
+    TorchSequenceEncoder: Abstract encoder for data sequences.
+    TorchEncodedSequence: Container for encoded sequence data.
 
 """
+
+# pylint: disable=unnecessary-ellipsis
+# Rationale: Ellipsis (...) is the standard Python idiom for abstract method stubs
+# and is preferred over 'pass' as it more clearly indicates that the method must
+# be implemented by subclasses.
 
 import math
 from abc import abstractmethod
