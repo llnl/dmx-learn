@@ -4,36 +4,39 @@ ConditionalSampler, and DistributionSampler for classes of the dmx.stats.
 
 """
 
+# pylint: disable=unnecessary-ellipsis
+# Rationale: Ellipsis (...) is the standard Python idiom for abstract method stubs
+# and is preferred over 'pass' as it more clearly indicates that the method must
+# be implemented by subclasses.
+
 import math
 from abc import abstractmethod
 from typing import Any, Dict, Generic, Optional, TypeVar
 
 import numpy as np
 
-from dmx.arithmetic import *
+from dmx.arithmetic import maxrandint
 
 SS = TypeVar("SS")
 
 
 def equal_object(x: Any, other: Any) -> bool:
     """Lazy object comparison."""
-    if isinstance(other, type(x)):
-        other_vars = vars(other)
-        self_vars = vars(x)
-
-        for k, v in self_vars.items():
-            if isinstance(other_vars[k], float) and np.isnan(other_vars[k]):
-                if isinstance(v, float) and np.isnan(v):
-                    continue
-                else:
-                    return False
-            if not np.all(other_vars[k] == v):
-                return False
-
-        return True
-
-    else:
+    if not isinstance(other, type(x)):
         return False
+
+    other_vars = vars(other)
+    self_vars = vars(x)
+
+    for k, v in self_vars.items():
+        if isinstance(other_vars[k], float) and np.isnan(other_vars[k]):
+            if isinstance(v, float) and np.isnan(v):
+                continue
+            return False
+        if not np.all(other_vars[k] == v):
+            return False
+
+    return True
 
 
 class ProbabilityDistribution:
@@ -134,7 +137,7 @@ class SequenceEncodableProbabilityDistribution(ProbabilityDistribution):
         pass
 
 
-class DistributionSampler(object):
+class DistributionSampler:
     """DistributionSampler is an Abstract class for distribution samplers.
 
     Attributes:
@@ -174,7 +177,7 @@ class DistributionSampler(object):
         ...
 
 
-class ConditionalSampler(object):
+class ConditionalSampler:
     """AbstractClass for ConditionalSampler.
 
     Note:
@@ -209,6 +212,7 @@ class StatisticAccumulator(Generic[SS]):
         """
         return equal_object(self, other)
 
+    @abstractmethod
     def update(
         self,
         x: Any,
@@ -228,7 +232,7 @@ class StatisticAccumulator(Generic[SS]):
         """
         ...
 
-    def initialize(self, x: Any, weight: float, rng: np.random.RandomState) -> None:
+    def initialize(self, x: Any, weight: float, _rng: np.random.RandomState) -> None:
         """Initialize sufficient statistics for a single data observation.
 
         Note:
@@ -237,7 +241,7 @@ class StatisticAccumulator(Generic[SS]):
         Args:
             x (Any): Data type corresponding to StatisticAccumulator object.
             weight (float): Weight associated with single observation.
-            rng (np.random.RandomState): Set seed for initialization.
+            _rng (np.random.RandomState): Set seed for initialization (unused in base implementation).
 
         """
         self.update(x, weight, estimate=None)
@@ -334,7 +338,7 @@ class SequenceEncodableStatisticAccumulator(StatisticAccumulator[SS]):
         ...
 
 
-class StatisticAccumulatorFactory(object):
+class StatisticAccumulatorFactory:
     """Factory for creating SequenceEncodableStatsiticAccumulator objects."""
 
     def __eq__(self, other: Any) -> bool:
@@ -431,7 +435,7 @@ class DataSequenceEncoder:
         ...
 
 
-class EncodedDataSequence(object):
+class EncodedDataSequence:
     """EncodedDatSequence is the outputed data structure from
     DataSeqeunceEncoder. Object is used for vectorized functions and type
     checks.

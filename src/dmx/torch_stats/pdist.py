@@ -2,16 +2,13 @@ import math
 from abc import abstractmethod
 from typing import Any, Dict, Generic, Optional, TypeVar
 
-import numpy as np
 import torch as tn
-
-from dmx.arithmetic import *
-
-SS = TypeVar("SS")
 from torch import device as TorchDevice
 
+SS = TypeVar("SS")
 
-class TorchProbabilityDistribution(object):
+
+class TorchProbabilityDistribution:
 
     def __init__(self, device: Optional[tn.device] = None) -> None:
         self._device = tn.device("cpu") if device is None else device
@@ -48,13 +45,13 @@ class TorchProbabilityDistribution(object):
     def dist_to_encoder(self) -> "TorchSequenceEncoder": ...
 
 
-class DistributionSampler(object):
+class DistributionSampler:
 
     @abstractmethod
     def sample(self, size: Optional[int] = None) -> Any: ...
 
 
-class ConditionalSampler(object):
+class ConditionalSampler:
     @abstractmethod
     def sample_given(self, x: Any) -> Any: ...
 
@@ -89,7 +86,7 @@ class TorchStatisticAccumulator(Generic[SS]):
     def acc_to_encoder(self) -> "TorchSequenceEncoder": ...
 
 
-class TorchStatisticAccumulatorFactory(object):
+class TorchStatisticAccumulatorFactory:
 
     @abstractmethod
     def make(
