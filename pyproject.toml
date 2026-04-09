@@ -97,3 +97,17 @@ include-package-data = true
 [tool.setuptools.packages.find]
 where = ["src"]
 include = ["dmx"]
+
+[tool.black]
+line-length = 88
+target-version = ['py310', 'py311', 'py312']
+include = '\.pyi?$'
+extend-exclude = '''
+/(
+  \.eggs
+  | \.git
+  | \.venv
+  | build
+  | dist
+)/
+'''
