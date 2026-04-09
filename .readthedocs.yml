@@ -10,6 +10,7 @@ sphinx:
 
 formats:
   - epub
+  - pdf
 
 python:
   install:
