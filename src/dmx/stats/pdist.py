@@ -1,6 +1,19 @@
-"""Defines abstract classes for SequenceEncodableProbabilityDistribution, SequenceEncodableStatisticAccumulator,
-ProbabilityDistribution, StatisticAccumulator, StatisticAccumulatorFactory, DataSequenceEncoder, ParameterEstimator,
-ConditionalSampler, and DistributionSampler for classes of the dmx.stats.
+"""Defines abstract classes for probability distributions and statistical accumulators.
+
+This module provides the foundational abstract base classes for the dmx.stats package,
+including probability distributions, statistic accumulators, samplers, and encoders.
+
+Classes:
+    ProbabilityDistribution: Abstract base class for probability distributions
+    SequenceEncodableProbabilityDistribution: Probability distribution with sequence encoding
+    DistributionSampler: Abstract sampler for probability distributions
+    ConditionalSampler: Abstract sampler for conditional distributions
+    StatisticAccumulator: Abstract accumulator for sufficient statistics
+    SequenceEncodableStatisticAccumulator: Statistic accumulator with sequence encoding
+    StatisticAccumulatorFactory: Factory for creating statistic accumulators
+    ParameterEstimator: Abstract estimator for distribution parameters
+    DataSequenceEncoder: Abstract encoder for data sequences
+    EncodedDataSequence: Container for encoded sequence data
 
 """
 
@@ -49,13 +62,24 @@ class ProbabilityDistribution:
     """
 
     def __init__(self) -> None:
+        """Initialize the probability distribution."""
         pass
 
     def __repr__(self) -> str:
+        """Return string representation of the distribution."""
         return self.__str__()
 
     @abstractmethod
     def density(self, x: Any) -> float:
+        """Compute the probability density at x.
+
+        Args:
+            x: Input value to evaluate density.
+
+        Returns:
+            Probability density value.
+
+        """
         return math.exp(self.log_density(x))
 
     @abstractmethod
@@ -131,9 +155,20 @@ class SequenceEncodableProbabilityDistribution(ProbabilityDistribution):
         ...
 
     def seq_log_density_lambda(self) -> list[Any]:
+        """Return a list containing the sequence log density method.
+
+        Returns:
+            List with single element: the seq_log_density method.
+
+        """
         return [self.seq_log_density]
 
     def seq_ld_lambda(self) -> None:
+        """Legacy method stub for compatibility.
+
+        This method exists for backward compatibility and does nothing.
+
+        """
         pass
 
 
@@ -160,7 +195,12 @@ class DistributionSampler:
         self.rng = np.random.RandomState(seed)
 
     def new_seed(self) -> int:
-        """Generates a new seed from rng"""
+        """Generate a new random seed from the random number generator.
+
+        Returns:
+            A new random seed integer.
+
+        """
         return self.rng.randint(0, maxrandint)
 
     @abstractmethod
@@ -199,6 +239,14 @@ class ConditionalSampler:
 
 
 class StatisticAccumulator(Generic[SS]):
+    """Abstract base class for sufficient statistic accumulators.
+
+    Accumulators maintain and update sufficient statistics for parameter estimation.
+
+    Type Parameters:
+        SS: Type of the sufficient statistics.
+
+    """
 
     def __eq__(self, other: Any) -> bool:
         """Tests if a ProbabilityDistribution is equivilent to another.
@@ -297,8 +345,22 @@ class StatisticAccumulator(Generic[SS]):
 
 
 class SequenceEncodableStatisticAccumulator(StatisticAccumulator[SS]):
+    """Statistic accumulator with support for sequence-based updates.
+
+    Extends StatisticAccumulator to handle vectorized updates over sequences
+    of encoded data.
+
+    Type Parameters:
+        SS: Type of the sufficient statistics.
+
+    """
 
     def get_seq_lambda(self) -> None:
+        """Legacy method stub for compatibility.
+
+        This method exists for backward compatibility and does nothing.
+
+        """
         pass
 
     @abstractmethod
@@ -364,7 +426,12 @@ class ParameterEstimator(Generic[SS]):
 
     @abstractmethod
     def __init__(self, *args: Any) -> None:
-        """Must implement constructor for ParameterEstimator"""
+        """Initialize the ParameterEstimator.
+
+        Args:
+            *args: Variable length argument list for initialization.
+
+        """
         ...
 
     @abstractmethod
@@ -402,8 +469,15 @@ class ParameterEstimator(Generic[SS]):
 
 
 class DataSequenceEncoder:
+    """Abstract base class for encoding data sequences.
+
+    Encoders transform raw data sequences into encoded representations
+    suitable for probability distribution operations.
+
+    """
 
     def __str__(self) -> str:
+        """Return string representation of the encoder."""
         return self.__str__()
 
     @abstractmethod
@@ -436,19 +510,26 @@ class DataSequenceEncoder:
 
 
 class EncodedDataSequence:
-    """EncodedDatSequence is the outputed data structure from
-    DataSeqeunceEncoder. Object is used for vectorized functions and type
-    checks.
+    """Container for encoded data sequences.
+
+    EncodedDataSequence is the output data structure from DataSequenceEncoder.
+    This object is used for vectorized functions and type checks.
+
+    Attributes:
+        data: The encoded data for vectorized calls.
+
     """
 
     def __init__(self, data: Any) -> None:
         """Create instance of EncodedDataSequence.
 
         Args:
-            data (Any): Store the data encocded for vectorized calls.
+            data: Store the data encoded for vectorized calls.
 
         """
         self.data = data
 
     @abstractmethod
-    def __repr__(self) -> str: ...
+    def __repr__(self) -> str:
+        """Return string representation of the encoded sequence."""
+        ...

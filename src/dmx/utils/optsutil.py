@@ -12,9 +12,11 @@ T1 = TypeVar("T1")
 
 def get_parent_directory(filepath: str, levels: int = 0) -> Path:
     """Get the parent directory of a file.
+
     Args:
         filepath (str): The full path of the file
         levels (int): Number of levels to move up to reach parent.
+
     Returns:
         Path object containing path to parent directory.
 
@@ -203,8 +205,7 @@ def least_occurring(
     percent: Optional[float] = None,
     keep_freq: bool = True,
 ) -> Union[List[T], Callable]:
-    """
-    Identifies the least occurring elements in a sequence.
+    """Identifies the least occurring elements in a sequence.
 
     This function finds the least frequently occurring elements in a given sequence
     based on the specified `count` or `percent`. Optionally, it can return the filtered
