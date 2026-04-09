@@ -1,0 +1,235 @@
+[MASTER]
+# Use multiple processes to speed up Pylint
+jobs=0
+
+# Pickle collected data for later comparisons
+persistent=yes
+
+# List of plugins (as comma separated values of python module names)
+load-plugins=
+
+# Allow loading of arbitrary C extensions
+unsafe-load-any-extension=no
+
+# A comma-separated list of package or module names from where C extensions may be loaded
+extension-pkg-allow-list=numpy,scipy,torch,numba
+
+[MESSAGES CONTROL]
+# Disable specific messages that are too strict for scientific computing
+disable=
+    # Format-related (handled by black)
+    C0330,  # Wrong hanging indentation
+    C0326,  # Bad whitespace
+    
+    # Too strict for scientific code
+    R0913,  # Too many arguments (common in scientific functions)
+    R0914,  # Too many local variables (common in algorithms)
+    R0912,  # Too many branches (common in numerical code)
+    R0915,  # Too many statements (common in implementations)
+    
+    # Documentation (handled by pydocstyle)
+    C0114,  # Missing module docstring (checked by pydocstyle)
+    C0115,  # Missing class docstring (checked by pydocstyle)
+    C0116,  # Missing function docstring (checked by pydocstyle)
+    
+    # Variable naming (allow mathematical conventions)
+    C0103,  # Invalid name (allow x, y, mu, sigma, etc.)
+    
+    # Numpy/scientific conventions
+    E1101,  # No member (numpy has dynamic members)
+    
+    # Allow TODO comments
+    W0511,  # fixme/todo
+
+[REPORTS]
+# Set the output format
+output-format=text
+
+# Tells whether to display a full report or only the messages
+reports=no
+
+# Activate the evaluation score
+score=yes
+
+[REFACTORING]
+# Maximum number of nested blocks for function / method body
+max-nested-blocks=5
+
+# Complete name of functions that never returns
+never-returning-functions=sys.exit,argparse.parse_error
+
+[BASIC]
+# Good variable names which should always be accepted
+good-names=i,j,k,x,y,z,mu,nu,df,n,m,p,q,t,f,a,b,c,d,e,_,xi,yi
+
+# Include a hint for the correct naming format with invalid-name
+include-naming-hint=yes
+
+# Naming style matching correct function names
+function-naming-style=snake_case
+
+# Naming style matching correct variable names
+variable-naming-style=snake_case
+
+# Naming style matching correct constant names
+const-naming-style=UPPER_CASE
+
+# Naming style matching correct class names
+class-naming-style=PascalCase
+
+# Naming style matching correct module names
+module-naming-style=snake_case
+
+# Naming style matching correct method names
+method-naming-style=snake_case
+
+# Naming style matching correct argument names
+argument-naming-style=snake_case
+
+# Naming style matching correct attribute names
+attr-naming-style=snake_case
+
+[FORMAT]
+# Maximum number of characters on a single line
+max-line-length=88
+
+# Maximum number of lines in a module
+max-module-lines=2000
+
+# String used as indentation unit
+indent-string='    '
+
+# Expected format of line ending
+expected-line-ending-format=LF
+
+[LOGGING]
+# The type of string formatting that logging methods do
+logging-format-style=old
+
+[MISCELLANEOUS]
+# List of note tags to take in consideration
+notes=FIXME,XXX,TODO
+
+[SIMILARITIES]
+# Minimum lines number of a similarity
+min-similarity-lines=4
+
+# Ignore comments when computing similarities
+ignore-comments=yes
+
+# Ignore docstrings when computing similarities
+ignore-docstrings=yes
+
+# Ignore imports when computing similarities
+ignore-imports=yes
+
+[SPELLING]
+# Spelling dictionary name
+spelling-dict=
+
+# List of comma separated words that should not be checked
+spelling-ignore-words=
+
+# A path to a file that contains the private dictionary
+spelling-private-dict-file=
+
+# Tells whether to store unknown words to the private dictionary
+spelling-store-unknown-words=no
+
+[STRING]
+# This flag controls whether inconsistent-quotes generates a warning when the
+# character used as a quote delimiter is used inconsistently within a module
+check-quote-consistency=no
+
+[TYPECHECK]
+# List of decorators that produce context managers
+contextmanager-decorators=contextlib.contextmanager
+
+# List of members which are set dynamically and missed by pylint inference
+generated-member-objects=numpy.*,torch.*,scipy.*
+
+# Tells whether missing members accessed in mixin class should be ignored
+ignore-mixin-members=yes
+
+# Tells whether to warn about missing members when the owner of the attribute is inferred to be None
+ignore-none=yes
+
+# This flag controls whether pylint should warn about no-member and similar checks whenever an opaque object is returned when inferring
+ignore-on-opaque-inference=yes
+
+[VARIABLES]
+# Tells whether we should check for unused import in __init__ files
+init-import=no
+
+# A regular expression matching the name of dummy variables
+dummy-variables-rgx=_+$|(_[a-zA-Z0-9_]*[a-zA-Z0-9]+?$)|dummy|^ignored_|^unused_
+
+# List of additional names supposed to be defined in builtins
+additional-builtins=
+
+# List of strings which can identify a callback function by name
+callbacks=cb_,_cb
+
+[CLASSES]
+# List of method names used to declare (i.e. assign) instance attributes
+defining-attr-methods=__init__,__new__,setUp,__post_init__
+
+# List of member names, which should be excluded from the protected access warning
+exclude-protected=_asdict,_fields,_replace,_source,_make
+
+# List of valid names for the first argument in a class method
+valid-classmethod-first-arg=cls
+
+# List of valid names for the first argument in a metaclass class method
+valid-metaclass-classmethod-first-arg=mcs
+
+[DESIGN]
+# Maximum number of arguments for function / method
+max-args=10
+
+# Maximum number of attributes for a class
+max-attributes=15
+
+# Maximum number of boolean expressions in an if statement
+max-bool-expr=5
+
+# Maximum number of branch for function / method body
+max-branches=15
+
+# Maximum number of locals for function / method body
+max-locals=20
+
+# Maximum number of parents for a class
+max-parents=7
+
+# Maximum number of public methods for a class
+max-public-methods=25
+
+# Maximum number of return / yield for function / method body
+max-returns=6
+
+# Maximum number of statements in function / method body
+max-statements=75
+
+# Minimum number of public methods for a class
+min-public-methods=1
+
+[IMPORTS]
+# Allow wildcard imports from modules that define __all__
+allow-wildcard-with-all=no
+
+# Deprecated modules which should not be used
+deprecated-modules=optparse,imp
+
+# Output a graph (.gv or any supported image format) of external dependencies
+ext-import-graph=
+
+# Output a graph (.gv or any supported image format) of all (i.e. internal and external) dependencies
+import-graph=
+
+# Output a graph (.gv or any supported image format) of internal dependencies
+int-import-graph=
+
+[EXCEPTIONS]
+# Exceptions that will emit a warning when caught
+overgeneral-exceptions=BaseException,Exception
