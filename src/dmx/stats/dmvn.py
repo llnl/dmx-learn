@@ -1,4 +1,4 @@
-"""Create, estimate, and sample from a diagonal Gaussian distribution (independent-multivariate Gaussian).
+r"""Create, estimate, and sample from a diagonal Gaussian distribution (independent-multivariate Gaussian).
 
 Defines the DiagonalGaussianDistribution, DiagonalGaussianSampler, DiagonalGaussianAccumulatorFactory,
 DiagonalGaussianAccumulator, DiagonalGaussianEstimator, and the DiagonalGaussianDataEncoder classes for use with

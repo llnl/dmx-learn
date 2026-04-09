@@ -1,4 +1,5 @@
-.. _base_distributions
+.. _base_distributions:
+
 Base Distributions
 ===========================
 Below is a list of distributions aranged by data type. This should help pick a suitable probability distribution for you data. Note that there may be restrictions on the support of each distribution. This information will be contained in the associated references for each individual distribution.

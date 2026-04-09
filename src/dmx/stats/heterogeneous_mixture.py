@@ -1,4 +1,4 @@
-"""Create, estimate, and sample from a heterogeneous mixture distribution.
+r"""Create, estimate, and sample from a heterogeneous mixture distribution.
 
 Defines the HeterogeneousMixtureDistribution, HeterogeneousMixtureSampler, HeterogeneousMixtureAccumulatorFactory,
 HeterogeneousMixtureAccumulator, HeterogeneousMixtureEstimator, and the HeterogeneousMixtureDataEncoder classes for use

@@ -1,4 +1,5 @@
 .. _stats_hidden_markov:
+
 Hidden Markov Distribution
 ===============================
 Hidden Markov Models (HMMs) are statistical models used to represent systems that are assumed to be a Markov process with hidden (unobserved) states. They are particularly useful in scenarios where the system being modeled is not directly observable, but can be inferred through observable outputs.
