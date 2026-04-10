@@ -6,7 +6,7 @@ I'm working on improving the dmx-learn Python repository following a comprehensi
 
 ## Current Status
 
-**Branch:** `feature/doc-phase-2`
+**Branch:** `feature/doc-phase-5`
 
 **Phase 1:** ✅ COMPLETE
 - All code quality tools configured (Black, isort, pylint, mypy, pydocstyle)
@@ -26,7 +26,74 @@ I'm working on improving the dmx-learn Python repository following a comprehensi
 **Phase 3:** IN PROGRESS
 - Comprehensive docstring enhancement across all modules
 
-## Ready to Start: Phase 5 - CI/CD Pipeline Setup
+**Phase 5:** IN PROGRESS
+- CI/CD Pipeline Setup
+
+## Phase 5 - CI/CD Pipeline Setup Progress
+
+### Completed Steps:
+
+#### ✅ Step 5.1: GitHub Actions Test Workflow (COMPLETE)
+**File:** `.github/workflows/test.yml`
+
+**Configuration:**
+- Tests on Python 3.10, 3.11, 3.12, 3.13 (4 versions)
+- Tests on Ubuntu, macOS, Windows (3 OS platforms)
+- Total: 12 test job combinations
+- Added new `ci` extra in `pyproject.toml` for CI-specific dependencies
+
+**Dependencies Installed:**
+- Core dependencies (via poetry.lock)
+- torch (CPU-only via `TEST_TORCH_DEVICE=cpu`)
+- umap-learn (for all utils tests)
+- NO mpi4py (excluded per requirement)
+
+**Tests Run:**
+- `tests/stats/` - Core statistics tests
+- `tests/torch_stats/` - PyTorch tests (CPU-only, no MPS/CUDA)
+- `tests/utils/` - All utility tests (including test_humap.py)
+- EXCLUDED: `tests/mpi4py/` (not in test paths)
+
+**Key Features:**
+- Dependency caching for faster builds
+- Conforms to poetry.lock (exact versions)
+- Fail-fast disabled (all combinations run independently)
+- Test artifacts uploaded (7-day retention)
+- Triggers: push/PR to main/develop/feature/* branches
+
+#### ✅ Step 5.2: GitHub Actions Code Quality Workflow (COMPLETE)
+**File:** `.github/workflows/quality.yml`
+
+**Configuration:**
+- 4 parallel jobs for fast CI feedback
+- Runs on Python 3.11, Ubuntu-only
+- Uses `poetry install --with dev`
+
+**Jobs:**
+1. **Formatting Job** (Black & isort)
+   - `black --check .` - All files
+   - `isort --check .` - All imports
+
+2. **Type Checking Job** (mypy)
+   - Core modules: pdist.py (stats + torch_stats), optsutil.py, vector.py
+   - Enforces 0 type errors
+
+3. **Linting Job** (pylint)
+   - Same core modules as mypy
+   - Uses `--jobs=1` (prevents crashes)
+   - Uses `--exit-zero` (reports but doesn't fail)
+   - Enforces ≥ 8.0/10 score
+
+4. **Docstring Quality Job** (pydocstyle)
+   - Same core modules
+   - Google-style convention
+   - Enforces 0 errors
+
+**Performance:** ~60-90 seconds total (parallel execution)
+
+### In Progress:
+
+## Step 5.3: GitHub Actions - Documentation Build (NEXT)
 
 ### Objective
 
