@@ -123,9 +123,66 @@ I'm working on improving the dmx-learn Python repository following a comprehensi
 - Dependency caching for speed
 - Built docs available for download/review
 
+#### ✅ Step 5.4: Read the Docs Integration (COMPLETE)
+**File:** `.readthedocs.yml`
+
+**Configuration Updates:**
+- Ubuntu 20.04 → **Ubuntu 22.04**
+- Python 3.10 → **Python 3.11**
+- requirements.txt → **Poetry with docs group**
+- Added **fail_on_warning: true** (strict mode)
+- Added **PDF + EPUB** format generation
+
+**Build Process:**
+1. Installs Poetry 1.8.0 in `pre_install` job
+2. Runs `poetry install --with docs` (uses poetry.lock)
+3. Builds Sphinx documentation with strict warnings
+4. Generates PDF and EPUB formats
+5. Publishes to dmx-learn.readthedocs.io
+
+**Key Features:**
+- Poetry integration (consistent with CI)
+- Modern platform (Ubuntu 22.04, Python 3.11)
+- Strict build mode (fail_on_warning: true)
+- Multiple output formats (HTML, PDF, EPUB)
+
+#### ✅ Step 5.5: Code Coverage Reporting (COMPLETE)
+**Files:** `pyproject.toml`, `.github/workflows/test.yml`, `.gitignore`
+
+**Configuration Added:**
+
+1. **pytest-cov Configuration** (pyproject.toml):
+   - Added coverage options to pytest: `--cov=src/dmx`
+   - XML report: `--cov-report=xml` (for Codecov)
+   - HTML report: `--cov-report=html` (for local viewing)
+   - Terminal report: `--cov-report=term-missing`
+
+2. **Coverage Settings** (pyproject.toml):
+   - Source: `src/dmx` directory
+   - Excludes: tests, __pycache__, site-packages
+   - Exclude patterns: pragma comments, __repr__, abstract methods
+   - Show missing lines in reports
+   - HTML output to `htmlcov/` directory
+
+3. **CI Integration** (test.yml):
+   - Uploads coverage to Codecov (Ubuntu + Python 3.11 only)
+   - Uses codecov/codecov-action@v4
+   - Flags: unittests
+   - Uploads coverage.xml as artifact (all jobs)
+
+4. **Gitignore Updates** (.gitignore):
+   - Added coverage files: htmlcov/, .coverage, coverage.xml
+   - Added pytest cache: .pytest_cache/
+
+**Key Features:**
+- Automatic coverage collection on all test runs
+- Codecov integration for coverage tracking over time
+- HTML reports for local development
+- Coverage artifacts available for all test matrix jobs
+
 ### In Progress:
 
-## Step 5.4: Read the Docs Integration (NEXT)
+## Step 5.6: Dependency Management (NEXT)
 
 ### Objective
 

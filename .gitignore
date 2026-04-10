@@ -14,6 +14,15 @@ generate_notebook_data/
 docs/_build
 docs/_static
 
+# Coverage reports
+htmlcov/
+.coverage
+.coverage.*
+coverage.xml
+*.cover
+.hypothesis/
+.pytest_cache/
+
 # Distribution / packaging
 .idea
 .Python

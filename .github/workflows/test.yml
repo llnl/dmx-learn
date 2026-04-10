@@ -55,7 +55,16 @@ jobs:
           # Torch tests default to CPU, but explicitly set to ensure no MPS/CUDA
           TEST_TORCH_DEVICE: cpu
 
-      - name: Upload test results
+      - name: Upload coverage to Codecov
+        uses: codecov/codecov-action@v4
+        if: matrix.os == 'ubuntu-latest' && matrix.python-version == '3.11'
+        with:
+          file: ./coverage.xml
+          flags: unittests
+          name: codecov-umbrella
+          fail_ci_if_error: false
+
+      - name: Upload test results and coverage
         if: always()
         uses: actions/upload-artifact@v4
         with:
@@ -63,4 +72,5 @@ jobs:
           path: |
             .pytest_cache/
             htmlcov/
+            coverage.xml
           retention-days: 7
