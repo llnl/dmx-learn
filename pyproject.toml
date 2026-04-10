@@ -59,6 +59,7 @@ umap-learn = {version = "^0.5.0", optional = true}
 [tool.poetry.extras]
 torch = ["torch"]
 optional = ["mpi4py", "umap-learn"]
+ci = ["torch", "umap-learn"]
 all = ["torch", "mpi4py", "umap-learn"]
 
 [tool.poetry.group.dev]
