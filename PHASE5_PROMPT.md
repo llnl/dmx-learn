@@ -91,9 +91,41 @@ I'm working on improving the dmx-learn Python repository following a comprehensi
 
 **Performance:** ~60-90 seconds total (parallel execution)
 
+#### ✅ Step 5.3: GitHub Actions Documentation Build Workflow (COMPLETE)
+**File:** `.github/workflows/docs.yml`
+
+**Configuration:**
+- Single job: `build-docs`
+- Runs on Python 3.11, Ubuntu-only
+- Uses `poetry install --with docs`
+
+**Build Steps:**
+1. **Build Sphinx Documentation**
+   - Command: `sphinx-build -W -b html docs/ docs/_build/html`
+   - `-W` flag: Treats warnings as errors (strict mode)
+   - Enforces zero warnings standard from Phase 2
+
+2. **Check for Broken Links**
+   - Command: `sphinx-build -b linkcheck docs/ docs/_build/linkcheck`
+   - Validates all external and internal links
+   - Uses `continue-on-error: true` (reports but doesn't fail build)
+
+3. **Upload Artifacts**
+   - HTML documentation (full built docs)
+   - Linkcheck results (broken link report)
+   - Both retained for 7 days
+
+**Performance:** < 30 seconds build time
+
+**Key Features:**
+- Strict build mode (zero warnings allowed)
+- Link validation for documentation quality
+- Dependency caching for speed
+- Built docs available for download/review
+
 ### In Progress:
 
-## Step 5.3: GitHub Actions - Documentation Build (NEXT)
+## Step 5.4: Read the Docs Integration (NEXT)
 
 ### Objective
 
