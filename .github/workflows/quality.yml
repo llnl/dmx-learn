@@ -70,8 +70,8 @@ jobs:
           path: .venv
           key: venv-${{ runner.os }}-3.11-${{ hashFiles('**/poetry.lock') }}
 
-      - name: Install dependencies
-        run: poetry install --no-interaction --with dev
+      - name: Install dependencies with optional deps (torch for torch_stats)
+        run: poetry install --no-interaction --extras ci --with dev
 
       - name: Run mypy type checking on core modules
         run: |
@@ -107,8 +107,8 @@ jobs:
           path: .venv
           key: venv-${{ runner.os }}-3.11-${{ hashFiles('**/poetry.lock') }}
 
-      - name: Install dependencies
-        run: poetry install --no-interaction --with dev
+      - name: Install dependencies with optional deps (torch for torch_stats)
+        run: poetry install --no-interaction --extras ci --with dev
 
       - name: Run pylint on core modules
         run: |
@@ -144,8 +144,8 @@ jobs:
           path: .venv
           key: venv-${{ runner.os }}-3.11-${{ hashFiles('**/poetry.lock') }}
 
-      - name: Install dependencies
-        run: poetry install --no-interaction --with dev
+      - name: Install dependencies with optional deps (torch for torch_stats)
+        run: poetry install --no-interaction --extras ci --with dev
 
       - name: Run pydocstyle on core modules
         run: |
