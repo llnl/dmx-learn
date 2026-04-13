@@ -42,11 +42,8 @@ jobs:
           restore-keys: |
             venv-${{ runner.os }}-${{ matrix.python-version }}-
 
-      - name: Install dependencies with torch and umap (no mpi4py)
-        run: poetry install --no-interaction --no-root --extras ci --with dev
-
-      - name: Install project
-        run: poetry install --no-interaction
+      - name: Install dependencies and project with torch and umap (no mpi4py)
+        run: poetry install --no-interaction --extras ci --with dev
 
       - name: Run tests (core + torch + utils, no mpi4py, CPU-only)
         run: |
