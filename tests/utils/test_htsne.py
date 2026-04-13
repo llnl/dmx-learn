@@ -20,4 +20,6 @@ def test_htsne() -> None:
     answer = np.load(os.path.join(ANSWER_DIR, "testOutput_htsne.npy"))
     rv = htsne(data, seed=10)
 
-    assert np.all(answer == rv)
+    # Use approximate equality to handle platform/version differences in numerical operations
+    # rtol=1e-5 allows ~0.001% relative difference, atol=1e-7 handles near-zero values
+    assert np.allclose(answer, rv, rtol=1e-5, atol=1e-7)
