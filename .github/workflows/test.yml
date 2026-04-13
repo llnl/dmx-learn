@@ -43,7 +43,7 @@ jobs:
             venv-${{ runner.os }}-${{ matrix.python-version }}-
 
       - name: Install dependencies with torch and umap (no mpi4py)
-        run: poetry install --no-interaction --no-root --extras ci
+        run: poetry install --no-interaction --no-root --extras ci --with dev
 
       - name: Install project
         run: poetry install --no-interaction
