@@ -4,12 +4,13 @@ import math
 from collections import defaultdict
 from collections.abc import Iterable
 from importlib import import_module
-from typing import Any, Dict, Optional, Sequence
+from typing import Any, Dict, Optional, Sequence, Union
 
 import numpy as np
 
-from dmx.bstats.mixture import MixtureDistribution
+from dmx.bstats.mixture import MixtureDistribution as BstatsMixtureDistribution
 from dmx.stats import ParameterEstimator
+from dmx.stats.mixture import MixtureDistribution as StatsMixtureDistribution
 
 
 def _get_class(
@@ -23,6 +24,54 @@ def _get_class(
 def _get_bstats_attr(module_name: str, attr_name: str) -> Any:
     """Loads a bstats attribute at runtime."""
     return getattr(import_module(module_name), attr_name)
+
+
+def encode_mixture_data(
+    data: Sequence[Any],
+    mix_model: Union[StatsMixtureDistribution, BstatsMixtureDistribution],
+) -> Any:
+    """Encode data using the API expected by the given mixture model."""
+    if isinstance(mix_model, StatsMixtureDistribution):
+        return mix_model.dist_to_encoder().seq_encode(data)
+    if isinstance(mix_model, BstatsMixtureDistribution):
+        return mix_model.seq_encode(data)
+    raise TypeError(f"Unsupported mixture model type: {type(mix_model)!r}")
+
+
+# Keep the current helper call signature stable for now.
+# pylint: disable-next=too-many-positional-arguments
+def prepare_mixture_model(
+    data: Sequence[Any],
+    rng: np.random.RandomState,
+    max_components: int = 30,
+    mix_threshold_count: float = 0.5,
+    max_its: int = 1000,
+    print_iter: int = 100,
+    comp_estimator: Optional[ParameterEstimator] = None,
+    mix_model: Optional[
+        Union[StatsMixtureDistribution, BstatsMixtureDistribution]
+    ] = None,
+) -> tuple[Union[StatsMixtureDistribution, BstatsMixtureDistribution], Any, np.ndarray]:
+    """Fit or validate a mixture model and compute encoded posteriors."""
+    if max_components <= 1 or not isinstance(max_components, (int, np.integer)):
+        raise ValueError("max_components must be an integer greater than 1.")
+
+    if mix_model is None:
+        mix_model = get_dpm_mixture(
+            data=data,
+            estimator=comp_estimator,
+            max_comp=max_components,
+            rng=rng,
+            max_its=max_its,
+            print_iter=print_iter,
+            mix_threshold_count=mix_threshold_count,
+        )
+
+    if mix_model.num_components == 0:
+        raise RuntimeError("Something is broken. Mixture model has zero components.")
+
+    enc_data = encode_mixture_data(data, mix_model)
+    return mix_model, enc_data, mix_model.seq_posterior(enc_data)
 
 
 def get_optional_estimator(
@@ -490,7 +539,7 @@ def get_dpm_mixture(
     max_its: int = 1000,
     print_iter: int = 100,
     mix_threshold_count: int = 0.5,
-) -> MixtureDistribution:
+) -> BstatsMixtureDistribution:
     """Gets a Dirichlet Process Mixture model for the data.
 
     Args:
@@ -526,4 +575,4 @@ def get_dpm_mixture(
     print(str(mix_weights))
     print(f"# Components = {len(mix_comps)}")
 
-    return MixtureDistribution(mix_comps, mix_weights)
+    return BstatsMixtureDistribution(mix_comps, mix_weights)

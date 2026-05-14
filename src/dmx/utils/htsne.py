@@ -8,7 +8,7 @@ from numpy.random import RandomState
 from dmx.bstats import MixtureDistribution as BstatsMixtureDistribution
 from dmx.bstats.pdist import ParameterEstimator
 from dmx.stats.mixture import MixtureDistribution as StatsMixtureDistribution
-from dmx.utils.automatic import get_dpm_mixture
+from dmx.utils.automatic import prepare_mixture_model
 
 T = TypeVar("T")
 
@@ -428,31 +428,17 @@ def htsne(
     """
 
     rng = RandomState(seed) if seed is not None else RandomState()
-    if max_components <= 1 or not isinstance(max_components, (int, np.integer)):
-        raise ValueError("max_components must be an integer greater than 1.")
-    # Fit DPM to data using comp_estimator if passed.
-    if mix_model is None:
-        mix_model = get_dpm_mixture(
-            data=data,
-            estimator=comp_estimator,
-            max_comp=max_components,
-            rng=rng,
-            max_its=max_its,
-            print_iter=print_iter,
-            mix_threshold_count=mix_threshold_count,
-        )
-    # Mixture must have at least one comp!
-    if mix_model.num_components == 0:
-        raise RuntimeError("Something is broken. Mixture model has zero components.")
-    # This is until all bstats is updated!
-    if isinstance(mix_model, StatsMixtureDistribution):
-        enc_data = mix_model.dist_to_encoder().seq_encode(data)
-    elif isinstance(mix_model, BstatsMixtureDistribution):
-        enc_data = mix_model.seq_encode(data)
-    else:
-        raise TypeError(f"Unsupported mixture model type: {type(mix_model)!r}")
-    # Posterior and log comp density for each point [z | x] and [x | z]
-    z_ij = mix_model.seq_posterior(enc_data)
+    mix_model, enc_data, z_ij = prepare_mixture_model(
+        data=data,
+        rng=rng,
+        max_components=max_components,
+        mix_threshold_count=mix_threshold_count,
+        max_its=max_its,
+        print_iter=print_iter,
+        comp_estimator=comp_estimator,
+        mix_model=mix_model,
+    )
+    # Log component density for each point [x | z]
     l_ij = mix_model.seq_component_log_density(enc_data)
     # Construct high-dim neighborhood matrix
     P = get_pmat(z_ij, l_ij, targ_perplexity=perplexity, vlen=variable_length)
