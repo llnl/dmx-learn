@@ -17,7 +17,7 @@ def count_by_value(x: Union[Sequence[T], np.ndarray, tn.Tensor]) -> Dict[T, int]
         Dictionary mapping value (type T) to value-count.
 
     """
-    rv: Dict[T, int] = dict()
+    rv: Dict[T, int] = {}
 
     for u in x:
         rv[u] = rv.get(u, 0) + 1
@@ -35,7 +35,7 @@ def int_count_by_value(x: Union[Sequence[T], np.ndarray, tn.Tensor]) -> Dict[T, 
         Dictionary mapping value (type T) to value-count.
 
     """
-    rv: Dict[int, int] = dict()
+    rv: Dict[int, int] = {}
 
     for u in x:
         rv[int(u)] = rv.get(int(u), 0) + 1  # type: ignore[arg-type]
