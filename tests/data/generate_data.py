@@ -33,12 +33,12 @@ if __name__ == "__main__":
     data = dist.sampler(rng.randint(low=0, high=2**31 - 1)).sample(300)
 
     # write out htsne data file
-    with open("tests/data/testInput_htsne_new.pkl", "wb") as f:
+    with open("tests/data/testInput_htsne.pkl", "wb") as f:
         pickle.dump(data, f)
 
     # run htsne
     htsne_answerkey = htsne(data, seed=10)
-    np.save("tests/data/testOutput_htsne_new.npy", htsne_answerkey)
+    np.save("tests/data/testOutput_htsne.npy", htsne_answerkey)
 
     # update humap
     umap_kwargs = {
@@ -50,3 +50,7 @@ if __name__ == "__main__":
     embeddings, _, _, _ = humap(data, seed=10, umap_kwargs=umap_kwargs)
 
     np.save("tests/answerkeys/testOutput_humap.npy", embeddings)
+
+    # Model Dump for mpi4py
+    with open("tests/data/testInput_mpi_optimize.pkl", "wb") as f:
+        pickle.dump(dist, f)

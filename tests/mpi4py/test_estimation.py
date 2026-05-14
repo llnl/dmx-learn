@@ -8,11 +8,11 @@ import os
 import pickle
 
 import numpy as np
-import pytest
 from mpi4py import MPI
 
 from dmx.mpi4py.utils.estimation import best_of_mpi, optimize_mpi
 from dmx.stats import *
+from dmx.utils.estimation import empirical_kl_divergence
 
 DATA_DIR = "tests/data"
 ANSWER_DIR = "tests/answerkeys"
@@ -25,26 +25,29 @@ def test_optimize_mpi() -> None:
     world_size = comm.Get_size()
 
     if world_rank == 0:
-        with open(os.path.join(DATA_DIR, "testInput_optimize_mpi_n4.pkl"), "rb") as f:
-            data = pickle.load(f)
-
-        with open(
-            os.path.join(ANSWER_DIR, "testOutput_optimize_mpi_n4.pkl"), "rb"
-        ) as f:
-            answer = pickle.load(f)
+        with open(os.path.join(DATA_DIR, "testInput_mpi_optimize.pkl"), "rb") as f:
+            true_model = pickle.load(f)
+            data = true_model.sampler(10).sample(4000)
+            est = true_model.estimator()
     else:
         data = None
+        est = None
 
+    est = comm.bcast(est, root=0)
     rng = np.random.RandomState(1)
-    est0 = CompositeEstimator([GaussianEstimator(), CategoricalEstimator()])
-    est = MixtureEstimator([est0] * 2)
 
-    model = optimize_mpi(data, est, rng=rng)
+    model = optimize_mpi(data, est, max_its=10000, print_iter=10000, rng=rng)
 
     if world_rank == 0:
-        assert str(model) == str(answer)
+        enc_data = seq_encode(data=data, model=true_model)
+        kl, _, _ = empirical_kl_divergence(
+            dist1=true_model, dist2=model, enc_data=enc_data
+        )
+        assert (
+            kl <= 1.0e-2
+        ), f"Model estimate did not converge under empirical KL: {kl}."
     else:
-        assert model == None
+        assert model == None, f"Model was broadcast to worker!"
 
 
 def test_best_of_mpi() -> None:
@@ -54,27 +57,27 @@ def test_best_of_mpi() -> None:
     world_size = comm.Get_size()
 
     if world_rank == 0:
-        with open(os.path.join(DATA_DIR, "testInput_optimize_mpi_n4.pkl"), "rb") as f:
-            data = pickle.load(f)
+        with open(os.path.join(DATA_DIR, "testInput_mpi_optimize.pkl"), "rb") as f:
+            true_model = pickle.load(f)
+            data = true_model.sampler(10).sample(4000)
 
-        data, vdata = data[:-10], data[-10:]
+            data, vdata = data[:-400], data[-400:]
+            est = true_model.estimator()
     else:
         data = None
         vdata = None
+        est = None
 
-    with open(os.path.join(ANSWER_DIR, "testOutput_best_of_mpi_n4.pkl"), "rb") as f:
-        answer = pickle.load(f)
-
+    est = comm.bcast(est, root=0)
     rng = np.random.RandomState(1)
-    est0 = CompositeEstimator([GaussianEstimator(), CategoricalEstimator()])
-    est = MixtureEstimator([est0] * 2)
 
     model = best_of_mpi(
         data=data,
         vdata=vdata,
         est=est,
         max_its=100,
-        max_its_cnt=10,
+        print_iter=1000,
+        max_its_cnt=1000,
         init_p=0.10,
         delta=1.0e-6,
         trials=5,
@@ -82,4 +85,12 @@ def test_best_of_mpi() -> None:
     )
 
     if world_rank == 0:
-        assert str(model) == str(answer)
+        enc_data = seq_encode(data=data, model=true_model)
+        kl, _, _ = empirical_kl_divergence(
+            dist1=true_model, dist2=model, enc_data=enc_data
+        )
+        assert (
+            kl <= 1.0e-2
+        ), f"Model estimate did not converge under empirical KL: {kl}."
+    else:
+        assert model == None, f"Model was broadcast to worker!"
