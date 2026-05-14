@@ -3,7 +3,7 @@
 import math
 from collections import defaultdict
 from collections.abc import Iterable
-from typing import Any, Dict, Optional, Sequence, Tuple
+from typing import Any, Dict, Optional, Sequence
 
 import numpy as np
 
@@ -28,10 +28,9 @@ def get_optional_estimator(
         from dmx.bstats.optional import OptionalEstimator
 
         return OptionalEstimator(est, missing_value=missing_value)
-    else:
-        from dmx.stats.optional import OptionalEstimator
+    from dmx.stats.optional import OptionalEstimator
 
-        return OptionalEstimator(est, missing_value=missing_value)
+    return OptionalEstimator(est, missing_value=missing_value)
 
 
 def get_sequence_estimator(est: ParameterEstimator, use_bstats=False):
@@ -48,10 +47,9 @@ def get_sequence_estimator(est: ParameterEstimator, use_bstats=False):
         from dmx.bstats.sequence import SequenceEstimator
 
         return SequenceEstimator(est)
-    else:
-        from dmx.stats.sequence import SequenceEstimator
+    from dmx.stats.sequence import SequenceEstimator
 
-        return SequenceEstimator(est)
+    return SequenceEstimator(est)
 
 
 def get_ignored_estimator(use_bstats: bool = False):
@@ -67,10 +65,9 @@ def get_ignored_estimator(use_bstats: bool = False):
         from dmx.bstats.ignored import IgnoredEstimator
 
         return IgnoredEstimator()
-    else:
-        from dmx.stats.ignored import IgnoredEstimator
+    from dmx.stats.ignored import IgnoredEstimator
 
-        return IgnoredEstimator()
+    return IgnoredEstimator()
 
 
 def get_composite_estimator(
@@ -89,10 +86,9 @@ def get_composite_estimator(
         from dmx.bstats.composite import CompositeEstimator
 
         return CompositeEstimator(ests)
-    else:
-        from dmx.stats.composite import CompositeEstimator
+    from dmx.stats.composite import CompositeEstimator
 
-        return CompositeEstimator(ests)
+    return CompositeEstimator(ests)
 
 
 def get_categorical_estimator(
@@ -121,10 +117,9 @@ def get_categorical_estimator(
         else:
             suff_stat = None
         return CategoricalEstimator(pseudo_count=pseudo_count, suff_stat=suff_stat)
-    else:
-        from dmx.bstats.categorical import CategoricalEstimator
+    from dmx.bstats.categorical import CategoricalEstimator
 
-        return CategoricalEstimator()
+    return CategoricalEstimator()
 
 
 def get_poisson_estimator(
@@ -148,22 +143,21 @@ def get_poisson_estimator(
         from dmx.bstats.poisson import PoissonEstimator
 
         return PoissonEstimator()
-    else:
-        from dmx.stats.poisson import PoissonEstimator
+    from dmx.stats.poisson import PoissonEstimator
 
-        if emp_suff_stat:
-            ss_0 = 0.0
-            ss_1 = 0.0
-            for k, v in vdict.items():
-                if math.isfinite(k):
-                    ss_0 += v
-                    ss_1 += k * v
-            ss_1 = ss_1 / ss_0
-        elif pseudo_count is not None:
-            ss_1 = 1.0
-        else:
-            ss_1 = None
-        return PoissonEstimator(pseudo_count=pseudo_count, suff_stat=ss_1)
+    if emp_suff_stat:
+        ss_0 = 0.0
+        ss_1 = 0.0
+        for k, v in vdict.items():
+            if math.isfinite(k):
+                ss_0 += v
+                ss_1 += k * v
+        ss_1 = ss_1 / ss_0
+    elif pseudo_count is not None:
+        ss_1 = 1.0
+    else:
+        ss_1 = None
+    return PoissonEstimator(pseudo_count=pseudo_count, suff_stat=ss_1)
 
 
 def get_gaussian_estimator(
@@ -187,32 +181,31 @@ def get_gaussian_estimator(
         from dmx.bstats.gaussian import GaussianEstimator
 
         return GaussianEstimator()
+    from dmx.stats.gaussian import GaussianEstimator
+
+    if emp_suff_stat:
+        ss_0 = 0.0
+        ss_1 = 0.0
+        ss_2 = 0.0
+        for k, v in vdict.items():
+            if math.isfinite(k):
+                ss_0 += v
+                ss_1 += k * v
+                ss_2 += k * k * v
+        ss_1 = ss_1 / ss_0
+        ss_2 = (ss_2 / ss_0) - ss_1 * ss_1
+    elif pseudo_count is not None:
+        ss_1 = 1.0e-6
+        ss_2 = 1.0e-6
     else:
-        from dmx.stats.gaussian import GaussianEstimator
-
-        if emp_suff_stat:
-            ss_0 = 0.0
-            ss_1 = 0.0
-            ss_2 = 0.0
-            for k, v in vdict.items():
-                if math.isfinite(k):
-                    ss_0 += v
-                    ss_1 += k * v
-                    ss_2 += k * k * v
-            ss_1 = ss_1 / ss_0
-            ss_2 = (ss_2 / ss_0) - ss_1 * ss_1
-        elif pseudo_count is not None:
-            ss_1 = 1.0e-6
-            ss_2 = 1.0e-6
-        else:
-            ss_1 = None
-            ss_2 = None
-        return GaussianEstimator(
-            pseudo_count=(pseudo_count, pseudo_count), suff_stat=(ss_1, ss_2)
-        )
+        ss_1 = None
+        ss_2 = None
+    return GaussianEstimator(
+        pseudo_count=(pseudo_count, pseudo_count), suff_stat=(ss_1, ss_2)
+    )
 
 
-class DatumNode(object):
+class DatumNode:
     """Represents a node for processing data.
 
     Attributes:
@@ -311,8 +304,8 @@ class DatumNode(object):
         self.none_count += x.none_count
         self.nan_count += x.nan_count
 
-        for i in range(len(x.children)):
-            temp = self._get_child_node(i).merge(x.children[i])
+        for i, child in enumerate(x.children):
+            temp = self._get_child_node(i).merge(child)
             self.children[i] = temp
         for k, v in x.vdict.items():
             self.vdict[k] += v
@@ -396,15 +389,17 @@ class DatumNode(object):
                         self.vdict, pseudo_count, emp_suff_stat, use_bstats
                     )
                     # More checking before we use this
-                    # rv = get_poisson_estimator(self.vdict, pseudo_count, emp_suff_stat, use_bstats)
+                    # rv = get_poisson_estimator(
+                    #     self.vdict, pseudo_count, emp_suff_stat, use_bstats
+                    # )
             else:
                 rv = get_ignored_estimator(use_bstats)
 
         # Lists of Same Size
         elif (
             len(self.children) > 0
-            and len(set([u.count for u in self.children])) == 1
-            and all([u.count == self.count for u in self.children])
+            and len({u.count for u in self.children}) == 1
+            and all(u.count == self.count for u in self.children)
         ):
             rv = get_composite_estimator(
                 [
@@ -415,7 +410,7 @@ class DatumNode(object):
             )
 
         # Lists of Different Size
-        elif len(self.children) > 0 and len(set([u.count for u in self.children])) > 1:
+        elif len(self.children) > 0 and len({u.count for u in self.children}) > 1:
             child = self.children[0].copy()
             for u in self.children[1:]:
                 child = child.merge(u)
@@ -465,6 +460,8 @@ def get_estimator(
     return DatumNode(data=data).get_estimator(pseudo_count, emp_suff_stat, use_bstats)
 
 
+# Keep the current public call signature stable for now.
+# pylint: disable=too-many-positional-arguments
 def get_dpm_mixture(
     data: Sequence[Any],
     estimator: Optional[ParameterEstimator] = None,
@@ -490,7 +487,6 @@ def get_dpm_mixture(
     """
     from dmx.bstats.bestimation import optimize
     from dmx.bstats.dpm import DirichletProcessMixtureEstimator
-    from dmx.bstats.mixture import MixtureDistribution
 
     if estimator is None:
         est = get_estimator(data, use_bstats=True)
@@ -506,6 +502,6 @@ def get_dpm_mixture(
     mix_weights = mix_model.w[mix_model.w >= thresh]
 
     print(str(mix_weights))
-    print("# Components = %d" % (len(mix_comps)))
+    print(f"# Components = {len(mix_comps)}")
 
     return MixtureDistribution(mix_comps, mix_weights)
