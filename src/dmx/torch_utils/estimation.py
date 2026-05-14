@@ -1,12 +1,19 @@
-import os
 import sys
 from typing import IO, List, Optional, Sequence, Tuple, TypeVar
 
 import numpy as np
 import torch as tn
-import torch.distributed
 
-from dmx.torch_stats import *
+from dmx.torch_stats import (
+    seq_encode,
+    seq_encode_mp,
+    seq_estimate,
+    seq_estimate_mp,
+    seq_initialize,
+    seq_initialize_mp,
+    seq_log_density_sum,
+    seq_log_density_sum_mp,
+)
 from dmx.torch_stats.pdist import (
     TorchEncodedSequence,
     TorchParameterEstimator,
@@ -29,16 +36,19 @@ def empirical_kl_divergence(
 ) -> Tuple[float, float, float]:
     """Computes the empirical KL-divergence between two densities.
 
-    Compute the KL-divergence between dist1 and dist2, for encoded sequence of data. Dists must both have the
-    same encodings.
+    Compute the KL-divergence between `dist1` and `dist2` for an encoded
+    sequence of data. Both distributions must use the same encodings.
 
     Args:
         dist1 (TorchProbabilityDistribution): Distribution compatible with enc_data.
         dist2 (TorchProbabilityDistribution): Distribution compatible with enc_data.
-        enc_data (List[Tuple[int, TorchEncodedSequence]]): List of Tuple containing chunk size and TorchEncodedSequence.
+        enc_data (List[Tuple[int, TorchEncodedSequence]]): List of tuples
+            containing chunk size and `TorchEncodedSequence`.
 
     Returns:
-        Tuple of KL-div estimate, number of 'bad' likelihood values for dist1, 'bad' likelihood values for dist2.
+        Tuple[float, float, float]: KL-divergence estimate, number of bad
+        likelihood values for `dist1`, and number of bad likelihood values for
+        `dist2`.
 
     """
 
@@ -64,6 +74,8 @@ def empirical_kl_divergence(
     return float(r1), float(r2), float(r3)
 
 
+# Keep the current public call signature stable for now.
+# pylint: disable-next=too-many-positional-arguments
 def optimize(
     data: Optional[Sequence[T]],
     estimator: TorchParameterEstimator,
@@ -81,42 +93,50 @@ def optimize(
     print_iter: int = 1,
     num_chunks: int = 1,
 ) -> TorchProbabilityDistribution:
-    """Estimation of 'estimator' via EM algorithm for max_its iterations or until
-        new_loglikelihood - old_loglikelihood < delta.
+    """Estimate `estimator` via EM until convergence or `max_its`.
 
     Args:
-        data (Optional[List[T]]): List of data type T containing observed data. Must be compatible with data type of
-            estimator.
-        estimator (ParameterEstimator): ParameterEstimator used to specify to-be-estimated distribution for observed
-            data.
+        data (Optional[List[T]]): List of observed data of type `T`. Must be
+            compatible with the estimator.
+        estimator (ParameterEstimator): ParameterEstimator used to specify the
+            to-be-estimated distribution for observed data.
         seed (Optional[int]): Seed for initializing.
-        max_its (int): Maximum number of EM iterations to be performed. Default value is 10 iterations.
-        delta (Optional[float]): Stopping criteria for EM algorithm used if max_its is not set: Iterate until
-            |old_loglikelihood - new_loglikelihood| < delta or iterations == max_its.
-        init_estimator (Optional[ParameterEstimator]): ParameterEstimator to used to initialize EM algorithm parameters.
+        max_its (int): Maximum number of EM iterations to be performed.
+            Default value is 10 iterations.
+        delta (Optional[float]): Stopping criteria for the EM algorithm when
+            `max_its` is not reached. Iterate until
+            `|old_loglikelihood - new_loglikelihood| < delta` or
+            `iterations == max_its`.
+        init_estimator (Optional[ParameterEstimator]): ParameterEstimator used
+            to initialize EM algorithm parameters.
             If None, estimator is used. Must be consistent with estimator.
-        init_p (float): Value in (0.0,1.0] for randomizing the proportion of data points used in initialization.
-        device (Optional[tn.device]): Set the device for tesnor calculations. Else autodection.
-        tng (Generator): Set seed for initializing EM algorithm.
+        init_p (float): Value in `(0.0, 1.0]` for randomizing the proportion of
+            data points used in initialization.
+        device (Optional[tn.device]): Device used for tensor calculations.
+            Defaults to auto-detection.
+        tng (Generator): Set seed for initializing the EM algorithm.
         vdata (Optional[Sequence[T]]): Optional validation set.
-        prev_estimate (Optional[TorchProbabilityDistribution]): Optional model estimate used from prior
-            fitting. Must be consistent with estimator.
+        prev_estimate (Optional[TorchProbabilityDistribution]): Optional model
+            estimate from prior fitting. Must be consistent with estimator.
         enc_data (Optional[List[Tuple[int, E]]]): Optional encoded data of form
             List[Tuple[int, E]]. Formed from data if None.
-        enc_vdata (Optional[List[Tuple[int, E0]]]): Optional sequence encoded validation set.
+        enc_vdata (Optional[List[Tuple[int, E0]]]): Optional encoded validation
+            set.
         out (IO): IO stream to write out iterations of EM algorithm.
-        print_iter (int): Print iterations (i.e. log-likelihood difference) every print_iter-iterations.
+        print_iter (int): Print iterations, that is, log-likelihood
+            difference, every `print_iter` iterations.
         num_chunks (int): Number of chunks for encoded data.
 
     Returns:
-        TorchProbabilityDistribution corresponding to estimator when stopping criteria of EM algorithm is met.
+        TorchProbabilityDistribution: Estimate returned when the EM stopping
+        criteria are met.
 
     """
     device = resolve_device(device)
     set_default_float_dtype(float_dtype_for_device(device))
 
     if data is None and enc_data is None:
-        raise Exception("Optimization called with empty data or enc_data.")
+        raise ValueError("Optimization called with empty data or enc_data.")
 
     est = estimator if init_estimator is None else init_estimator
 
@@ -162,7 +182,7 @@ def optimize(
     for i in range(max_its):
 
         mm_next = seq_estimate(enc_data=enc_data, estimator=estimator, prev_estimate=mm)
-        cnt, ll = seq_log_density_sum(enc_data=enc_data, estimate=mm_next)
+        _, ll = seq_log_density_sum(enc_data=enc_data, estimate=mm_next)
 
         if enc_vdata is not None:
             _, vll = seq_log_density_sum(enc_vdata, mm_next)
@@ -177,26 +197,28 @@ def optimize(
         if (delta is not None) and (dll < delta):
             if enc_vdata is not None:
                 out.write(
-                    "Iteration %d: ln[p_mat(Data|Model)]=%e, ln[p_mat(Data|Model)]-ln[p_mat(Data|PrevModel)]=%e, "
-                    "ln[p_mat(Valid Data|Model)]=%e\n" % (i + 1, ll, dll, vll)
+                    f"Iteration {i + 1}: ln[p_mat(Data|Model)]={ll:e}, "
+                    f"ln[p_mat(Data|Model)]-ln[p_mat(Data|PrevModel)]={dll:e}, "
+                    f"ln[p_mat(Valid Data|Model)]={vll:e}\n"
                 )
             else:
                 out.write(
-                    "Iteration %d: ln[p_mat(Data|Model)]=%e, ln[p_mat(Data|Model)]-ln[p_mat(Data|PrevModel)]=%e\n"
-                    % (i + 1, ll, dll)
+                    f"Iteration {i + 1}: ln[p_mat(Data|Model)]={ll:e}, "
+                    f"ln[p_mat(Data|Model)]-ln[p_mat(Data|PrevModel)]={dll:e}\n"
                 )
             break
 
         if (i + 1) % print_iter == 0:
             if enc_vdata is not None:
                 out.write(
-                    "Iteration %d: ln[p_mat(Data|Model)]=%e, ln[p_mat(Data|Model)]-ln[p_mat(Data|PrevModel)]=%e, "
-                    "ln[p_mat(Valid Data|Model)]=%e\n" % (i + 1, ll, dll, vll)
+                    f"Iteration {i + 1}: ln[p_mat(Data|Model)]={ll:e}, "
+                    f"ln[p_mat(Data|Model)]-ln[p_mat(Data|PrevModel)]={dll:e}, "
+                    f"ln[p_mat(Valid Data|Model)]={vll:e}\n"
                 )
             else:
                 out.write(
-                    "Iteration %d: ln[p_mat(Data|Model)]=%e, ln[p_mat(Data|Model)]-ln[p_mat(Data|PrevModel)]=%e\n"
-                    % (i + 1, ll, dll)
+                    f"Iteration {i + 1}: ln[p_mat(Data|Model)]={ll:e}, "
+                    f"ln[p_mat(Data|Model)]-ln[p_mat(Data|PrevModel)]={dll:e}\n"
                 )
 
         old_ll = ll
@@ -208,6 +230,8 @@ def optimize(
     return best_model
 
 
+# Keep the current public call signature stable for now.
+# pylint: disable-next=too-many-positional-arguments,unused-argument
 def optimize_mp(
     world_rank: int,
     world_size: int,
@@ -226,41 +250,50 @@ def optimize_mp(
     print_iter: int = 1,
     num_chunks: int = 1,
 ) -> TorchProbabilityDistribution:
-    """Estimation of 'estimator' via EM algorithm for max_its iterations or until
-        new_loglikelihood - old_loglikelihood < delta.
+    """Estimate `estimator` via distributed EM until convergence or `max_its`.
 
     Args:
         world_rank (int): Rank of worker
         world_size (int): Total number of GPUs.
-        data (Optional[List[T]]): List of data type T containing observed data. Must be compatible with data type of
-            estimator.
-        estimator (ParameterEstimator): ParameterEstimator used to specify to-be-estimated distribution for observed
-            data.
-        max_its (int): Maximum number of EM iterations to be performed. Default value is 10 iterations.
-        delta (Optional[float]): Stopping criteria for EM algorithm used if max_its is not set: Iterate until
-            |old_loglikelihood - new_loglikelihood| < delta or iterations == max_its.
-        init_estimator (Optional[ParameterEstimator]): ParameterEstimator to used to initialize EM algorithm parameters.
+        data (Optional[List[T]]): List of observed data of type `T`. Must be
+            compatible with the estimator.
+        estimator (ParameterEstimator): ParameterEstimator used to specify the
+            to-be-estimated distribution for observed data.
+        max_its (int): Maximum number of EM iterations to be performed.
+            Default value is 10 iterations.
+        delta (Optional[float]): Stopping criteria for the EM algorithm when
+            `max_its` is not reached. Iterate until
+            `|old_loglikelihood - new_loglikelihood| < delta` or
+            `iterations == max_its`.
+        init_estimator (Optional[ParameterEstimator]): ParameterEstimator used
+            to initialize EM algorithm parameters.
             If None, estimator is used. Must be consistent with estimator.
-        init_p (float): Value in (0.0,1.0] for randomizing the proportion of data points used in initialization.
+        init_p (float): Value in `(0.0, 1.0]` for randomizing the proportion of
+            data points used in initialization.
         seed (Optional[int]): Set seed for initializing EM algorithm.
         vdata (Optional[Sequence[T]]): Optional validation set.
-        prev_estimate (Optional[TorchProbabilityDistribution]): Optional model estimate used from prior
-            fitting. Must be consistent with estimator.
+        prev_estimate (Optional[TorchProbabilityDistribution]): Optional model
+            estimate from prior fitting. Must be consistent with estimator.
         enc_data (Optional[List[Tuple[int, E]]]): Optional encoded data of form
             List[Tuple[int, E]]. Formed from data if None.
-        enc_vdata (Optional[List[Tuple[int, E0]]]): Optional sequence encoded validation set.
+        enc_vdata (Optional[List[Tuple[int, E0]]]): Optional encoded validation
+            set.
         out (IO): IO stream to write out iterations of EM algorithm.
-        print_iter (int): Print iterations (i.e. log-likelihood difference) every print_iter-iterations.
+        print_iter (int): Print iterations, that is, log-likelihood
+            difference, every `print_iter` iterations.
         num_chunks (int): Number of chunks for encoded data.
 
     Returns:
-        SequenceEncodableProbabilityDistribution corresponding to estimator when stopping criteria of EM algorithm
-            is met.
+        TorchProbabilityDistribution: Estimate returned when the EM stopping
+        criteria are met.
 
     """
+    # Kept for API symmetry with `optimize`, even though the mp path does not
+    # currently chunk encoded data in the same way.
+    # pylint: disable=unused-argument
     # data on all nodes assumed for now. Can change this later.
     if data is None and enc_data is None:
-        raise Exception("Optimization called with empty data or enc_data.")
+        raise ValueError("Optimization called with empty data or enc_data.")
 
     # estimator defined on all nodes
     est = estimator if init_estimator is None else init_estimator
@@ -331,7 +364,7 @@ def optimize_mp(
             estimator=est,
             prev_estimate=mm,
         )
-        cnt, ll = seq_log_density_sum_mp(
+        _, ll = seq_log_density_sum_mp(
             world_rank=world_rank, enc_data=enc_data, estimate=mm_next
         )
 
@@ -357,26 +390,28 @@ def optimize_mp(
             if (delta is not None) and (dll < delta):
                 if enc_vdata is not None:
                     out.write(
-                        "Iteration %d: ln[p_mat(Data|Model)]=%e, ln[p_mat(Data|Model)]-ln[p_mat(Data|PrevModel)]=%e, "
-                        "ln[p_mat(Valid Data|Model)]=%e\n" % (i + 1, ll, dll, vll)
+                        f"Iteration {i + 1}: ln[p_mat(Data|Model)]={ll:e}, "
+                        f"ln[p_mat(Data|Model)]-ln[p_mat(Data|PrevModel)]={dll:e}, "
+                        f"ln[p_mat(Valid Data|Model)]={vll:e}\n"
                     )
                 else:
                     out.write(
-                        "Iteration %d: ln[p_mat(Data|Model)]=%e, ln[p_mat(Data|Model)]-ln[p_mat(Data|PrevModel)]=%e\n"
-                        % (i + 1, ll, dll)
+                        f"Iteration {i + 1}: ln[p_mat(Data|Model)]={ll:e}, "
+                        f"ln[p_mat(Data|Model)]-ln[p_mat(Data|PrevModel)]={dll:e}\n"
                     )
                 break_cond = [True]
 
             if (i + 1) % print_iter == 0:
                 if enc_vdata is not None:
                     out.write(
-                        "Iteration %d: ln[p_mat(Data|Model)]=%e, ln[p_mat(Data|Model)]-ln[p_mat(Data|PrevModel)]=%e, "
-                        "ln[p_mat(Valid Data|Model)]=%e\n" % (i + 1, ll, dll, vll)
+                        f"Iteration {i + 1}: ln[p_mat(Data|Model)]={ll:e}, "
+                        f"ln[p_mat(Data|Model)]-ln[p_mat(Data|PrevModel)]={dll:e}, "
+                        f"ln[p_mat(Valid Data|Model)]={vll:e}\n"
                     )
                 else:
                     out.write(
-                        "Iteration %d: ln[p_mat(Data|Model)]=%e, ln[p_mat(Data|Model)]-ln[p_mat(Data|PrevModel)]=%e\n"
-                        % (i + 1, ll, dll)
+                        f"Iteration {i + 1}: ln[p_mat(Data|Model)]={ll:e}, "
+                        f"ln[p_mat(Data|Model)]-ln[p_mat(Data|PrevModel)]={dll:e}\n"
                     )
 
         # master broadcasts to workers if EM is done or continues
