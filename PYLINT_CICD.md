@@ -151,7 +151,8 @@ Progress so far:
 
 - Done: `src/dmx/utils/__init__.py` at `10.00/10`
 - Done: `src/dmx/utils/automatic.py` at `10.00/10`
-- Next: `src/dmx/utils/builder.py`
+- Done: `src/dmx/utils/builder.py` at `10.00/10`
+- Next: `src/dmx/utils/estimation.py`
 
 Why first:
 
