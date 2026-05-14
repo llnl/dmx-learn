@@ -5,7 +5,6 @@ from typing import Optional, Sequence, Tuple, TypeVar
 import numpy as np
 from numpy.random import RandomState
 
-from dmx.bstats import *
 from dmx.bstats import MixtureDistribution
 from dmx.bstats.pdist import ParameterEstimator
 from dmx.utils.automatic import get_dpm_mixture
@@ -21,7 +20,8 @@ def adj_perplexity(x: np.ndarray, ss: float) -> Tuple[float, np.ndarray]:
         ss (float): Scaling factor for the perplexity adjustment.
 
     Returns:
-        Tuple[float, np.ndarray]: The entropy (H) and the adjusted probability distribution (P).
+        Tuple[float, np.ndarray]: The entropy (H) and the adjusted
+            probability distribution (P).
     """
     s = 1 / ss
     P = -x * s
@@ -43,7 +43,7 @@ def vec_perplexity(x: np.ndarray, s: float) -> float:
     Returns:
         float: The entropy value.
     """
-    H, P = adj_perplexity(x, s)
+    H, _ = adj_perplexity(x, s)
     return H
 
 
@@ -71,14 +71,13 @@ def row_perplexity_solve(
 
     if f0 >= a:
         return s0
-    elif f1 <= a:
+    if f1 <= a:
         return s1
-    elif f2 > a:
+    if f2 > a:
         return row_perplexity_solve(x, a, s0, s2, d - 1)
-    elif f2 < a:
+    if f2 < a:
         return row_perplexity_solve(x, a, s2, s1, d - 1)
-    else:
-        return s2
+    return s2
 
 
 def fix_row_perplexity(P: np.ndarray, a: float) -> np.ndarray:
@@ -130,7 +129,7 @@ def get_pmat_vlen(
         v_ij = l_ij.max(axis=1, keepdims=True)
         g_ij = np.exp(l_ij - v_ij)
         p_ij = np.dot(g_ij, z_ij.T)
-        p_ij[range(n), range(n)] = 0
+        np.fill_diagonal(p_ij, 0)
         np.log(p_ij, out=p_ij)
         p_ij += v_ij.T
         p_ij -= np.max(p_ij, axis=1, keepdims=True)
@@ -176,7 +175,7 @@ def get_pmat(
         v_ij = l_ij.max(axis=1, keepdims=True)
         g_ij = np.exp(l_ij - v_ij)
         p_ij = np.dot(g_ij, z_ij.T)
-        p_ij[range(n), range(n)] = 0
+        np.fill_diagonal(p_ij, 0)
         np.log(p_ij, out=p_ij)
         p_ij += v_ij
         p_ij -= np.max(p_ij, axis=0, keepdims=True)
@@ -200,9 +199,10 @@ def t_cond_prob_mat(tx: np.ndarray, alpha: float) -> Tuple[np.ndarray, np.ndarra
         alpha (float): Scaling parameter.
 
     Returns:
-        Tuple[np.ndarray, np.ndarray]: Conditional probabilities matrix and distance matrix.
+        Tuple[np.ndarray, np.ndarray]: Conditional probabilities matrix and
+            distance matrix.
     """
-    n, m = tx.shape[0:2]
+    n = tx.shape[0]
 
     rsum = np.sum(np.square(tx), axis=1, keepdims=True)
     d_ij = np.dot(-2 * tx, tx.T)
@@ -228,7 +228,7 @@ def t_cond_prob_mat_alpha(
     Returns:
         Tuple[np.ndarray, np.ndarray]: Low-dim probabilities matrix and distance matrix.
     """
-    n, m = tx.shape[0:2]
+    n = tx.shape[0]
 
     rsum = np.sum(np.square(tx), axis=1, keepdims=True)
     d_ij = np.dot(-2.0 * tx, tx.T)
@@ -242,6 +242,8 @@ def t_cond_prob_mat_alpha(
     return c_ij, d_ij
 
 
+# Keep the current public call signature stable for now.
+# pylint: disable-next=too-many-positional-arguments
 def update_embed(
     P: np.ndarray,
     Y: np.ndarray,
@@ -267,8 +269,9 @@ def update_embed(
         min_value (float): Minimum value for conditional probabilities.
 
     Returns:
-        Tuple[np.ndarray, np.ndarray, np.ndarray, np.ndarray]: Updated embedding coordinates (Y),
-        incremental updates (iY), gradient gains, and low-dimensional probability matrix (Q).
+        Tuple[np.ndarray, np.ndarray, np.ndarray, np.ndarray]: Updated
+            embedding coordinates (Y), incremental updates (iY), gradient
+            gains, and low-dimensional probability matrix (Q).
     """
     nn, mm = Y.shape
 
@@ -294,6 +297,8 @@ def update_embed(
     return Y, iY, gains, Q
 
 
+# Keep the current public call signature stable for now.
+# pylint: disable-next=too-many-positional-arguments
 def update_alpha(
     P: np.ndarray,
     Y: np.ndarray,
@@ -365,6 +370,8 @@ def update_alpha(
     return alpha
 
 
+# Keep the current public call signature stable for now.
+# pylint: disable-next=too-many-positional-arguments
 def htsne(
     data: Sequence[T],
     emb_dim: int = 2,
@@ -396,7 +403,8 @@ def htsne(
         max_components (int): Maximum number of components for the mixture model.
         mix_threshold_count (float): Threshold for mixture component selection.
         Y (Optional[np.ndarray]): Initial embedding coordinates.
-        perplexity (Optional[int]): Target perplexity for probability matrix construction.
+        perplexity (Optional[int]): Target perplexity for probability matrix
+            construction.
         max_its (int): Maximum number of iterations for optimization.
         print_iter (int): Iteration interval for printing progress.
         eta (int): Learning rate.
@@ -407,7 +415,8 @@ def htsne(
         min_alpha (float): Minimum value for alpha.
         max_alpha_its (int): Maximum iterations for alpha optimization.
         seed (Optional[int]): Random seed for reproducibility.
-        comp_estimator (Optional[ParameterEstimator]): Component estimator for mixture model.
+        comp_estimator (Optional[ParameterEstimator]): Component estimator for
+            mixture model.
         mix_model (Optional[MixtureDistribution]): Precomputed mixture model.
         variable_length (bool): Whether to use variable-length encoding.
 
@@ -417,7 +426,7 @@ def htsne(
 
     rng = RandomState(seed) if seed is not None else RandomState()
     if max_components <= 1 or not isinstance(max_components, (int, np.integer)):
-        raise Exception("max_components must be and integer greater than 1.")
+        raise ValueError("max_components must be an integer greater than 1.")
     # Fit DPM to data using comp_estimator if passed.
     if mix_model is None:
         mix_model = get_dpm_mixture(
@@ -431,7 +440,7 @@ def htsne(
         )
     # Mixture must have at least one comp!
     if mix_model.num_components == 0:
-        raise Exception("Something is broken. Mixture model has zero components.")
+        raise RuntimeError("Something is broken. Mixture model has zero components.")
     # This is until all bstats is updated!
     try:
         enc_data = mix_model.dist_to_encoder().seq_encode(data)
@@ -508,11 +517,13 @@ def htsne(
         if (i % print_iter) == 0:
             KL = np.bitwise_and(P > 0, Q > 0)
             KL = np.dot(P[KL], (np.log(P[KL]) - np.log(Q[KL])))
-            print("Iteration %d: alpha = %f, KL(P||Q)=%f" % (i, alpha, KL))
+            print(f"Iteration {i}: alpha = {alpha:f}, KL(P||Q)={KL}")
 
     return Y
 
 
+# Keep the current public call signature stable for now.
+# pylint: disable-next=too-many-positional-arguments
 def dpmsne(
     P=None,
     data=None,
@@ -546,7 +557,8 @@ def dpmsne(
         max_components (int): Maximum number of components for the mixture model.
         mix_threshold_count (float): Threshold for mixture component selection.
         Y (Optional[np.ndarray]): Initial embedding coordinates.
-        perplexity (Optional[int]): Target perplexity for probability matrix construction.
+        perplexity (Optional[int]): Target perplexity for probability matrix
+            construction.
         max_its (int): Maximum number of iterations for optimization.
         print_iter (int): Iteration interval for printing progress.
         eta (int): Learning rate.
@@ -557,7 +569,8 @@ def dpmsne(
         min_alpha (float): Minimum value for alpha.
         max_alpha_its (int): Maximum iterations for alpha optimization.
         seed (Optional[int]): Random seed for reproducibility.
-        comp_estimator (Optional[ParameterEstimator]): Component estimator for mixture model.
+        comp_estimator (Optional[ParameterEstimator]): Component estimator for
+            mixture model.
         mix_model (Optional[MixtureDistribution]): Precomputed mixture model.
         variable_length (bool): Whether to use variable-length encoding.
 
@@ -600,6 +613,6 @@ def dpmsne(
         if (i % print_iter) == 0:
             KL = np.bitwise_and(P > 0, Q > 0)
             KL = np.dot(P[KL], (np.log(P[KL]) - np.log(Q[KL])))
-            print("Iteration %d: alpha = %f, KL(P||Q)=%f" % (i, alpha, KL))
+            print(f"Iteration {i}: alpha = {alpha:f}, KL(P||Q)={KL}")
 
     return Y
