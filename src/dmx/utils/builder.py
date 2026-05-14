@@ -1,6 +1,22 @@
 """Helper functions for building RDD for pyspark estimation."""
 
-from dmx.stats import *
+from dmx import stats
+
+_STATS_NAMESPACE = {name: getattr(stats, name) for name in stats.__all__}
+
+
+def _eval_stats_expr(expr: str):
+    """Evaluates a trusted stats expression from builder input."""
+    # pylint: disable=eval-used
+    return eval(expr, _STATS_NAMESPACE.copy())
+
+
+def _build_value_mapper(mapstr: str):
+    """Builds a trusted value-mapping function from builder input."""
+    if mapstr == "":
+        return None
+    # pylint: disable=eval-used
+    return eval("lambda x: " + mapstr, _STATS_NAMESPACE.copy())
 
 
 def read_index_csv(filename: str):
@@ -47,12 +63,18 @@ def get_indexed_rdd_pne(field_info=None, filename=None):
         Returns:
             function: A lambda function to process the entry.
         """
-        if mapstr != "":
-            temp_lambda_0 = eval("lambda x: " + mapstr)
-            temp_lambda = lambda u: temp_lambda_0(u[idx])
-        else:
-            temp_lambda = lambda u: u[idx]
-        return temp_lambda
+        temp_lambda_0 = _build_value_mapper(mapstr)
+        if temp_lambda_0 is not None:
+
+            def mapped_entry(u):
+                return temp_lambda_0(u[idx])
+
+            return mapped_entry
+
+        def direct_entry(u):
+            return u[idx]
+
+        return direct_entry
 
     parser_list = []
     estimator_list = []
@@ -60,7 +82,7 @@ def get_indexed_rdd_pne(field_info=None, filename=None):
 
     for entry in field_info:
         idx, _name, lam, dist = entry
-        estimator = eval(dist)
+        estimator = _eval_stats_expr(dist)
         if estimator is not None:
             idx_i = int(idx)
             parser_list.append(entry_lambda(idx_i, lam.strip()))
@@ -82,5 +104,5 @@ def get_indexed_rdd_pne(field_info=None, filename=None):
             return None
         return tuple(parser(parts) for parser in parser_list)
 
-    estimator = CompositeEstimator(tuple(estimator_list))
+    estimator = stats.CompositeEstimator(tuple(estimator_list))
     return estimator, line_parser
