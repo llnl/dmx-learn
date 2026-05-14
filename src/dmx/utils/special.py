@@ -12,6 +12,8 @@ SPECIAL = import_module("scipy.special")
 D1 = SPECIAL.digamma(1.0)
 
 digamma = SPECIAL.digamma
+beta = SPECIAL.beta
+betaln = SPECIAL.betaln
 
 
 def logpdet(x_mat: np.ndarray) -> float:
