@@ -11,6 +11,8 @@ from dmx.arithmetic import exp
 SPECIAL = import_module("scipy.special")
 D1 = SPECIAL.digamma(1.0)
 
+digamma = SPECIAL.digamma
+
 
 def logpdet(x_mat: np.ndarray) -> float:
     """Computes the log-pseudo-determinant for a symmetric dense matrix.
