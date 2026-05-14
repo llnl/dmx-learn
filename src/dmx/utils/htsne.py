@@ -526,13 +526,9 @@ def htsne(
 # pylint: disable-next=too-many-positional-arguments
 def dpmsne(
     P=None,
-    data=None,
     emb_dim=2,
     alpha=1.0,
-    max_components=30,
-    mix_threshold_count=0.5,
     Y=None,
-    perplexity=None,
     max_its=1000,
     print_iter=100,
     eta=500,
@@ -543,9 +539,6 @@ def dpmsne(
     min_alpha=1.0e-6,
     max_alpha_its=3,
     seed=None,
-    comp_estimator=None,
-    mix_model=None,
-    variable_length=False,
 ):
     """Performs DPM-based het-SNE embedding.
 
