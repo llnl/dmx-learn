@@ -125,9 +125,11 @@ def make_pdf(x: Union[np.ndarray, Sequence[float], List[np.ndarray]]) -> np.ndar
     """Takes log density values and normalizes on the log-scale, returning an ndarray that s.t. np.exp(rv).sum() == 1.0.
 
     Arg data type for x: Union[np.ndarray, Sequence[float], List[np.ndarray]]).
+
     Args:
         x (See above): Array like object with float data type that can be converted to a numpy array. E.g. lists, lists
         of tuples, tuples, tuples of tuples, tuples of lists and ndarrays.
+
     Returns:
         Returns an ndarray that s.t. np.exp(rv).sum() == 1.0.
     """
@@ -177,11 +179,12 @@ def dot(  # type: ignore[no-redef]
     x: Union[np.ndarray, Iterable, int, float],
     y: Union[np.ndarray, Iterable, int, float],
 ) -> Union[np.ndarray, float]:
-    """Performs call to numpy.dot().
+    """Compute the dot product of `x` and `y`.
 
     Args:
         x: Numpy array, array-like, or scalar.
         y: Numpy array, array-like, or scalar.
+
     Returns:
         Returns float/int if x and y are both 1d vectors, returns 1d vector if x xor y is scalar, and matrix else.
 
@@ -193,7 +196,7 @@ def outer(
     x: Union[np.ndarray, Iterable, int, float],
     y: Union[np.ndarray, Iterable, int, float],
 ) -> np.ndarray:
-    """Compute the outer product of two vectors
+    """Compute the outer product of two vectors.
 
     Args:
         x:  (M,) array_like
@@ -217,6 +220,7 @@ def diag(x: np.ndarray) -> np.ndarray:
 
     Args:
         x: 2-D array, or 1-D array.
+
     Returns:
         The extracted diagonal or constructed diagonal array.
 
@@ -248,6 +252,7 @@ def cholesky(x_mat: np.ndarray) -> Optional[Tuple[np.ndarray, bool]]:
 
     Args:
         x_mat (np.ndarray): Square np.ndarray of matrix to be decomposed.
+
     Returns:
         Square np.ndarray matrix whose upper or lower triangle contains the Cholesky factor of x. If Cholesky
             factor cannot be found None is returned.
@@ -306,6 +311,7 @@ def log_sum(x: np.ndarray) -> float:
 
     Args:
         x (ndarray): Numpy array on log-scale. E.g. x_i = log(y_i).
+
     Returns:
         Float value log(sum(exp(x)), or -np.inf if max(x) is -np.inf.
     """
@@ -320,8 +326,9 @@ def log_sum(x: np.ndarray) -> float:
 
 
 def weighted_log_sum(x: np.ndarray, w: np.ndarray) -> float:
-    """Computes numerically stable log-sum-of-exponentials with weights=exp(w), on the observation values y=exp(x),
-    returning log(sum(exp(x)*exp(w))).
+    """Compute a numerically stable weighted log-sum-of-exponentials.
+
+    This uses weights=exp(w) on the observation values y=exp(x), returning log(sum(exp(x)*exp(w))).
 
     Note: The weights are on the log-scale.
 
@@ -393,11 +400,11 @@ def posterior(
             log_x = [log(p_mat(obs_i | theta_0)), log(p_mat(obs_i | theta_1)),..., log(p_mat(obs_i | theta_{n-1}))].
         out (Optional[ndarray]): Optional numpy array to store returned value.
         log_sum (Optional[bool]): If true returns Tuple with ([p_mat(obs_i|theta_j)], log(p_mat(obs_i))).
+
     Returns:
          Numpy array of posterior for each component/parameter value [p_mat(theta_0| obs_i),...,p_mat(theta_{n-1}|obs_i)].
          Optional tuple with ([p_mat(obs_i|theta_j)], log(p_mat(obs_i))) if log_sum true.
     """
-
     if out is None:
         rv = np.zeros(len(log_x))
     else:
@@ -438,13 +445,13 @@ def log_posterior_sum(x: np.ndarray) -> Tuple[np.ndarray, float]:
     Args:
         x (np.ndarray): Numpy array of log-density values for each component/parameter value
             log_x = [log(p_mat(obs_i | theta_0)), log(p_mat(obs_i | theta_1)),..., log(p_mat(obs_i | theta_{n-1}))].
+
     Returns:
         Tuple of numpy array containing log-posterior for each component/parameter value
             [log(p_mat(theta_0| obs_i)),...,log(p_mat(theta_{n-1}|obs_i))], and log(p_mat(obs_i))). The log-posterior value is
             [-log(len(x)),...,-log(len(x))] if x contains a nan or -np.inf value.
 
     """
-
     max_val = x.max()
     if isinf(max_val) or isnan(max_val):
         return zeros(len(x)) - log(len(x)), -np.inf
@@ -516,6 +523,7 @@ def weighted_log_posterior_sum(
         x: (np.ndarray): numpy array of log-density values for each component/parameter value
             log_x = [log(p_mat(obs_i | theta_0)), log(p_mat(obs_i | theta_1)),..., log(p_mat(obs_i | theta_{n-1}))].
         w (np.ndarray): List[float] or numpy array of log weights for each parameter value.
+
     Returns:
         Tuple of List[float] containing log-posterior for each component/parameter value
         [log(p_mat(theta_0| obs_i)),...,log(p_mat(theta_{n-1}|obs_i))] and log(p_mat(obs_i).
@@ -546,9 +554,7 @@ def weighted_log_posterior_sum(
 def matrix_log_posteriors(
     x: np.ndarray, u_mat: np.ndarray, u: np.ndarray
 ) -> Tuple[np.ndarray, np.ndarray, float]:
-    """
-    Computes the matrix of log posteriors, outer posterior probabilities,
-    and the log-likelihood.
+    """Compute the matrix of log posteriors, outer posterior probabilities, and the log-likelihood.
 
     This function calculates posterior probabilities for rows and columns
     based on input matrices and vectors. It also computes the log-likelihood
