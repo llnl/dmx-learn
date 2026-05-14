@@ -147,6 +147,12 @@ Target files:
 - `src/dmx/utils/pvalues.py`
 - `src/dmx/utils/special.py`
 
+Progress so far:
+
+- Done: `src/dmx/utils/__init__.py` at `10.00/10`
+- Done: `src/dmx/utils/automatic.py` at `10.00/10`
+- Next: `src/dmx/utils/builder.py`
+
 Why first:
 
 - Smaller surface area than the numerical/vector-heavy modules
