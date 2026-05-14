@@ -9,14 +9,12 @@ Current enforced goal:
 - Keep the existing CI scope at `10.00/10` for:
   - `src/dmx/stats/pdist.py`
   - `src/dmx/torch_stats/pdist.py`
-  - `src/dmx/utils/optsutil.py`
-  - `src/dmx/utils/vector.py`
+  - `src/dmx/utils`
+  - `src/dmx/torch_utils`
 
 Next expansion goal:
 
 - Bring every Python file in these directories to `10.00/10`:
-  - `src/dmx/utils`
-  - `src/dmx/torch_utils`
   - `src/dmx/mpi4py/utils`
 
 Long-term goal:
@@ -84,13 +82,15 @@ The current GitHub Actions lint job enforces `10.00/10` on:
 
 - `src/dmx/stats/pdist.py`
 - `src/dmx/torch_stats/pdist.py`
-- `src/dmx/utils/optsutil.py`
-- `src/dmx/utils/vector.py`
+- `src/dmx/utils`
+- `src/dmx/torch_utils`
 
 Current CI behavior:
 
 - Uses `--jobs=1`
 - Uses `--fail-under=10`
+- Runs `poetry run pylint src/dmx/utils --jobs=1 --fail-under=10`
+- Runs `poetry run pylint src/dmx/torch_utils --jobs=1 --fail-under=10`
 - Previously used a file-scoped workaround for `src/dmx/utils/vector.py`:
   - `--ignored-modules=numpy,scipy,scipy.linalg,scipy.special`
 
@@ -99,28 +99,7 @@ That workaround is no longer needed after switching the SciPy imports in
 
 ## Next Scope Inventory
 
-The next expansion includes 20 Python files.
-
-### `src/dmx/utils`
-
-- `src/dmx/utils/__init__.py`
-- `src/dmx/utils/automatic.py`
-- `src/dmx/utils/builder.py`
-- `src/dmx/utils/estimation.py`
-- `src/dmx/utils/htsne.py`
-- `src/dmx/utils/humap.py`
-- `src/dmx/utils/metrics.py`
-- `src/dmx/utils/optsutil.py`
-- `src/dmx/utils/pvalues.py`
-- `src/dmx/utils/special.py`
-- `src/dmx/utils/vector.py`
-
-### `src/dmx/torch_utils`
-
-- `src/dmx/torch_utils/__init__.py`
-- `src/dmx/torch_utils/estimation.py`
-- `src/dmx/torch_utils/optsutil.py`
-- `src/dmx/torch_utils/vector.py`
+The next expansion includes 5 Python files.
 
 ### `src/dmx/mpi4py/utils`
 
@@ -133,7 +112,7 @@ The next expansion includes 20 Python files.
 ## Rollout Strategy
 
 The right way to expand this is by directory and by risk level, not by trying
-to lint all 20 files in one pass.
+to lint all remaining files in one pass.
 
 ### Phase 1: Finish the Low-Risk Utility Surface
 
@@ -199,6 +178,10 @@ Expected issues:
 - dense numerical docstrings
 - examples that need to render cleanly in Sphinx
 
+Phase 2 status:
+
+- Complete
+
 ### Phase 3: Bring `torch_utils` to `10.00/10`
 
 Target files:
@@ -220,6 +203,15 @@ Expected issues:
 - dynamic torch attribute inference
 - long docstrings
 - mirrored code that should be cleaned consistently with `src/dmx/utils`
+
+Phase 3 status:
+
+- Complete
+- Done: `src/dmx/torch_utils/__init__.py` at `10.00/10`
+- Done: `src/dmx/torch_utils/estimation.py` at `10.00/10`
+- Done: `src/dmx/torch_utils/optsutil.py` at `10.00/10`
+- Done: `src/dmx/torch_utils/vector.py` at `10.00/10`
+- All of `src/dmx/torch_utils` now lint clean at `10.00/10`
 
 ### Phase 4: Bring `mpi4py/utils` to `10.00/10`
 
@@ -253,7 +245,7 @@ at `10.00/10` locally.
 
 Recommended CI expansion order:
 
-1. Current four-file enforced scope
+1. Current base enforced scope
 2. All of `src/dmx/utils`
 3. All of `src/dmx/torch_utils`
 4. All of `src/dmx/mpi4py/utils`
@@ -270,8 +262,15 @@ Current CI behavior for this directory:
 
 ### Step 2: Enforce `src/dmx/torch_utils`
 
-Only after all four `torch_utils` files reach `10.00/10`, add them to the same
-workflow.
+Every file in `src/dmx/torch_utils` is now at `10.00/10`, and the lint job has
+been extended to include the full directory.
+
+Current CI behavior for this directory:
+
+- Runs `poetry run pylint src/dmx/torch_utils --jobs=1 --fail-under=10`
+- Uses a documented local `pylint` suppression in
+  `src/dmx/torch_utils/vector.py` to preserve generator-driven Dirichlet
+  sampling while keeping the exception narrow
 
 If torch-specific import-analysis issues appear, prefer command-scoped
 workarounds over global `.pylintrc` changes.
@@ -369,9 +368,8 @@ For any file being prepared for inclusion in the CI lint scope:
 
 The next expansion is complete when all of the following are true:
 
-1. Every file in `src/dmx/utils`, `src/dmx/torch_utils`, and
-   `src/dmx/mpi4py/utils` runs successfully under `pylint`.
-2. Every file in those directories scores `10.00/10`.
+1. Every file in `src/dmx/mpi4py/utils` runs successfully under `pylint`.
+2. Every file in that directory scores `10.00/10`.
 3. Any required import-analysis workaround is file-scoped, not global, unless a
    broader rule is clearly justified.
 4. `.github/workflows/quality.yml` is updated to enforce the newly completed
@@ -382,10 +380,10 @@ The next expansion is complete when all of the following are true:
 
 When starting the next session, begin with:
 
-1. audit `src/dmx/utils` file-by-file
+1. audit `src/dmx/mpi4py/utils` file-by-file
 2. start with the lowest-risk files in that directory
-3. leave `htsne.py`, `humap.py`, and any heavy numerical module for later in
-   the phase unless they are already close to clean
+3. leave environment-sensitive MPI paths for later in the phase unless they are
+   already close to clean
 4. only expand CI after the whole directory is finished
 
 ## Summary Recommendation
@@ -398,5 +396,6 @@ The best rollout is:
 - Sphinx-friendly docstring cleanup
 - file-scoped workarounds only when necessary
 
-That gives you a realistic path from 4 enforced files to utility-directory
-coverage, and from there to full-repo `pylint` enforcement.
+That gives you a realistic path from the current enforced scope to
+utility-directory coverage, and from there to full-repo `pylint`
+enforcement.

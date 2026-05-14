@@ -1,3 +1,5 @@
+"""Torch-specific utility helpers."""
+
 __all__ = ["detect_device"]
 
 # Check if torch is available
