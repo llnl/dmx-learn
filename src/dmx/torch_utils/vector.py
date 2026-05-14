@@ -1,13 +1,12 @@
-import math
-from typing import Any, List, Optional, Sequence, Tuple, Union
+"""Vector utilities backed by PyTorch tensors."""
+
+from typing import List, Optional, Sequence, Tuple, Union
 
 import numpy as np
 import torch as tn
 
-from dmx.torch_stats.pdist import TorchEncodedSequence
-
 DINT = tn.int32
-DFLOAT = tn.float64
+_DEFAULT_FLOAT_DTYPE_STATE = {"value": tn.float64}
 
 
 def _resolve_float_dtype(
@@ -17,7 +16,7 @@ def _resolve_float_dtype(
         return dtype
     if device is not None and device.type == "mps":
         return tn.float32
-    return DFLOAT
+    return _DEFAULT_FLOAT_DTYPE_STATE["value"]
 
 
 def resolve_device(device=None) -> tn.device:
@@ -25,10 +24,11 @@ def resolve_device(device=None) -> tn.device:
     if device is None:
         if tn.cuda.is_available():
             return tn.device("cuda:0")
-        elif tn.backends.mps.is_available():
+        if tn.backends.mps.is_available():
             return tn.device("mps")
-        else:
-            return tn.device("cpu")
+
+        return tn.device("cpu")
+
     return tn.device(device) if isinstance(device, str) else device
 
 
@@ -38,8 +38,7 @@ def float_dtype_for_device(device: tn.device) -> tn.dtype:
 
 
 def set_default_float_dtype(dtype: tn.dtype) -> None:
-    global DFLOAT
-    DFLOAT = dtype
+    _DEFAULT_FLOAT_DTYPE_STATE["value"] = dtype
 
 
 def seed_tng(seed: int, device: Optional[tn.device] = None):
@@ -49,8 +48,8 @@ def seed_tng(seed: int, device: Optional[tn.device] = None):
 def seed_sample(n: int, tng: tn.Generator):
     if n == 1:
         return tn.randint(0, 2**31, size=(n,), generator=tng, dtype=DINT)[0]
-    else:
-        return tn.randint(0, 2**31, size=(n,), generator=tng, dtype=DINT)
+
+    return tn.randint(0, 2**31, size=(n,), generator=tng, dtype=DINT)
 
 
 def zeros(
@@ -104,8 +103,7 @@ def tensor(
 
         return y
 
-    else:
-        return tn.tensor(x, device=device, dtype=dtype)
+    return tn.tensor(x, device=device, dtype=dtype)
 
 
 def int_tensor(
@@ -184,52 +182,3 @@ def sample_dirichlet(alpha: tn.Tensor, size: int, tng: tn.Generator) -> tn.Tenso
         rv = tensor(rv, device=target_device, dtype=target_dtype)
 
     return rv
-
-
-# def mixture_weights(
-#         k: int,
-#         tng: tn.Generator,
-#         alpha: Optional[float] = None,
-#         size: Optional[Union[int, tn.Tensor]] = None,
-# ) -> tn.Tensor:
-#
-#     device = tng.device if tng.device is not None else tn.device('cpu')
-#
-#     alpha = 1 / k ** 2 if alpha is None else alpha
-#     lam = 1 / alpha - 1
-#     w = alpha / (math.exp(1) * (1 - alpha))
-#     log_r = math.log(1.0 / (1.0 + w))
-#
-#     keep_idx = tn.arange(k * size, device=device) if size is not None else tn.arange(k, device=device)
-#     rv = zeros(k * size, device=device) if size is not None else zeros(k * size, device=device)
-#     sz = len(keep_idx)
-#
-#     while sz > 0:
-#         log_u = tn.log(tn.rand(sz, generator=tng, dtype=rv.dtype, device=device))
-#
-#         z = zeros(sz, device=device)
-#         r_cond = log_u <= log_r
-#         nr_cond = ~r_cond
-#
-#         if tn.any(r_cond):
-#             z[r_cond] += -log_u[r_cond] + log_r
-#
-#         if tn.any(nr_cond):
-#             nr_cnt = tn.count_nonzero(nr_cond)
-#             z[nr_cond] += tn.log(tn.rand(nr_cnt, generator=tng, dtype=rv.dtype, device=device)) / lam
-#
-#         log_h = -z - tn.exp(-z / alpha)
-#
-#         log_eta = tn.where(z >= 0, -z, math.log(w) + math.log(lam) + lam * z)
-#         accept = log_h - log_eta >= tn.log(tn.rand(len(z), generator=tng, dtype=rv.dtype, device=device))
-#
-#         if tn.any(accept):
-#             rv[keep_idx[accept]] += -z[accept] / alpha
-#             keep_idx = keep_idx[~accept]
-#             sz = len(keep_idx)
-#
-#     rv = tn.reshape(rv, (size, k)) if size is not None else tn.reshape(tn.log(rv), (1, k))
-#     rv -= tn.logsumexp(rv, dim=1, keepdim=True)
-#     tn.exp(rv, out=rv)
-#
-#     return rv
