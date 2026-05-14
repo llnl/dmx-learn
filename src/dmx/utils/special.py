@@ -9,11 +9,13 @@ import numpy as np
 from dmx.arithmetic import exp
 
 SPECIAL = import_module("scipy.special")
-D1 = SPECIAL.digamma(1.0)
-
-digamma = SPECIAL.digamma
 beta = SPECIAL.beta
 betaln = SPECIAL.betaln
+digamma = SPECIAL.digamma
+gamma = SPECIAL.gamma
+gammaln = SPECIAL.gammaln
+zeta = SPECIAL.zeta
+D1 = SPECIAL.digamma(1.0)
 
 
 def logpdet(x_mat: np.ndarray) -> float:
