@@ -17,10 +17,6 @@ extension-pkg-allow-list=numpy,scipy,torch,numba
 [MESSAGES CONTROL]
 # Disable specific messages that are too strict for scientific computing
 disable=
-    # Format-related (handled by black)
-    C0330,  # Wrong hanging indentation
-    C0326,  # Bad whitespace
-
     # Too strict for scientific code
     R0913,  # Too many arguments (common in scientific functions)
     R0914,  # Too many local variables (common in algorithms)
@@ -146,7 +142,7 @@ check-quote-consistency=no
 contextmanager-decorators=contextlib.contextmanager
 
 # List of members which are set dynamically and missed by pylint inference
-generated-member-objects=numpy.*,torch.*,scipy.*
+generated-members=numpy.*,torch.*,scipy.*
 
 # Tells whether missing members accessed in mixin class should be ignored
 ignore-mixin-members=yes
@@ -232,4 +228,4 @@ int-import-graph=
 
 [EXCEPTIONS]
 # Exceptions that will emit a warning when caught
-overgeneral-exceptions=BaseException,Exception
+overgeneral-exceptions=builtins.BaseException,builtins.Exception
