@@ -1,20 +1,22 @@
-"""Defines abstract classes for probability distributions and statistical accumulators.
+"""Abstract classes for probability distributions and statistical accumulators.
 
-This module provides the foundational abstract base classes for the dmx.stats package,
-including probability distributions, statistic accumulators, samplers, and encoders.
+This module provides the foundational abstract base classes for the
+`dmx.stats` package, including probability distributions, statistic
+accumulators, samplers, and encoders.
 
 Classes:
-    ProbabilityDistribution: Abstract base class for probability distributions
-    SequenceEncodableProbabilityDistribution: Probability distribution with sequence encoding
-    DistributionSampler: Abstract sampler for probability distributions
-    ConditionalSampler: Abstract sampler for conditional distributions
-    StatisticAccumulator: Abstract accumulator for sufficient statistics
-    SequenceEncodableStatisticAccumulator: Statistic accumulator with sequence encoding
-    StatisticAccumulatorFactory: Factory for creating statistic accumulators
-    ParameterEstimator: Abstract estimator for distribution parameters
-    DataSequenceEncoder: Abstract encoder for data sequences
-    EncodedDataSequence: Container for encoded sequence data
-
+    ProbabilityDistribution: Abstract base class for probability distributions.
+    SequenceEncodableProbabilityDistribution: Probability distribution with
+        sequence encoding.
+    DistributionSampler: Abstract sampler for probability distributions.
+    ConditionalSampler: Abstract sampler for conditional distributions.
+    StatisticAccumulator: Abstract accumulator for sufficient statistics.
+    SequenceEncodableStatisticAccumulator: Statistic accumulator with sequence
+        encoding.
+    StatisticAccumulatorFactory: Factory for creating statistic accumulators.
+    ParameterEstimator: Abstract estimator for distribution parameters.
+    DataSequenceEncoder: Abstract encoder for data sequences.
+    EncodedDataSequence: Container for encoded sequence data.
 """
 
 # pylint: disable=unnecessary-ellipsis
@@ -63,7 +65,7 @@ class ProbabilityDistribution:
 
     def __init__(self) -> None:
         """Initialize the probability distribution."""
-        pass
+        ...
 
     def __repr__(self) -> str:
         """Return string representation of the distribution."""
@@ -94,7 +96,7 @@ class ProbabilityDistribution:
 
     @abstractmethod
     def sampler(self, seed: Optional[int] = None) -> "DistributionSampler":
-        """Create a DistributionSampler object for a given ProbabilityDistribution.
+        """Create a sampler for a probability distribution.
 
         Args:
             seed (Optional[int]): Set seed for drawing samples from distribution.
@@ -104,10 +106,11 @@ class ProbabilityDistribution:
 
     @abstractmethod
     def estimator(self, pseudo_count: Optional[float] = None) -> "ParameterEstimator":
-        """Create a ParameterEstimator for corresponding SequenceEncodableProbabilityDistribution.
+        """Create a parameter estimator for this distribution.
 
         Args:
-            pseudo_count (Optional[float]): Regularize sufficient statistics in estimation step.
+            pseudo_count (Optional[float]): Regularize sufficient statistics in
+                the estimation step.
 
         Returns:
             ParameterEstimator
@@ -136,7 +139,8 @@ class SequenceEncodableProbabilityDistribution(ProbabilityDistribution):
         """Vectorized evaluation of the log density.
 
         Args:
-            x (EncodedDataSequence): EncodedDataSequence for corresponding SequenceEncodedProbabilityDistribution.
+            x (EncodedDataSequence): Encoded sequence for the corresponding
+                probability distribution.
 
         Returns:
             np.ndarray
@@ -146,7 +150,7 @@ class SequenceEncodableProbabilityDistribution(ProbabilityDistribution):
 
     @abstractmethod
     def dist_to_encoder(self) -> "DataSequenceEncoder":
-        """Create DataSequenceEncoder object for SequenceEncodableProbabilityDistribution instance.
+        """Create a data sequence encoder for this distribution.
 
         Returns:
             DataSequenceEncoder
@@ -169,7 +173,7 @@ class SequenceEncodableProbabilityDistribution(ProbabilityDistribution):
         This method exists for backward compatibility and does nothing.
 
         """
-        pass
+        ...
 
 
 class DistributionSampler:
@@ -187,7 +191,8 @@ class DistributionSampler:
         """Initialize DistributionSampler.
 
         Args:
-            dist (SequenceEncodableProbabilityDistribution): Distribution to sample from.
+            dist (SequenceEncodableProbabilityDistribution): Distribution to
+                sample from.
             seed (Optional[int]): Used to set seed on rng.
 
         """
@@ -275,7 +280,8 @@ class StatisticAccumulator(Generic[SS]):
         Args:
             x (Any): Data type corresponding to StatisticAccumulator object.
             weight (float): Weight associated with single observation.
-            estimate (SequenceEncodableProbabilityDistribution): Previous estimate of distribution.
+            estimate (SequenceEncodableProbabilityDistribution): Previous
+                estimate of distribution.
 
         """
         ...
@@ -289,7 +295,8 @@ class StatisticAccumulator(Generic[SS]):
         Args:
             x (Any): Data type corresponding to StatisticAccumulator object.
             weight (float): Weight associated with single observation.
-            _rng (np.random.RandomState): Set seed for initialization (unused in base implementation).
+            _rng (np.random.RandomState): Seed for initialization. Unused in
+                the base implementation.
 
         """
         self.update(x, weight, estimate=None)
@@ -328,7 +335,8 @@ class StatisticAccumulator(Generic[SS]):
         """Merge sufficient statistics with matching keys.
 
         Args:
-            stats_dict (Dict[str, Any]): Dict mapping keys to sufficient statistic value or accumulator.
+            stats_dict (Dict[str, Any]): Dict mapping keys to sufficient
+                statistic values or accumulators.
 
         """
         ...
@@ -338,7 +346,8 @@ class StatisticAccumulator(Generic[SS]):
         """Set sufficient statistics of accumulator instance to key'd values.
 
         Args:
-            stats_dict (Dict[str, Any]): Dict mapping keys to sufficient statistic value or accumulator.
+            stats_dict (Dict[str, Any]): Dict mapping keys to sufficient
+                statistic values or accumulators.
 
         """
         ...
@@ -361,7 +370,7 @@ class SequenceEncodableStatisticAccumulator(StatisticAccumulator[SS]):
         This method exists for backward compatibility and does nothing.
 
         """
-        pass
+        ...
 
     @abstractmethod
     def seq_update(
@@ -373,9 +382,11 @@ class SequenceEncodableStatisticAccumulator(StatisticAccumulator[SS]):
         """Vectorized accumulation of sufficient statistics for EM updates.
 
         Args:
-            x (EncodedDataSequence): EncodedDataSequence for given SequenceEncodableStatisticAccumulator type.
+            x (EncodedDataSequence): Encoded sequence for this accumulator
+                type.
             weights (np.ndarray): weights for observations.
-            estimate (Optional[SequenceEncodableProbabilityDistribution]): Optional previous estimate of distribution.
+            estimate (Optional[SequenceEncodableProbabilityDistribution]):
+                Optional previous estimate of distribution.
 
         """
         ...
@@ -387,16 +398,18 @@ class SequenceEncodableStatisticAccumulator(StatisticAccumulator[SS]):
         """Vectorized initialization of sufficient statistics.
 
         Args:
-            x (EncodedDataSequence): EncodedDataSequence for given SequenceEncodableStatisticAccumulator type.
+            x (EncodedDataSequence): Encoded sequence for this accumulator
+                type.
             weights (np.ndarray): weights for observations.
-            rng (np.random.RandomState): RandomState object for setting seed on initialization.
+            rng (np.random.RandomState): RandomState used to set the
+                initialization seed.
 
         """
         ...
 
     @abstractmethod
     def acc_to_encoder(self) -> "DataSequenceEncoder":
-        """Create DataSequenceEncoder object for SequenceEncodableStatisticAccumulator instance."""
+        """Create a data sequence encoder for this accumulator."""
         ...
 
 
@@ -438,11 +451,12 @@ class ParameterEstimator(Generic[SS]):
     def estimate(
         self, nobs: Optional[float], suff_stat: SS
     ) -> "SequenceEncodableProbabilityDistribution":
-        """Estimate SequenceEncodableProbabilityDistribution for sufficient statistics.
+        """Estimate a probability distribution from sufficient statistics.
 
         Args:
             nobs (Optional[float]): Weighted number of observations.
-            suff_stat (Tuple[int, np.ndarray, np.ndarray, np.ndarray]): Sufficient statistics for dirichlet distribution.
+            suff_stat (Tuple[int, np.ndarray, np.ndarray, np.ndarray]):
+                Sufficient statistics for a Dirichlet distribution.
 
         Returns:
             SequenceEncodableProbabilityDistribution
@@ -482,7 +496,7 @@ class DataSequenceEncoder:
 
     @abstractmethod
     def seq_encode(self, x: Any) -> "EncodedDataSequence":
-        """Create EncodedDataSequence from iid observations from SequenceEncodedProbabilityDistribution.
+        """Create an encoded sequence from IID observations.
 
         Args:
             x (Any): Sequence of observations from corresponding distribution.
