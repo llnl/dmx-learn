@@ -1,10 +1,12 @@
-"""Defines abstract classes for PyTorch-based probability distributions and statistical accumulators.
+"""Abstract classes for PyTorch-based probability distributions.
 
-This module provides the torch-based equivalents of the dmx.stats.pdist classes,
-optimized for GPU computation and PyTorch tensor operations.
+This module provides the torch-based equivalents of the
+`dmx.stats.pdist` classes, optimized for GPU computation and PyTorch
+tensor operations.
 
 Classes:
-    TorchProbabilityDistribution: Abstract base class for torch probability distributions.
+    TorchProbabilityDistribution: Abstract base class for torch probability
+        distributions.
     DistributionSampler: Abstract sampler for probability distributions.
     ConditionalSampler: Abstract sampler for conditional distributions.
     TorchStatisticAccumulator: Abstract accumulator for sufficient statistics.
