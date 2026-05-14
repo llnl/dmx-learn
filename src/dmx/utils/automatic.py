@@ -3,12 +3,26 @@
 import math
 from collections import defaultdict
 from collections.abc import Iterable
+from importlib import import_module
 from typing import Any, Dict, Optional, Sequence
 
 import numpy as np
 
 from dmx.bstats.mixture import MixtureDistribution
 from dmx.stats import ParameterEstimator
+
+
+def _get_class(
+    stats_module: str, bstats_module: str, class_name: str, use_bstats: bool
+) -> Any:
+    """Loads a stats or bstats class while keeping runtime module selection."""
+    module_name = bstats_module if use_bstats else stats_module
+    return getattr(import_module(module_name), class_name)
+
+
+def _get_bstats_attr(module_name: str, attr_name: str) -> Any:
+    """Loads a bstats attribute at runtime."""
+    return getattr(import_module(module_name), attr_name)
 
 
 def get_optional_estimator(
@@ -24,12 +38,9 @@ def get_optional_estimator(
     Returns:
         OptionalEstimator: An estimator that handles missing values.
     """
-    if use_bstats:
-        from dmx.bstats.optional import OptionalEstimator
-
-        return OptionalEstimator(est, missing_value=missing_value)
-    from dmx.stats.optional import OptionalEstimator
-
+    OptionalEstimator = _get_class(
+        "dmx.stats.optional", "dmx.bstats.optional", "OptionalEstimator", use_bstats
+    )
     return OptionalEstimator(est, missing_value=missing_value)
 
 
@@ -43,12 +54,9 @@ def get_sequence_estimator(est: ParameterEstimator, use_bstats=False):
     Returns:
         SequenceEstimator: An estimator for sequences.
     """
-    if use_bstats:
-        from dmx.bstats.sequence import SequenceEstimator
-
-        return SequenceEstimator(est)
-    from dmx.stats.sequence import SequenceEstimator
-
+    SequenceEstimator = _get_class(
+        "dmx.stats.sequence", "dmx.bstats.sequence", "SequenceEstimator", use_bstats
+    )
     return SequenceEstimator(est)
 
 
@@ -61,12 +69,9 @@ def get_ignored_estimator(use_bstats: bool = False):
     Returns:
         IgnoredEstimator: An estimator that ignores input data.
     """
-    if use_bstats:
-        from dmx.bstats.ignored import IgnoredEstimator
-
-        return IgnoredEstimator()
-    from dmx.stats.ignored import IgnoredEstimator
-
+    IgnoredEstimator = _get_class(
+        "dmx.stats.ignored", "dmx.bstats.ignored", "IgnoredEstimator", use_bstats
+    )
     return IgnoredEstimator()
 
 
@@ -82,12 +87,9 @@ def get_composite_estimator(
     Returns:
         CompositeEstimator: An estimator that combines multiple estimators.
     """
-    if use_bstats:
-        from dmx.bstats.composite import CompositeEstimator
-
-        return CompositeEstimator(ests)
-    from dmx.stats.composite import CompositeEstimator
-
+    CompositeEstimator = _get_class(
+        "dmx.stats.composite", "dmx.bstats.composite", "CompositeEstimator", use_bstats
+    )
     return CompositeEstimator(ests)
 
 
@@ -109,7 +111,12 @@ def get_categorical_estimator(
         CategoricalEstimator: An estimator for categorical data.
     """
     if not use_bstats:
-        from dmx.stats.categorical import CategoricalEstimator
+        CategoricalEstimator = _get_class(
+            "dmx.stats.categorical",
+            "dmx.bstats.categorical",
+            "CategoricalEstimator",
+            use_bstats,
+        )
 
         if emp_suff_stat:
             cnt = sum(vdict.values())
@@ -117,7 +124,12 @@ def get_categorical_estimator(
         else:
             suff_stat = None
         return CategoricalEstimator(pseudo_count=pseudo_count, suff_stat=suff_stat)
-    from dmx.bstats.categorical import CategoricalEstimator
+    CategoricalEstimator = _get_class(
+        "dmx.stats.categorical",
+        "dmx.bstats.categorical",
+        "CategoricalEstimator",
+        use_bstats,
+    )
 
     return CategoricalEstimator()
 
@@ -140,10 +152,14 @@ def get_poisson_estimator(
         PoissonEstimator: An estimator for Poisson-distributed data.
     """
     if use_bstats:
-        from dmx.bstats.poisson import PoissonEstimator
+        PoissonEstimator = _get_class(
+            "dmx.stats.poisson", "dmx.bstats.poisson", "PoissonEstimator", use_bstats
+        )
 
         return PoissonEstimator()
-    from dmx.stats.poisson import PoissonEstimator
+    PoissonEstimator = _get_class(
+        "dmx.stats.poisson", "dmx.bstats.poisson", "PoissonEstimator", use_bstats
+    )
 
     if emp_suff_stat:
         ss_0 = 0.0
@@ -178,10 +194,14 @@ def get_gaussian_estimator(
         GaussianEstimator: An estimator for Gaussian-distributed data.
     """
     if use_bstats:
-        from dmx.bstats.gaussian import GaussianEstimator
+        GaussianEstimator = _get_class(
+            "dmx.stats.gaussian", "dmx.bstats.gaussian", "GaussianEstimator", use_bstats
+        )
 
         return GaussianEstimator()
-    from dmx.stats.gaussian import GaussianEstimator
+    GaussianEstimator = _get_class(
+        "dmx.stats.gaussian", "dmx.bstats.gaussian", "GaussianEstimator", use_bstats
+    )
 
     if emp_suff_stat:
         ss_0 = 0.0
@@ -485,8 +505,10 @@ def get_dpm_mixture(
     Returns:
         MixtureDistribution: A mixture distribution model.
     """
-    from dmx.bstats.bestimation import optimize
-    from dmx.bstats.dpm import DirichletProcessMixtureEstimator
+    optimize = _get_bstats_attr("dmx.bstats.bestimation", "optimize")
+    DirichletProcessMixtureEstimator = _get_bstats_attr(
+        "dmx.bstats.dpm", "DirichletProcessMixtureEstimator"
+    )
 
     if estimator is None:
         est = get_estimator(data, use_bstats=True)
