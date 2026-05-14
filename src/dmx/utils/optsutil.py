@@ -34,7 +34,8 @@ def map_to_integers(x: Sequence[T], val_map: Dict[T, int]) -> List[int]:
 
     Args:
         x (Sequence[T]): Sequence of type T to be mapped to integers.
-        val_map (Dict[T, int]): Dictionary mappings for type T to unique integer values.
+        val_map (Dict[T, int]): Dictionary mappings for type T to unique
+            integer values.
 
     Returns:
         Returns x mapped to a list of integers.
@@ -130,7 +131,7 @@ def sum_by_key(x: Sequence[Tuple[T, T1]]) -> Dict[T, T1]:
 
 
 def group_by_key(x: Sequence[Tuple[T, T1]]) -> Dict[T, List[T1]]:
-    """Group keys and return dictionary of items with their respective values aggregated as a list.
+    """Group keys and aggregate their values into lists.
 
     Args:
         x (Sequence[Tuple[T, T1]]): A sequence of tuples of key and value pairs.
@@ -148,10 +149,11 @@ def group_by_key(x: Sequence[Tuple[T, T1]]) -> Dict[T, List[T1]]:
 
 
 def group_by(f: Callable[[T], T1], x: Sequence[T]) -> Dict[T1, List[T]]:
-    """Maps values in x to key from mapping f. Dictionary mapping keys to list of grouped values in x is returned.
+    """Group values in `x` using the key returned by `f`.
 
     Args:
-        f (Callable[[T], T1]): Function mapping type T to its group 'key' of type T1.
+        f (Callable[[T], T1]): Function mapping type T to its group key of
+            type T1.
         x (Sequence[T]): Sequence of values to be grouped.
 
     Returns:
@@ -207,26 +209,34 @@ def least_occurring(
 ) -> Union[List[T], Callable]:
     """Identifies the least occurring elements in a sequence.
 
-    This function finds the least frequently occurring elements in a given sequence
-    based on the specified `count` or `percent`. Optionally, it can return the filtered
-    sequence with only the least occurring elements or just the elements themselves.
+    This function finds the least frequently occurring elements in a given
+    sequence based on the specified `count` or `percent`. Optionally, it can
+    return the filtered sequence with only the least occurring elements or just
+    the elements themselves.
 
     Args:
         x (Sequence[T]): The input sequence to analyze.
-        count (Optional[int], optional): The maximum number of least occurring elements to return.
-            If specified, the function will return up to `count` least occurring elements. Defaults to `None`.
-        percent (Optional[float], optional): The percentage (as a float between 0 and 1) of least occurring
-            elements to return. If specified, the function will return the least occurring elements that
-            make up this percentage of the total unique elements. Defaults to `None`.
-        keep_freq (bool, optional): If `True`, returns the filtered sequence containing only the least
-            occurring elements. If `False`, returns a list of the least occurring elements themselves.
-            Defaults to `True`.
+        count (Optional[int], optional): The maximum number of least occurring
+            elements to return. If specified, the function will return up to
+            `count` least occurring elements. Defaults to `None`.
+        percent (Optional[float], optional): The percentage, as a float
+            between 0 and 1, of least occurring elements to return. If
+            specified, the function will return the least occurring elements
+            that make up this percentage of the total unique elements.
+            Defaults to `None`.
+        keep_freq (bool, optional): If `True`, returns the filtered sequence
+            containing only the least occurring elements. If `False`, returns
+            a list of the least occurring elements themselves. Defaults to
+            `True`.
 
     Returns:
         Union[List[T], Callable]:
-            - If `keep_freq` is `True`, returns a filtered sequence containing only the least occurring elements.
-            - If `keep_freq` is `False`, returns a list of the least occurring elements.
-            - If neither `count` nor `percent` is specified, the original sequence `x` is returned.
+            - If `keep_freq` is `True`, returns a filtered sequence containing
+              only the least occurring elements.
+            - If `keep_freq` is `False`, returns a list of the least occurring
+              elements.
+            - If neither `count` nor `percent` is specified, the original
+              sequence `x` is returned.
     """
     cnt_map = count_by_value(x).items()
     s_idx = np.argsort([u[1] for u in cnt_map])
