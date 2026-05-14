@@ -26,9 +26,6 @@ def test_humap() -> None:
 
     embeddings, mix_model, fit, _ = humap(data, seed=10, umap_kwargs=umap_kwargs)
 
-    with open(os.path.join(ANSWER_DIR, "testOutput_humap.pkl"), "rb") as f:
-        answer_dict = pickle.load(f)
-
     embeddings_answer = np.load("tests/answerkeys/testOutput_humap.npy")
     # Use approximate equality for numerical arrays to handle platform/version differences
     # rtol=1e-5 allows ~0.001% relative difference, atol=1e-7 handles near-zero values
