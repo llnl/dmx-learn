@@ -1,8 +1,12 @@
+"""P-value utilities for approximating composite binomial ranks."""
+
 import itertools
+from importlib import import_module
 from typing import List, Optional, Tuple, Union
 
 import numpy as np
-from scipy.special import gammaln
+
+SPECIAL = import_module("scipy.special")
 
 
 def binomial_rank(
@@ -16,7 +20,8 @@ def binomial_rank(
 
     Args:
         log_p_vec: Vector with log probabilities for each binomial distribution
-        log_p1_vec: Optional vector with log one minus probabilities for each binomial distribution (for high-precision)
+        log_p1_vec: Optional vector with log one minus probabilities for each
+            binomial distribution (for high-precision)
         count_vec: Vector with the number of draws for each binomial distribution
         ll_eps: Bin spacing is determined so that |LL - floor(LL/space)*space| < ll_eps
         max_len: Maximum number of bins for histogram
@@ -37,7 +42,11 @@ def binomial_rank(
             continue
         nn = np.arange(0, n + 1)
         llv = log_p * nn + log_p1 * (n - nn)
-        ell = gammaln(n + 1) - gammaln(nn + 1) - gammaln(n - nn + 1)
+        ell = (
+            SPECIAL.gammaln(n + 1)
+            - SPECIAL.gammaln(nn + 1)
+            - SPECIAL.gammaln(n - nn + 1)
+        )
         ell = np.exp(ell - ell.max())
         ell /= np.sum(ell)
         llv = llv[ell > 0]
@@ -93,13 +102,17 @@ if __name__ == "__main__":
     test = np.asarray([1, 0, 1, 1, 0, 1, 0, 1])
     ll = np.where(test == 1, pvec_long, nvec_long).sum()
 
-    acc_ll, acc_prob, (ll0, dll, acc_count) = binomial_rank(
+    rank_ll, rank_prob, (rank_ll0, rank_dll, rank_count) = binomial_rank(
         pvec, count_vec=cvec, max_len=100000
     )
-    left = acc_prob[(int((ll - ll0) / dll) - 1) :].sum() * np.power(2, acc_count)
-    mid = acc_prob[int((ll - ll0) / dll) :].sum() * np.power(2, acc_count)
-    right = acc_prob[(int((ll - ll0) / dll) + 1) :].sum() * np.power(2, acc_count)
-    print("Approximate rank: %f ( Somewhere in [%f, %f] )" % (mid, right, left))
+    left = rank_prob[(int((ll - rank_ll0) / rank_dll) - 1) :].sum() * np.power(
+        2, rank_count
+    )
+    mid = rank_prob[int((ll - rank_ll0) / rank_dll) :].sum() * np.power(2, rank_count)
+    right = rank_prob[(int((ll - rank_ll0) / rank_dll) + 1) :].sum() * np.power(
+        2, rank_count
+    )
+    print(f"Approximate rank: {mid:f} ( Somewhere in [{right:f}, {left:f}] )")
 
     # Verify this
     temp = np.asarray(
