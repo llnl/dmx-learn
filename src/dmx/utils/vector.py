@@ -186,7 +186,7 @@ def mat_inv(
     return np.linalg.inv(x)
 
 
-def dot(  # type: ignore[no-redef]
+def dot(
     x: Union[np.ndarray, Iterable, int, float],
     y: Union[np.ndarray, Iterable, int, float],
 ) -> Union[np.ndarray, float]:
