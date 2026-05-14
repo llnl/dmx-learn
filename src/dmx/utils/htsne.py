@@ -1,12 +1,13 @@
 """Heterogenous TSNE for embedding tuples of heterogenous data in lower-dimensions."""
 
-from typing import Optional, Sequence, Tuple, TypeVar
+from typing import Optional, Sequence, Tuple, TypeVar, Union
 
 import numpy as np
 from numpy.random import RandomState
 
-from dmx.bstats import MixtureDistribution
+from dmx.bstats import MixtureDistribution as BstatsMixtureDistribution
 from dmx.bstats.pdist import ParameterEstimator
+from dmx.stats.mixture import MixtureDistribution as StatsMixtureDistribution
 from dmx.utils.automatic import get_dpm_mixture
 
 T = TypeVar("T")
@@ -391,7 +392,9 @@ def htsne(
     max_alpha_its: int = 3,
     seed: Optional[int] = None,
     comp_estimator: Optional[ParameterEstimator] = None,
-    mix_model: Optional[MixtureDistribution] = None,
+    mix_model: Optional[
+        Union[StatsMixtureDistribution, BstatsMixtureDistribution]
+    ] = None,
     variable_length: bool = False,
 ):
     """Performs Heterogeneous t-SNE embedding.
@@ -442,10 +445,12 @@ def htsne(
     if mix_model.num_components == 0:
         raise RuntimeError("Something is broken. Mixture model has zero components.")
     # This is until all bstats is updated!
-    try:
+    if isinstance(mix_model, StatsMixtureDistribution):
         enc_data = mix_model.dist_to_encoder().seq_encode(data)
-    except Exception:
+    elif isinstance(mix_model, BstatsMixtureDistribution):
         enc_data = mix_model.seq_encode(data)
+    else:
+        raise TypeError(f"Unsupported mixture model type: {type(mix_model)!r}")
     # Posterior and log comp density for each point [z | x] and [x | z]
     z_ij = mix_model.seq_posterior(enc_data)
     l_ij = mix_model.seq_component_log_density(enc_data)
