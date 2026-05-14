@@ -1,14 +1,21 @@
-"""Defines the log-pseudo-determinant, polgamma, trigamma, and digamma inverse functions."""
+"""Defines log-pseudo-determinant and special-function helpers."""
 
 import math
+from importlib import import_module
 from typing import Iterable, List, Optional, Union
 
 import numpy as np
-from scipy.special import beta, betaln, digamma, gamma, gammaln, zeta
 
-from dmx.arithmetic import *
+from dmx.arithmetic import exp
 
-D1 = digamma(1.0)
+SPECIAL = import_module("scipy.special")
+beta = SPECIAL.beta
+betaln = SPECIAL.betaln
+digamma = SPECIAL.digamma
+gamma = SPECIAL.gamma
+gammaln = SPECIAL.gammaln
+zeta = SPECIAL.zeta
+D1 = SPECIAL.digamma(1.0)
 
 
 def logpdet(x_mat: np.ndarray) -> float:
@@ -26,8 +33,7 @@ def logpdet(x_mat: np.ndarray) -> float:
 
     if len(eigs) > 0:
         return float(np.sum(np.log(eigs)))
-    else:
-        return -math.inf
+    return -math.inf
 
 
 def polygamma_loc(
@@ -44,7 +50,8 @@ def polygamma_loc(
         n (int): The order of the polygamma function (non-negative integer).
         y (float): The input value for the polygamma function.
         out (Optional[np.ndarray]): An optional array to store the result.
-            If provided, the computation result is stored in this array. Defaults to `None`.
+            If provided, the computation result is stored in this array.
+            Defaults to `None`.
 
     Returns:
         Union[np.ndarray, float]:
@@ -52,10 +59,10 @@ def polygamma_loc(
             - If `out` is not provided, returns the computed result as a float.
     """
     if out is not None:
-        fac2 = zeta(n + 1, y, out=out)
-        fac2 *= (-1.0) ** (n + 1) * gamma(n + 1.0)
+        fac2 = SPECIAL.zeta(n + 1, y, out=out)
+        fac2 *= (-1.0) ** (n + 1) * SPECIAL.gamma(n + 1.0)
     else:
-        fac2 = (-1.0) ** (n + 1) * gamma(n + 1.0) * zeta(n + 1, y)
+        fac2 = (-1.0) ** (n + 1) * SPECIAL.gamma(n + 1.0) * SPECIAL.zeta(n + 1, y)
 
     return fac2  # type: ignore[no-any-return]
 
@@ -74,7 +81,7 @@ def trigamma(
         Numpy array of trigamma function evaluated at y.
 
     """
-    return zeta(2, y, out=out)  # type: ignore[no-any-return]
+    return SPECIAL.zeta(2, y, out=out)  # type: ignore[no-any-return]
 
 
 def digammainv(
@@ -83,13 +90,16 @@ def digammainv(
     """Inverse digamma function evaluated on y.
 
     Args:
-        y (Union[np.ndarray, float]): Numpy array of values to be evaluated or single value.
+        y (Union[np.ndarray, float]): Numpy array of values to be evaluated
+            or single value.
         out (Optional[np.ndarray]): Deprecated. Kept for consistency with other files.
 
     Returns:
         Numpy array if y is numpy array else float.
 
     """
+    _ = out
+
     if isinstance(y, np.ndarray):
 
         rv = np.zeros(y.shape, dtype=float)
@@ -103,9 +113,9 @@ def digammainv(
         t1 = np.zeros(x.shape, dtype=float)
         t2 = np.zeros(x.shape, dtype=float)
 
-        for i in range(5):
-            digamma(x, out=t1)
-            zeta(2, x, out=t2)
+        for _ in range(5):
+            SPECIAL.digamma(x, out=t1)
+            SPECIAL.zeta(2, x, out=t2)
 
             t1 -= z
             t1 /= t2
@@ -118,11 +128,11 @@ def digammainv(
         m = y >= -2.22
         x = m * (exp(y) + 0.5) + (1.0 - m) * (-1.0 / (y - D1))
 
-        x -= (digamma(x) - y) / trigamma(x)
-        x -= (digamma(x) - y) / trigamma(x)
-        x -= (digamma(x) - y) / trigamma(x)
-        x -= (digamma(x) - y) / trigamma(x)
-        x -= (digamma(x) - y) / trigamma(x)
+        x -= (SPECIAL.digamma(x) - y) / trigamma(x)
+        x -= (SPECIAL.digamma(x) - y) / trigamma(x)
+        x -= (SPECIAL.digamma(x) - y) / trigamma(x)
+        x -= (SPECIAL.digamma(x) - y) / trigamma(x)
+        x -= (SPECIAL.digamma(x) - y) / trigamma(x)
 
     return x  # type: ignore[no-any-return]
 
@@ -147,9 +157,8 @@ def stirling2(n: int, k: int) -> int:
 
     if n == 0 and k == 0:
         return 1
-    elif n == 0:
+    if n == 0:
         return 0
-    elif k == 0:
+    if k == 0:
         return 0
-    else:
-        return k * stirling2(n - 1, k) + stirling2(n - 1, k - 1)
+    return k * stirling2(n - 1, k) + stirling2(n - 1, k - 1)

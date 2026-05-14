@@ -1,4 +1,7 @@
-"""Functions for classification evaluation. Create ROC curves and search depth rankings. """
+"""Functions for classification evaluation.
+
+Create ROC curves and search depth rankings.
+"""
 
 from typing import Any, Callable, List, Optional, Sequence, Tuple, TypeVar, Union
 
@@ -14,12 +17,13 @@ def classify(
     model: SequenceEncodableProbabilityDistribution,
     labels: Optional[List[T]] = None,
 ):
-    """Classification of sequence of iid observation from model predictions. Labels may be provided.
+    """Classifies iid observations from model predictions.
 
     Returns
     Args:
         data (Sequence[T]): Sequence of iid observations for classification.
-        model (SequenceEncodableProbabilityDistribution): Distribution for classification.
+        model (SequenceEncodableProbabilityDistribution): Distribution for
+            classification.
         labels (Optional[List[T]]): List of labels for the data.
 
     Returns:
@@ -47,7 +51,7 @@ def classify(
         loc_data = [(label, u[1]) for u in data]
         class_ll[:, idx] = model.seq_log_density(encoder.seq_encode(loc_data))
 
-    max_ll = class_ll.max(axis=1, keepdims=True)
+    max_ll = np.max(class_ll, axis=1, keepdims=True)
     class_ll -= max_ll
     np.exp(class_ll, out=class_ll)
     class_ll /= class_ll.sum(axis=1, keepdims=True)
@@ -104,20 +108,24 @@ def roc_percentiles(
     at specified percentile points based on the ROC curve.
 
     Args:
-        pos_x (Union[List[float], np.ndarray]): Scores or probabilities for positive samples.
-        neg_x (Union[List[float], np.ndarray]): Scores or probabilities for negative samples.
-        perc_points (Union[List[float], np.ndarray]): Percentile points at which to compute the ROC values.
+        pos_x (Union[List[float], np.ndarray]): Scores or probabilities for
+            positive samples.
+        neg_x (Union[List[float], np.ndarray]): Scores or probabilities for
+            negative samples.
+        perc_points (Union[List[float], np.ndarray]): Percentile points at
+            which to compute the ROC values.
 
     Returns:
-        np.ndarray: A 2D array where each row contains [FA, PD] values corresponding to the given percentiles.
+        np.ndarray: A 2D array where each row contains [FA, PD] values
+            corresponding to the given percentiles.
     """
 
     pd, fa = roc_curve(pos_x, neg_x)
     rv = []
 
-    for i in range(len(perc_points)):
+    for _, perc_point in enumerate(perc_points):
 
-        points = pd <= perc_points[i]
+        points = pd <= perc_point
 
         if np.sum(points) == 0:
             continue
@@ -141,20 +149,24 @@ def ranking_depth(
     for each input entry. If `k` is specified, only the top `k` ranks are returned.
 
     Args:
-        x (List[Tuple[Any, List[Tuple[Any, float]]]]): A list of entries where each entry is a tuple.
-            The first element of the tuple is the target value, and the second element is a list of
-            tuples containing candidate values and their associated scores.
-        k (Optional[int], optional): The number of top ranks to return for each entry. If `None`, all ranks
-            are returned. Defaults to `None`.
-        comp_func (Callable[[Any, Any], bool], optional): A comparison function that determines whether
-            a candidate value matches the target value. Defaults to `lambda a, b: a == b`.
+        x (List[Tuple[Any, List[Tuple[Any, float]]]]): A list of entries where
+            each entry is a tuple. The first element of the tuple is the
+            target value, and the second element is a list of tuples
+            containing candidate values and their associated scores.
+        k (Optional[int], optional): The number of top ranks to return for
+            each entry. If `None`, all ranks are returned. Defaults to `None`.
+        comp_func (Callable[[Any, Any], bool], optional): A comparison
+            function that determines whether a candidate value matches the
+            target value. Defaults to `lambda a, b: a == b`.
 
     Returns:
         Union[np.ndarray, List[np.ndarray]]:
-            - If `k` is specified, returns a 2D NumPy array of shape `(len(x), k)` where each row contains
-              the ranks of the top `k` matching entries for the corresponding input entry.
-            - If `k` is `None`, returns a list of 1D NumPy arrays, where each array contains all ranks of
+            - If `k` is specified, returns a 2D NumPy array of shape
+              `(len(x), k)` where each row contains the ranks of the top `k`
               matching entries for the corresponding input entry.
+            - If `k` is `None`, returns a list of 1D NumPy arrays, where each
+              array contains all ranks of matching entries for the
+              corresponding input entry.
     """
 
     if k is not None:

@@ -114,8 +114,7 @@ jobs:
         run: |
           poetry run pylint src/dmx/stats/pdist.py --jobs=1 --fail-under=10
           poetry run pylint src/dmx/torch_stats/pdist.py --jobs=1 --fail-under=10
-          poetry run pylint src/dmx/utils/optsutil.py --jobs=1 --fail-under=10
-          poetry run pylint src/dmx/utils/vector.py --jobs=1 --fail-under=10 --ignored-modules=numpy,scipy,scipy.linalg,scipy.special
+          poetry run pylint src/dmx/utils --jobs=1 --fail-under=10
 
   docstring-quality:
     name: Docstring Quality (pydocstyle)

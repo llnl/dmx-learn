@@ -1,6 +1,22 @@
 """Helper functions for building RDD for pyspark estimation."""
 
-from dmx.stats import *
+from dmx import stats
+
+_STATS_NAMESPACE = {name: getattr(stats, name) for name in stats.__all__}
+
+
+def _eval_stats_expr(expr: str):
+    """Evaluates a trusted stats expression from builder input."""
+    # pylint: disable=eval-used
+    return eval(expr, _STATS_NAMESPACE.copy())
+
+
+def _build_value_mapper(mapstr: str):
+    """Builds a trusted value-mapping function from builder input."""
+    if mapstr == "":
+        return None
+    # pylint: disable=eval-used
+    return eval("lambda x: " + mapstr, _STATS_NAMESPACE.copy())
 
 
 def read_index_csv(filename: str):
@@ -14,7 +30,7 @@ def read_index_csv(filename: str):
         list: A list of tuples, where each tuple contains four elements
         extracted from the CSV file (index, name, lambda expression, distribution).
     """
-    with open(filename, "r") as fin:
+    with open(filename, "r", encoding="utf-8") as fin:
         lines = map(lambda v: v.split("#", 1)[0].split(",", 3), fin.read().split("\n"))
     lines = filter(lambda v: len(v) == 4, lines)
     return list(lines)
@@ -27,7 +43,8 @@ def get_indexed_rdd_pne(field_info=None, filename=None):
     Args:
         field_info (list, optional): List of tuples containing field information
         (index, name, lambda expression, distribution). Defaults to None.
-        filename (str, optional): Path to the CSV file containing field information. Defaults to None.
+        filename (str, optional): Path to the CSV file containing field
+            information. Defaults to None.
 
     Returns:
         tuple: A tuple containing the CompositeEstimator and a line parser function.
@@ -46,20 +63,26 @@ def get_indexed_rdd_pne(field_info=None, filename=None):
         Returns:
             function: A lambda function to process the entry.
         """
-        if mapstr != "":
-            temp_lambda_0 = eval("lambda x: " + mapstr)
-            temp_lambda = lambda u: temp_lambda_0(u[idx])
-        else:
-            temp_lambda = lambda u: u[idx]
-        return temp_lambda
+        temp_lambda_0 = _build_value_mapper(mapstr)
+        if temp_lambda_0 is not None:
+
+            def mapped_entry(u):
+                return temp_lambda_0(u[idx])
+
+            return mapped_entry
+
+        def direct_entry(u):
+            return u[idx]
+
+        return direct_entry
 
     parser_list = []
     estimator_list = []
     max_idx = -1
 
     for entry in field_info:
-        idx, name, lam, dist = entry
-        estimator = eval(dist)
+        idx, _name, lam, dist = entry
+        estimator = _eval_stats_expr(dist)
         if estimator is not None:
             idx_i = int(idx)
             parser_list.append(entry_lambda(idx_i, lam.strip()))
@@ -79,7 +102,7 @@ def get_indexed_rdd_pne(field_info=None, filename=None):
         parts = line.split(",")
         if len(parts) < (max_idx + 1):
             return None
-        return tuple([parser(parts) for parser in parser_list])
+        return tuple(parser(parts) for parser in parser_list)
 
-    estimator = CompositeEstimator(tuple(estimator_list))
+    estimator = stats.CompositeEstimator(tuple(estimator_list))
     return estimator, line_parser

@@ -91,11 +91,11 @@ Current CI behavior:
 
 - Uses `--jobs=1`
 - Uses `--fail-under=10`
-- Keeps a file-scoped workaround for `src/dmx/utils/vector.py`:
+- Previously used a file-scoped workaround for `src/dmx/utils/vector.py`:
   - `--ignored-modules=numpy,scipy,scipy.linalg,scipy.special`
 
-That workaround stays command-scoped, not global in `.pylintrc`, because only
-that file currently needs it.
+That workaround is no longer needed after switching the SciPy imports in
+`src/dmx/utils/vector.py` to `import_module(...)`.
 
 ## Next Scope Inventory
 
@@ -146,6 +146,23 @@ Target files:
 - `src/dmx/utils/metrics.py`
 - `src/dmx/utils/pvalues.py`
 - `src/dmx/utils/special.py`
+
+Progress so far:
+
+- Done: `src/dmx/utils/__init__.py` at `10.00/10`
+- Done: `src/dmx/utils/automatic.py` at `10.00/10`
+- Done: `src/dmx/utils/builder.py` at `10.00/10`
+- Done: `src/dmx/utils/estimation.py` at `10.00/10`
+- Done: `src/dmx/utils/htsne.py` at `10.00/10`
+- Done: `src/dmx/utils/humap.py` at `10.00/10`
+- Done: `src/dmx/utils/metrics.py` at `10.00/10`
+- Done: `src/dmx/utils/pvalues.py` at `10.00/10`
+- Done: `src/dmx/utils/special.py` at `10.00/10`
+- All of `src/dmx/utils` now lint clean at `10.00/10`
+
+Phase 1 status:
+
+- Complete
 
 Why first:
 
@@ -243,10 +260,13 @@ Recommended CI expansion order:
 
 ### Step 1: Enforce `src/dmx/utils`
 
-After every file in `src/dmx/utils` is at `10.00/10`, extend the lint job to
-include all of them.
+Every file in `src/dmx/utils` is now at `10.00/10`, so the lint job can be
+extended to include all of them.
 
-Keep any `vector.py`-specific workaround command-scoped.
+Current CI behavior for this directory:
+
+- Runs `poetry run pylint src/dmx/utils --jobs=1 --fail-under=10`
+- No `vector.py`-specific workaround is needed now
 
 ### Step 2: Enforce `src/dmx/torch_utils`
 

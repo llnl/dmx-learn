@@ -28,7 +28,7 @@ from dmx.stats.pdist import (
     SequenceEncodableStatisticAccumulator,
     StatisticAccumulatorFactory,
 )
-from dmx.utils.special import digamma, digammainv, one
+from dmx.utils.special import digamma, digammainv
 
 
 def dirichlet_param_solve(
@@ -628,7 +628,7 @@ class DirichletEstimator(ParameterEstimator):
         dim = len(sum_of_logs)
 
         if self.pseudo_count is not None and self.suff_stat is None:
-            c1 = digamma(one) - digamma(dim)
+            c1 = digamma(1.0) - digamma(dim)
             c2 = sum_of_logs + c1 * self.pseudo_count
             initial_estimate = c2 * (dim / sum(c2))
             mean_log_p = c2 / (nobs + self.pseudo_count)
