@@ -153,7 +153,8 @@ Progress so far:
 - Done: `src/dmx/utils/automatic.py` at `10.00/10`
 - Done: `src/dmx/utils/builder.py` at `10.00/10`
 - Done: `src/dmx/utils/estimation.py` at `10.00/10`
-- Next: `src/dmx/utils/htsne.py`
+- Done: `src/dmx/utils/htsne.py` at `10.00/10`
+- Next: `src/dmx/utils/humap.py`
 
 Why first:
 
