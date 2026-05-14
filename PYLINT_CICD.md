@@ -155,7 +155,8 @@ Progress so far:
 - Done: `src/dmx/utils/estimation.py` at `10.00/10`
 - Done: `src/dmx/utils/htsne.py` at `10.00/10`
 - Done: `src/dmx/utils/humap.py` at `10.00/10`
-- Next: `src/dmx/utils/metrics.py`
+- Done: `src/dmx/utils/metrics.py` at `10.00/10`
+- Next: `src/dmx/utils/pvalues.py`
 
 Why first:
 
