@@ -1,19 +1,13 @@
 """Automatic estimations for input data files. Use in auto-estimation step of htsne."""
 
-from importlib import import_module
 from typing import Any, Optional, Sequence
 
 import numpy as np
 
 from dmx.bstats import ParameterEstimator
 from dmx.bstats.mixture import MixtureDistribution
+from dmx.mpi4py.utils import get_runtime_attr
 from dmx.utils.automatic import get_estimator
-
-
-# Keep MPI and related optional imports runtime-loaded for lintability.
-def _get_attr(module_name: str, attr_name: str) -> Any:
-    """Load an attribute at runtime from a module."""
-    return getattr(import_module(module_name), attr_name)
 
 
 # Keep the current helper call signature stable for now.
@@ -41,11 +35,11 @@ def get_dpm_mixture_mpi(
     Returns:
         MixtureDistribution: A mixture distribution model.
     """
-    mpi = _get_attr("mpi4py", "MPI")
-    dirichlet_process_mixture_estimator = _get_attr(
+    mpi = get_runtime_attr("mpi4py", "MPI")
+    dirichlet_process_mixture_estimator = get_runtime_attr(
         "dmx.bstats.dpm", "DirichletProcessMixtureEstimator"
     )
-    optimize_mpi = _get_attr("dmx.mpi4py.utils.bestimation", "optimize_mpi")
+    optimize_mpi = get_runtime_attr("dmx.mpi4py.utils.bestimation", "optimize_mpi")
 
     # Get MPI communicator, rank, and size
     comm = mpi.COMM_WORLD
