@@ -1,15 +1,23 @@
 """Automatic estimations for input data files. Use in auto-estimation step of htsne."""
 
+from importlib import import_module
 from typing import Any, Optional, Sequence
 
 import numpy as np
-from mpi4py import MPI
 
 from dmx.bstats import ParameterEstimator
 from dmx.bstats.mixture import MixtureDistribution
 from dmx.utils.automatic import get_estimator
 
 
+# Keep MPI and related optional imports runtime-loaded for lintability.
+def _get_attr(module_name: str, attr_name: str) -> Any:
+    """Load an attribute at runtime from a module."""
+    return getattr(import_module(module_name), attr_name)
+
+
+# Keep the current helper call signature stable for now.
+# pylint: disable-next=too-many-positional-arguments
 def get_dpm_mixture_mpi(
     data: Sequence[Any],
     estimator: Optional[ParameterEstimator] = None,
@@ -25,7 +33,7 @@ def get_dpm_mixture_mpi(
         data (Sequence[Any]): The data to model.
         estimator (Optional[ParameterEstimator]): The base estimator to use.
         max_comp (int): Maximum number of components in the mixture.
-        rng (Optinal[numpy.random.RandomState]): Random number generator.
+        rng (Optional[numpy.random.RandomState]): Random number generator.
         max_its (int): Maximum number of iterations for optimization.
         print_iter (int): Frequency of printing iteration progress.
         mix_threshold_count (float): Threshold for component weights.
@@ -33,24 +41,27 @@ def get_dpm_mixture_mpi(
     Returns:
         MixtureDistribution: A mixture distribution model.
     """
-    from dmx.bstats.dpm import DirichletProcessMixtureEstimator
-    from dmx.bstats.mixture import MixtureDistribution
-    from dmx.mpi4py.utils.bestimation import optimize_mpi
+    mpi = _get_attr("mpi4py", "MPI")
+    dirichlet_process_mixture_estimator = _get_attr(
+        "dmx.bstats.dpm", "DirichletProcessMixtureEstimator"
+    )
+    optimize_mpi = _get_attr("dmx.mpi4py.utils.bestimation", "optimize_mpi")
 
     # Get MPI communicator, rank, and size
-    comm = MPI.COMM_WORLD
+    comm = mpi.COMM_WORLD
     world_rank = comm.Get_rank()
-    world_size = comm.Get_size()
 
     if world_rank == 0:
-        est = estimator if estimator else get_estimator(data, use_bstats=True)
+        est = (
+            estimator if estimator is not None else get_estimator(data, use_bstats=True)
+        )
     else:
         est = None
 
     # broadcast estimator to each worker
     est = comm.bcast(est, root=0)
 
-    est = DirichletProcessMixtureEstimator([est] * max_comp)
+    est = dirichlet_process_mixture_estimator([est] * max_comp)
 
     # the model should live on world_rank == 0
     mix_model = optimize_mpi(data, est, max_its=max_its, rng=rng, print_iter=print_iter)
@@ -63,7 +74,7 @@ def get_dpm_mixture_mpi(
         mix_weights = mix_model.w[mix_model.w >= thresh]
 
         print(str(mix_weights))
-        print("# Components = %d" % (len(mix_comps)))
+        print(f"# Components = {len(mix_comps)}")
         mix_dist = MixtureDistribution(mix_comps, mix_weights)
     else:
         mix_dist = None
