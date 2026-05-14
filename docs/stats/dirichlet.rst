@@ -12,7 +12,7 @@ The Dirichlet distribution is a distribution on the simplex. A d-dimensinoal Dir
 where :math:`B(\boldsymbol(\alpha)) = \frac{\prod_{i=1}^{d}\Gamma(\alpha_i)}{\Gamma\left(\sum_{i=1}^{d}\alpha_i\right)}` and :math:`\sum_{i=1}^{d} x_i = 1`.
 
 
-For more info see `Dirichlet Distribution <https://en.wikipedia.org/wiki/Dirichlet_normal_distribution_>`__.
+For more info see `Dirichlet Distribution <https://en.wikipedia.org/wiki/Dirichlet_distribution_>`__.
 
 
 DirichletDistribution
