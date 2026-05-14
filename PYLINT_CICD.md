@@ -160,6 +160,10 @@ Progress so far:
 - Done: `src/dmx/utils/special.py` at `10.00/10`
 - All of `src/dmx/utils` now lint clean at `10.00/10`
 
+Phase 1 status:
+
+- Complete
+
 Why first:
 
 - Smaller surface area than the numerical/vector-heavy modules
@@ -259,7 +263,10 @@ Recommended CI expansion order:
 Every file in `src/dmx/utils` is now at `10.00/10`, so the lint job can be
 extended to include all of them.
 
-No `vector.py`-specific workaround is needed now.
+Current CI behavior for this directory:
+
+- Runs `poetry run pylint src/dmx/utils --jobs=1 --fail-under=10`
+- No `vector.py`-specific workaround is needed now
 
 ### Step 2: Enforce `src/dmx/torch_utils`
 
