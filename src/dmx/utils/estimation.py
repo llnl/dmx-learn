@@ -209,6 +209,12 @@ def best_of(
     if data is None and enc_data is None:
         raise ValueError("Optimization called with empty data or enc_data.")
 
+    if not 0 < init_p <= 1:
+        raise ValueError(
+            f"Invalid init_p: {init_p}. It must be greater than 0 and less "
+            "than or equal to 1."
+        )
+
     max_its = max(max_its, 1)
     trials = max(trials, 1)
 
@@ -320,15 +326,16 @@ def optimize(
         enc_data = seq_encode(data=data, encoder=data_encoder, num_chunks=num_chunks)
 
     if prev_estimate is None:
-        if init_p <= 0.0:
-            p = 0.10
-        else:
-            p = min(max(init_p, 0.0), 1.0)
+        if not 0 < init_p <= 1:
+            raise ValueError(
+                f"Invalid init_p: {init_p}. It must be greater than 0 and "
+                "less than or equal to 1."
+            )
 
         # if isinstance(enc_data, pyspark.rdd.RDD):
         #     mm = initialize(data=data, estimator=est, rng=rng, p=p)
         # else:
-        mm = seq_initialize(enc_data=enc_data, estimator=est, rng=rng, p=p)
+        mm = seq_initialize(enc_data=enc_data, estimator=est, rng=rng, p=init_p)
 
     else:
         mm = prev_estimate
@@ -451,10 +458,11 @@ def iterate(
         enc_data = seq_encode(data, encoder)
 
     if prev_estimate is None:
-        if init_p <= 0.0:
-            _p = 0.1
-        else:
-            _p = min(max(init_p, 0.0), 1.0)
+        if not 0 < init_p <= 1:
+            raise ValueError(
+                f"Invalid init_p: {init_p}. It must be greater than 0 and "
+                "less than or equal to 1."
+            )
 
         mm = seq_initialize(enc_data, i_est, rng, init_p)
     else:
