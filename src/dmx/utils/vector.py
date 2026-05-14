@@ -1,5 +1,6 @@
 """Vector utilities for estimation and evaluation in dmx-learn."""
 
+from importlib import import_module
 from typing import (
     Iterable,
     List,
@@ -12,8 +13,9 @@ from typing import (
 )
 
 import numpy as np
-import scipy.linalg
-import scipy.special
+
+SCIPY_LINALG = import_module("scipy.linalg")
+SCIPY_SPECIAL = import_module("scipy.special")
 
 
 @overload
@@ -38,9 +40,9 @@ def gammaln(x: Union[np.ndarray, float, int]) -> Union[np.ndarray, float]:
 
     """
     if isinstance(x, float):
-        return float(scipy.special.gammaln(x))
+        return float(SCIPY_SPECIAL.gammaln(x))
 
-    return np.asarray(scipy.special.gammaln(x))
+    return np.asarray(SCIPY_SPECIAL.gammaln(x))
 
 
 def sorted_merge(a: np.ndarray, b: np.ndarray) -> np.ndarray:
@@ -271,7 +273,7 @@ def cholesky(x_mat: np.ndarray) -> Optional[Tuple[np.ndarray, bool]]:
         be computed, otherwise `None`.
     """
     try:
-        rv = scipy.linalg.cho_factor(x_mat)
+        rv = SCIPY_LINALG.cho_factor(x_mat)
     except np.linalg.LinAlgError:
         rv = None
 
@@ -290,7 +292,7 @@ def cho_solve(a_mat: Tuple[np.ndarray, bool], b: np.ndarray) -> np.ndarray:
         The solution to the system a_mat*x = b.
 
     """
-    return scipy.linalg.cho_solve(a_mat, b)  # type: ignore[no-any-return]
+    return SCIPY_LINALG.cho_solve(a_mat, b)  # type: ignore[no-any-return]
 
 
 def maximum(
