@@ -1,4 +1,4 @@
-"""Vector contains functions useful for estimation and evaluation of dmx-learn classes."""
+"""Vector utilities for estimation and evaluation in dmx-learn."""
 
 from typing import (
     Iterable,
@@ -15,8 +15,6 @@ import numpy as np
 import scipy.linalg
 import scipy.special
 
-from dmx.arithmetic import *
-
 
 @overload
 def gammaln(x: np.ndarray) -> np.ndarray: ...
@@ -27,15 +25,16 @@ def gammaln(x: float) -> float: ...
 
 
 def gammaln(x: Union[np.ndarray, float, int]) -> Union[np.ndarray, float]:
-    """Return logrithm of the gamma function.
+    """Return the logarithm of the gamma function.
 
-    Returns np.log(.np.abs(Gamma(x)))
+    Returns `log(abs(Gamma(x)))`.
 
     Args:
-        x (Union[np.ndarray, float, int])): Takes numeric value of np.ndarray of float/int.
+        x (Union[np.ndarray, float, int]): Scalar or array-like numeric input.
 
     Returns:
-        log(Gamma(x)) as float if x is a float/int, or np.ndarray[np.float] if x is a numpy array.
+        float | np.ndarray: Scalar output for scalar input, otherwise a NumPy
+        array.
 
     """
     if isinstance(x, float):
@@ -45,14 +44,14 @@ def gammaln(x: Union[np.ndarray, float, int]) -> Union[np.ndarray, float]:
 
 
 def sorted_merge(a: np.ndarray, b: np.ndarray) -> np.ndarray:
-    """Performs the merge-step of merge sort on sorted np.ndarray's a and b, returning sorted array.
+    """Merge two sorted arrays into one sorted array.
 
     Args:
         a (ndarray): Sorted numpy array.
         b (ndarray): Sorted numpy array.
 
     Returns:
-        Sorted numpy array containing merge sorted a and b. Array len = len(a)+len(b).
+        Sorted NumPy array containing the merged contents of `a` and `b`.
 
     """
     if len(a) < len(b):
@@ -70,7 +69,7 @@ def sorted_merge(a: np.ndarray, b: np.ndarray) -> np.ndarray:
 def sorted_dict_merge_add(
     k_vec1: np.ndarray, c_vec1: np.ndarray, k_vec2: np.ndarray, c_vec2: np.ndarray
 ) -> Tuple[np.ndarray, np.ndarray]:
-    """Performs a merge on two sorted arrays of dictionary keys and the counts for their respective keys.
+    """Merge two sorted key/count arrays and add counts for shared keys.
 
     Returns the merge sorted keys and corresponding counts.
 
@@ -81,15 +80,22 @@ def sorted_dict_merge_add(
         c_vec2 (ndarray): Numpy array of counts for keys in vector k_vec2.
 
     Returns:
-        Tuple of numpy arrays containing the merge sorted dictionary keys and corresponding counts.
+        Tuple[np.ndarray, np.ndarray]: Merged sorted keys and their
+        corresponding counts.
     """
     if len(k_vec2) == 0:
         return k_vec1, c_vec1
-    elif len(k_vec1) == 0:
+
+    if len(k_vec1) == 0:
         return k_vec2, c_vec2
 
     if len(k_vec1) < len(k_vec2):
-        return sorted_dict_merge_add(k_vec2, c_vec2, k_vec1, c_vec1)
+        return sorted_dict_merge_add(
+            k_vec1=k_vec2,
+            c_vec1=c_vec2,
+            k_vec2=k_vec1,
+            c_vec2=c_vec1,
+        )
 
     _, idx1, idx2 = np.intersect1d(
         k_vec1, k_vec2, assume_unique=True, return_indices=True
@@ -111,8 +117,8 @@ def make(
     """Convert the array x into a numpy array.
 
     Args:
-        x (Union[np.ndarray, Sequence[Union[int, float, str]]): Array like object that can be converted to a numpy
-        array. E.g. lists, lists of tuples, tuples, tuples of tuples, tuples of lists and ndarrays.
+        x (Union[np.ndarray, Sequence[Union[int, float, str]]]): Array-like
+            object that can be converted to a NumPy array.
 
     Returns:
         Numpy array conversion of x.
@@ -122,23 +128,23 @@ def make(
 
 
 def make_pdf(x: Union[np.ndarray, Sequence[float], List[np.ndarray]]) -> np.ndarray:
-    """Takes log density values and normalizes on the log-scale, returning an ndarray that s.t. np.exp(rv).sum() == 1.0.
+    """Normalize log-density values on the log scale.
 
-    Arg data type for x: Union[np.ndarray, Sequence[float], List[np.ndarray]]).
+    The returned array `rv` satisfies `np.exp(rv).sum() == 1.0`.
 
     Args:
-        x (See above): Array like object with float data type that can be converted to a numpy array. E.g. lists, lists
-        of tuples, tuples, tuples of tuples, tuples of lists and ndarrays.
+        x (Union[np.ndarray, Sequence[float], List[np.ndarray]]): Array-like
+            object with float-like values.
 
     Returns:
-        Returns an ndarray that s.t. np.exp(rv).sum() == 1.0.
+        np.ndarray: Log-scale normalized density values.
     """
     rv = np.asarray(x)
     n = len(rv)
     rv_max = rv.max()
 
-    if rv_max == -inf:
-        rv = zeros(n) - log(n)
+    if rv_max == -np.inf:
+        rv = zeros(n) - np.log(n)
     else:
         rv_sum = np.log(np.sum(np.exp(rv - rv_max))) + np.log(rv_max)
         rv /= rv_sum
@@ -164,9 +170,12 @@ def mat_inv(
 ) -> np.ndarray:
     """Computes the inverse of a square matrix x.
 
-    Arg x data type Union[List[List[Union[float, int]]],List[np.ndarray], np.ndarray]).
+    Arg x data type is
+    `Union[List[List[Union[float, int]]], List[np.ndarray], np.ndarray]`.
+
     Args:
-        x (See above): List of List[float/int], List of np.ndarray, or 2-d np.ndarray of square matrix.
+        x (See above): List of lists, list of NumPy arrays, or a 2D square
+            NumPy array.
 
     Returns:
         Inverse of x as 2-d numpy array.
@@ -186,7 +195,8 @@ def dot(  # type: ignore[no-redef]
         y: Numpy array, array-like, or scalar.
 
     Returns:
-        Returns float/int if x and y are both 1d vectors, returns 1d vector if x xor y is scalar, and matrix else.
+        float | np.ndarray: Scalar if both inputs are 1D vectors, a 1D array
+        if exactly one input is scalar-like, and a matrix otherwise.
 
     """
     return np.dot(x, y)  # type: ignore[arg-type,no-any-return]
@@ -211,7 +221,9 @@ def outer(
 def diag(x: np.ndarray) -> np.ndarray:
     """Extract a diagonal or construct a diagonal array.
 
-    Note: If x is 2-D return np.ndarray with diagonal. If x is 1-D returns 2-d diagonal matrix with x on diagonal.
+    Note:
+        If `x` is 2D, return its diagonal. If `x` is 1D, return a 2D
+        diagonal matrix with `x` on the diagonal.
 
     See the more detailed documentation for ``numpy.diagonal`` if you use this
     function to extract a diagonal and wish to write to the resulting array;
@@ -247,15 +259,16 @@ def reshape(
 def cholesky(x_mat: np.ndarray) -> Optional[Tuple[np.ndarray, bool]]:
     """Compute the Cholesky decomposition of a matrix, to use in cho_solve.
 
-    Returns a matrix containing the Cholesky decomposition, x_mat = L L* or x_mat = U* U of a Hermitian positive-definite
-    matrix x_mat. The return value can be directly used as the first parameter to cho_solve.
+    Returns a matrix containing the Cholesky decomposition of a Hermitian
+    positive-definite matrix. The return value can be used directly as the
+    first parameter to `cho_solve`.
 
     Args:
         x_mat (np.ndarray): Square np.ndarray of matrix to be decomposed.
 
     Returns:
-        Square np.ndarray matrix whose upper or lower triangle contains the Cholesky factor of x. If Cholesky
-            factor cannot be found None is returned.
+        Optional[Tuple[np.ndarray, bool]]: Cholesky factorization when it can
+        be computed, otherwise `None`.
     """
     try:
         rv = scipy.linalg.cho_factor(x_mat)
@@ -266,10 +279,11 @@ def cholesky(x_mat: np.ndarray) -> Optional[Tuple[np.ndarray, bool]]:
 
 
 def cho_solve(a_mat: Tuple[np.ndarray, bool], b: np.ndarray) -> np.ndarray:
-    """Solve the linear equations a_mat x = b, given the Cholesky factorization of a_mat.
+    """Solve `a_mat x = b` using a Cholesky factorization.
 
     Args:
-        a_mat (Tuple[np.ndarray, bool]): Cholesky factorization of a, as given by cho_factor.
+        a_mat (Tuple[np.ndarray, bool]): Cholesky factorization of `a`, as
+            returned by `cho_factor`.
         b (np.ndarray): Right-hand side np.ndarray in a_mat*x = b.
 
     Returns:
@@ -294,20 +308,21 @@ def maximum(
     The net effect is that NaNs are propagated.
 
     Args:
-        x (array-like): Array-like holding values to be compared. If ``x.shape != y.shape``, they must be broadcastable
-            to a common shape (which becomes the shape of the output).
-        y (array-like): Array-like holding values to be compared. If ``x.shape != y.shape``, they must be broadcastable
-            to a common shape (which becomes the shape of the output).
+        x (array-like): Values to compare. If `x.shape != y.shape`, the
+            inputs must be broadcastable to a common shape.
+        y (array-like): Values to compare. If `x.shape != y.shape`, the
+            inputs must be broadcastable to a common shape.
         output: Optional np.ndarray of float to output results to.
 
     Returns:
-        ndarray or scalar. The maximum of x and y, element-wise. This is a scalar if both x and y are scalars.
+        ndarray or scalar: The element-wise maximum of `x` and `y`. This is a
+        scalar if both inputs are scalars.
     """
     return np.maximum(x, y, output=output)  # type: ignore[arg-type,no-any-return]
 
 
 def log_sum(x: np.ndarray) -> float:
-    """Performs log(sum(exp(x)) on 1-d numpy array. E.g. for x_i = log(y_i), log(sum(exp(x)) = log(sum(y)).
+    """Compute `log(sum(exp(x)))` for a 1D NumPy array.
 
     Args:
         x (ndarray): Numpy array on log-scale. E.g. x_i = log(y_i).
@@ -319,22 +334,23 @@ def log_sum(x: np.ndarray) -> float:
 
     if max_val == -np.inf:
         return -np.inf
-    else:
-        rv = x - max_val
-        np.exp(rv, out=rv)
-        return np.log(rv.sum()) + max_val  # type: ignore[no-any-return]
+
+    rv = x - max_val
+    np.exp(rv, out=rv)
+    return np.log(rv.sum()) + max_val  # type: ignore[no-any-return]
 
 
 def weighted_log_sum(x: np.ndarray, w: np.ndarray) -> float:
     """Compute a numerically stable weighted log-sum-of-exponentials.
 
-    This uses weights=exp(w) on the observation values y=exp(x), returning log(sum(exp(x)*exp(w))).
+    This uses `weights = exp(w)` on observation values `y = exp(x)`,
+    returning `log(sum(exp(x) * exp(w)))`.
 
     Note: The weights are on the log-scale.
 
     Args:
         x (ndarray): Numpy array on log-scale. E.g. x_i = log(y_i).
-        w (ndarray): Numpy array on of weights for y_i = exp(x_i) on the log-scale. E.g. w_i = log(weight_i).
+        w (ndarray): Numpy array of log-weights for `y_i = exp(x_i)`.
 
     Returns:
         Float value log(sum(exp(x)*exp(w)), or -np.inf if any x or w are -np.inf.
@@ -347,63 +363,46 @@ def weighted_log_sum(x: np.ndarray, w: np.ndarray) -> float:
 
 
 def log_posterior(x: np.ndarray) -> np.ndarray:
-    """Computes posterior density for vector of log-likelihood evaluated at each parameter component.
+    """Compute the log posterior for component log-likelihoods.
 
-    I.e. if,
-
-    x = [log(p_mat(obs_i | theta_0)), log(p_mat(obs_i | theta_1)),..., log(p_mat(obs_i | theta_{n-1}))],
-
-    then returned value is,
-
-    [log(p_mat(theta_0| obs_i)),...,log(p_mat(theta_{n-1}|obs_i))],
-
-    where,
-
-    log(p_mat(theta_j| obs_i)) = log(p_mat(obs_i| theta_j)) - log(p_mat(obs_i)).
+    If `x[j] = log(p(obs_i | theta_j))`, the returned array contains
+    `log(p(theta_j | obs_i))` values up to normalization.
 
     Args:
-        x (np.ndarray): Numpy array of log-density values for each component/parameter value
-            x = [log(p_mat(obs_i | theta_0)), log(p_mat(obs_i | theta_1)),..., log(p_mat(obs_i | theta_{n-1}))].
+        x (np.ndarray): Log-density values for each component or parameter
+            value.
 
     Returns:
-        Numpy array of log-posterior for each component/parameter value
-            [log(p_mat(theta_0| obs_i)),...,log(p_mat(theta_{n-1}|obs_i))]. Returns numpy array of [-log(len(x))]
-            if nan or inf detected in x.
+        np.ndarray: Log-posterior values for each component. Returns a
+        uniform log distribution if `x` contains `nan` or `inf`.
     """
     max_val = x.max()
 
-    if isinf(max_val) or isnan(max_val):
-        return zeros(len(x)) - log(len(x))  # type: ignore[no-any-return]
+    if np.isinf(max_val) or np.isnan(max_val):
+        return zeros(len(x)) - np.log(len(x))  # type: ignore[no-any-return]
 
-    mass = log(exp(x - max_val).sum()) + max_val
+    mass = np.log(np.exp(x - max_val).sum()) + max_val
     return x - mass  # type: ignore[no-any-return]
 
 
-def posterior(
+def posterior(  # pylint: disable=redefined-outer-name
     log_x: np.ndarray, out: Optional[np.ndarray] = None, log_sum: Optional[bool] = False
 ) -> Union[np.ndarray, Tuple[np.ndarray, float]]:
-    """Computes posterior density for vector of log-likelihood evaluated at each parameter component.
+    """Compute posterior probabilities from component log-likelihoods.
 
-    I.e. if,
-    log_x = [log(p_mat(obs_i | theta_0)), log(p_mat(obs_i | theta_1)),..., log(p_mat(obs_i | theta_{n-1}))],
-
-    then returned value is,
-
-    [p_mat(theta_0| obs_i),...,p_mat(theta_{n-1}|obs_i)],
-
-    where,
-
-    p_mat(theta_j| obs_i) = p_mat(obs_i| theta_j) / p_mat(obs_i).
+    If `log_x[j] = log(p(obs_i | theta_j))`, the returned array contains the
+    normalized posterior probabilities over components.
 
     Args:
-        log_x(ndarray): Numpy array of log-density values for each component/parameter value
-            log_x = [log(p_mat(obs_i | theta_0)), log(p_mat(obs_i | theta_1)),..., log(p_mat(obs_i | theta_{n-1}))].
+        log_x (ndarray): Log-density values for each component or parameter
+            value.
         out (Optional[ndarray]): Optional numpy array to store returned value.
-        log_sum (Optional[bool]): If true returns Tuple with ([p_mat(obs_i|theta_j)], log(p_mat(obs_i))).
+        log_sum (Optional[bool]): If true, also return the log normalizing
+            constant.
 
     Returns:
-         Numpy array of posterior for each component/parameter value [p_mat(theta_0| obs_i),...,p_mat(theta_{n-1}|obs_i)].
-         Optional tuple with ([p_mat(obs_i|theta_j)], log(p_mat(obs_i))) if log_sum true.
+        np.ndarray | Tuple[np.ndarray, float]: Posterior probabilities, and
+        optionally the log normalizing constant.
     """
     if out is None:
         rv = np.zeros(len(log_x))
@@ -413,7 +412,7 @@ def posterior(
     max_val = log_x.max()
     rv_sum = 0.0
 
-    if isinf(max_val) or isnan(max_val):
+    if np.isinf(max_val) or np.isnan(max_val):
         rv.fill(1.0 / float(len(log_x)))
 
     else:
@@ -425,76 +424,62 @@ def posterior(
 
     if log_sum:
         return rv, rv_sum
-    else:
-        return rv
+
+    return rv
 
 
 def log_posterior_sum(x: np.ndarray) -> Tuple[np.ndarray, float]:
-    """Computes posterior density for vector of log-likelihood evaluated at each parameter component.
+    """Compute log posterior values and their log normalizing constant.
 
-    I.e. if,
-
-    log_x = [log(p_mat(obs_i | theta_0)), log(p_mat(obs_i | theta_1)),..., log(p_mat(obs_i | theta_{n-1}))],
-
-    then returned value is a Tuple containing,
-
-    [log(p_mat(theta_0| obs_i)),...,log(p_mat(theta_{n-1}|obs_i))] and log(p_mat(obs_i)),
-
-    where, p_mat(theta_j| obs_i) = p_mat(obs_i| theta_j) / p_mat(obs_i).
+    This returns the log posterior vector together with the log normalizing
+    constant.
 
     Args:
-        x (np.ndarray): Numpy array of log-density values for each component/parameter value
-            log_x = [log(p_mat(obs_i | theta_0)), log(p_mat(obs_i | theta_1)),..., log(p_mat(obs_i | theta_{n-1}))].
+        x (np.ndarray): Log-density values for each component or parameter
+            value.
 
     Returns:
-        Tuple of numpy array containing log-posterior for each component/parameter value
-            [log(p_mat(theta_0| obs_i)),...,log(p_mat(theta_{n-1}|obs_i))], and log(p_mat(obs_i))). The log-posterior value is
-            [-log(len(x)),...,-log(len(x))] if x contains a nan or -np.inf value.
+        Tuple[np.ndarray, float]: Log-posterior values and the log
+        normalizing constant. Returns a uniform log distribution if `x`
+        contains `nan` or `-np.inf`.
 
     """
     max_val = x.max()
-    if isinf(max_val) or isnan(max_val):
-        return zeros(len(x)) - log(len(x)), -np.inf
+    if np.isinf(max_val) or np.isnan(max_val):
+        return zeros(len(x)) - np.log(len(x)), -np.inf
 
-    mass = log(exp(x - max_val).sum()) + max_val
+    mass = np.log(np.exp(x - max_val).sum()) + max_val
     return x - mass, mass
 
 
 def weighted_log_posterior(x: np.ndarray, w: np.ndarray) -> List[float]:
-    """Computes weighted posterior density for vector of log-likelihood evaluated at each parameter component.
+    """Compute weighted log posterior values.
 
-    I.e. if,
-    x = [log(p_mat(obs_i | theta_0)), log(p_mat(obs_i | theta_1)),..., log(p_mat(obs_i | theta_{n-1}))], and
-    w = [log(weight_0),log(weight_1),...,log(weight_{n-1})],
-
-    then returned value is a list of floats,
-
-    [log(p_mat(theta_0| obs_i))+log(weight_0),...,log(p_mat(theta_{n-1}|obs_i))+log(weight_{n-1})].
+    The weights are assumed to be on the log scale.
 
     Args:
-        x (ndarray): Numpy array of log-density values for each component/parameter value
+        x (ndarray): Numpy array of log-density values for each component or
+            parameter value.
         w (ndarray): Numpy array of log weights for each parameter value.
 
     Returns:
-        List[float] containing log-posterior for each component/parameter value
-        [log(p_mat(theta_0| obs_i)),...,log(p_mat(theta_{n-1}|obs_i))].
+        List[float]: Weighted log-posterior value for each component.
 
     """
-    max_val = -inf
+    max_val = -np.inf
 
     rv = [0.0] * len(x)
 
-    for i in range(len(x)):
-        r = w[i] + x[i]
-        if r > max_val:
-            max_val = r
+    for i, x_i in enumerate(x):
+        r = w[i] + x_i
+        max_val = max(max_val, r)
         rv[i] = r
 
     e_sum = 0.0
     for i in range(len(x)):
-        e_sum += exp(rv[i] - max_val)
+        e_sum += np.exp(rv[i] - max_val)
 
-    mass = log(e_sum) + max_val
+    mass = np.log(e_sum) + max_val
 
     for i in range(len(x)):
         rv[i] -= mass
@@ -505,45 +490,35 @@ def weighted_log_posterior(x: np.ndarray, w: np.ndarray) -> List[float]:
 def weighted_log_posterior_sum(
     x: np.ndarray, w: np.ndarray
 ) -> Tuple[List[float], float]:
-    """Computes weighted posterior density for vector of log-likelihood evaluated at each parameter component.
+    """Compute weighted log posterior values and their normalizer.
 
-    I.e. if,
-
-    x = [log(p_mat(obs_i | theta_0)), log(p_mat(obs_i | theta_1)),..., log(p_mat(obs_i | theta_{n-1}))], and
-    w = [log(weight_0),log(weight_1),...,log(weight_{n-1})],
-
-    then returned value is a Tuple of List[float] and float, containing
-
-    [log(p_mat(theta_0| obs_i))+log(weight_0),...,log(p_mat(theta_{n-1}|obs_i))+log(weight_{n-1})], and
-    log(p_mat(obs_i)),
-
-    where, p_mat(theta_j| obs_i) = p_mat(obs_i| theta_j) / p_mat(obs_i).
+    The weights are assumed to be on the log scale.
 
     Args:
-        x: (np.ndarray): numpy array of log-density values for each component/parameter value
-            log_x = [log(p_mat(obs_i | theta_0)), log(p_mat(obs_i | theta_1)),..., log(p_mat(obs_i | theta_{n-1}))].
-        w (np.ndarray): List[float] or numpy array of log weights for each parameter value.
+        x (np.ndarray): Log-density values for each component or parameter
+            value.
+        w (np.ndarray): List[float] or NumPy array of log weights for each
+            parameter value.
 
     Returns:
-        Tuple of List[float] containing log-posterior for each component/parameter value
-        [log(p_mat(theta_0| obs_i)),...,log(p_mat(theta_{n-1}|obs_i))] and log(p_mat(obs_i).
+        Tuple[List[float], float]: Weighted log-posterior values and the log
+        normalizing constant.
 
     """
-    max_val = -inf
+    max_val = -np.inf
 
     rv = [0.0] * len(x)
 
-    for i in range(len(x)):
-        r = w[i] + x[i]
-        if r > max_val:
-            max_val = r
+    for i, x_i in enumerate(x):
+        r = w[i] + x_i
+        max_val = max(max_val, r)
         rv[i] = r
 
     e_sum = 0.0
     for i in range(len(x)):
-        e_sum += exp(rv[i] - max_val)
+        e_sum += np.exp(rv[i] - max_val)
 
-    mass = log(e_sum) + max_val
+    mass = np.log(e_sum) + max_val
 
     for i in range(len(x)):
         rv[i] -= mass
@@ -554,7 +529,7 @@ def weighted_log_posterior_sum(
 def matrix_log_posteriors(
     x: np.ndarray, u_mat: np.ndarray, u: np.ndarray
 ) -> Tuple[np.ndarray, np.ndarray, float]:
-    """Compute the matrix of log posteriors, outer posterior probabilities, and the log-likelihood.
+    """Compute row posteriors, outer posteriors, and log-likelihood.
 
     This function calculates posterior probabilities for rows and columns
     based on input matrices and vectors. It also computes the log-likelihood
@@ -618,8 +593,7 @@ def matrix_log_posteriors(
 
         # Add prior probability for the row
         row_sum += u[i]
-        if row_sum > outer_max:
-            outer_max = row_sum
+        outer_max = max(outer_max, row_sum)
         outer_posterior[i] = row_sum
 
     # Normalize outer posterior probabilities
@@ -634,13 +608,10 @@ def matrix_log_posteriors(
 
 
 def row_choice(p_mat: np.ndarray, rng: Optional[np.random.RandomState]) -> np.ndarray:
-    """Vectorized choice call for varying sampling weights on contained in the rows of p_mat.
+    """Vectorized choice using row-wise sampling weights.
 
-    N, S = p_mat.shape
-
-     Choice is called on range [0,S), where the rows of p_mat are the sample weights.
-
-     An N dim np.ndarray of ints is returned.
+    Choice is called on the range `[0, S)`, where each row of `p_mat`
+    contains sampling weights.
 
     Args:
         p_mat (np.ndarray): N x S numpy array.

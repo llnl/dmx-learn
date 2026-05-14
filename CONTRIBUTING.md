@@ -147,8 +147,11 @@ poetry run mypy src/
 ### Linting
 
 ```bash
-# Run pylint (target score: 9.0/10.0)
-poetry run pylint src/dmx/
+# Run enforced pylint checks on CI-scoped files
+poetry run pylint src/dmx/stats/pdist.py --jobs=1 --fail-under=10
+poetry run pylint src/dmx/torch_stats/pdist.py --jobs=1 --fail-under=10
+poetry run pylint src/dmx/utils/optsutil.py --jobs=1 --fail-under=10
+poetry run pylint src/dmx/utils/vector.py --jobs=1 --fail-under=10 --ignored-modules=numpy,scipy,scipy.linalg,scipy.special
 ```
 
 ### Docstring Checking
@@ -165,8 +168,11 @@ poetry run pydocstyle src/dmx/
 poetry run black --check .
 poetry run isort --check .
 poetry run mypy src/
-poetry run pylint src/dmx/
-poetry run pydocstyle src/dmx/  # Optional until Phase 3
+poetry run pylint src/dmx/stats/pdist.py --jobs=1 --fail-under=10
+poetry run pylint src/dmx/torch_stats/pdist.py --jobs=1 --fail-under=10
+poetry run pylint src/dmx/utils/optsutil.py --jobs=1 --fail-under=10
+poetry run pylint src/dmx/utils/vector.py --jobs=1 --fail-under=10 --ignored-modules=numpy,scipy,scipy.linalg,scipy.special
+poetry run pydocstyle src/dmx/
 ```
 
 ## Testing
@@ -257,9 +263,13 @@ poetry run pre-commit autoupdate
 
 3. **Run quality checks:**
    ```bash
-   poetry run black .
-   poetry run isort .
-   poetry run pytest tests/
+    poetry run black .
+    poetry run isort .
+    poetry run pylint src/dmx/stats/pdist.py --jobs=1 --fail-under=10
+    poetry run pylint src/dmx/torch_stats/pdist.py --jobs=1 --fail-under=10
+    poetry run pylint src/dmx/utils/optsutil.py --jobs=1 --fail-under=10
+    poetry run pylint src/dmx/utils/vector.py --jobs=1 --fail-under=10 --ignored-modules=numpy,scipy,scipy.linalg,scipy.special
+    poetry run pytest tests/
    ```
 
 4. **Commit your changes:**
@@ -296,7 +306,7 @@ poetry run pre-commit autoupdate
 - Code coverage should not decrease
 - Code must pass Black and isort checks
 - Mypy type checking should pass
-- Pylint score should be ≥ 9.0/10.0 for modified files
+- The four CI-scoped pylint files must pass at `10.00/10`
 - Documentation should be updated if needed
 
 ## Documentation
