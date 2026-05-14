@@ -41,6 +41,20 @@ def set_default_float_dtype(dtype: tn.dtype) -> None:
     _DEFAULT_FLOAT_DTYPE_STATE["value"] = dtype
 
 
+def _sample_dirichlet_with_generator(
+    alpha: tn.Tensor, generator: tn.Generator
+) -> tn.Tensor:
+    """Sample a Dirichlet tensor while honoring the caller's generator.
+
+    PyTorch's public Dirichlet distribution API does not accept a
+    `torch.Generator`. This internal helper keeps sampling reproducible for code
+    that passes an explicit generator.
+    """
+    return tn._sample_dirichlet(  # pylint: disable=protected-access
+        alpha, generator=generator
+    )
+
+
 def seed_tng(seed: int, device: Optional[tn.device] = None):
     return tn.Generator(device=device).manual_seed(int(seed))
 
@@ -172,13 +186,15 @@ def sample_dirichlet(alpha: tn.Tensor, size: int, tng: tn.Generator) -> tn.Tenso
 
     if target_device.type == "mps" or alpha.device.type == "mps":
         alpha_cpu = alpha.detach().cpu().expand((size, k))
-        rv = tn._sample_dirichlet(
+        rv = _sample_dirichlet_with_generator(
             alpha_cpu, generator=tn.Generator().manual_seed(tng.initial_seed())
         )
         rv = tensor(rv, device=target_device, dtype=target_dtype)
     else:
         alpha_dev = alpha.to(device=target_device)
-        rv = tn._sample_dirichlet(alpha_dev.expand((size, k)), generator=tng)
+        rv = _sample_dirichlet_with_generator(
+            alpha_dev.expand((size, k)), generator=tng
+        )
         rv = tensor(rv, device=target_device, dtype=target_dtype)
 
     return rv

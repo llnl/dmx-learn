@@ -199,6 +199,10 @@ Expected issues:
 - dense numerical docstrings
 - examples that need to render cleanly in Sphinx
 
+Phase 2 status:
+
+- Complete
+
 ### Phase 3: Bring `torch_utils` to `10.00/10`
 
 Target files:
