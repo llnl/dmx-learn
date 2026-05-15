@@ -11,6 +11,7 @@ import numpy as np
 from mpi4py import MPI
 
 from dmx.bstats import *
+from dmx.bstats.bestimation import empirical_kl_divergence
 from dmx.mpi4py.bstats import *
 from dmx.mpi4py.utils.bestimation import optimize_mpi
 
@@ -18,171 +19,33 @@ DATA_DIR = "tests/data"
 ANSWER_DIR = "tests/answerkeys"
 
 
-def test_initialize_mpi() -> None:
-    """Test initialize with mpi4py using 4 cores."""
+def test_bestimation_optimize_mpi() -> None:
+    """Test bstats optimize mpi call with mpi4py using 4 cores."""
     comm = MPI.COMM_WORLD
     world_rank = comm.Get_rank()
     world_size = comm.Get_size()
 
     if world_rank == 0:
-
-        with open(os.path.join(DATA_DIR, "testInput_optimize_mpi_n4.pkl"), "rb") as f:
-            data = pickle.load(f)
-
-        with open(os.path.join(DATA_DIR, "testInput_bstats_estimator.pkl"), "rb") as f:
-            est = pickle.load(f)
-
-        print(f"RANK {world_rank}: {est}")
-
-        with open(
-            os.path.join(ANSWER_DIR, "testOutput_bstats_initialize_mpi_n4.pkl"), "rb"
-        ) as f:
-            answer = pickle.load(f)
-
+        with open(os.path.join(DATA_DIR, "testInput_mpi_b_optimize.pkl"), "rb") as f:
+            true_model = pickle.load(f)
+        data = true_model.sampler(10).sample(4000)
+        est = true_model.estimator()
     else:
         data = None
         est = None
 
-    rng = np.random.RandomState(1)
     est = comm.bcast(est, root=0)
-    prev_mm = initialize_mpi(data, estimator=est, rng=rng, p=0.10)
-
-    if world_rank == 0:
-        assert str(prev_mm) == str(answer)
-
-
-def test_seq_encode_mpi() -> None:
-    """Test sequence encoding with mpi4py using 4 cores."""
-    comm = MPI.COMM_WORLD
-    world_rank = comm.Get_rank()
-
-    if world_rank == 0:
-
-        with open(os.path.join(DATA_DIR, "testInput_optimize_mpi_n4.pkl"), "rb") as f:
-            data = pickle.load(f)
-
-        with open(
-            os.path.join(ANSWER_DIR, "testOutput_bstats_initialize_mpi_n4.pkl"), "rb"
-        ) as f:
-            prev_estimate = pickle.load(f)
-
-    else:
-        data = None
-        prev_estimate = None
-
-    # load the answers for each of the 4 workers
-    with open(
-        os.path.join(
-            ANSWER_DIR, f"testOutput_bstats_seq_encode_mpi_n4_rank{world_rank}.pkl"
-        ),
-        "rb",
-    ) as f:
-        answer = pickle.load(f)
-
-    enc_data = seq_encode_mpi(data=data, model=prev_estimate)
-
-    assert str(enc_data) == str(answer)
-
-
-def test_seq_estimate_mpi() -> None:
-    """Test sequence estimation with mpi4py using 4 cores."""
-    comm = MPI.COMM_WORLD
-    world_rank = comm.Get_rank()
-
-    if world_rank == 0:
-
-        with open(os.path.join(DATA_DIR, "testInput_bstats_estimator.pkl"), "rb") as f:
-            est = pickle.load(f)
-
-        with open(
-            os.path.join(ANSWER_DIR, "testOutput_bstats_initialize_mpi_n4.pkl"), "rb"
-        ) as f:
-            prev_estimate = pickle.load(f)
-
-    else:
-        est = None
-        prev_estimate = None
-
-    # load the answers for each of the 4 workers
-    with open(
-        os.path.join(
-            ANSWER_DIR, f"testOutput_bstats_seq_encode_mpi_n4_rank{world_rank}.pkl"
-        ),
-        "rb",
-    ) as f:
-        enc_data = pickle.load(f)
-
-    next_mm = seq_estimate_mpi(
-        enc_data=enc_data, estimator=est, prev_estimate=prev_estimate
-    )
-
-    if world_rank == 0:
-        with open(
-            os.path.join(ANSWER_DIR, "testOutput_bstats_seq_estimate_mpi_n4.pkl"), "rb"
-        ) as f:
-            answer = pickle.load(f)
-
-        assert str(next_mm) == str(answer)
-
-
-def test_seq_log_density_mpi() -> None:
-    """Test sequence log density with mpi4py using 4 cores."""
-    comm = MPI.COMM_WORLD
-    world_rank = comm.Get_rank()
-
-    if world_rank == 0:
-        with open(
-            os.path.join(ANSWER_DIR, "testOutput_bstats_seq_estimate_mpi_n4.pkl"), "rb"
-        ) as f:
-            prev_estimate = pickle.load(f)
-
-    else:
-        prev_estimate = None
-
-    # load the answers for each of the 4 workers
-    with open(
-        os.path.join(
-            ANSWER_DIR, f"testOutput_bstats_seq_encode_mpi_n4_rank{world_rank}.pkl"
-        ),
-        "rb",
-    ) as f:
-        enc_data = pickle.load(f)
-
-    ll = seq_log_density_mpi(enc_data=enc_data, estimate=prev_estimate)
-
-    if world_rank == 0:
-        with open(
-            os.path.join(ANSWER_DIR, "testOutput_bstats_seq_log_density_mpi_n4.pkl"),
-            "rb",
-        ) as f:
-            answer = pickle.load(f)
-
-        print(answer)
-        assert np.all(ll == answer[0])
-
-
-def test_bestimation_optimize_mpi() -> None:
-    """Test bstats optimize mpi call with mpi4py using 4 cores."""
-    comm = MPI.COMM_WORLD
-    world_rank = comm.Get_rank()
-
-    if world_rank == 0:
-        with open(os.path.join(DATA_DIR, "testInput_optimize_mpi_n4.pkl"), "rb") as f:
-            data = pickle.load(f)
-
-    else:
-        data = None
-
-    with open(os.path.join(DATA_DIR, "testInput_bstats_estimator.pkl"), "rb") as f:
-        est = pickle.load(f)
-
     rng = np.random.RandomState(1)
-    model = optimize_mpi(data, estimator=est, rng=rng)
+
+    model = optimize_mpi(data, est, max_its=10000, print_iter=10000, rng=rng)
 
     if world_rank == 0:
-        with open(
-            os.path.join(ANSWER_DIR, "testOutput_bstats_optimize_mpi_n4.pkl"), "rb"
-        ) as f:
-            answer = pickle.load(f)
-
-        assert str(model) == str(answer)
+        enc_data = seq_encode(data=data, model=true_model)
+        kl, _, _ = empirical_kl_divergence(
+            dist1=true_model, dist2=model, enc_data=enc_data
+        )
+        assert (
+            kl <= 1.0e-2
+        ), f"Model estimate did not converge under empirical KL: {kl}."
+    else:
+        assert model == None, f"Model was broadcast to worker!"

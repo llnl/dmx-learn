@@ -4,6 +4,10 @@ import pickle
 
 import numpy as np
 
+from dmx.bstats import CategoricalDistribution as BCategoricalDistribution
+from dmx.bstats import CompositeDistribution as BCompositeDistribution
+from dmx.bstats import GaussianDistribution as BGaussianDistribution
+from dmx.bstats import MixtureDistribution as BMixtureDistribution
 from dmx.stats import (
     CategoricalDistribution,
     CompositeDistribution,
@@ -53,4 +57,18 @@ if __name__ == "__main__":
 
     # Model Dump for mpi4py
     with open("tests/data/testInput_mpi_optimize.pkl", "wb") as f:
+        pickle.dump(dist, f)
+
+    # Generate bestimation data for tests
+    comps = []
+
+    for i in range(3):
+        pmap = {v: p[(i + j) % 3].item() for v, j in zip(vals, range(3))}
+        d0 = BCategoricalDistribution(prob_map=pmap)
+        d1 = BGaussianDistribution(mu=mu[i], sigma2=1.0)
+
+        comps.append(BCompositeDistribution(dists=[d0, d1]))
+
+    dist = BMixtureDistribution(comps, w=np.ones(3) / 3.0)
+    with open("tests/data/testInput_mpi_b_optimize.pkl", "wb") as f:
         pickle.dump(dist, f)
