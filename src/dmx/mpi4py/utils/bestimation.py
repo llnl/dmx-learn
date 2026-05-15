@@ -18,6 +18,16 @@ DATUM_TYPE = TypeVar("DATUM_TYPE")
 ENCODED_SEQ = TypeVar("ENCODED_SEQ")
 
 
+# Keep `init_p` handling consistent with `dmx.utils.estimation`.
+def _validate_init_p(init_p: float) -> None:
+    """Validate the EM initialization proportion."""
+    if not 0 < init_p <= 1:
+        raise ValueError(
+            f"Invalid init_p: {init_p}. It must be greater than 0 and less "
+            "than or equal to 1."
+        )
+
+
 # Keep the current public call signature stable for now.
 # pylint: disable-next=too-many-positional-arguments
 def optimize_mpi(
@@ -100,11 +110,8 @@ def optimize_mpi(
     # if previous estimate not passed, initialize the model
     skip_init = comm.bcast(skip_init, root=0)
     if not skip_init:
-        if init_p <= 0.0:
-            init_prob = 0.10
-        else:
-            init_prob = min(max(init_p, 0.0), 1.0)
-        mm = initialize_mpi(data, estimator=est, rng=rng, p=init_prob)
+        _validate_init_p(init_p)
+        mm = initialize_mpi(data, estimator=est, rng=rng, p=init_p)
 
     # the data has not been encoded on all workers yet
     if not enc_data_exists_all:
