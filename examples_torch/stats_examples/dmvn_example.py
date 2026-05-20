@@ -1,9 +1,18 @@
-"""Example for DiagonalGaussianDistribution. Define distribution,
-generate data, estimate, and evaluate likelihoods."""
+"""Diagonal Gaussian distribution example.
 
-import numpy as np
+Generate synthetic multivariate data with diagonal covariance, fit the model,
+and evaluate log densities.
+"""
 
-from dmx.torch_stats import *
+# pylint: disable=duplicate-code
+
+import torch
+
+from dmx.torch_stats import (
+    DiagonalGaussianDistribution,
+    DiagonalGaussianEstimator,
+    seq_encode,
+)
 from dmx.torch_utils import detect_device
 from dmx.torch_utils.estimation import optimize
 

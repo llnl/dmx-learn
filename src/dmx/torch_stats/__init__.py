@@ -24,6 +24,7 @@ __all__ = [
     "NullDistribution",
     "NullEstimator",
     "CompositeDistribution",
+    "CompositeEstimator",
     "ConditionalDistribution",
     "ConditionalDistributionEstimator",
     "MixtureDistribution",

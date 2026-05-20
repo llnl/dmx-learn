@@ -1,10 +1,21 @@
-"""Integer PLSI example on generated data.
-Note: Model fit is significantly faster with numba use.
+"""Integer PLSI example.
+
+Generate synthetic document-word count data, fit an integer PLSI model, and
+evaluate document log densities.
 """
 
-import numpy as np
+# pylint: disable=duplicate-code
 
-from dmx.torch_stats import *
+import numpy as np
+import torch
+
+from dmx.torch_stats import (
+    IntegerCategoricalDistribution,
+    IntegerCategoricalEstimator,
+    IntegerPLSIDistribution,
+    IntegerPLSIEstimator,
+    seq_encode,
+)
 from dmx.torch_utils import detect_device
 from dmx.torch_utils.estimation import optimize
 

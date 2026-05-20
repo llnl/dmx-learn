@@ -1,9 +1,16 @@
-import os
+"""Local torch example for fitting a hidden Markov model on the detected device."""
 
 import numpy as np
 import torch as tn
 
-from dmx.torch_stats import *
+from dmx.torch_stats import (
+    GaussianDistribution,
+    GaussianEstimator,
+    HiddenMarkovEstimator,
+    HiddenMarkovModelDistribution,
+    IntegerCategoricalDistribution,
+    IntegerCategoricalEstimator,
+)
 
 # import optimize from torch_utils NOT utils
 from dmx.torch_utils.estimation import optimize

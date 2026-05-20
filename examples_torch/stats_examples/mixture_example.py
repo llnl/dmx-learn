@@ -1,10 +1,20 @@
-"""Example for MixtureDistribution. Define distribution,
-generate data, estimate, and evaluate likelihoods.
+"""Mixture distribution example.
+
+Generate synthetic data from a Gaussian mixture, fit the mixture model, and
+inspect posterior probabilities and log densities.
 """
+
+# pylint: disable=duplicate-code
 
 import torch
 
-from dmx.torch_stats import *
+from dmx.torch_stats import (
+    GaussianDistribution,
+    GaussianEstimator,
+    MixtureDistribution,
+    MixtureEstimator,
+    seq_encode,
+)
 from dmx.torch_utils import detect_device
 from dmx.torch_utils.estimation import optimize
 

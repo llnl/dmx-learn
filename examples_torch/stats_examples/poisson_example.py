@@ -1,7 +1,14 @@
-"""Example for PoissonDistribution. Define distribution,
-generate data, estimate, and evaluate likelihoods."""
+"""Poisson distribution example.
 
-from dmx.torch_stats import *
+Generate synthetic count data, fit a Poisson model, and evaluate log
+densities.
+"""
+
+# pylint: disable=duplicate-code
+
+import torch
+
+from dmx.torch_stats import PoissonDistribution, PoissonEstimator, seq_encode
 from dmx.torch_utils import detect_device
 from dmx.torch_utils.estimation import optimize
 

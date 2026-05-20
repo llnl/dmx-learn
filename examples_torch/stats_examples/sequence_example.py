@@ -1,14 +1,26 @@
-"""Example for SequenceDistribution. Define distribution,
-generate data, estimate, and evaluate likelihoods.
+"""Sequence distribution example.
+
+Generate synthetic variable-length sequences, fit a sequence model, and
+evaluate sequence log densities.
 
 Note: The torch version uses IntegerCategoricalDistribution as the length
 distribution in place of CategoricalDistribution (not available in torch_stats).
 """
 
+# pylint: disable=duplicate-code
+
 import numpy as np
 import torch
 
-from dmx.torch_stats import *
+from dmx.torch_stats import (
+    ExponentialDistribution,
+    ExponentialEstimator,
+    IntegerCategoricalDistribution,
+    IntegerCategoricalEstimator,
+    SequenceDistribution,
+    SequenceEstimator,
+    seq_encode,
+)
 from dmx.torch_utils import detect_device
 from dmx.torch_utils.estimation import optimize
 
