@@ -2,7 +2,7 @@
 
 import numpy as np
 
-from dmx.bstats import *
+from dmx.bstats import DiagonalGaussianDistribution, MixtureDistribution
 from dmx.utils.automatic import get_dpm_mixture, get_estimator
 
 if __name__ == "__main__":
