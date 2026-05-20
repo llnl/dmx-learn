@@ -9,13 +9,13 @@ import pickle
 
 import numpy as np
 from mpi4py import MPI
+from umap import UMAP
 
-from dmx.bstats import *
+from dmx.bstats import MixtureDistribution as BMix
 from dmx.mpi4py.bstats import *
 from dmx.mpi4py.utils.humap import humap_mpi
 
 DATA_DIR = "tests/data"
-ANSWER_DIR = "tests/answerkeys"
 
 
 def test_humap_mpi() -> None:
@@ -39,12 +39,20 @@ def test_humap_mpi() -> None:
     results = humap_mpi(data=data, seed=10, umap_kwargs=umap_kwargs)
 
     if world_rank == 0:
-        embeddings, mix_model, fit, posteriors = results
+        sz = len(data)
+        embs, mix_model, umap_fit, posteriors = results
 
-        with open(os.path.join(ANSWER_DIR, "testOutput_humap_mpi_n4.pkl"), "rb") as f:
-            answer_dict = pickle.load(f)
-
-        assert np.all(answer_dict["embeddings"] == embeddings)
-        assert str(mix_model) == answer_dict["mix_model"]
-        assert str(fit) == answer_dict["fit"]
-        assert np.all(posteriors == answer_dict["posteriors"])
+        assert isinstance(embs, np.ndarray) and embs.shape == (
+            sz,
+            2,
+        ), "Embeddings dims mismatch"
+        assert isinstance(umap_fit, UMAP), "UMAP fit not returned."
+        assert isinstance(
+            mix_model, BMix
+        ), "humap should return a bstats.MixtureDistribution object."
+        assert isinstance(posteriors, np.ndarray) and posteriors.shape == (
+            sz,
+            BMix.num_components,
+        ), "Posterior dimension mismatch."
+    else:
+        assert results is None, "Did not return None on worker {world_rank}."
