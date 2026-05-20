@@ -1,8 +1,19 @@
+"""Fit an integer hidden association model to simulated data."""
+
+# pylint: disable=duplicate-code
+
 import time
 
 import numpy as np
 
-from dmx.stats import *
+from dmx.stats import (
+    CategoricalDistribution,
+    CategoricalEstimator,
+    IntegerHiddenAssociationDistribution,
+    IntegerHiddenAssociationEstimator,
+    IntegerMultinomialDistribution,
+    IntegerMultinomialEstimator,
+)
 from dmx.utils.estimation import optimize
 
 if __name__ == "__main__":

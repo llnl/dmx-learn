@@ -1,7 +1,23 @@
-"""Example of semi-supervised mixture example. Note that None is included for obs with no known labels."""
+"""Fit a semi-supervised mixture model with a few labeled seed examples."""
 
-from dmx.stats import *
-from dmx.stats.ss_mixture import *
+# pylint: disable=duplicate-code
+
+import numpy as np
+
+from dmx.stats import (
+    CategoricalDistribution,
+    CategoricalEstimator,
+    CompositeDistribution,
+    CompositeEstimator,
+    GaussianDistribution,
+    GaussianEstimator,
+    SequenceDistribution,
+    SequenceEstimator,
+)
+from dmx.stats.ss_mixture import (
+    SemiSupervisedMixtureDistribution,
+    SemiSupervisedMixtureEstimator,
+)
 from dmx.utils.estimation import best_of
 
 if __name__ == "__main__":

@@ -1,10 +1,30 @@
-"""Simulate data and estimate from a Mixture distribution.
-This example demonstrates the use of keys for mixture comps
-as well as the use of composite mixtures. """
+"""Fit a nested mixture model with keyed shared component estimators."""
+
+# pylint: disable=duplicate-code
 
 import numpy as np
 
-from dmx.stats import *
+from dmx.stats import (
+    BernoulliSetDistribution,
+    BernoulliSetEstimator,
+    CategoricalDistribution,
+    CategoricalEstimator,
+    CompositeDistribution,
+    CompositeEstimator,
+    GaussianDistribution,
+    GaussianEstimator,
+    MarkovChainDistribution,
+    MarkovChainEstimator,
+    MixtureDistribution,
+    MixtureEstimator,
+    MultivariateGaussianDistribution,
+    MultivariateGaussianEstimator,
+    OptionalDistribution,
+    OptionalEstimator,
+    PoissonDistribution,
+    PoissonEstimator,
+    seq_encode,
+)
 from dmx.utils.estimation import optimize, partition_data
 
 if __name__ == "__main__":

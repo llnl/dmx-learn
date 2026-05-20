@@ -1,8 +1,14 @@
-"""IntegerBernoulliSetDistribution example on generated data."""
+"""Fit an integer Bernoulli set model to simulated set-valued observations."""
+
+# pylint: disable=duplicate-code
 
 import numpy as np
 
-from dmx.stats import *
+from dmx.stats import (
+    IntegerBernoulliSetDistribution,
+    IntegerBernoulliSetEstimator,
+    seq_encode,
+)
 from dmx.utils.estimation import optimize
 
 if __name__ == "__main__":

@@ -1,10 +1,16 @@
-"""Integer PLSI example on generated data.
-Note: Model fit is significantly faster with numba use.
-"""
+"""Fit an integer PLSI model to simulated document-like count data."""
+
+# pylint: disable=duplicate-code
 
 import numpy as np
 
-from dmx.stats import *
+from dmx.stats import (
+    CategoricalDistribution,
+    CategoricalEstimator,
+    IntegerPLSIDistribution,
+    IntegerPLSIEstimator,
+    seq_encode,
+)
 from dmx.utils.estimation import optimize
 
 if __name__ == "__main__":

@@ -1,13 +1,10 @@
-"""Example for LogGaussianDistribution. Define distribution,
-generate data, estimate, and evaluate likelihoods.
+"""Fit a log-Gaussian distribution to simulated positive-valued data."""
 
-Assumes positive support for data.
-
-"""
+# pylint: disable=duplicate-code
 
 from numpy.random import RandomState
 
-from dmx.stats import *
+from dmx.stats import LogGaussianDistribution, LogGaussianEstimator, seq_encode
 from dmx.utils.estimation import optimize
 
 if __name__ == "__main__":

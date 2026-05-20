@@ -1,9 +1,10 @@
-"""Example for ConditionalDistribution. Define distribution, generate data,
-estimate, and evaluate likelihoods."""
+"""Fit a binomial distribution to simulated count data."""
+
+# pylint: disable=duplicate-code
 
 from numpy.random import RandomState
 
-from dmx.stats import *
+from dmx.stats import BinomialDistribution, BinomialEstimator, seq_encode
 from dmx.utils.estimation import optimize
 
 if __name__ == "__main__":

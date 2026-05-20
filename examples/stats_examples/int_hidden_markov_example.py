@@ -1,9 +1,16 @@
-"""Example of Integer HMM sampling and estimation using 'best_of' to find optimal model fit with different initial conditions.
-Note that Numba should be used. """
+"""Fit an integer-valued hidden Markov model with repeated randomized starts."""
+
+# pylint: disable=duplicate-code
 
 import numpy as np
 
-from dmx.stats import *
+from dmx.stats import (
+    CategoricalDistribution,
+    CategoricalEstimator,
+    IntegerHiddenMarkovEstimator,
+    IntegerHiddenMarkovModelDistribution,
+    seq_encode,
+)
 from dmx.utils.estimation import best_of, partition_data
 
 rng = np.random.RandomState(2)
@@ -57,7 +64,7 @@ if __name__ == "__main__":
     train_data, valid_data = partition_data(data, [0.9, 0.1], rng=rng)
 
     # Fit model, finding the best model
-    ll, mm = best_of(
+    _, mm = best_of(
         data=train_data,
         vdata=valid_data,
         est=est,

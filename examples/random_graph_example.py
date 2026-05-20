@@ -1,8 +1,13 @@
-"""Example use for IntegerBernoulliSetDistribution for random graph generation."""
+"""Generate and fit simple random graph mixtures with Bernoulli edge models."""
 
 import numpy as np
 
-from dmx.stats import *
+from dmx.stats import (
+    IntegerBernoulliSetDistribution,
+    IntegerBernoulliSetEstimator,
+    MixtureDistribution,
+    MixtureEstimator,
+)
 from dmx.utils.estimation import optimize
 
 if __name__ == "__main__":

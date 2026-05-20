@@ -1,88 +1,105 @@
-"""LDA example of fake data ranking top words in each document for model fits."""
+"""Fit an LDA-style mixture model to simulated bag-of-words documents."""
+
+# pylint: disable=duplicate-code
 
 import sys
 
 import numpy as np
 
 import dmx.utils.optsutil as ops
-from dmx.stats import *
+from dmx.stats import (
+    CategoricalDistribution,
+    CategoricalEstimator,
+    LDADistribution,
+    LDAEstimator,
+    MixtureDistribution,
+    MixtureEstimator,
+    seq_encode,
+    seq_estimate,
+    seq_initialize,
+    seq_log_density_sum,
+)
 
 
 def make_fake_data(
-    num_topics: int, num_docs: int, snr: float, p_alpha: float, seed: int
+    topic_count: int, doc_count: int, snr: float, p_alpha: float, seed: int
 ):
     word_per_doc = 100
     num_words = 10
-    num_topics = num_topics
+    random_state = np.random.RandomState(seed)
 
-    rng = np.random.RandomState(seed)
+    alpha1 = p_alpha * np.ones(topic_count)
+    alpha1[np.arange(topic_count) >= (topic_count / 2)] = 0.0001
 
-    alpha1 = p_alpha * np.ones(num_topics)
-    alpha1[np.arange(num_topics) >= (num_topics / 2)] = 0.0001
+    alpha2 = p_alpha * np.ones(topic_count)
+    alpha2[np.arange(topic_count) < (topic_count / 2)] = 0.0001
 
-    alpha2 = p_alpha * np.ones(num_topics)
-    alpha2[np.arange(num_topics) < (num_topics / 2)] = 0.0001
-
-    topics = [
+    topic_specs = [
         {
-            k: snr * rng.rand()
+            word: snr * random_state.rand()
             + (
                 1.0
-                if (i * num_words / num_topics) <= k
-                and ((i + 1) * num_words / num_topics) > k
+                if i * num_words / topic_count
+                <= word
+                < (i + 1) * num_words / topic_count
                 else 0.0
             )
-            for k in range(num_words)
+            for word in range(num_words)
         }
-        for i in range(num_topics)
+        for i in range(topic_count)
     ]
-    topics = [
+    topic_distributions = [
         CategoricalDistribution(
-            {str(k): v / float(sum(u.values())) for k, v in u.items()}
+            {
+                str(word): value / float(sum(spec.values()))
+                for word, value in spec.items()
+            }
         )
-        for u in topics
+        for spec in topic_specs
     ]
 
-    # Create the data
     dist1 = LDADistribution(
-        topics, alpha1, len_dist=CategoricalDistribution({word_per_doc: 1.0})
+        topic_distributions,
+        alpha1,
+        len_dist=CategoricalDistribution({word_per_doc: 1.0}),
     )
     dist2 = LDADistribution(
-        topics, alpha2, len_dist=CategoricalDistribution({word_per_doc: 1.0})
+        topic_distributions,
+        alpha2,
+        len_dist=CategoricalDistribution({word_per_doc: 1.0}),
     )
-    dist = MixtureDistribution([dist1, dist2], [0.5, 0.5])
+    mixture_dist = MixtureDistribution([dist1, dist2], [0.5, 0.5])
 
-    data = dist.sampler(seed=1).sample(size=num_docs)
+    sampled_documents = mixture_dist.sampler(seed=1).sample(size=doc_count)
+    observed_vocabulary = sorted({word for doc in sampled_documents for word in doc})
 
-    words = sorted(set([u for v in data for u in v]))
-
-    return data, words, dist
+    return sampled_documents, observed_vocabulary, mixture_dist
 
 
 if __name__ == "__main__":
 
     num_topics = 10
     print_cnt = 10
-    rng = np.random.RandomState(2)
     out = sys.stdout
 
     # Generate data
-    data, words, dist = make_fake_data(num_topics, 50, 0.0001, 1, 1)
+    documents, vocabulary, _dist = make_fake_data(num_topics, 50, 0.0001, 1, 1)
 
-    avg_size = np.mean([len(u) for u in data])
+    avg_size = np.mean([len(doc) for doc in documents])
 
     out.write(
-        "#words = %d / #docs = %d / avg w/doc = %f\n"
-        % (len(words), len(data), avg_size)
+        f"#words = {len(vocabulary)} / #docs = {len(documents)} / "
+        f"avg w/doc = {avg_size:f}\n"
     )
 
-    data_cnt = [list(ops.count_by_value(u).items()) for u in data]
+    data_cnt = [list(ops.count_by_value(doc).items()) for doc in documents]
 
     # Define the estimator
     estimator1 = LDAEstimator(
         [
             CategoricalEstimator(
-                pseudo_count=0.001, suff_stat={w: 1.0 / len(words) for w in words}
+                pseudo_count=0.001,
+                suff_stat={word: 1.0 / len(vocabulary) for word in vocabulary},
             )
         ]
         * num_topics,
@@ -112,31 +129,26 @@ if __name__ == "__main__":
 
         prev_model = mm
         out.write(
-            "Iteration %d\tE[LOB]=%e\tdelta E[LOB]=%e\n"
-            % (kk + 1, elob, elob - old_elob)
+            f"Iteration {kk + 1}\tE[LOB]={elob:e}\tdelta E[LOB]={elob - old_elob:e}\n"
         )
 
         old_elob = elob
 
         if (kk + 1) % print_cnt == 0:
 
-            out.write("Weights = %s\n" % (str(",".join(map(str, mm.w)))))
-            out.write(
-                "Alpha_2 = %s\n" % (str(",".join(map(str, mm.components[0].alpha))))
-            )
-            out.write(
-                "Alpha_1 = %s\n" % (str(",".join(map(str, mm.components[1].alpha))))
-            )
-            topics = mm.components[0].topics
+            out.write(f"Weights = {','.join(map(str, mm.w))}\n")
+            out.write(f"Alpha_2 = {','.join(map(str, mm.components[0].alpha))}\n")
+            out.write(f"Alpha_1 = {','.join(map(str, mm.components[1].alpha))}\n")
+            topic_models = mm.components[0].topics
 
             for i in range(num_topics):
-                log_prob_vec = np.asarray([x for x in topics[i].pmap.values()])
-                vals = np.asarray([x for x in topics[i].pmap.keys()])
+                log_prob_vec = np.asarray(list(topic_models[i].pmap.values()))
+                vals = np.asarray(list(topic_models[i].pmap.keys()))
 
                 sidx = np.argsort(-log_prob_vec)
                 top_words = ", ".join(
-                    ["%s (%f)" % (vals[j], np.exp(log_prob_vec[j])) for j in sidx]
+                    [f"{vals[j]} ({np.exp(log_prob_vec[j]):f})" for j in sidx]
                 )
-                out.write("Topic %d: %s\n" % (i, top_words))
+                out.write(f"Topic {i}: {top_words}\n")
 
         out.flush()

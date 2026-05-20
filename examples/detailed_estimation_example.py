@@ -1,8 +1,31 @@
-"""Detailed example of estimation and model validation with a test set."""
+"""Estimate a composite mixture model and track validation likelihood over time."""
 
 import numpy as np
 
-from dmx.stats import *
+from dmx.stats import (
+    BernoulliSetDistribution,
+    BernoulliSetEstimator,
+    CategoricalDistribution,
+    CategoricalEstimator,
+    CompositeDistribution,
+    CompositeEstimator,
+    GaussianDistribution,
+    GaussianEstimator,
+    MarkovChainDistribution,
+    MarkovChainEstimator,
+    MixtureDistribution,
+    MixtureEstimator,
+    MultivariateGaussianDistribution,
+    MultivariateGaussianEstimator,
+    OptionalDistribution,
+    OptionalEstimator,
+    PoissonDistribution,
+    PoissonEstimator,
+    initialize,
+    seq_encode,
+    seq_estimate,
+    seq_log_density_sum,
+)
 from dmx.utils.estimation import empirical_kl_divergence, partition_data
 
 if __name__ == "__main__":
@@ -25,7 +48,6 @@ if __name__ == "__main__":
     d14 = MultivariateGaussianDistribution([-1.0, -1.0], [[2.0, 1.0], [1.0, 2.0]])
 
     d1 = CompositeDistribution([d10, d11, d12, d13, d14])
-    sampler1 = d1.sampler()
     d20 = MixtureDistribution(
         [GaussianDistribution(0.0, 1.0), GaussianDistribution(6.0, 1.0)], [0.5, 0.5]
     )
@@ -71,7 +93,7 @@ if __name__ == "__main__":
     est = MixtureEstimator([CompositeEstimator((e0, e1, e2, e3, e4))] * 2)
 
     # Estimate parameters
-    # Note: Checkout dmx.utils.estimation.best_of/optimize for methods that handle this computation
+    # Note: See dmx.utils.estimation.best_of/optimize for helpers that automate this.
 
     mm = initialize(train_data, iest, rng, 0.01)
 
@@ -81,11 +103,9 @@ if __name__ == "__main__":
     _, old_ll = seq_log_density_sum(enc_vdata, mm)
     _, old_tll = seq_log_density_sum(enc_data, mm)
 
-    dll = np.inf
     dtll = np.inf
     its_cnt = 0
 
-    best_model = mm
     best_ll = old_ll
 
     while dtll > 1.0e-8 or its_cnt < 5:
@@ -101,17 +121,13 @@ if __name__ == "__main__":
         kl, _, _ = empirical_kl_divergence(mm_next, dist, enc_data)
 
         dtll = tll - old_tll
-        dll = ll - old_ll
-
-        if ll > best_ll:
-            best_model = mm_next
-            best_ll = ll
+        best_ll = max(best_ll, ll)
 
         mm = mm_next
 
         print(
-            "Iteration %d. LL=%e, VLL=%e, dLL=%e, KL[Est||True|data]=%f"
-            % (its_cnt, tll, ll, dtll, kl)
+            f"Iteration {its_cnt}. LL={tll:e}, VLL={ll:e}, "
+            f"dLL={dtll:e}, KL[Est||True|data]={kl:f}"
         )
         old_ll = ll
         old_tll = tll

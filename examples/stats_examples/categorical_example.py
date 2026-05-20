@@ -1,9 +1,10 @@
-"""Example for CateogricalDistribution. Define distribution, generate data,
-estimate, and evaluate likelihoods."""
+"""Fit a categorical distribution to simulated label data."""
+
+# pylint: disable=duplicate-code
 
 from numpy.random import RandomState
 
-from dmx.stats import *
+from dmx.stats import CategoricalDistribution, CategoricalEstimator, seq_encode
 from dmx.utils.estimation import optimize
 
 if __name__ == "__main__":

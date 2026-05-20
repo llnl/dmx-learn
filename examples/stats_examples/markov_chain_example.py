@@ -1,11 +1,16 @@
-"""Example for MarkovChainDistribution. Define distribution
-generate data, estimate, and evaluate likelihoods.
+"""Fit a Markov chain model to simulated discrete sequences."""
 
-"""
+# pylint: disable=duplicate-code
 
 from numpy.random import RandomState
 
-from dmx.stats import *
+from dmx.stats import (
+    CategoricalDistribution,
+    CategoricalEstimator,
+    MarkovChainDistribution,
+    MarkovChainEstimator,
+    seq_encode,
+)
 from dmx.utils.estimation import optimize
 
 if __name__ == "__main__":
@@ -14,13 +19,13 @@ if __name__ == "__main__":
     # Define the initial state probabilities
     vals = ["a", "b", "c", "d", "e"]
     pi = rng.dirichlet(alpha=[1.0] * len(vals)).tolist()
-    init_prob_map = {k: v for k, v in zip(vals, pi)}
+    init_prob_map = dict(zip(vals, pi))
     print(f"Initial state map: {init_prob_map}")
     # Define the state transition map
     trans_map = {v: {} for v in vals}
     for x in vals:
         w = rng.dirichlet(alpha=[1.0] * len(vals)).tolist()
-        trans_map[x] = {k: v for k, v in zip(vals, w)}
+        trans_map[x] = dict(zip(vals, w))
     print(f"Transition map: {trans_map}")
     # Define the Markov chain model with length dist
     len_dist = CategoricalDistribution({3: 0.5, 5: 0.5})
