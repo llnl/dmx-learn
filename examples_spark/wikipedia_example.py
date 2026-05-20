@@ -8,7 +8,7 @@ from pyspark import SparkConf, SparkContext
 import dmx.utils.optsutil as ops
 from dmx.stats import *
 
-data_loc = os.path.join(os.path.dirname(os.path.realpath(__file__)), "../../data")
+data_loc = os.path.join(os.path.dirname(os.path.realpath(__file__)), "../data")
 
 
 def load_wiki_data():
