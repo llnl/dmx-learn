@@ -1,4 +1,4 @@
-"""Example on how to automatically select and estimator and fit a DPM with mpi4py.
+"""Example on how to automatically select an estimator and fit a DPM with mpi4py.
 
 In general models are launched with calls like mpiexec -n 4 python3 automatic_example.py
 
@@ -7,9 +7,7 @@ In general models are launched with calls like mpiexec -n 4 python3 automatic_ex
 import os
 import pickle
 
-os.environ["NUMBA_DISABLE_JIT"] = "1"
-
-from mpi4py import MPI
+from mpi4py import MPI  # pylint: disable=no-name-in-module
 from numpy.random import RandomState
 
 from dmx.mpi4py.utils.automatic import get_dpm_mixture_mpi, get_estimator
@@ -19,7 +17,7 @@ comm = MPI.COMM_WORLD
 world_rank = comm.Get_rank()
 world_size = comm.Get_size()
 
-PATH_TO_DATA = "dmx/mpi4py/examples/data"
+PATH_TO_DATA = "examples_mpi4py/data"
 
 if __name__ == "__main__":
 
