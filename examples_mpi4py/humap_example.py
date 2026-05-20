@@ -1,6 +1,6 @@
 """Example of fitting heterogenous umap fitting with mpi4py.
 
-Run with mpiexec -n 4 pytest humap_example.py
+Run with mpiexec -n 4 python3 examples_mpi4py/humap_example.py
 
 """
 
