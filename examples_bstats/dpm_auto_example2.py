@@ -2,7 +2,16 @@
 
 import numpy as np
 
-from dmx.bstats import *
+from dmx.bstats import (
+    CategoricalDistribution,
+    CompositeDistribution,
+    GaussianDistribution,
+    IntegerCategoricalDistribution,
+    MixtureDistribution,
+    OptionalDistribution,
+    PoissonDistribution,
+    SequenceDistribution,
+)
 from dmx.utils.automatic import get_dpm_mixture, get_estimator
 
 if __name__ == "__main__":
