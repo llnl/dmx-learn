@@ -120,6 +120,7 @@ jobs:
           poetry run pylint examples_bstats --jobs=1 --fail-under=10
           poetry run pylint examples_mpi4py --jobs=1 --fail-under=10
           poetry run pylint examples_spark --jobs=1 --fail-under=10
+          poetry run pylint examples_torch --jobs=1 --fail-under=10
 
   docstring-quality:
     name: Docstring Quality (pydocstyle)
