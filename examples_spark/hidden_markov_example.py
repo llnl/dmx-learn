@@ -1,18 +1,45 @@
+"""Spark example for fitting a mixture of hidden Markov models.
+
+This script builds a synthetic mixture of hidden Markov model sequences,
+samples sequence data into an RDD, and fits a mixture model with Spark-based
+training utilities.
+
+Run from the repository root with:
+
+    spark-submit --master local[4] examples_spark/hidden_markov_example.py
+"""
+
 import numpy as np
 from pyspark import SparkConf, SparkContext
 
-from dmx.stats import *
+from dmx.stats import (
+    CategoricalDistribution,
+    CategoricalEstimator,
+    CompositeDistribution,
+    CompositeEstimator,
+    GaussianDistribution,
+    GaussianEstimator,
+    HiddenMarkovEstimator,
+    HiddenMarkovModelDistribution,
+    MixtureDistribution,
+    MixtureEstimator,
+    PoissonDistribution,
+)
 from dmx.stats.rdd_sampler import sample_rdd
 from dmx.utils.estimation import best_of
 
+
+def create_spark_context():
+    """Create a Spark context with reduced log verbosity."""
+    spark_conf = SparkConf().setAppName("hidden_markov_example")
+    spark_context = SparkContext(conf=spark_conf)
+    spark_context.setLogLevel("ERROR")
+    return spark_context
+
+
 if __name__ == "__main__":
 
-    conf = SparkConf().setAppName("mixture_example")
-    sc = SparkContext(conf=conf)
-
-    # Disable INFO/WARN printing
-    log4j = sc._jvm.org.apache.log4j
-    log4j.LogManager.getRootLogger().setLevel(log4j.Level.ERROR)
+    sc = create_spark_context()
 
     rng = np.random.RandomState(2)
 
@@ -71,8 +98,6 @@ if __name__ == "__main__":
         len_dist=PoissonDistribution(8.0),
     )
     dist = MixtureDistribution([dist1, dist2], [0.5, 0.5])
-
-    sampler = dist.sampler(seed=rng.randint(2**32 - 1))
 
     data = sample_rdd(sc, dist, 200, 10, seed=rng.randint(2**32 - 1))
 

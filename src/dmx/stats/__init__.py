@@ -485,7 +485,7 @@ def seq_log_density_sum(
         Tuple[float, float]
 
     """
-    if "pyspark.rdd" in str(type(enc_data)):
+    if isinstance(enc_data, pyspark.rdd.RDD):
         sc = enc_data.context
         estimate_broadcast = sc.broadcast(pickle.dumps(estimate, protocol=0))
 
