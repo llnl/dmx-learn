@@ -15,7 +15,7 @@ Current enforced goal:
 Next expansion goal:
 
 - Bring every Python file in these directories to `10.00/10`:
-  - `src/dmx/mpi4py/utils`
+  - `src/dmx/mpi4py`
 
 Long-term goal:
 
@@ -99,15 +99,13 @@ That workaround is no longer needed after switching the SciPy imports in
 
 ## Next Scope Inventory
 
-The next expansion includes 5 Python files.
+Immediate remaining file in `src/dmx/mpi4py/utils`:
 
-### `src/dmx/mpi4py/utils`
-
-- `src/dmx/mpi4py/utils/automatic.py`
-- `src/dmx/mpi4py/utils/bestimation.py`
-- `src/dmx/mpi4py/utils/estimation.py`
 - `src/dmx/mpi4py/utils/humap.py`
-- `src/dmx/mpi4py/utils/optsutil.py`
+
+Broader remaining scope for closing the current pylint issue:
+
+- all Python files under `src/dmx/mpi4py`
 
 ## Rollout Strategy
 
@@ -213,7 +211,7 @@ Phase 3 status:
 - Done: `src/dmx/torch_utils/vector.py` at `10.00/10`
 - All of `src/dmx/torch_utils` now lint clean at `10.00/10`
 
-### Phase 4: Bring `mpi4py/utils` to `10.00/10`
+### Phase 4: Finish `mpi4py/utils`
 
 Target files:
 
@@ -222,6 +220,15 @@ Target files:
 - `src/dmx/mpi4py/utils/estimation.py`
 - `src/dmx/mpi4py/utils/humap.py`
 - `src/dmx/mpi4py/utils/optsutil.py`
+
+Progress so far:
+
+- Done: `src/dmx/mpi4py/utils/__init__.py` at `10.00/10`
+- Done: `src/dmx/mpi4py/utils/automatic.py` at `10.00/10`
+- Done: `src/dmx/mpi4py/utils/bestimation.py` at `10.00/10`
+- Done: `src/dmx/mpi4py/utils/estimation.py` at `10.00/10`
+- Done: `src/dmx/mpi4py/utils/optsutil.py` at `10.00/10`
+- Remaining: `src/dmx/mpi4py/utils/humap.py`
 
 Why fourth:
 
@@ -238,6 +245,30 @@ Expected issues:
 - environment-specific code paths that may need careful docstrings and narrow
   suppressions
 
+Phase 4 status:
+
+- In progress
+- Everything in `src/dmx/mpi4py/utils` is done except `humap.py`
+
+### Phase 5: Bring all of `src/dmx/mpi4py` to `10.00/10`
+
+Goal:
+
+- Get every Python file under `src/dmx/mpi4py` passing `pylint` at `10.00/10`
+- Close the current pylint issue once that broader MPI scope is clean
+
+Why fifth:
+
+- `mpi4py/utils` has proven out the cleanup pattern already
+- The remaining MPI modules are the last focused scope needed before closing
+  this issue
+
+Expected issues:
+
+- MPI import-analysis edge cases outside `utils`
+- remaining wildcard imports in older MPI modules
+- tests or fixtures that need refreshing as behavior-preserving cleanup lands
+
 ## CI Expansion Plan
 
 Do not add a directory to CI until every file in that directory set is already
@@ -249,6 +280,7 @@ Recommended CI expansion order:
 2. All of `src/dmx/utils`
 3. All of `src/dmx/torch_utils`
 4. All of `src/dmx/mpi4py/utils`
+5. All of `src/dmx/mpi4py`
 
 ### Step 1: Enforce `src/dmx/utils`
 
@@ -277,10 +309,17 @@ workarounds over global `.pylintrc` changes.
 
 ### Step 3: Enforce `src/dmx/mpi4py/utils`
 
-Only after all five MPI utility files are stable at `10.00/10`, add them.
+Only after all MPI utility files are stable at `10.00/10`, add them.
 
 If MPI-specific modules need special lint handling, scope it to those commands
 only.
+
+### Step 4: Enforce `src/dmx/mpi4py`
+
+After `src/dmx/mpi4py/utils` is complete, continue until every Python file in
+`src/dmx/mpi4py` is at `10.00/10`.
+
+This is now the broader goal for closing the current pylint issue.
 
 ## Required Workflow Discipline
 
@@ -368,23 +407,25 @@ For any file being prepared for inclusion in the CI lint scope:
 
 The next expansion is complete when all of the following are true:
 
-1. Every file in `src/dmx/mpi4py/utils` runs successfully under `pylint`.
-2. Every file in that directory scores `10.00/10`.
-3. Any required import-analysis workaround is file-scoped, not global, unless a
+1. Every file in `src/dmx/mpi4py` runs successfully under `pylint`.
+2. Every file in that directory tree scores `10.00/10`.
+3. `src/dmx/mpi4py/utils/humap.py` is brought up to the same standard as the
+   rest of `src/dmx/mpi4py/utils`.
+4. Any required import-analysis workaround is file-scoped, not global, unless a
    broader rule is clearly justified.
-4. `.github/workflows/quality.yml` is updated to enforce the newly completed
+5. `.github/workflows/quality.yml` is updated to enforce the newly completed
    directory set.
-5. `CONTRIBUTING.md` stays aligned with the actual enforced commands.
+6. `CONTRIBUTING.md` stays aligned with the actual enforced commands.
 
 ## Recommended Next Session Start
 
 When starting the next session, begin with:
 
-1. audit `src/dmx/mpi4py/utils` file-by-file
-2. start with the lowest-risk files in that directory
+1. finish `src/dmx/mpi4py/utils/humap.py`
+2. audit the remaining `src/dmx/mpi4py` files outside `utils`
 3. leave environment-sensitive MPI paths for later in the phase unless they are
    already close to clean
-4. only expand CI after the whole directory is finished
+4. only expand CI after the whole target MPI scope is finished
 
 ## Summary Recommendation
 

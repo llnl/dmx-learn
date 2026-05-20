@@ -1,5 +1,7 @@
 """Contains estimation tools for bstats with mpi4py use."""
 
+# pylint: disable=duplicate-code
+
 __all__ = [
     "seq_estimate_mpi",
     "initialize_mpi",
@@ -11,16 +13,13 @@ __all__ = [
 from typing import Any, List, Optional, Sequence, Tuple
 
 import numpy as np
+
+# `mpi4py` exposes `MPI` dynamically, which pylint does not always detect.
+# pylint: disable-next=no-name-in-module
 from mpi4py import MPI
 from numpy.random import RandomState
 
-from dmx.arithmetic import *
-from dmx.bstats import *
-from dmx.bstats.pdist import (
-    EncodedDataSequence,
-    ParameterEstimator,
-    ProbabilityDistribution,
-)
+from dmx.bstats.pdist import ParameterEstimator, ProbabilityDistribution
 
 
 def seq_encode_mpi(
@@ -29,17 +28,19 @@ def seq_encode_mpi(
     num_chunks: int = 1,
     chunk_size: Optional[int] = None,
 ) -> List[Tuple[int, Any]]:
-    """
-    Encode data sequentially using MPI for parallel processing.
+    """Encode data sequentially using MPI for parallel processing.
 
-    This function distributes data across MPI processes, performs encoding on each process,
-    and collects the encoded results.
+    This function distributes data across MPI processes, performs encoding on
+    each process, and collects the encoded results.
 
     Args:
         data (Sequence[Any]): The input data to be encoded.
-        model (ProbabilityDistribution): The model object that provides the `seq_encode` method for encoding.
-        num_chunks (int, optional): The number of chunks to divide the data into. Defaults to 1.
-        chunk_size (Optional[int], optional): The size of each chunk. If provided, it overrides `num_chunks`.
+        model (ProbabilityDistribution): The model object that provides the
+            `seq_encode` method for encoding.
+        num_chunks (int, optional): The number of chunks to divide the data
+            into. Defaults to 1.
+        chunk_size (Optional[int], optional): The size of each chunk. If
+            provided, it overrides `num_chunks`.
 
     Returns:
         List[Tuple[int, Any]]: A list of tuples, where each tuple contains:
@@ -88,8 +89,7 @@ def seq_encode_mpi(
 def initialize_mpi(
     data: Sequence[Any], estimator: ParameterEstimator, rng: RandomState, p: float
 ) -> Optional[ProbabilityDistribution]:
-    """
-    Initialize MPI-based parallel data processing and estimate parameters.
+    """Initialize MPI-based parallel data processing and estimate parameters.
 
     This function distributes data processing across MPI processes, computes
     sufficient statistics locally, and combines them at the root process to
@@ -97,13 +97,14 @@ def initialize_mpi(
 
     Args:
         data (Sequence[Any]): The input data to be processed.
-        estimator (ParameterEstimator): The estimator object for parameter estimation.
+        estimator (ParameterEstimator): The estimator object for parameter
+            estimation.
         rng (RandomState): The random number generator for sampling.
         p (float): The probability threshold for weighting observations.
 
     Returns:
-        Optional[ProbabilityDistribution]: The estimated model if called from the root process (rank 0),
-        otherwise `None`.
+        Optional[ProbabilityDistribution]: The estimated model if called from
+            the root process (rank 0), otherwise `None`.
     """
     # Get MPI communicator, rank, and size
     comm = MPI.COMM_WORLD
@@ -139,7 +140,7 @@ def initialize_mpi(
         nobs += w
         local_accumulator.initialize(x, w, rng)
 
-    stats_dict = dict()
+    stats_dict = {}
     local_accumulator.key_merge(stats_dict)
     local_accumulator.key_replace(stats_dict)
     suff_stats = comm.gather((nobs, local_accumulator.value()), root=0)
@@ -151,43 +152,43 @@ def initialize_mpi(
             accumulator.combine(ss)
             total_obs += nn
 
-        stats_dict = dict()
+        stats_dict = {}
         accumulator.key_merge(stats_dict)
         accumulator.key_replace(stats_dict)
 
         return estimator.estimate(accumulator.value())
 
-    else:
-        return None
+    return None
 
 
 def seq_estimate_mpi(
-    enc_data: List[Tuple[int, EncodedDataSequence]],
+    enc_data: List[Tuple[int, Any]],
     estimator: ParameterEstimator,
     prev_estimate: ProbabilityDistribution,
 ) -> Optional[ProbabilityDistribution]:
-    """
-    Estimate parameters using MPI-based parallel processing.
+    """Estimate parameters using MPI-based parallel processing.
 
-    This function distributes encoded data across MPI processes, updates accumulators
-    locally, and combines sufficient statistics at the root process to compute the final
-    estimate.
+    This function distributes encoded data across MPI processes, updates
+    accumulators locally, and combines sufficient statistics at the root
+    process to compute the final estimate.
 
     Args:
-        enc_data (List[Tuple[int, EncodedDataSequence]]): Encoded data, where each tuple contains:
+        enc_data (List[Tuple[int, Any]): Encoded data, where
+            each tuple contains:
             - The size of the data chunk (`int`).
             - The encoded data (`EncodedDataSequence`).
-        estimator (ParameterEstimator): The estimator object for parameter estimation.
-        prev_estimate (ProbabilityDistribution): The previous estimate to be used during updates.
+        estimator (ParameterEstimator): The estimator object for parameter
+            estimation.
+        prev_estimate (ProbabilityDistribution): The previous estimate to be
+            used during updates.
 
     Returns:
-        Optional[ProbabilityDistribution]: The estimated model if called from the root process (rank 0),
-        otherwise `None`.
+        Optional[ProbabilityDistribution]: The estimated model if called from
+            the root process (rank 0), otherwise `None`.
     """
     # Get MPI communicator, rank, and size
     comm = MPI.COMM_WORLD
     world_rank = comm.Get_rank()
-    world_size = comm.Get_size()
 
     if world_rank == 0:
         est = estimator
@@ -214,31 +215,32 @@ def seq_estimate_mpi(
             total_obs += nn
             accumulator.combine(ss)
 
-        stats_dict = ()
+        stats_dict = {}
         accumulator.key_merge(stats_dict)
         accumulator.key_replace(stats_dict)
 
         return estimator.estimate(accumulator.value())
-    else:
-        return None
+
+    return None
 
 
+# Keep the existing public parameter name.
 def seq_log_density_mpi(
-    enc_data: Sequence[Tuple[int, EncodedDataSequence]],
+    enc_data: Sequence[Tuple[int, Any]],
     estimate: ProbabilityDistribution,
     is_list: bool = False,
 ) -> List[np.ndarray]:
-    """
-    Compute log densities for encoded data sequences in parallel using MPI.
+    """Compute log densities for encoded data sequences in parallel using MPI.
 
     Args:
-        enc_data (Sequence[Tuple[int, EncodedDataSequence]]): Encoded data sequences, where
-            each tuple contains:
+        enc_data (Sequence[Tuple[int, Any]]): Encoded data
+            sequences, where each tuple contains:
             - The size of the data chunk (`int`).
             - The encoded data sequence (`EncodedDataSequence`).
-        estimate (ProbabilityDistribution): The probability distribution object used to compute log densities.
-        is_list (bool, optional): Whether to compute log densities for multiple probability distributions.
-            Defaults to `False`.
+        estimate (ProbabilityDistribution): The probability distribution object
+            used to compute log densities.
+        is_list (bool, optional): Whether to compute log densities for
+            multiple probability distributions. Defaults to `False`.
 
     Returns:
         List[np.ndarray]: A list of log densities for the encoded data sequences.
@@ -246,7 +248,6 @@ def seq_log_density_mpi(
     # Get MPI communicator, rank, and size
     comm = MPI.COMM_WORLD
     world_rank = comm.Get_rank()
-    world_size = comm.Get_size()
 
     if world_rank == 0:
         loc_estimate = estimate
@@ -258,23 +259,25 @@ def seq_log_density_mpi(
             np.asarray([ee.seq_log_density(u[1]) for ee in loc_estimate])
             for u in enc_data
         ]
-    else:
-        return [loc_estimate.seq_log_density(u[1]) for u in enc_data]
+
+    return [loc_estimate.seq_log_density(u[1]) for u in enc_data]
 
 
-def seq_log_density_sum_mpi(
-    enc_data: Sequence[Tuple[int, EncodedDataSequence]],
+# Keep the existing public parameter name.
+def seq_log_density_sum_mpi(  # pylint: disable=redefined-outer-name
+    enc_data: Sequence[Tuple[int, Any]],
     estimate: ProbabilityDistribution,
 ) -> Tuple[int, float]:
-    """
-    Compute the total number of observations and the sum of log densities in parallel using MPI.
+    """Compute the total number of observations and the sum of log densities
+    in parallel using MPI.
 
     Args:
-        enc_data (Sequence[Tuple[int, EncodedDataSequence]]): Encoded data sequences, where
-            each tuple contains:
+        enc_data (Sequence[Tuple[int, Any]]): Encoded data
+            sequences, where each tuple contains:
             - The size of the data chunk (`int`).
             - The encoded data sequence (`EncodedDataSequence`).
-        estimate (ProbabilityDistribution): The probability distribution object used to compute log densities.
+        estimate (ProbabilityDistribution): The probability distribution object
+            used to compute log densities.
 
     Returns:
         Tuple[int, float]: A tuple containing:
@@ -284,14 +287,13 @@ def seq_log_density_sum_mpi(
     # Get MPI communicator, rank, and size
     comm = MPI.COMM_WORLD
     world_rank = comm.Get_rank()
-    world_size = comm.Get_size()
     if world_rank == 0:
         loc_estimate = estimate
     else:
         loc_estimate = None
     loc_estimate = comm.bcast(loc_estimate, root=0)
-    rv0 = sum([u[0] for u in enc_data])
-    rv1 = sum([loc_estimate.seq_log_density(u[1]).sum() for u in enc_data])
+    rv0 = sum(u[0] for u in enc_data)
+    rv1 = sum(loc_estimate.seq_log_density(u[1]).sum() for u in enc_data)
 
     nobs = comm.allreduce(rv0)
     ll = comm.allreduce(rv1)

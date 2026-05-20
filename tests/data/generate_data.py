@@ -4,6 +4,10 @@ import pickle
 
 import numpy as np
 
+from dmx.bstats import CategoricalDistribution as BCategoricalDistribution
+from dmx.bstats import CompositeDistribution as BCompositeDistribution
+from dmx.bstats import GaussianDistribution as BGaussianDistribution
+from dmx.bstats import MixtureDistribution as BMixtureDistribution
 from dmx.stats import (
     CategoricalDistribution,
     CompositeDistribution,
@@ -33,12 +37,12 @@ if __name__ == "__main__":
     data = dist.sampler(rng.randint(low=0, high=2**31 - 1)).sample(300)
 
     # write out htsne data file
-    with open("tests/data/testInput_htsne_new.pkl", "wb") as f:
+    with open("tests/data/testInput_htsne.pkl", "wb") as f:
         pickle.dump(data, f)
 
     # run htsne
     htsne_answerkey = htsne(data, seed=10)
-    np.save("tests/data/testOutput_htsne_new.npy", htsne_answerkey)
+    np.save("tests/data/testOutput_htsne.npy", htsne_answerkey)
 
     # update humap
     umap_kwargs = {
@@ -50,3 +54,21 @@ if __name__ == "__main__":
     embeddings, _, _, _ = humap(data, seed=10, umap_kwargs=umap_kwargs)
 
     np.save("tests/answerkeys/testOutput_humap.npy", embeddings)
+
+    # Model Dump for mpi4py
+    with open("tests/data/testInput_mpi_optimize.pkl", "wb") as f:
+        pickle.dump(dist, f)
+
+    # Generate bestimation data for tests
+    comps = []
+
+    for i in range(3):
+        pmap = {v: p[(i + j) % 3].item() for v, j in zip(vals, range(3))}
+        d0 = BCategoricalDistribution(prob_map=pmap)
+        d1 = BGaussianDistribution(mu=mu[i], sigma2=1.0)
+
+        comps.append(BCompositeDistribution(dists=[d0, d1]))
+
+    dist = BMixtureDistribution(comps, w=np.ones(3) / 3.0)
+    with open("tests/data/testInput_mpi_b_optimize.pkl", "wb") as f:
+        pickle.dump(dist, f)

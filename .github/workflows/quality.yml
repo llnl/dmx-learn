@@ -114,6 +114,7 @@ jobs:
         run: |
           poetry run pylint src/dmx/stats/pdist.py --jobs=1 --fail-under=10
           poetry run pylint src/dmx/torch_stats/pdist.py --jobs=1 --fail-under=10
+          poetry run pylint src/dmx/mpi4py --jobs=1 --fail-under=10
           poetry run pylint src/dmx/utils --jobs=1 --fail-under=10
           poetry run pylint src/dmx/torch_utils --jobs=1 --fail-under=10
           poetry run pylint examples_bstats --jobs=1 --fail-under=10

@@ -1,8 +1,11 @@
+"""MPI-enabled estimation helpers for `dmx.stats` models."""
+
+# pylint: disable=duplicate-code
+
 import sys
 from typing import IO, List, Optional, Sequence, Tuple, TypeVar
 
 import numpy as np
-from mpi4py import MPI
 from numpy.random import RandomState
 
 from dmx.mpi4py.stats import (
@@ -11,6 +14,7 @@ from dmx.mpi4py.stats import (
     seq_initialize_mpi,
     seq_log_density_sum_mpi,
 )
+from dmx.mpi4py.utils import get_runtime_attr
 from dmx.stats.pdist import (
     EncodedDataSequence,
     ParameterEstimator,
@@ -20,6 +24,18 @@ from dmx.stats.pdist import (
 T = TypeVar("T")
 
 
+# Keep `init_p` handling consistent with `dmx.utils.estimation`.
+def _validate_init_p(init_p: float) -> None:
+    """Validate the EM initialization proportion."""
+    if not 0 < init_p <= 1:
+        raise ValueError(
+            f"Invalid init_p: {init_p}. It must be greater than 0 and less "
+            "than or equal to 1."
+        )
+
+
+# Keep the current public call signature stable for now.
+# pylint: disable-next=too-many-positional-arguments
 def optimize_mpi(
     data: Optional[Sequence[T]],
     estimator: ParameterEstimator,
@@ -36,43 +52,40 @@ def optimize_mpi(
     print_iter: int = 1,
     num_chunks: int = 1,
 ) -> SequenceEncodableProbabilityDistribution:
-    """Estimation of 'estimator' via EM algorithm for max_its iterations or until
-        new_loglikelihood - old_loglikelihood < delta.
+    """Run EM estimation with MPI until convergence or `max_its`.
 
     Args:
-        data (Optional[List[T]]): List of data type T containing observed data. Must be compatible with data type of
-            estimator.
-        estimator (ParameterEstimator): ParameterEstimator used to specify to-be-estimated distribution for observed
-            data.
-        max_its (int): Maximum number of EM iterations to be performed. Default value is 10 iterations.
-        delta (Optional[float]): Stopping criteria for EM algorithm used if max_its is not set: Iterate until
-            |old_loglikelihood - new_loglikelihood| < delta or iterations == max_its.
-        init_estimator (Optional[ParameterEstimator]): ParameterEstimator to used to initialize EM algorithm parameters.
-            If None, estimator is used. Must be consistent with estimator.
-        init_p (float): Value in (0.0,1.0] for randomizing the proportion of data points used in initialization.
+        data (Optional[List[T]]): Observed data compatible with `estimator`.
+        estimator (ParameterEstimator): Estimator for the target model.
+        max_its (int): Maximum number of EM iterations to perform.
+        delta (Optional[float]): Stop when
+            `|old_loglikelihood - new_loglikelihood| < delta`, or when
+            `max_its` is reached.
+        init_estimator (Optional[ParameterEstimator]): Estimator used for
+            initialization. If `None`, use `estimator`.
+        init_p (float): Initialization proportion in `(0, 1]`.
         rng (RandomState): RandomState used to set seed for initializing EM algorithm.
         vdata (Optional[Sequence[T]]): Optional validation set.
-        prev_estimate (Optional[SeqeuenceEncodableProbabilityDistribution]): Optional model estimate used from prior
-            fitting. Must be consistent with estimator.
+        prev_estimate (Optional[SequenceEncodableProbabilityDistribution]):
+            Optional previous model estimate consistent with `estimator`.
         enc_data (Optional[List[Tuple[int, E]]]): Optional encoded data of form
-            List[Tuple[int, E]]. Formed from data if None.
-        enc_vdata (Optional[List[Tuple[int, E0]]]): Optional sequence encoded validation set.
+            `List[Tuple[int, E]]`. Formed from `data` if `None`.
+        enc_vdata (Optional[List[Tuple[int, E0]]]): Optional sequence encoded
+            validation set.
         out (IO): IO stream to write out iterations of EM algorithm.
-        print_iter (int): Print iterations (i.e. log-likelihood difference) every print_iter-iterations.
+        print_iter (int): Print progress every `print_iter` iterations.
         num_chunks (int): Number of chunks for encoded data.
 
     Returns:
-        SequenceEncodableProbabilityDistribution corresponding to estimator when stopping criteria of EM algorithm
-            is met.
-
+        SequenceEncodableProbabilityDistribution: Estimated model.
     """
-    comm = MPI.COMM_WORLD
+    mpi = get_runtime_attr("mpi4py", "MPI")
+    comm = mpi.COMM_WORLD
     world_rank = comm.Get_rank()
-    world_size = comm.Get_size()
 
     # check if encoded data is already on each worker
     enc_data_exists = enc_data is not None
-    enc_data_exists_all = comm.allreduce(enc_data_exists, op=MPI.LAND)
+    enc_data_exists_all = comm.allreduce(enc_data_exists, op=mpi.LAND)
     if world_rank == 0:
         data_exception = data is None
     else:
@@ -82,14 +95,15 @@ def optimize_mpi(
     data_exception = comm.bcast(data_exception, root=0)
 
     if data_exception and not enc_data_exists_all:
-        raise Exception(
-            "Optimization called with empty data one rank 0 and encoded data does not exist."
+        raise ValueError(
+            "Optimization called with empty data on rank 0 and encoded data "
+            "does not exist."
         )
 
     est = estimator if init_estimator is None else init_estimator
 
     if world_rank == 0:
-        if prev_estimate:
+        if prev_estimate is not None:
             data_encoder = prev_estimate.dist_to_encoder()
             mm = prev_estimate
             skip_init = True
@@ -111,18 +125,15 @@ def optimize_mpi(
         )
 
     if not skip_init:
-        if init_p <= 0.0:
-            p = 0.10
-        else:
-            p = min(max(init_p, 0.0), 1.0)
-        mm = seq_initialize_mpi(enc_data, estimator=est, rng=rng, p=p)
+        _validate_init_p(init_p)
+        mm = seq_initialize_mpi(enc_data, estimator=est, rng=rng, p=init_p)
 
     _, old_ll = seq_log_density_sum_mpi(enc_data=enc_data, estimate=mm)
 
     # check if validation data is passed
     # check if encoded data is already on each worker
     enc_vdata_exists = enc_vdata is not None
-    enc_vdata_exists_all = comm.allreduce(enc_vdata_exists, op=MPI.LAND)
+    enc_vdata_exists_all = comm.allreduce(enc_vdata_exists, op=mpi.LAND)
     if world_rank == 0:
         vdata_exists = vdata is not None
     else:
@@ -145,7 +156,7 @@ def optimize_mpi(
     for i in range(max_its):
 
         mm_next = seq_estimate_mpi(enc_data=enc_data, estimator=est, prev_estimate=mm)
-        cnt, ll = seq_log_density_sum_mpi(enc_data=enc_data, estimate=mm_next)
+        _, ll = seq_log_density_sum_mpi(enc_data=enc_data, estimate=mm_next)
 
         if enc_vdata_exists_all:
             _, vll = seq_log_density_sum_mpi(enc_data=enc_vdata, estimate=mm_next)
@@ -162,13 +173,14 @@ def optimize_mpi(
             if world_rank == 0:
                 if enc_vdata_exists_all:
                     out.write(
-                        "Iteration %d: ln[p_mat(Data|Model)]=%e, ln[p_mat(Data|Model)]-ln[p_mat(Data|PrevModel)]=%e, "
-                        "ln[p_mat(Valid Data|Model)]=%e\n" % (i + 1, ll, dll, vll)
+                        f"Iteration {i + 1}: ln[p_mat(Data|Model)]={ll:e}, "
+                        f"ln[p_mat(Data|Model)]-ln[p_mat(Data|PrevModel)]={dll:e}, "
+                        f"ln[p_mat(Valid Data|Model)]={vll:e}\n"
                     )
                 else:
                     out.write(
-                        "Iteration %d: ln[p_mat(Data|Model)]=%e, ln[p_mat(Data|Model)]-ln[p_mat(Data|PrevModel)]=%e\n"
-                        % (i + 1, ll, dll)
+                        f"Iteration {i + 1}: ln[p_mat(Data|Model)]={ll:e}, "
+                        f"ln[p_mat(Data|Model)]-ln[p_mat(Data|PrevModel)]={dll:e}\n"
                     )
 
             break
@@ -177,13 +189,14 @@ def optimize_mpi(
             if (i + 1) % print_iter == 0:
                 if enc_vdata_exists_all:
                     out.write(
-                        "Iteration %d: ln[p_mat(Data|Model)]=%e, ln[p_mat(Data|Model)]-ln[p_mat(Data|PrevModel)]=%e, "
-                        "ln[p_mat(Valid Data|Model)]=%e\n" % (i + 1, ll, dll, vll)
+                        f"Iteration {i + 1}: ln[p_mat(Data|Model)]={ll:e}, "
+                        f"ln[p_mat(Data|Model)]-ln[p_mat(Data|PrevModel)]={dll:e}, "
+                        f"ln[p_mat(Valid Data|Model)]={vll:e}\n"
                     )
                 else:
                     out.write(
-                        "Iteration %d: ln[p_mat(Data|Model)]=%e, ln[p_mat(Data|Model)]-ln[p_mat(Data|PrevModel)]=%e\n"
-                        % (i + 1, ll, dll)
+                        f"Iteration {i + 1}: ln[p_mat(Data|Model)]={ll:e}, "
+                        f"ln[p_mat(Data|Model)]-ln[p_mat(Data|PrevModel)]={dll:e}\n"
                     )
 
         old_ll = ll
@@ -195,6 +208,8 @@ def optimize_mpi(
     return best_model
 
 
+# Keep the current public call signature stable for now.
+# pylint: disable-next=too-many-positional-arguments
 def best_of_mpi(
     data: Optional[Sequence[T]],
     vdata: Optional[Sequence[T]],
@@ -210,38 +225,39 @@ def best_of_mpi(
     enc_vdata: Optional[Sequence[Tuple[int, EncodedDataSequence]]] = None,
     out: IO = sys.stdout,
     print_iter: int = 1,
-) -> Tuple[float, SequenceEncodableProbabilityDistribution]:
-    """Performs EM algorithm for trials-number of randomized initial conditions. Returns the best model fit in terms of
-        maximum log-likelihood value from validation data.
+) -> SequenceEncodableProbabilityDistribution:
+    """Run multiple MPI EM initializations and keep the best model.
 
     Args:
-        data (Optional[List[T]]): List of data of type T. If None is given, enc_data must be provided as
-            List[Tuple[int, enc_data_type]].
+        data (Optional[List[T]]): Data of type `T`. If `None`, `enc_data` must
+            be provided.
         vdata (Optional[Sequence[T]]): Optional validation set.
         est (ParameterEstimator): ParameterEstimator for model to be estimated.
-        trials (int): Integer number >= 1, of randomized initial conditions to perform EM algorithm for.
-        max_its (int): Integer value >=1, sets the maximum number of iterations of EM to be performed as stopping criteria.
-        init_p (float): Value in (0.0,1.0] for randomizing the proportion of data points used in initialization.
-        delta (float): Stopping criteria for EM when |old-log-likelihood - new-log-likelihood| < delta.
+        trials (int): Number of randomized initial conditions to try.
+        max_its (int): Maximum number of EM iterations per trial.
+        init_p (float): Initialization proportion in `(0, 1]`.
+        delta (float): Stop when
+            `|old-log-likelihood - new-log-likelihood| < delta`.
         rng (RandomState): RandomState for setting seed.
-        init_estimator (Optional[ParameterEstimator]): Optional ParameterEstimator used for fitting.
-        enc_data (Optional[List[Tuple[int, E]]]): Optional encoded data, if provided data need not be
-            provided. If None, enc_data is set from data.
-        enc_vdata (Optional[List[Tuple[int, E0]]]): Optional sequence encoded validation set.
+        init_estimator (Optional[ParameterEstimator]): Optional estimator used
+            for fitting.
+        enc_data (Optional[List[Tuple[int, E]]]): Optional encoded data. If
+            provided, `data` need not be provided.
+        enc_vdata (Optional[List[Tuple[int, E0]]]): Optional sequence encoded
+            validation set.
         out (I0): Text output stream.
-        print_iter (int): Print iterations (i.e. log-likelihood difference) every print_iter-iterations.
+        print_iter (int): Print progress every `print_iter` iterations.
 
     Returns:
-        Tuple of log-likelihood of best fitting model and the best fitting model from number of trials.
-
+        SequenceEncodableProbabilityDistribution: Best fitting model.
     """
-    comm = MPI.COMM_WORLD
+    mpi = get_runtime_attr("mpi4py", "MPI")
+    comm = mpi.COMM_WORLD
     world_rank = comm.Get_rank()
-    world_size = comm.Get_size()
 
     # check if encoded data is already on each worker
     enc_data_exists = enc_data is not None
-    enc_data_exists_all = comm.allreduce(enc_data_exists, op=MPI.LAND)
+    enc_data_exists_all = comm.allreduce(enc_data_exists, op=mpi.LAND)
     if world_rank == 0:
         data_exception = data is None
     else:
@@ -251,8 +267,9 @@ def best_of_mpi(
     data_exception = comm.bcast(data_exception, root=0)
 
     if data_exception and not enc_data_exists_all:
-        raise Exception(
-            "Optimization called with empty data one rank 0 and encoded data does not exist."
+        raise ValueError(
+            "Optimization called with empty data on rank 0 and encoded data "
+            "does not exist."
         )
 
     est = est if init_estimator is None else init_estimator
@@ -268,12 +285,12 @@ def best_of_mpi(
     if not enc_data_exists_all:
         enc_data = seq_encode_mpi(data=data, encoder=data_encoder)
 
-    p = 0.10 if init_p <= 0.0 else min(max(init_p, 0.0), 1.0)
+    _validate_init_p(init_p)
 
     # check if validation data is passed
     # check if encoded data is already on each worker
     enc_vdata_exists = enc_vdata is not None
-    enc_vdata_exists_all = comm.allreduce(enc_vdata_exists, op=MPI.LAND)
+    enc_vdata_exists_all = comm.allreduce(enc_vdata_exists, op=mpi.LAND)
     if world_rank == 0:
         vdata_exists = vdata is not None
     else:
@@ -289,15 +306,12 @@ def best_of_mpi(
     rv_mm = None
     i_est = est if init_estimator is None else init_estimator
 
-    if max_its < 1:
-        max_its = 1
-
-    if trials < 1:
-        trials = 1
+    max_its = max(max_its, 1)
+    trials = max(trials, 1)
 
     for kk in range(trials):
 
-        mm = seq_initialize_mpi(enc_data, i_est, rng, p)
+        mm = seq_initialize_mpi(enc_data, i_est, rng, init_p)
         _, old_ll = seq_log_density_sum_mpi(enc_data, mm)
 
         for i in range(max_its):
@@ -308,7 +322,7 @@ def best_of_mpi(
 
             if world_rank == 0:
                 if (i + 1) % print_iter == 0:
-                    out.write("Iteration %d. LL=%f, delta LL=%e\n" % (i + 1, ll, dll))
+                    out.write(f"Iteration {i + 1}. LL={ll:f}, delta LL={dll:e}\n")
 
             if (dll >= 0) or (delta is None):
                 mm = mm_next
@@ -320,7 +334,7 @@ def best_of_mpi(
 
         _, vll = seq_log_density_sum_mpi(enc_vdata, mm)
         if world_rank == 0:
-            out.write("Trial %d. VLL=%f\n" % (kk + 1, vll))
+            out.write(f"Trial {kk + 1}. VLL={vll:f}\n")
 
         if vll > rv_ll:
             rv_mm = mm
@@ -332,7 +346,7 @@ def best_of_mpi(
         enc_data=enc_data,
         estimator=est,
         rng=rng,
-        init_p=p,
+        init_p=init_p,
         delta=delta,
         print_iter=print_iter,
         prev_estimate=rv_mm,
