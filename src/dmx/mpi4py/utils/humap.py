@@ -18,6 +18,8 @@ MIX_TYPE = Union[MixtureDistribution, BMixtureDistribution]
 MPI = get_runtime_attr("mpi4py", "MPI")
 
 
+# Keep the current public call signature stable for now.
+# pylint: disable-next=too-many-positional-arguments
 def humap_mpi(
     data: Optional[Sequence[T]],
     max_components: int = 30,
