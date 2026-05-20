@@ -1,13 +1,14 @@
-"""Example for DiagonalGaussianMixtureDistribution. Define distribution,
-generate data, estimate, and evaluate likelihoods.
+"""Fit a diagonal Gaussian mixture model to simulated clustered data."""
 
-This is a fast implementation of Mixture([DiagonalGaussianDistribution()]*K).
-
-"""
+# pylint: disable=duplicate-code
 
 from numpy.random import RandomState
 
-from dmx.stats import *
+from dmx.stats import (
+    DiagonalGaussianMixtureDistribution,
+    DiagonalGaussianMixtureEstimator,
+    seq_encode,
+)
 from dmx.utils.estimation import optimize
 
 if __name__ == "__main__":

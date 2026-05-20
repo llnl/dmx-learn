@@ -1,8 +1,26 @@
-"""Fit a joint mixture model to simulated data. Joint mixture is f(x) = sum_k pi_k*sum_j pi_{k,j} f_{k,j}(x)."""
+"""Fit a joint mixture model to simulated multi-view observations."""
+
+# pylint: disable=duplicate-code
 
 import numpy as np
 
-from dmx.stats import *
+from dmx.stats import (
+    CategoricalDistribution,
+    CategoricalEstimator,
+    CompositeDistribution,
+    CompositeEstimator,
+    GammaDistribution,
+    GammaEstimator,
+    GaussianDistribution,
+    GaussianEstimator,
+    JointMixtureDistribution,
+    JointMixtureEstimator,
+    PoissonDistribution,
+    PoissonEstimator,
+    SequenceDistribution,
+    SequenceEstimator,
+    seq_encode,
+)
 from dmx.utils.estimation import best_of, empirical_kl_divergence, partition_data
 
 if __name__ == "__main__":
@@ -82,7 +100,7 @@ if __name__ == "__main__":
     enc_vdata = seq_encode(valid_data, mm.dist_to_encoder())
     kl, _, _ = empirical_kl_divergence(mm, dist, enc_vdata)
 
-    print("KL[Estimate||True | data] = %f" % (kl))
+    print(f"KL[Estimate||True | data] = {kl:f}")
 
     print(str(mm))
 

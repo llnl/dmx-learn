@@ -1,16 +1,11 @@
-"""Example for ICLTreeDistribution. Define distribution,
-generate data, estimate, and evaluate likelihoods.
+"""Fit a Chow-Liu tree model to simulated discrete sequence data."""
 
-ICLTree (Chow-Liu Tree) are great for unknown first order
-dependencies. In contrast to Markov chains, the feature order
-can be learned.
-
-"""
+# pylint: disable=duplicate-code
 
 import numpy as np
 from numpy.random import RandomState
 
-from dmx.stats import *
+from dmx.stats import ICLTreeDistribution, ICLTreeEstimator, seq_encode
 from dmx.utils.estimation import optimize
 
 if __name__ == "__main__":

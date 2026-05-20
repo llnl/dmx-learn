@@ -1,16 +1,25 @@
-"""Example for HiddenAssociationDistribution. Define distribution,
-generate data, estimate, and evaluate likelihoods.
-"""
+"""Fit a hidden association model built from categorical components."""
+
+# pylint: disable=duplicate-code
 
 import numpy as np
-from numpy.random import RandomState
 
-from dmx.stats import *
+from dmx.stats import (
+    CategoricalDistribution,
+    CategoricalEstimator,
+    ConditionalDistribution,
+    ConditionalDistributionEstimator,
+    HiddenAssociationDistribution,
+    HiddenAssociationEstimator,
+    MultinomialDistribution,
+    MultinomialEstimator,
+    seq_encode,
+)
 from dmx.utils.estimation import optimize
 
 if __name__ == "__main__":
     n = int(1e4)
-    rng = RandomState(1)
+    rng = np.random.RandomState(1)
     # Define the model
     aa = 0.90
     bb = (1.0 - aa) / 2
@@ -47,9 +56,7 @@ if __name__ == "__main__":
         cond_est, given_estimator=given_est, len_estimator=len_est
     )
     # Estimate the model
-    model = optimize(
-        data, est, max_its=1000, print_iter=100, rng=np.random.RandomState(1)
-    )
+    model = optimize(data, est, max_its=1000, print_iter=100, rng=rng)
     print(str(model))
     # Eval likelihood on a an observation
     ll0 = model.log_density(data[0])

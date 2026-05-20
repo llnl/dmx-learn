@@ -1,9 +1,18 @@
-"""Example for CompositeDistribution. Define distribution, generate data,
-estimate, and evaluate likelihoods."""
+"""Fit a composite distribution made from categorical and binomial parts."""
+
+# pylint: disable=duplicate-code
 
 from numpy.random import RandomState
 
-from dmx.stats import *
+from dmx.stats import (
+    BinomialDistribution,
+    BinomialEstimator,
+    CategoricalDistribution,
+    CategoricalEstimator,
+    CompositeDistribution,
+    CompositeEstimator,
+    seq_encode,
+)
 from dmx.utils.estimation import optimize
 
 if __name__ == "__main__":

@@ -1,12 +1,19 @@
-"""Fit a Mixture of a composite of Bernoulli set distribution and bag of words model for NIPS documents with authors,
-represented by edges in a graph."""
+"""Fit a document mixture model over author sets and title word sequences."""
+
+# pylint: disable=duplicate-code
 
 import json
 import os
 
 import numpy as np
 
-from dmx.stats import *
+from dmx.stats import (
+    BernoulliSetEstimator,
+    CategoricalEstimator,
+    CompositeEstimator,
+    MixtureEstimator,
+    SequenceEstimator,
+)
 from dmx.utils.estimation import optimize
 from dmx.utils.optsutil import get_parent_directory
 
@@ -16,16 +23,15 @@ if __name__ == "__main__":
     path_to_data = os.path.join(
         get_parent_directory(__file__, 4), "data", "nips", "all_submissions.json"
     )
-    fin = open(path_to_data, "rt", encoding="utf-8")
-    data = json.load(fin)
-    fin.close()
+    with open(path_to_data, "rt", encoding="utf-8") as fin:
+        data = json.load(fin)
 
     # Extract the author sets
     papers = [
         ([v["id"] for v in u["authors"]], [v.lower() for v in u["title"]]) for u in data
     ]
-    authors = set([v for u in papers for v in u[0]])
-    words = set([v for u in papers for v in u[1]])
+    authors = {author for paper in papers for author in paper[0]}
+    words = {word for paper in papers for word in paper[1]}
 
     est1 = BernoulliSetEstimator(
         pseudo_count=1.0e-8, suff_stat={u: 0.5 for u in authors}

@@ -1,20 +1,10 @@
-"""Example for GaussianMixtureDistribution. Define distribution,
-generate data, estimate, and evaluate likelihoods.
+"""Fit a univariate Gaussian mixture model to simulated clustered data."""
 
-This is a fast implementation of a mixture of univariate Gaussians.
-This model allows for the variance components to be key'd which can
-not be easily done with MixtureEstimator([GaussianEstimator()]*K).
-
-This also differs from GaussianMixtureDistribution(), as it is
-univariate, and much faster for univariate case.
-
-"""
-
-import os
+# pylint: disable=duplicate-code
 
 from numpy.random import RandomState
 
-from dmx.stats import *
+from dmx.stats import GaussianMixtureDistribution, GaussianMixtureEstimator, seq_encode
 from dmx.utils.estimation import optimize
 
 if __name__ == "__main__":

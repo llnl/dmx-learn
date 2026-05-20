@@ -1,9 +1,17 @@
-"""Example of Bernoulli step set edit distribution. Transition probabilities for sets are printed out for fit.
-This is similar to step_edit_example.py"""
+"""Fit a stepwise Bernoulli set edit model and inspect transition rates."""
+
+# pylint: disable=duplicate-code
 
 import numpy as np
 
-from dmx.stats import *
+from dmx.stats import (
+    IntegerBernoulliSetDistribution,
+    IntegerBernoulliSetEstimator,
+    IntegerStepBernoulliEditDistribution,
+    IntegerStepBernoulliEditEstimator,
+    MixtureDistribution,
+    MixtureEstimator,
+)
 from dmx.utils.estimation import optimize
 
 if __name__ == "__main__":
@@ -40,15 +48,7 @@ if __name__ == "__main__":
 
     for i, m in enumerate(model.components):
         print(str(np.exp(m.init_dist.log_pvec)))
-        print(
-            "P(Missing | Missing, Z=%d) = %s" % (i, str(np.exp(m.log_edit_pmat[:, 0])))
-        )
-        print(
-            "P(Missing | Present, Z=%d) = %s" % (i, str(np.exp(m.log_edit_pmat[:, 1])))
-        )
-        print(
-            "P(Present | Missing, Z=%d) = %s" % (i, str(np.exp(m.log_edit_pmat[:, 2])))
-        )
-        print(
-            "P(Present | Present, Z=%d) = %s" % (i, str(np.exp(m.log_edit_pmat[:, 3])))
-        )
+        print(f"P(Missing | Missing, Z={i}) = {np.exp(m.log_edit_pmat[:, 0])}")
+        print(f"P(Missing | Present, Z={i}) = {np.exp(m.log_edit_pmat[:, 1])}")
+        print(f"P(Present | Missing, Z={i}) = {np.exp(m.log_edit_pmat[:, 2])}")
+        print(f"P(Present | Present, Z={i}) = {np.exp(m.log_edit_pmat[:, 3])}")

@@ -1,9 +1,18 @@
-"""Example for MultinomialDistribution. Define distribution, generate data,
-estimate, and evaluate likelihoods."""
+"""Fit a multinomial count model with learned value and length distributions."""
+
+# pylint: disable=duplicate-code
 
 from numpy.random import RandomState
 
-from dmx.stats import *
+from dmx.stats import (
+    BinomialDistribution,
+    BinomialEstimator,
+    CategoricalDistribution,
+    CategoricalEstimator,
+    MultinomialDistribution,
+    MultinomialEstimator,
+    seq_encode,
+)
 from dmx.utils.estimation import optimize
 
 if __name__ == "__main__":

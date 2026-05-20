@@ -1,11 +1,27 @@
-"""Example of HMM sampling and estimation using 'best_of' to find optimal model fit with different initial conditions.
-Note that Numba is set for use here. """
+"""Fit a mixture of hidden Markov models with repeated randomized starts."""
 
-USE_NUMBA = True
+# pylint: disable=duplicate-code
+
 import numpy as np
 
-from dmx.stats import *
+from dmx.stats import (
+    CategoricalDistribution,
+    CategoricalEstimator,
+    CompositeDistribution,
+    CompositeEstimator,
+    GaussianDistribution,
+    GaussianEstimator,
+    HiddenMarkovEstimator,
+    HiddenMarkovModelDistribution,
+    MixtureDistribution,
+    MixtureEstimator,
+    PoissonDistribution,
+    PoissonEstimator,
+    seq_encode,
+)
 from dmx.utils.estimation import best_of, partition_data
+
+USE_NUMBA = True
 
 if __name__ == "__main__":
     n = int(1e4)
@@ -97,7 +113,7 @@ if __name__ == "__main__":
     train_data, valid_data = partition_data(data, [0.9, 0.1], rng)
 
     # Fit model, finding the best model
-    ll, mm = best_of(
+    _, mm = best_of(
         train_data, valid_data, est, 20, 100, 0.01, 1.0e-8, rng, init_estimator=iest
     )
     print(str(mm))

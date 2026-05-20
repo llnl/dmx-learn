@@ -1,9 +1,16 @@
-"""Generate data and fit a hierarchical mixture model.
-This is a mixture sequence mixture distribution."""
+"""Fit a hierarchical mixture model to simulated bag-of-items data."""
+
+# pylint: disable=duplicate-code
 
 import numpy as np
 
-from dmx.stats import *
+from dmx.stats import (
+    CategoricalDistribution,
+    CategoricalEstimator,
+    HierarchicalMixtureDistribution,
+    HierarchicalMixtureEstimator,
+    seq_encode,
+)
 from dmx.utils.estimation import optimize
 
 if __name__ == "__main__":

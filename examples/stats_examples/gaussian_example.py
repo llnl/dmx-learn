@@ -1,10 +1,10 @@
-"""Example for GaussianDistribution. Define distribution,
-generate data, estimate, and evaluate likelihoods.
-"""
+"""Fit a Gaussian distribution to simulated scalar data."""
+
+# pylint: disable=duplicate-code
 
 from numpy.random import RandomState
 
-from dmx.stats import *
+from dmx.stats import GaussianDistribution, GaussianEstimator, seq_encode
 from dmx.utils.estimation import optimize
 
 if __name__ == "__main__":

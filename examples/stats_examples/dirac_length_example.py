@@ -1,17 +1,16 @@
-"""Example for DiracMixtureDistribution. Define distribution, generate data,
-estimate, and evaluate likelihoods.
+"""Fit a zero-inflated length model with a Dirac mixture distribution."""
 
-This distribution is a mixture between a length distribution and a Dirac Delta
-on a user-specified value. It is a great for use on length distributions that
-are zero-inflated.
-
-f(x) = p*F(X=x) + (1-p) * Delta(v)
-
-"""
+# pylint: disable=duplicate-code
 
 from numpy.random import RandomState
 
-from dmx.stats import *
+from dmx.stats import (
+    DiracMixtureDistribution,
+    DiracMixtureEstimator,
+    PoissonDistribution,
+    PoissonEstimator,
+    seq_encode,
+)
 from dmx.utils.estimation import optimize
 
 if __name__ == "__main__":

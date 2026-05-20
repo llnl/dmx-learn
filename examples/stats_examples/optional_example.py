@@ -1,10 +1,15 @@
-"""Example for OptionalDistribution. Define distribution,
-generate data, estimate, and evaluate likelihoods.
-"""
+"""Fit optional categorical models with different missing-value markers."""
+
+# pylint: disable=duplicate-code
 
 import numpy as np
 
-from dmx.stats import *
+from dmx.stats import (
+    CategoricalDistribution,
+    CategoricalEstimator,
+    OptionalDistribution,
+    OptionalEstimator,
+)
 from dmx.utils.estimation import optimize
 
 if __name__ == "__main__":

@@ -1,10 +1,10 @@
-"""Example for PoissonDistribution. Define distribution,
-generate data, estimate, and evaluate likelihoods.
-"""
+"""Fit a Poisson distribution to simulated count data."""
+
+# pylint: disable=duplicate-code
 
 from numpy.random import RandomState
 
-from dmx.stats import *
+from dmx.stats import PoissonDistribution, PoissonEstimator, seq_encode
 from dmx.utils.estimation import optimize
 
 if __name__ == "__main__":

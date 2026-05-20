@@ -1,8 +1,14 @@
-"""IntegerCategoricalDistribution example on generated data."""
+"""Fit an integer categorical model to simulated discrete values."""
+
+# pylint: disable=duplicate-code
 
 import numpy as np
 
-from dmx.stats import *
+from dmx.stats import (
+    IntegerCategoricalDistribution,
+    IntegerCategoricalEstimator,
+    seq_encode,
+)
 from dmx.utils.estimation import optimize
 
 if __name__ == "__main__":

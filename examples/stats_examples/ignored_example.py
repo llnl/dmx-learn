@@ -1,15 +1,18 @@
-"""Example for IgnoredDistribution. Define distribution,
-generate data, estimate, and evaluate likelihoods.
+"""Fit a mixture model while keeping one component distribution fixed."""
 
-IgnoredEstimator() can be used to fix distributions
-when estimating distributions. Example use case below is a
-two component mixture with one of the topics fixed.
-
-"""
+# pylint: disable=duplicate-code
 
 from numpy.random import RandomState
 
-from dmx.stats import *
+from dmx.stats import (
+    HeterogeneousMixtureDistribution,
+    HeterogeneousMixtureEstimator,
+    IgnoredDistribution,
+    IgnoredEstimator,
+    PoissonDistribution,
+    PoissonEstimator,
+    seq_encode,
+)
 from dmx.utils.estimation import optimize
 
 if __name__ == "__main__":

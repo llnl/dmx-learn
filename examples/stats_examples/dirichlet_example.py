@@ -1,9 +1,10 @@
-"""Example for DiricheletDistribution. Define distribution, generate data,
-estimate, and evaluate likelihoods."""
+"""Fit a Dirichlet distribution to simulated simplex-valued data."""
+
+# pylint: disable=duplicate-code
 
 from numpy.random import RandomState
 
-from dmx.stats import *
+from dmx.stats import DirichletDistribution, DirichletEstimator, seq_encode
 from dmx.utils.estimation import optimize
 
 if __name__ == "__main__":

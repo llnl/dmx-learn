@@ -1,14 +1,18 @@
-"""Example for HeterogeneousMixtureDistribution. Define distribution,
-generate data, estimate, and evaluate likelihoods.
+"""Fit a mixture whose components come from different distribution families."""
 
-HeterogeneousMixtureDistribution allows for a mixture with differnt
-distribtions as the components. The comps must have the same support.
-
-"""
+# pylint: disable=duplicate-code
 
 from numpy.random import RandomState
 
-from dmx.stats import *
+from dmx.stats import (
+    BinomialDistribution,
+    BinomialEstimator,
+    HeterogeneousMixtureDistribution,
+    HeterogeneousMixtureEstimator,
+    PoissonDistribution,
+    PoissonEstimator,
+    seq_encode,
+)
 from dmx.utils.estimation import optimize
 
 if __name__ == "__main__":

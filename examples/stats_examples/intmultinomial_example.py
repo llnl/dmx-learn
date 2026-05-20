@@ -1,8 +1,16 @@
-"""IntegerMultinomialDistribution example on generated data."""
+"""Fit an integer multinomial model to simulated count vectors."""
+
+# pylint: disable=duplicate-code
 
 import numpy as np
 
-from dmx.stats import *
+from dmx.stats import (
+    CategoricalDistribution,
+    CategoricalEstimator,
+    IntegerMultinomialDistribution,
+    IntegerMultinomialEstimator,
+    seq_encode,
+)
 from dmx.utils.estimation import optimize
 
 if __name__ == "__main__":
