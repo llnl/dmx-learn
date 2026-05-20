@@ -1,5 +1,7 @@
 """Contains estimation tools for bstats with mpi4py use."""
 
+# pylint: disable=duplicate-code
+
 __all__ = [
     "seq_estimate_mpi",
     "initialize_mpi",
