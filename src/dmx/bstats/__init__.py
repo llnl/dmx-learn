@@ -71,6 +71,7 @@ from typing import Any, Dict, List, Optional, Sequence, Tuple, Union
 
 import numpy as np
 import pandas as pd
+import pyspark
 from numpy.random import RandomState
 from pyspark import RDD
 
@@ -227,7 +228,7 @@ def estimate(
     Returns:
         ProbabilityDistribution: Variational inference update
     """
-    if "pyspark.rdd" in str(type(data)):
+    if isinstance(data, pyspark.rdd.RDD):
         sc = data.context
         factory = estimator.accumulatorFactory()
         estimatorBroadcast = sc.broadcast(estimator)
@@ -289,7 +290,7 @@ def initialize(
     Returns:
         Any: The result of the initialization process, as determined by the estimator's `estimate` method.
     """
-    if "pyspark.rdd" in str(type(data)):
+    if isinstance(data, pyspark.rdd.RDD):
         factory = estimator.accumulator_factory()
         sc = data.context
 
@@ -370,7 +371,7 @@ def seq_encode(
             - If `data` is a sequence, returns a list of tuples, where each tuple contains the length of the chunk
               and the encoded data.
     """
-    if "pyspark.rdd" in str(type(data)):
+    if isinstance(data, pyspark.rdd.RDD):
         sc = data.context
 
         temp_model = pickle.dumps(model, protocol=0)
@@ -422,7 +423,7 @@ def seq_estimate(
         Any: The result of the sequential estimation process, as determined by the estimator's `estimate` method.
     """
 
-    if "pyspark.rdd" in str(type(enc_data)):
+    if isinstance(enc_data, pyspark.rdd.RDD):
         sc = enc_data.context
 
         estimatorBroadcast = sc.broadcast(estimator)
@@ -514,7 +515,7 @@ def seq_log_density(
         List[np.ndarray]: A list of log density values computed for the encoded data.
     """
 
-    if "pyspark.rdd" in str(type(enc_data)):
+    if isinstance(enc_data, pyspark.rdd.RDD):
         sc = enc_data.context
         temp_estimate = pickle.dumps(estimate, protocol=0)
         estimateBroadcast = sc.broadcast(temp_estimate)
@@ -564,7 +565,7 @@ def seq_log_density_sum(
             - The sum of log densities (`rv`).
     """
 
-    if "pyspark.rdd" in str(type(enc_data)):
+    if isinstance(enc_data, pyspark.rdd.RDD):
         sc = enc_data.context
         estimate_broadcast = sc.broadcast(pickle.dumps(estimate, protocol=0))
 
