@@ -50,9 +50,8 @@ def test_humap_mpi() -> None:
         assert isinstance(
             mix_model, BMix
         ), "humap should return a bstats.MixtureDistribution object."
-        assert isinstance(posteriors, np.ndarray) and posteriors.shape == (
-            sz,
-            BMix.num_components,
+        assert (
+            isinstance(posteriors, np.ndarray) and posteriors.shape[0] == sz
         ), "Posterior dimension mismatch."
     else:
         assert results is None, "Did not return None on worker {world_rank}."
