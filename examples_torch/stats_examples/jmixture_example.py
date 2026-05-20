@@ -1,16 +1,22 @@
-"""Example for JointMixtureDistribution. Define distribution,
-generate data, estimate, and evaluate likelihoods.
+"""Joint mixture example.
+
+Generate synthetic paired observations from coupled mixtures, fit a joint
+mixture model, and evaluate log densities.
 
 JointMixtureDistribution: f(x1, x2) = sum_k pi_k * f_k(x1) * sum_j tau_{kj} * g_j(x2).
-
-Note: The torch version uses GaussianDistribution for both component sets
-in place of the more complex CompositeDistribution and SequenceDistribution
-components from the stats reference, for simplicity.
 """
+
+# pylint: disable=duplicate-code
 
 import torch
 
-from dmx.torch_stats import *
+from dmx.torch_stats import (
+    GaussianDistribution,
+    GaussianEstimator,
+    JointMixtureDistribution,
+    JointMixtureEstimator,
+    seq_encode,
+)
 from dmx.torch_utils import detect_device
 from dmx.torch_utils.estimation import optimize
 

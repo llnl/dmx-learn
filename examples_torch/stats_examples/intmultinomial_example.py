@@ -1,8 +1,21 @@
-"""IntegerMultinomialDistribution example on generated data."""
+"""Integer multinomial example.
+
+Generate synthetic count vectors, fit an integer multinomial model, and
+evaluate log densities.
+"""
+
+# pylint: disable=duplicate-code
 
 import numpy as np
+import torch
 
-from dmx.torch_stats import *
+from dmx.torch_stats import (
+    IntegerCategoricalDistribution,
+    IntegerCategoricalEstimator,
+    IntegerMultinomialDistribution,
+    IntegerMultinomialEstimator,
+    seq_encode,
+)
 from dmx.torch_utils import detect_device
 from dmx.torch_utils.estimation import optimize
 

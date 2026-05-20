@@ -1,8 +1,19 @@
-"""IntegerCategoricalDistribution example on generated data."""
+"""Integer categorical example.
+
+Generate synthetic categorical integers, fit an integer categorical model, and
+evaluate log densities.
+"""
+
+# pylint: disable=duplicate-code
 
 import numpy as np
+import torch
 
-from dmx.torch_stats import *
+from dmx.torch_stats import (
+    IntegerCategoricalDistribution,
+    IntegerCategoricalEstimator,
+    seq_encode,
+)
 from dmx.torch_utils import detect_device
 from dmx.torch_utils.estimation import optimize
 

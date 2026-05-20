@@ -1,8 +1,19 @@
-"""IntegerBernoulliSetDistribution example on generated data."""
+"""Integer Bernoulli set example.
+
+Generate synthetic set-valued observations, fit an integer Bernoulli set
+model, and evaluate log densities.
+"""
+
+# pylint: disable=duplicate-code
 
 import numpy as np
+import torch
 
-from dmx.torch_stats import *
+from dmx.torch_stats import (
+    IntegerBernoulliSetDistribution,
+    IntegerBernoulliSetEstimator,
+    seq_encode,
+)
 from dmx.torch_utils import detect_device
 from dmx.torch_utils.estimation import optimize
 

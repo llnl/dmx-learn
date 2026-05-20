@@ -1,15 +1,27 @@
-"""Example for ConditionalDistribution. Define distribution, generate data,
-estimate, and evaluate likelihoods.
+"""Conditional distribution example.
+
+Generate synthetic observations conditioned on categorical inputs, fit the
+conditional model, and evaluate log densities.
 
 Note: The torch version uses IntegerCategoricalDistribution as the given
 distribution (integer keys), in place of a string-keyed CategoricalDistribution
 which is not available in torch_stats.
 """
 
+# pylint: disable=duplicate-code
+
 import numpy as np
 import torch
 
-from dmx.torch_stats import *
+from dmx.torch_stats import (
+    ConditionalDistribution,
+    ConditionalDistributionEstimator,
+    GaussianDistribution,
+    GaussianEstimator,
+    IntegerCategoricalDistribution,
+    IntegerCategoricalEstimator,
+    seq_encode,
+)
 from dmx.torch_utils import detect_device
 from dmx.torch_utils.estimation import optimize
 

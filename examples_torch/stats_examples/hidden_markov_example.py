@@ -1,16 +1,22 @@
-"""Example for HiddenMarkovModelDistribution. Define distribution,
-generate data, estimate, and evaluate likelihoods.
+"""Hidden Markov model example.
 
-Note: The torch version uses GaussianDistribution for emission distributions
-in place of CompositeDistribution(Gaussian, CategoricalDistribution) from the
-stats reference, as string-keyed CategoricalDistribution is not available in
-torch_stats. The model is also simplified to a single HMM rather than a
-mixture of HMMs.
+Generate synthetic sequences from a Gaussian-emission HMM, fit the model, and
+evaluate sequence log densities.
 """
+
+# pylint: disable=duplicate-code
 
 import torch
 
-from dmx.torch_stats import *
+from dmx.torch_stats import (
+    GaussianDistribution,
+    GaussianEstimator,
+    HiddenMarkovEstimator,
+    HiddenMarkovModelDistribution,
+    PoissonDistribution,
+    PoissonEstimator,
+    seq_encode,
+)
 from dmx.torch_utils import detect_device
 from dmx.torch_utils.estimation import optimize
 

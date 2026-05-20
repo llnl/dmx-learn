@@ -1,7 +1,14 @@
-"""Example for GammaDistribution. Define distribution,
-generate data, estimate, and evaluate likelihoods."""
+"""Gamma distribution example.
 
-from dmx.torch_stats import *
+Generate synthetic positive-valued data, fit a gamma model, and evaluate log
+densities.
+"""
+
+# pylint: disable=duplicate-code
+
+import torch
+
+from dmx.torch_stats import GammaDistribution, GammaEstimator, seq_encode
 from dmx.torch_utils import detect_device
 from dmx.torch_utils.estimation import optimize
 

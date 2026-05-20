@@ -1,15 +1,22 @@
-"""Example for CompositeDistribution. Define distribution, generate data,
-estimate, and evaluate likelihoods.
+"""Composite distribution example.
 
-Note: CompositeEstimator is imported explicitly as it is not exported in __all__.
-The torch version uses GaussianDistribution and PoissonDistribution as components
-in place of CategoricalDistribution (not available in torch_stats).
+Generate paired synthetic data from independent component distributions, fit a
+composite model, and evaluate log densities.
 """
+
+# pylint: disable=duplicate-code
 
 import torch
 
-from dmx.torch_stats import *
-from dmx.torch_stats.composite import CompositeEstimator
+from dmx.torch_stats import (
+    CompositeDistribution,
+    CompositeEstimator,
+    GaussianDistribution,
+    GaussianEstimator,
+    PoissonDistribution,
+    PoissonEstimator,
+    seq_encode,
+)
 from dmx.torch_utils import detect_device
 from dmx.torch_utils.estimation import optimize
 

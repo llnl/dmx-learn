@@ -1,11 +1,19 @@
-"""Example for MultivariateGaussianDistribution. Define distribution,
-generate data, estimate, and evaluate likelihoods.
+"""Multivariate Gaussian distribution example.
+
+Generate synthetic multivariate data with a full covariance matrix, fit the
+model, and evaluate log densities.
 """
+
+# pylint: disable=duplicate-code
 
 import numpy as np
 import torch
 
-from dmx.torch_stats import *
+from dmx.torch_stats import (
+    MultivariateGaussianDistribution,
+    MultivariateGaussianEstimator,
+    seq_encode,
+)
 from dmx.torch_utils import detect_device
 from dmx.torch_utils.estimation import optimize
 

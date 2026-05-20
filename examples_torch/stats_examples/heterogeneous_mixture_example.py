@@ -1,13 +1,25 @@
-"""Example for HeterogeneousMixtureDistribution. Define distribution,
-generate data, estimate, and evaluate likelihoods.
+"""Heterogeneous mixture example.
+
+Generate synthetic data from mixed distribution families, fit a heterogeneous
+mixture model, and inspect posteriors and log densities.
 
 HeterogeneousMixtureDistribution allows for a mixture with different
 distributions as the components. The comps must have the same support.
 """
 
+# pylint: disable=duplicate-code
+
 import torch
 
-from dmx.torch_stats import *
+from dmx.torch_stats import (
+    BinomialDistribution,
+    BinomialEstimator,
+    HeterogeneousMixtureDistribution,
+    HeterogeneousMixtureEstimator,
+    PoissonDistribution,
+    PoissonEstimator,
+    seq_encode,
+)
 from dmx.torch_utils import detect_device
 from dmx.torch_utils.estimation import optimize
 

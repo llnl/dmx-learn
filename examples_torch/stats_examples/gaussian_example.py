@@ -1,7 +1,14 @@
-"""Example for GaussianDistribution. Define distribution,
-generate data, estimate, and evaluate likelihoods."""
+"""Gaussian distribution example.
 
-from dmx.torch_stats import *
+Generate synthetic scalar data, fit a Gaussian model, and evaluate log
+densities.
+"""
+
+# pylint: disable=duplicate-code
+
+import torch
+
+from dmx.torch_stats import GaussianDistribution, GaussianEstimator, seq_encode
 from dmx.torch_utils import detect_device
 from dmx.torch_utils.estimation import optimize
 
