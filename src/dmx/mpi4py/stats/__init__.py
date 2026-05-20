@@ -11,7 +11,8 @@ Functions:
     seq_initialize_mpi: Initializes model parameters in parallel.
     seq_estimate_mpi: Estimates model parameters in parallel.
     seq_log_density_mpi: Computes log densities of encoded data in parallel.
-    seq_log_density_sum_mpi: Computes sum of log densities and total observations in parallel.
+    seq_log_density_sum_mpi: Computes sum of log densities and total
+        observations in parallel.
 """
 
 __all__ = [
@@ -25,7 +26,9 @@ __all__ = [
 from typing import Any, List, Optional, Sequence, Tuple
 
 import numpy as np
-import pandas as pd
+
+# `mpi4py` exposes `MPI` dynamically, which pylint does not always detect.
+# pylint: disable-next=no-name-in-module
 from mpi4py import MPI
 from numpy.random import RandomState
 
@@ -37,6 +40,8 @@ from dmx.stats.pdist import (
 )
 
 
+# Keep the current public call signature stable for now.
+# pylint: disable-next=too-many-positional-arguments
 def seq_encode_mpi(
     data: Optional[Sequence[Any]],
     encoder: Optional[DataSequenceEncoder] = None,
@@ -49,17 +54,24 @@ def seq_encode_mpi(
 
     Args:
         data (Optional[Sequence[Any]]): The sequence data to encode.
-        encoder (Optional[DataSequenceEncoder], optional): Encoder to use for encoding data.
-        estimator (Optional[ParameterEstimator], optional): Estimator to derive encoder if not provided.
-        model (Optional[SequenceEncodableProbabilityDistribution], optional): Model to derive encoder if not provided.
-        num_chunks (int, optional): Number of data chunks to split for parallel processing. Defaults to 1.
-        chunk_size (Optional[int], optional): Size of each data chunk. If specified, overrides num_chunks.
+        encoder (Optional[DataSequenceEncoder], optional): Encoder to use for
+            encoding data.
+        estimator (Optional[ParameterEstimator], optional): Estimator to
+            derive encoder if not provided.
+        model (Optional[SequenceEncodableProbabilityDistribution],
+            optional): Model to derive encoder if not provided.
+        num_chunks (int, optional): Number of data chunks to split for
+            parallel processing. Defaults to 1.
+        chunk_size (Optional[int], optional): Size of each data chunk. If
+            specified, overrides num_chunks.
 
     Returns:
-        List[Tuple[int, Any]]: List of tuples containing chunk size and encoded data for each chunk.
+        List[Tuple[int, Any]]: List of tuples containing chunk size and
+            encoded data for each chunk.
 
     Raises:
-        Exception: If neither encoder, estimator, nor model is provided on rank 0.
+        ValueError: If neither encoder, estimator, nor model is provided on
+            rank 0.
     """
     # Get MPI communicator, rank, and size
     comm = MPI.COMM_WORLD
@@ -74,8 +86,9 @@ def seq_encode_mpi(
             elif estimator is not None:
                 encoder = estimator.accumulator_factory().make().acc_to_encoder()
             else:
-                raise Exception(
-                    "At least one arg: encoder, estimator, or dist must be passed to rank 0."
+                raise ValueError(
+                    "At least one arg: encoder, estimator, or dist must be "
+                    "passed to rank 0."
                 )
 
         sz = len(data)
@@ -120,13 +133,15 @@ def seq_initialize_mpi(
     """Initializes model parameters in parallel using encoded data.
 
     Args:
-        enc_data (List[Tuple[int, EncodedDataSequence]]): List of tuples containing chunk size and encoded data.
+        enc_data (List[Tuple[int, EncodedDataSequence]]): List of tuples
+            containing chunk size and encoded data.
         estimator (ParameterEstimator): Parameter estimator for the model.
         rng (RandomState): Random number generator for initialization.
         p (float): Probability for subsampling data during initialization.
 
     Returns:
-        Optional[SequenceEncodableProbabilityDistribution]: Estimated model parameters (on rank 0), None otherwise.
+        Optional[SequenceEncodableProbabilityDistribution]: Estimated model
+            parameters (on rank 0), None otherwise.
     """
     # Get MPI communicator, rank, and size
     comm = MPI.COMM_WORLD
@@ -155,7 +170,7 @@ def seq_initialize_mpi(
         local_accumulator.seq_initialize(x, w, rng)
 
     # Merge keys for local accumulators
-    stats_dict = dict()
+    stats_dict = {}
     local_accumulator.key_merge(stats_dict)
     local_accumulator.key_replace(stats_dict)
     suff_stats = comm.gather((nobs, local_accumulator.value()), root=0)
@@ -168,14 +183,13 @@ def seq_initialize_mpi(
             accumulator.combine(ss)
             total_obs += nn
 
-        stats_dict = dict()
+        stats_dict = {}
         accumulator.key_merge(stats_dict)
         accumulator.key_replace(stats_dict)
 
         return estimator.estimate(total_obs, accumulator.value())
 
-    else:
-        return None
+    return None
 
 
 def seq_estimate_mpi(
@@ -183,30 +197,34 @@ def seq_estimate_mpi(
     estimator: Optional[ParameterEstimator] = None,
     prev_estimate: Optional[SequenceEncodableProbabilityDistribution] = None,
 ) -> Optional[SequenceEncodableProbabilityDistribution]:
-    """Estimates model parameters in parallel using encoded data and a previous estimate.
+    """Estimates model parameters in parallel using encoded data and a
+    previous estimate.
 
     Args:
-        enc_data (List[Tuple[int, EncodedDataSequence]]): List of tuples containing chunk size and encoded data.
-        estimator (Optional[ParameterEstimator], optional): Parameter estimator for the model.
-        prev_estimate (Optional[SequenceEncodableProbabilityDistribution], optional): Previous model estimate.
+        enc_data (List[Tuple[int, EncodedDataSequence]]): List of tuples
+            containing chunk size and encoded data.
+        estimator (Optional[ParameterEstimator], optional): Parameter
+            estimator for the model.
+        prev_estimate (Optional[SequenceEncodableProbabilityDistribution],
+            optional): Previous model estimate.
 
     Returns:
-        Optional[SequenceEncodableProbabilityDistribution]: Estimated model parameters (on rank 0), None otherwise.
+        Optional[SequenceEncodableProbabilityDistribution]: Estimated model
+            parameters (on rank 0), None otherwise.
 
     Raises:
-        Exception: If estimator or prev_estimate is not provided on rank 0.
+        ValueError: If estimator or prev_estimate is not provided on rank 0.
     """
     # Get MPI communicator, rank, and size
     comm = MPI.COMM_WORLD
     world_rank = comm.Get_rank()
-    world_size = comm.Get_size()
 
     if world_rank == 0:
         if estimator is None:
-            raise Exception("Rank 0 must have estimator for seq_estimate_mpi.")
+            raise ValueError("Rank 0 must have estimator for seq_estimate_mpi.")
 
         if prev_estimate is None:
-            raise Exception("Rank 0 must have prev_estimate for seq_estimate_mpi.")
+            raise ValueError("Rank 0 must have prev_estimate for seq_estimate_mpi.")
 
         factory = estimator.accumulator_factory()
 
@@ -225,7 +243,7 @@ def seq_estimate_mpi(
         local_accumulator.seq_update(x, np.ones(sz), prev_estimate)
 
     # Merge keys for local accumulators and gather suff_stats to master
-    stats_dict = dict()
+    stats_dict = {}
     local_accumulator.key_merge(stats_dict)
     local_accumulator.key_replace(stats_dict)
     suff_stats = comm.gather((nobs, local_accumulator.value()), root=0)
@@ -238,13 +256,13 @@ def seq_estimate_mpi(
             total_obs += nn
             accumulator.combine(ss)
 
-        stats_dict = dict()
+        stats_dict = {}
         accumulator.key_merge(stats_dict)
         accumulator.key_replace(stats_dict)
 
         return estimator.estimate(total_obs, accumulator.value())
-    else:
-        return None
+
+    return None
 
 
 def seq_log_density_mpi(
@@ -255,23 +273,26 @@ def seq_log_density_mpi(
     """Computes log densities of encoded data in parallel.
 
     Args:
-        enc_data (Sequence[Tuple[int, EncodedDataSequence]]): Encoded data to compute log densities for.
-        estimate (Optional[SequenceEncodableProbabilityDistribution], optional): Model estimate for log density computation.
-        is_list (bool, optional): If True, computes log densities for a list of estimates.
+        enc_data (Sequence[Tuple[int, EncodedDataSequence]]): Encoded data to
+            compute log densities for.
+        estimate (Optional[SequenceEncodableProbabilityDistribution],
+            optional): Model estimate for log density computation.
+        is_list (bool, optional): If True, computes log densities for a list
+            of estimates.
 
     Returns:
-        List[np.ndarray]: List of arrays containing log densities for each data chunk.
+        List[np.ndarray]: List of arrays containing log densities for each
+            data chunk.
 
     Raises:
-        Exception: If estimate is not provided on rank 0.
+        ValueError: If estimate is not provided on rank 0.
     """
     # Get MPI communicator, rank, and size
     comm = MPI.COMM_WORLD
     world_rank = comm.Get_rank()
-    world_size = comm.Get_size()
 
     if world_rank == 0 and estimate is None:
-        raise Exception("Rank 0 must have estimate for seq_log_density_mpi.")
+        raise ValueError("Rank 0 must have estimate for seq_log_density_mpi.")
 
     # broadcast estimate to each worker
     estimate = comm.bcast(estimate, root=0)
@@ -281,37 +302,40 @@ def seq_log_density_mpi(
         return [
             np.asarray([ee.seq_log_density(u[1]) for ee in estimate]) for u in enc_data
         ]
-    else:
-        return [estimate.seq_log_density(u[1]) for u in enc_data]
+
+    return [estimate.seq_log_density(u[1]) for u in enc_data]
 
 
 def seq_log_density_sum_mpi(
     enc_data: Sequence[Tuple[int, EncodedDataSequence]],
     estimate: Optional[SequenceEncodableProbabilityDistribution] = None,
-) -> List[np.ndarray]:
-    """Computes sum of log densities and total number of observations in parallel.
+) -> Tuple[int, float]:
+    """Computes sum of log densities and total number of observations in
+    parallel.
 
     Args:
-        enc_data (Sequence[Tuple[int, EncodedDataSequence]]): Encoded data to compute log densities for.
-        estimate (Optional[SequenceEncodableProbabilityDistribution], optional): Model estimate for log density computation.
+        enc_data (Sequence[Tuple[int, EncodedDataSequence]]): Encoded data to
+            compute log densities for.
+        estimate (Optional[SequenceEncodableProbabilityDistribution],
+            optional): Model estimate for log density computation.
 
     Returns:
-        Tuple[int, float]: Total number of observations and sum of log densities across all data.
+        Tuple[int, float]: Total number of observations and sum of log
+            densities across all data.
 
     Raises:
-        Exception: If estimate is not provided on rank 0.
+        ValueError: If estimate is not provided on rank 0.
     """
     # Get MPI communicator, rank, and size
     comm = MPI.COMM_WORLD
     world_rank = comm.Get_rank()
-    world_size = comm.Get_size()
 
     if world_rank == 0 and estimate is None:
-        raise Exception("Rank 0 must have estimate for seq_log_density_mpi.")
+        raise ValueError("Rank 0 must have estimate for seq_log_density_mpi.")
 
     estimate = comm.bcast(estimate, root=0)
-    rv0 = sum([u[0] for u in enc_data])
-    rv1 = sum([estimate.seq_log_density(u[1]).sum() for u in enc_data])
+    rv0 = sum(u[0] for u in enc_data)
+    rv1 = sum(estimate.seq_log_density(u[1]).sum() for u in enc_data)
 
     # return nobs and ll sum back to all workers.
     nobs = comm.allreduce(rv0)
