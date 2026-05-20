@@ -1,7 +1,38 @@
+"""Spark example for fitting a heterogeneous mixture model.
+
+This script builds a synthetic two-component mixture over composite data types,
+samples the data into a Spark RDD, and fits the model with EM-style updates.
+
+Run from the repository root with:
+
+    spark-submit --master local[4] examples_spark/mixture_example.py
+"""
+
 import numpy as np
 from pyspark import SparkConf, SparkContext
 
-from dmx.stats import *
+from dmx.stats import (
+    BernoulliSetDistribution,
+    BernoulliSetEstimator,
+    CategoricalDistribution,
+    CategoricalEstimator,
+    CompositeDistribution,
+    CompositeEstimator,
+    GaussianDistribution,
+    GaussianEstimator,
+    MarkovChainDistribution,
+    MarkovChainEstimator,
+    MixtureDistribution,
+    MixtureEstimator,
+    OptionalDistribution,
+    OptionalEstimator,
+    PoissonDistribution,
+    PoissonEstimator,
+    initialize,
+    seq_encode,
+    seq_estimate,
+    seq_log_density_sum,
+)
 from dmx.stats.rdd_sampler import sample_rdd
 from dmx.utils.estimation import empirical_kl_divergence
 
@@ -10,9 +41,8 @@ if __name__ == "__main__":
     conf = SparkConf().setAppName("mixture_example")
     sc = SparkContext(conf=conf)
 
-    # Disable INFO/WARN printing
-    log4j = sc._jvm.org.apache.log4j
-    log4j.LogManager.getRootLogger().setLevel(log4j.Level.ERROR)
+    # Disable INFO/WARN printing.
+    sc.setLogLevel("ERROR")
 
     rng = np.random.RandomState(2)
 
@@ -97,12 +127,12 @@ if __name__ == "__main__":
     )
 
     # Estimate parameters
-    # Note: Checkout dmx.utils.estimation.best_of/optimize for methods that handle this computation
+    # See dmx.utils.estimation.best_of/optimize for helper training loops.
 
     mm = initialize(train_data, iest, rng, 0.05)
 
-    enc_data = seq_encode(train_data, mm)
-    enc_vdata = seq_encode(valid_data, mm)
+    enc_data = seq_encode(train_data, model=mm)
+    enc_vdata = seq_encode(valid_data, model=mm)
     _, old_ll = seq_log_density_sum(enc_vdata, mm)
     _, old_tll = seq_log_density_sum(enc_data, mm)
 
@@ -123,9 +153,9 @@ if __name__ == "__main__":
             mm = mm_next
 
         print(
-            "Iteration %d. LL=%f, delta LL=%e, val LL=%f, KL[Est||True|data]=%e"
-            % (its_cnt + 1, tll, dll, ll, kl)
+            f"Iteration {its_cnt + 1}. LL={tll:f}, delta LL={dll:e}, "
+            f"val LL={ll:f}, KL[Est||True|data]={kl:e}"
         )
         old_tll = tll
 
-    print(str(mm))
+    print(mm)
