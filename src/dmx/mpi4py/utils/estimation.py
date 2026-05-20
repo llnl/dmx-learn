@@ -1,5 +1,7 @@
 """MPI-enabled estimation helpers for `dmx.stats` models."""
 
+# pylint: disable=duplicate-code
+
 import sys
 from typing import IO, List, Optional, Sequence, Tuple, TypeVar
 

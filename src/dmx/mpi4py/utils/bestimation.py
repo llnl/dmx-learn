@@ -1,5 +1,7 @@
 """Estimation functions for bstats with mpi4py support."""
 
+# pylint: disable=duplicate-code
+
 import sys
 from typing import IO, List, Optional, Sequence, Tuple, TypeVar
 
