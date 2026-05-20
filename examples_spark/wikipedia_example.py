@@ -1,3 +1,13 @@
+"""Spark example for fitting an LDA topic model on Wikipedia text.
+
+This script loads a small text corpus, removes stop words, maps tokens to
+integers, and trains an LDA model with Spark-based sequence estimation.
+
+Run from the repository root with:
+
+    spark-submit --master local[4] examples_spark/wikipedia_example.py
+"""
+
 import os
 import sys
 import time
@@ -6,7 +16,14 @@ import numpy as np
 from pyspark import SparkConf, SparkContext
 
 import dmx.utils.optsutil as ops
-from dmx.stats import *
+from dmx.stats import (
+    IntegerCategoricalEstimator,
+    LDAEstimator,
+    initialize,
+    seq_encode,
+    seq_estimate,
+    seq_log_density_sum,
+)
 
 data_loc = os.path.join(os.path.dirname(os.path.realpath(__file__)), "../data")
 
@@ -14,34 +31,34 @@ data_loc = os.path.join(os.path.dirname(os.path.realpath(__file__)), "../data")
 def load_wiki_data():
 
     sword_loc = os.path.join(data_loc, "stop_words")
-    sword = set([""])
-    for f in [os.path.join(sword_loc, "mallet.txt")]:
-        fin = open(os.path.join(sword_loc, f), "rt")
-        sword.update(fin.read().split("\n"))
-        fin.close()
+    sword = {""}
+    for file_name in ["mallet.txt"]:
+        stop_word_path = os.path.join(sword_loc, file_name)
+        with open(stop_word_path, "rt", encoding="utf-8") as fin:
+            sword.update(fin.read().splitlines())
 
     wiki_loc = os.path.join(data_loc, "wiki_example")
     files = [
         os.path.join(wiki_loc, u)
         for u in filter(lambda v: v.endswith(".txt"), os.listdir(wiki_loc))
     ]
-    data = ops.flatMap(
+    documents = ops.flat_map(
         lambda x: x,
         [
             list(
                 map(
                     lambda u: list(filter(lambda v: v not in sword, u.split(" "))),
-                    ops.textFile(f),
+                    ops.text_file(f),
                 )
             )
             for f in files
         ],
     )
-    data = list(filter(lambda u: len(u) > 0, data))
+    documents = list(filter(lambda u: len(u) > 0, documents))
 
-    words = sorted(set([u for v in data for u in v]))
+    vocabulary = sorted({word for doc in documents for word in doc})
 
-    return data, words
+    return documents, vocabulary
 
 
 if __name__ == "__main__":
@@ -49,9 +66,8 @@ if __name__ == "__main__":
     conf = SparkConf().setAppName("wikipedia_example")
     sc = SparkContext(conf=conf)
 
-    # Disable INFO/WARN printing
-    log4j = sc._jvm.org.apache.log4j
-    log4j.LogManager.getRootLogger().setLevel(log4j.Level.ERROR)
+    # Disable INFO/WARN printing.
+    sc.setLogLevel("ERROR")
 
     num_topics = 10
     print_cnt = 10
@@ -64,17 +80,16 @@ if __name__ == "__main__":
     avg_size = np.mean([len(u) for u in data])
 
     out.write(
-        "#words = %d / #docs = %d / avg w/doc = %f\n"
-        % (len(words), len(data), avg_size)
+        f"#words = {len(words)} / #docs = {len(data)} / avg w/doc = {avg_size:f}\n"
     )
 
-    word_map = dict()
+    word_map = {}
     data = [ops.map_to_integers(u, word_map) for u in data]
-    data_cnt = [list(ops.countByValue(u).items()) for u in data]
+    data_cnt = [list(ops.count_by_value(u).items()) for u in data]
     word_map_inv = ops.get_inv_map(word_map)
 
     estimator0 = IntegerCategoricalEstimator(
-        minVal=0, maxVal=(len(word_map) - 1), pseudo_count=0.001
+        min_val=0, max_val=(len(word_map) - 1), pseudo_count=0.001
     )
     estimator1 = LDAEstimator(
         [estimator0] * num_topics, keys=(None, "topics"), gamma_threshold=1.0e-8
@@ -82,12 +97,12 @@ if __name__ == "__main__":
 
     estimator = estimator1
 
-    # The only difference between the local and spark versions is that we parallelize the data
-    data_cnt = sc.parallelize([list(ops.countByValue(u).items()) for u in data], 4)
+    # The local and Spark versions differ mainly in the parallelized data.
+    data_cnt = sc.parallelize(data_cnt, 4)
 
     imm = initialize(data_cnt, estimator, rng, 0.1)
 
-    enc_data = seq_encode(data_cnt, imm)
+    enc_data = seq_encode(data_cnt, model=imm)
     prev_model = imm
 
     dcnt, lob_sum = seq_log_density_sum(enc_data, imm)
@@ -103,8 +118,8 @@ if __name__ == "__main__":
 
         prev_model = mm
         out.write(
-            "Iteration %d\tE[LoB]=%e\tdelta E[LoB]=%e\tdelta time=%f\n"
-            % (kk + 1, elob, elob - old_elob, t1 - t0)
+            f"Iteration {kk + 1}\tE[LoB]={elob:e}\tdelta E[LoB]={elob - old_elob:e}"
+            f"\tdelta time={t1 - t0:f}\n"
         )
 
         old_elob = elob
@@ -114,13 +129,13 @@ if __name__ == "__main__":
             topics = mm.topics
 
             for i in np.argsort(-mm.alpha):
-                sidx = np.argsort(-topics[i].logPVec)
+                sidx = np.argsort(-topics[i].log_p_vec)
                 top_words = ", ".join(
                     [
-                        "%s (%f)" % (word_map_inv[j], np.exp(topics[i].logPVec[j]))
+                        f"{word_map_inv[j]} ({np.exp(topics[i].log_p_vec[j]):f})"
                         for j in sidx[:10]
                     ]
                 )
-                out.write("Topic %d [%f]: %s\n" % (i, mm.alpha[i], top_words))
+                out.write(f"Topic {i} [{mm.alpha[i]:f}]: {top_words}\n")
 
         out.flush()
