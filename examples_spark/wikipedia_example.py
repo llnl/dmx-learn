@@ -61,13 +61,16 @@ def load_wiki_data():
     return documents, vocabulary
 
 
+def create_spark_context():
+    """Create a Spark context with reduced log verbosity."""
+    wiki_context = SparkContext(conf=SparkConf().setAppName("wikipedia_example"))
+    wiki_context.setLogLevel("ERROR")
+    return wiki_context
+
+
 if __name__ == "__main__":
 
-    conf = SparkConf().setAppName("wikipedia_example")
-    sc = SparkContext(conf=conf)
-
-    # Disable INFO/WARN printing.
-    sc.setLogLevel("ERROR")
+    sc = create_spark_context()
 
     num_topics = 10
     print_cnt = 10

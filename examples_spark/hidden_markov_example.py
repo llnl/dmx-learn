@@ -28,13 +28,18 @@ from dmx.stats import (
 from dmx.stats.rdd_sampler import sample_rdd
 from dmx.utils.estimation import best_of
 
+
+def create_spark_context():
+    """Create a Spark context with reduced log verbosity."""
+    spark_conf = SparkConf().setAppName("hidden_markov_example")
+    spark_context = SparkContext(conf=spark_conf)
+    spark_context.setLogLevel("ERROR")
+    return spark_context
+
+
 if __name__ == "__main__":
 
-    conf = SparkConf().setAppName("mixture_example")
-    sc = SparkContext(conf=conf)
-
-    # Disable INFO/WARN printing.
-    sc.setLogLevel("ERROR")
+    sc = create_spark_context()
 
     rng = np.random.RandomState(2)
 
