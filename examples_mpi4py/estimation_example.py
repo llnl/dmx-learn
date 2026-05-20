@@ -1,22 +1,25 @@
 """Example on how to fit dmx/stats models with mpi4py.
 
-In general models are launched with calls like mpiexec -n 4 python3 estimation_example.py
+In general models are launched with calls like mpiexec -n 4 python3
+estimation_example.py
 
 """
 
-import os
-
-os.environ["NUMBA_DISABLE_JIT"] = "1"
-
-import pickle
-
-from mpi4py import MPI
+from mpi4py import MPI  # pylint: disable=no-name-in-module
 from numpy.random import RandomState
 
-from dmx.mpi4py.stats import *
 from dmx.mpi4py.utils.estimation import optimize_mpi
 from dmx.mpi4py.utils.optsutil import pickle_on_master
-from dmx.stats import *
+from dmx.stats import (
+    CategoricalDistribution,
+    CategoricalEstimator,
+    CompositeDistribution,
+    CompositeEstimator,
+    GaussianDistribution,
+    GaussianEstimator,
+    MixtureDistribution,
+    MixtureEstimator,
+)
 
 comm = MPI.COMM_WORLD
 world_rank = comm.Get_rank()
@@ -58,4 +61,4 @@ if __name__ == "__main__":
     pickle_on_master(fit, "mpi4py_model_fit.pkl")
 
     if world_rank == 0:
-        print(f"Wrote file ./mpi4py_model_fit.pkl")
+        print("Wrote file ./mpi4py_model_fit.pkl")
