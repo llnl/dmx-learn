@@ -1,8 +1,8 @@
-"""Any example of how to use automatic to select an estimator from data."""
+"""Show how to choose and fit an estimator automatically from example data."""
 
 import numpy as np
 
-from dmx.stats import *
+from dmx.stats import estimate, initialize
 from dmx.utils.automatic import get_estimator
 
 if __name__ == "__main__":
