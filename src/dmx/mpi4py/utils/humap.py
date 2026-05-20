@@ -34,13 +34,15 @@ def humap_mpi(
     """Performs UMAP fit on posteriors of DPM mixture model.
 
     Args:
-        data (Optional[Sequence[T]]): Input data sequence. Must be defined on master node.
+        data (Optional[Sequence[T]]): Input data sequence. Must be defined
+            on master node.
         max_components (int): Maximum number of components for the mixture model.
         mix_threshold_count (float): Threshold for mixture component selection.
         max_its (int): Maximum number of DPM fitting iterations.
         print_iter (int): Number of iteration to print fitting of DPM.
         seed (Optional[int]): Random seed for reproducibility.
-        comp_estimator (Optional[ParameterEstimator]): Component estimator for mixture model.
+        comp_estimator (Optional[ParameterEstimator]): Component estimator
+            for mixture model.
         mix_model (Optional[MIX_TYPE]): Precomputed mixture model.
         umap_kwargs (Optional[Dict[str, Any]]): Kwargs for UMAP fit.
 
