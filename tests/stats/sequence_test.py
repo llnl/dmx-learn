@@ -1,5 +1,9 @@
 """Test cases for Sequence Distribution and related classes."""
 
+# pylint: disable=duplicate-code,wildcard-import,unused-wildcard-import,line-too-long
+# pylint: disable=too-many-instance-attributes,unnecessary-comprehension
+# pylint: disable=redefined-builtin
+
 import numpy as np
 import pytest
 
@@ -203,7 +207,7 @@ class SequenceDistributionTestCase(StatsTestClass):
         ]
         rv = []
         for d in dists:
-            rv.append(d == eval(str(d)))
+            rv.append(str_eval_test(d))
 
         assert all(rv), rv
 

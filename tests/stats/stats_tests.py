@@ -11,13 +11,15 @@ It includes tests for:
 - Initialization and update methods for accumulators
 - Type checking for keys and data"""
 
+# pylint: disable=duplicate-code,eval-used,wildcard-import
+# pylint: disable=unused-wildcard-import,line-too-long,broad-exception-caught
+
 import abc
 import unittest
 
 import numpy as np
 import pytest
 
-import dmx.utils.vector as vec
 from dmx.stats import *
 from dmx.stats import DataSequenceEncoder, SequenceEncodableProbabilityDistribution
 from dmx.utils.estimation import empirical_kl_divergence
@@ -92,7 +94,7 @@ def log_density_test(
         data = s.sample(size=sz)
         try:
             enc_data = encoder.seq_encode(data)
-        except:
+        except Exception:
             return False, "encoder.seq_encode(data)"
         seq_ll = dist.seq_log_density(enc_data)
         for i in range(sz):
@@ -262,10 +264,10 @@ def seq_update_test(dist, encoder):
         est = dist.estimator()
         rng = np.random.RandomState(seed)
         prev_estimate = seq_initialize(enc_data, est, rng)
-        estimate = seq_estimate(enc_data, est, prev_estimate)
+        updated_estimate = seq_estimate(enc_data, est, prev_estimate)
 
         ll_prev = np.sum(prev_estimate.seq_log_density(enc_data[0][1]))
-        ll = np.sum(estimate.seq_log_density(enc_data[0][1]))
+        ll = np.sum(updated_estimate.seq_log_density(enc_data[0][1]))
         log_diff = ll - ll_prev
         rv.append(log_diff >= 0)
 
@@ -294,7 +296,7 @@ class StatsTestClass(unittest.TestCase, metaclass=abc.ABCMeta):
         # self.factory_acc
         # self.acc_encoder
 
-        pass
+        raise NotImplementedError
 
     def test_01_str_eval(self):
         for dist in self.eval_dists:

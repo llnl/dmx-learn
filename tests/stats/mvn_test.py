@@ -1,5 +1,9 @@
 """Test cases for Multivariate Gaussian Distribution and related classes."""
 
+# pylint: disable=duplicate-code,wildcard-import,unused-wildcard-import,line-too-long
+# pylint: disable=too-many-instance-attributes,unnecessary-comprehension
+# pylint: disable=redefined-builtin
+
 import numpy as np
 import pytest
 
@@ -76,9 +80,9 @@ class MultivariateGaussianDistributionTestCase(StatsTestClass):
         for x in self.type_check_data:
             with pytest.raises(Exception) as e:
                 self.eval_dists[0].seq_log_density(x)
-            assert (
-                str(e.value)
-                == "MultivariateGaussianEncodedDataSequence required for seq_log_density()."
+            assert str(e.value) == (
+                "MultivariateGaussianEncodedDataSequence required for "
+                "seq_log_density()."
             )
 
     def test_key_exceptions(self):

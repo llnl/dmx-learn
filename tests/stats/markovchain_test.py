@@ -1,5 +1,9 @@
 """Test cases for Markov Chain Distribution and related classes."""
 
+# pylint: disable=duplicate-code,wildcard-import,unused-wildcard-import,line-too-long
+# pylint: disable=too-many-instance-attributes,unnecessary-comprehension
+# pylint: disable=redefined-builtin
+
 import numpy as np
 import pytest
 
@@ -15,8 +19,8 @@ class MarkovChainDistributionTestCase(StatsTestClass):
     def setUp(self) -> None:
         rng = np.random.RandomState(1)
         vals = ["a", "b", "c", "d", "e"]
-        pi = rng.dirichlet(alpha=[1.0] * len(vals)).tolist()
-        init_prob_map = {k: v for k, v in zip(vals, pi)}
+        init_probs = rng.dirichlet(alpha=[1.0] * len(vals)).tolist()
+        init_prob_map = {k: v for k, v in zip(vals, init_probs)}
         trans_map = {v: {} for v in vals}
         for x in vals:
             w = rng.dirichlet(alpha=[1.0] * len(vals)).tolist()

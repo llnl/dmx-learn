@@ -1,5 +1,9 @@
 """Test cases for Spike and Slab Distribution and related classes."""
 
+# pylint: disable=duplicate-code,wildcard-import,unused-wildcard-import,line-too-long
+# pylint: disable=too-many-instance-attributes,unnecessary-comprehension
+# pylint: disable=redefined-builtin
+
 import numpy as np
 import pytest
 
@@ -8,7 +12,7 @@ from dmx.stats.int_spike import *
 from tests.stats.stats_tests import *
 
 
-def seq_update_test(dist, encoder, est):
+def spike_seq_update_test(dist, encoder, est):
     seeds = [1, 2, 3]
     sz = 1000
     rv = []
@@ -17,10 +21,10 @@ def seq_update_test(dist, encoder, est):
         enc_data = [(sz, encoder.seq_encode(data))]
         rng = np.random.RandomState(seed)
         prev_estimate = seq_initialize(enc_data, est, rng)
-        estimate = seq_estimate(enc_data, est, prev_estimate)
+        updated_estimate = seq_estimate(enc_data, est, prev_estimate)
 
         ll_prev = np.sum(prev_estimate.seq_log_density(enc_data[0][1]))
-        ll = np.sum(estimate.seq_log_density(enc_data[0][1]))
+        ll = np.sum(updated_estimate.seq_log_density(enc_data[0][1]))
         log_diff = ll - ll_prev
         rv.append(log_diff > 0)
 
@@ -84,7 +88,7 @@ class SpikeAndSlabDistributionTestCase(StatsTestClass):
     )
     def test_09_seq_update(self):
         for x in zip(self.eval_dists, self._encoders, self._init_ests):
-            res = seq_update_test(*x)
+            res = spike_seq_update_test(*x)
             self.assertTrue(res[0], str(res[1]))
 
     def test_seq_log_density_type(self):

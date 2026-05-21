@@ -1,5 +1,9 @@
 """Test cases for Weighted Distribution and related classes."""
 
+# pylint: disable=duplicate-code,wildcard-import,unused-wildcard-import,line-too-long
+# pylint: disable=too-many-instance-attributes,unnecessary-comprehension
+# pylint: disable=redefined-builtin,broad-exception-caught
+
 import numpy as np
 import pytest
 
@@ -19,27 +23,27 @@ def weighted_log_density_test(dist, encoder):
         count_data = {}
         for x in data:
             count_data[x] = count_data.get(x, 0) + 1
-        count_data = [(k, v) for k, v in count_data.items()]
+        count_data = list(count_data.items())
 
         try:
             enc_data = encoder.seq_encode(count_data)
-        except:
+        except Exception:
             return False, "encoder.seq_encode(data)"
 
         seq_ll = dist.seq_log_density(enc_data)
-        for i in range(len(count_data)):
+        for i, item in enumerate(count_data):
             if seq_ll[i] == 0:
-                seq_ll[i] = np.abs(dist.log_density(count_data[i]))
+                seq_ll[i] = np.abs(dist.log_density(item))
             else:
-                seq_ll[i] = np.abs(
-                    seq_ll[i] - dist.log_density(count_data[i])
-                ) / np.abs(seq_ll[i])
+                seq_ll[i] = np.abs(seq_ll[i] - dist.log_density(item)) / np.abs(
+                    seq_ll[i]
+                )
 
         rv.append(max(seq_ll))
     return max(rv) < 1.0e-14, "max(rv) test"
 
 
-def weighted_seq_update_test(dist, est, encoder):
+def weighted_seq_update_test(dist, estimator, encoder):
     seeds = [1, 2, 3]
     sz = 1000
     rv = []
@@ -48,17 +52,16 @@ def weighted_seq_update_test(dist, est, encoder):
         count_data = {}
         for x in data:
             count_data[x] = count_data.get(x, 0) + 1
-        count_data = [(k, v) for k, v in count_data.items()]
+        count_data = list(count_data.items())
 
         enc_data = [(len(count_data), encoder.seq_encode(count_data))]
 
-        est = dist.estimator()
         rng = np.random.RandomState(seed)
-        prev_estimate = seq_initialize(enc_data, est, rng)
-        estimate = seq_estimate(enc_data, est, prev_estimate)
+        prev_estimate = seq_initialize(enc_data, estimator, rng)
+        updated_estimate = seq_estimate(enc_data, estimator, prev_estimate)
 
         ll_prev = np.sum(prev_estimate.seq_log_density(enc_data[0][1]))
-        ll = np.sum(estimate.seq_log_density(enc_data[0][1]))
+        ll = np.sum(updated_estimate.seq_log_density(enc_data[0][1]))
         log_diff = ll - ll_prev
         rv.append(log_diff >= 0)
 
