@@ -1,3 +1,4 @@
+# pylint: disable=line-too-long
 """Create, estimate, and sample from a diagonal Gaussian distribution (independent-multivariate Gaussian).
 
 Defines the DiagonalGaussianDistribution, DiagonalGaussianSampler, DiagonalGaussianAccumulatorFactory,
@@ -12,6 +13,13 @@ and diagonal covariance matrix given by covar = diag(s2_1, s2_2,...,s2_n).
 Data type: x (List[float], np.ndarray).
 
 """
+
+# pylint: disable=line-too-long,too-many-positional-arguments,duplicate-code
+# pylint: disable=wildcard-import,unused-wildcard-import,redefined-builtin
+# pylint: disable=broad-exception-raised,consider-using-f-string,no-else-return
+# pylint: disable=no-else-raise,consider-using-enumerate,consider-using-generator
+# pylint: disable=use-dict-literal,super-with-arguments,unnecessary-comprehension
+# pylint: disable=simplifiable-if-statement,nested-min-max
 
 from typing import Any, Dict, List, Optional, Sequence, Tuple, Union
 

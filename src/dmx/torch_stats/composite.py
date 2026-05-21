@@ -1,3 +1,4 @@
+# pylint: disable=line-too-long
 """Create, estimate, and sample from a Composite distribution.
 
 Defines the CompositeDistribution, CompositeSampler, CompositeAccumulatorFactory, CompositeAccumulator,
@@ -9,9 +10,17 @@ must be compatible with data type T_k.
 
 """
 
+# pylint: disable=line-too-long,too-many-positional-arguments,duplicate-code
+# pylint: disable=wildcard-import,unused-wildcard-import,redefined-builtin
+# pylint: disable=broad-exception-raised,consider-using-f-string,no-else-return
+# pylint: disable=no-else-raise,consider-using-enumerate,consider-using-generator
+# pylint: disable=use-dict-literal,super-with-arguments,unnecessary-comprehension
+# pylint: disable=simplifiable-if-statement,nested-min-max
+
 from typing import Any, Dict, List, Optional, Sequence, Tuple, TypeVar, Union
 
 import torch as tn
+from numpy.random import RandomState
 from torch import Generator
 
 from dmx.arithmetic import maxrandint

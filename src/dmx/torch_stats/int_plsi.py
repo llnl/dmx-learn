@@ -1,3 +1,4 @@
+# pylint: disable=line-too-long
 """Create, estimate, and sample from an integer PLSI model.
 
 Defines the IntegerPLSIDistribution, IntegerPLSISampler, IntegerPLSIAccumulatorFactory, IntegerPLSIAccumulator,
@@ -23,6 +24,13 @@ author 'd'.
 Note: To use this distribution, convert your words and authors of the corpus to unique integer keys.
 
 """
+
+# pylint: disable=line-too-long,too-many-positional-arguments,duplicate-code
+# pylint: disable=wildcard-import,unused-wildcard-import,redefined-builtin
+# pylint: disable=broad-exception-raised,consider-using-f-string,no-else-return
+# pylint: disable=no-else-raise,consider-using-enumerate,consider-using-generator
+# pylint: disable=use-dict-literal,super-with-arguments,unnecessary-comprehension
+# pylint: disable=simplifiable-if-statement,nested-min-max
 
 from typing import Any, Dict, List, Optional, Sequence, Tuple, TypeVar, Union
 
@@ -395,7 +403,7 @@ class IntegerPLSIAccumulator(TorchStatisticAccumulator):
     def seq_initialize(
         self, x: "IntegerPLSITorchSequence", weights: tn.Tensor, tng: Generator
     ) -> None:
-        nn, (xv, xc, xd, xi, xn, xm) = x.data
+        nn, (xv, xc, xd, xi, _, xm) = x.data
 
         # update = vec.mixture_weights(k=self.num_states, alpha=1.0/self.num_states, size=len(xv), tng=tng).T
         update = vec.sample_dirichlet(
@@ -430,7 +438,7 @@ class IntegerPLSIAccumulator(TorchStatisticAccumulator):
         estimate: IntegerPLSIDistribution,
     ) -> None:
 
-        nn, (xv, xc, xd, xi, xn, xm) = x.data
+        nn, (xv, xc, xd, xi, _, xm) = x.data
 
         temp = xc * weights[xi]
         update = estimate.prob_mat[xv, :] * estimate.state_mat[xd, :]
@@ -582,7 +590,7 @@ class IntegerPLSIAccumulatorFactory(TorchStatisticAccumulatorFactory):
             None,
             None,
         ),
-        device: Optional[tn.device] = None,
+        _device: Optional[tn.device] = None,
     ) -> None:
         """IntegerPLSIAccumulatorFactory object for creating IntegerPLSIAccumulator objects.
 
@@ -773,7 +781,7 @@ class IntegerPLSIDataEncoder(TorchSequenceEncoder):
     def __init__(
         self,
         len_encoder: Optional[TorchSequenceEncoder] = NullDataEncoder(),
-        device: Optional[str] = None,
+        _device: Optional[str] = None,
     ):
         """IntegerPLSIDataEncoder object for encoding sequences of iid observations from a PLSI model.
 

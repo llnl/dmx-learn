@@ -1,3 +1,4 @@
+# pylint: disable=line-too-long
 """"Create, estimate, and sample from a multivariate normal distribution with mean vector 'mu' (length n), and
 covariance matrix 'covar' (n by n).
 
@@ -14,6 +15,13 @@ The log-density is given by
     log(p(x)) = -0.5*k*log(2*pi) - 0.5*det(covar) - 0.5*(x-mu)' covar^{-1} (x-mu).
 
 """
+
+# pylint: disable=line-too-long,too-many-positional-arguments,duplicate-code
+# pylint: disable=wildcard-import,unused-wildcard-import,redefined-builtin
+# pylint: disable=broad-exception-raised,consider-using-f-string,no-else-return
+# pylint: disable=no-else-raise,consider-using-enumerate,consider-using-generator
+# pylint: disable=use-dict-literal,super-with-arguments,unnecessary-comprehension
+# pylint: disable=simplifiable-if-statement,nested-min-max,not-callable
 
 from typing import Any, Dict, List, Optional, Sequence, Tuple, Union
 

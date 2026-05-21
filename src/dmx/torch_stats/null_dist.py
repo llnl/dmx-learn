@@ -1,3 +1,4 @@
+# pylint: disable=line-too-long
 """Create, estimate, and sample from a null distribution.
 
 Defines the NullDistribution, NullSampler, NullAccumulatorFactory, NullAccumulator,
@@ -12,20 +13,22 @@ Notes:
 
 """
 
+# pylint: disable=line-too-long,too-many-positional-arguments,duplicate-code
+# pylint: disable=wildcard-import,unused-wildcard-import,redefined-builtin
+# pylint: disable=broad-exception-raised,consider-using-f-string,no-else-return
+# pylint: disable=no-else-raise,consider-using-enumerate,consider-using-generator
+# pylint: disable=use-dict-literal,super-with-arguments,unnecessary-comprehension
+# pylint: disable=simplifiable-if-statement,nested-min-max
+
 from typing import Any, Dict, Optional
 
-import numpy as np
 import torch as tn
-from numpy.random import RandomState
 
 import dmx.torch_utils.vector as vec
 from dmx.torch_stats.pdist import *
 
 
 class NullDistribution(TorchProbabilityDistribution):
-
-    def __init__(self, device: Optional[tn.device] = None) -> None:
-        super(NullDistribution, self).__init__(device)
 
     def to(self, device: tn.device) -> None:
         self._device = device
@@ -46,7 +49,7 @@ class NullDistribution(TorchProbabilityDistribution):
         return NullSampler(dist=self, seed=seed)
 
     def estimator(
-        self, pseudo_count: Optional[float] = None, device: Optional[str] = None
+        self, pseudo_count: Optional[float] = None, _device: Optional[str] = None
     ) -> "NullEstimator":
         if pseudo_count is None:
             return NullEstimator()

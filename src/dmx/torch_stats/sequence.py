@@ -1,3 +1,4 @@
+# pylint: disable=line-too-long
 """Create, estimate, and sample from a sequence of iid sequence of base distribution 'dist' with data type T. A
 length distribution for the lengths of the iid sequences can be specified as a discrete distribution compatible with
 non-negative integer values.
@@ -15,9 +16,18 @@ for an observation x of data type Sequence[T] having length n.
 
 """
 
-from typing import Any, Dict, List, Optional, Sequence, Tuple, TypeVar, Union
+# pylint: disable=line-too-long,too-many-positional-arguments,duplicate-code
+# pylint: disable=wildcard-import,unused-wildcard-import,redefined-builtin
+# pylint: disable=broad-exception-raised,consider-using-f-string,no-else-return
+# pylint: disable=no-else-raise,consider-using-enumerate,consider-using-generator
+# pylint: disable=use-dict-literal,super-with-arguments,unnecessary-comprehension
+# pylint: disable=simplifiable-if-statement,nested-min-max
 
+from typing import Any, Dict, List, Optional, Sequence, Tuple, TypeVar
+
+import numpy as np
 import torch as tn
+from numpy.random import RandomState
 
 import dmx.torch_utils.vector as vec
 from dmx.arithmetic import maxrandint
@@ -161,7 +171,7 @@ class SequenceDistribution(TorchProbabilityDistribution):
                 "SequenceTorchEncodedSequence required for `seq_` function calls."
             )
 
-        idx, icnt, inz, enc_seq, enc_nseq = x.data
+        idx, icnt, _, enc_seq, enc_nseq = x.data
 
         if tn.all(icnt == 0):
             ll_sum = vec.zeros(len(icnt))
@@ -306,7 +316,7 @@ class SequenceAccumulator(TorchStatisticAccumulator):
     def seq_initialize(
         self, x: "SequenceTorchEncodedSequence", weights: tn.Tensor, tng: tn.Generator
     ) -> None:
-        idx, icnt, inz, enc_seq, enc_nseq = x.data
+        idx, icnt, _, enc_seq, enc_nseq = x.data
 
         w = weights[idx] * icnt[idx] if self.len_normalized else weights[idx]
 
@@ -322,7 +332,7 @@ class SequenceAccumulator(TorchStatisticAccumulator):
         estimate: Optional["SequenceDistribution"],
     ) -> None:
 
-        idx, icnt, inz, enc_seq, enc_nseq = x.data
+        idx, icnt, _, enc_seq, enc_nseq = x.data
 
         w = weights[idx] * icnt[idx] if self.len_normalized else weights[idx]
 

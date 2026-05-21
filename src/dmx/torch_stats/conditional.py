@@ -1,3 +1,4 @@
+# pylint: disable=line-too-long
 """Create, estimate, and sample from a Conditional distribution.
 
 Defines the ConditionalDistribution, ConditionalDistributionSampler, ConditionalDistributionAccumulatorFactory,
@@ -12,8 +13,16 @@ P_given(X0).
 
 """
 
+# pylint: disable=line-too-long,too-many-positional-arguments,duplicate-code
+# pylint: disable=wildcard-import,unused-wildcard-import,redefined-builtin
+# pylint: disable=broad-exception-raised,consider-using-f-string,no-else-return
+# pylint: disable=no-else-raise,consider-using-enumerate,consider-using-generator
+# pylint: disable=use-dict-literal,super-with-arguments,unnecessary-comprehension
+# pylint: disable=simplifiable-if-statement,nested-min-max
+
 from typing import Any, Dict, List, Optional, Tuple, TypeVar, Union
 
+import numpy as np
 import torch as tn
 from torch import Generator
 
@@ -118,7 +127,7 @@ class ConditionalDistribution(TorchProbabilityDistribution):
 
     def to(self, device: tn.device) -> None:
         self._device = device
-        for k, v in self.dmap.items():
+        for v in self.dmap.values():
             v.to(device)
         self.default_dist.to(device)
         self.given_dist.to(device)
@@ -410,7 +419,7 @@ class ConditionalDistributionAccumulator(TorchStatisticAccumulator):
         self, x: "ConditionalTorchEncodedSequence", weights: tn.Tensor, tng: Generator
     ) -> None:
 
-        sz, cond_vals, eobs_vals, idx_vals, given_enc = x.data
+        _, cond_vals, eobs_vals, idx_vals, given_enc = x.data
 
         if not self._init_tng:
             self._tng_initialize(tng)
@@ -436,7 +445,7 @@ class ConditionalDistributionAccumulator(TorchStatisticAccumulator):
         estimate: "ConditionalDistribution",
     ) -> None:
 
-        sz, cond_vals, eobs_vals, idx_vals, given_enc = x.data
+        _, cond_vals, eobs_vals, idx_vals, given_enc = x.data
 
         for i in range(len(cond_vals)):
             if cond_vals[i] in self.accumulator_map:
@@ -504,7 +513,7 @@ class ConditionalDistributionAccumulator(TorchStatisticAccumulator):
 
     def key_merge(self, stats_dict: Dict[str, Any]) -> None:
 
-        for k, v in self.accumulator_map.items():
+        for v in self.accumulator_map.values():
             v.key_merge(stats_dict)
 
         if self.has_default:
@@ -515,7 +524,7 @@ class ConditionalDistributionAccumulator(TorchStatisticAccumulator):
 
     def key_replace(self, stats_dict: Dict[str, Any]) -> None:
 
-        for k, v in self.accumulator_map.items():
+        for v in self.accumulator_map.values():
             v.key_replace(stats_dict)
 
         if self.has_default:

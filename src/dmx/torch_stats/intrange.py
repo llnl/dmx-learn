@@ -1,3 +1,4 @@
+# pylint: disable=line-too-long
 """Create, estimate, and sample from a Categorical distribution defined on a range of integers starting a user
 defined minimum value.
 
@@ -14,6 +15,13 @@ and vector of probabilities p_vec (np.ndarray[float]) that sum to 1.0. The range
 for x in {min_val,min_val+1, ..., min_val + length(p_vec) - 1}, else 0.0.
 
 """
+
+# pylint: disable=line-too-long,too-many-positional-arguments,duplicate-code
+# pylint: disable=wildcard-import,unused-wildcard-import,redefined-builtin
+# pylint: disable=broad-exception-raised,consider-using-f-string,no-else-return
+# pylint: disable=no-else-raise,consider-using-enumerate,consider-using-generator
+# pylint: disable=use-dict-literal,super-with-arguments,unnecessary-comprehension
+# pylint: disable=simplifiable-if-statement,nested-min-max
 
 from typing import Any, Dict, List, Optional, Tuple, Union
 

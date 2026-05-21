@@ -1,3 +1,4 @@
+# pylint: disable=line-too-long
 """Create, estimate, and sample from a geometric distribution with probability of success p.
 
 Defines the GeometricDistribution, GeometricSampler, GeometricAccumulatorFactory, GeometricAccumulator,
@@ -8,6 +9,13 @@ Data type (int): The geometric distribution with probability of success p, has d
     P(x=k) = (k-1)*log(1-p) + log(p), for k = 1,2,...
 
 """
+
+# pylint: disable=line-too-long,too-many-positional-arguments,duplicate-code
+# pylint: disable=wildcard-import,unused-wildcard-import,redefined-builtin
+# pylint: disable=broad-exception-raised,consider-using-f-string,no-else-return
+# pylint: disable=no-else-raise,consider-using-enumerate,consider-using-generator
+# pylint: disable=use-dict-literal,super-with-arguments,unnecessary-comprehension
+# pylint: disable=simplifiable-if-statement,nested-min-max
 
 from typing import Any, Dict, Optional, Sequence, Tuple, Union
 
@@ -191,8 +199,9 @@ class GeometricAccumulator(TorchStatisticAccumulator):
         self,
         x: "GeometricTorchEncodedSequence",
         weights: tn.Tensor,
-        rng: Optional[tn.Generator],
+        tng: Optional[tn.Generator],
     ) -> None:
+        del tng
         self.seq_update(x, weights, None)
 
     def combine(self, suff_stat: Tuple[float, float]) -> "GeometricAccumulator":

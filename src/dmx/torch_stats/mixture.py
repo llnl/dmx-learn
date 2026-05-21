@@ -1,3 +1,4 @@
+# pylint: disable=line-too-long
 """Create, estimate, and sample from a mixture distribution with homogenous components.
 
 Defines the MixtureDistribution, MixtureSampler, MixtureAccumulatorFactory, MixtureAccumulator,
@@ -12,6 +13,13 @@ where P(Z=k) is a mixture weight for component k, and P(Y|Z=k) is defined as a t
 If component distribution P(Y|Z=k) has data type (T), then the Mixture distribution has data type (T) as well.
 
 """
+
+# pylint: disable=line-too-long,too-many-positional-arguments,duplicate-code
+# pylint: disable=wildcard-import,unused-wildcard-import,redefined-builtin
+# pylint: disable=broad-exception-raised,consider-using-f-string,no-else-return
+# pylint: disable=no-else-raise,consider-using-enumerate,consider-using-generator
+# pylint: disable=use-dict-literal,super-with-arguments,unnecessary-comprehension
+# pylint: disable=simplifiable-if-statement,nested-min-max
 
 from typing import Any, Dict, List, Optional, Sequence, Tuple, TypeVar, Union
 

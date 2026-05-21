@@ -1,3 +1,4 @@
+# pylint: disable=line-too-long
 """Create, estimate, and sample from a integer set Bernoulli distribution.
 
 Defines the IntegerBernoulliSetDistribution, IntegerBernoulliSetSampler, IntegerBernoulliSetAccumulatorFactory,
@@ -14,6 +15,13 @@ The density for an observed subset of S, x=(x_1,x_2,..,x_m), for m < N) is given
     p_mat(x) = sum_{k=0}^{K-1}( p_k*(k in x) + (1-p_k)*(k not in x)).
 
 """
+
+# pylint: disable=line-too-long,too-many-positional-arguments,duplicate-code
+# pylint: disable=wildcard-import,unused-wildcard-import,redefined-builtin
+# pylint: disable=broad-exception-raised,consider-using-f-string,no-else-return
+# pylint: disable=no-else-raise,consider-using-enumerate,consider-using-generator
+# pylint: disable=use-dict-literal,super-with-arguments,unnecessary-comprehension
+# pylint: disable=simplifiable-if-statement,nested-min-max
 
 from typing import Any, Dict, List, Optional, Sequence, Tuple, Union
 
@@ -70,21 +78,6 @@ class IntegerBernoulliSetDistribution(TorchProbabilityDistribution):
         self.key = keys
 
         if log_nvec is None:
-            """
-            is_one   = log_pvec == 0
-            is_zero  = log_pvec == -np.inf
-            is_good  = np.bitwise_and(~is_one, ~is_zero)
-
-            log_nvec = np.zeros(len(log_pvec), dtype=np.float64)
-            log_dvec = np.zeros(len(log_pvec), dtype=np.float64)
-            log_nvec[is_good] = np.log1p(-np.exp(self.log_pvec[is_good]))
-            log_dvec[is_good] = self.log_pvec[is_good] - log_nvec[is_good]
-            log_dvec[is_zero] = -np.inf
-
-            self.log_nvec = None
-            self.log_dvec = log_dvec
-            self.log_nsum = np.sum(log_nvec)
-            """
             log_nvec = tn.log1p(-tn.exp(self.log_pvec))
             self.log_nvec = None
             self.log_dvec = self.log_pvec - log_nvec
@@ -181,7 +174,7 @@ class IntegerBernoulliSetSampler(DistributionSampler):
             return list(np.flatnonzero(log_u <= self.log_pvec))
         else:
             rv = []
-            for i in range(size):
+            for _ in range(size):
                 log_u = np.log(self.rng.rand(self.num_vals))
                 rv.append(list(np.flatnonzero(log_u <= self.log_pvec)))
             return rv
@@ -224,7 +217,7 @@ class IntegerBernoulliSetAccumulator(TorchStatisticAccumulator):
         weights: tn.Tensor,
         estimate: Optional[IntegerBernoulliSetDistribution],
     ) -> None:
-        sz, idx, xs = x.data
+        _, idx, xs = x.data
         agg_cnt = tn.bincount(xs, weights=weights[idx]).cpu().detach().numpy()
         n = len(agg_cnt)
         self.pcnt[:n] += agg_cnt

@@ -1,3 +1,4 @@
+# pylint: disable=line-too-long
 """Evaluate, estimate, and sample from a integer multinomial distribution on range [min_val, max_val].
 
 Defines the IntegerMultinomialDistribution, IntegerMultinomialSampler, IntegerMultinomialAccumulatorFactory,
@@ -15,11 +16,17 @@ where P_len(N) is a distribution for the number of trials in the multinomial.
 
 """
 
+# pylint: disable=line-too-long,too-many-positional-arguments,duplicate-code
+# pylint: disable=wildcard-import,unused-wildcard-import,redefined-builtin
+# pylint: disable=broad-exception-raised,consider-using-f-string,no-else-return
+# pylint: disable=no-else-raise,consider-using-enumerate,consider-using-generator
+# pylint: disable=use-dict-literal,super-with-arguments,unnecessary-comprehension
+# pylint: disable=simplifiable-if-statement,nested-min-max
+
 from typing import Any, Dict, List, Optional, Sequence, Tuple, TypeVar, Union
 
 import numpy as np
 import torch as tn
-from numpy.random import RandomState
 
 import dmx.torch_utils.vector as vec
 from dmx.arithmetic import *
@@ -327,7 +334,7 @@ class IntegerMultinomialAccumulator(TorchStatisticAccumulator):
         weights: tn.Tensor,
         estimate: Optional[IntegerMultinomialDistribution],
     ) -> None:
-        sz, idx, cnt, val, tenc = x.data
+        _, idx, cnt, val, tenc = x.data
 
         min_x = int(val.min())
         max_x = int(val.max())
@@ -363,8 +370,9 @@ class IntegerMultinomialAccumulator(TorchStatisticAccumulator):
         self,
         x: "IntegerMultinomialTorchSequence",
         weights: tn.Tensor,
-        rng: Optional[tn.Generator],
+        tng: Optional[tn.Generator],
     ) -> None:
+        del tng
         self.seq_update(x, weights, None)
 
     def combine(

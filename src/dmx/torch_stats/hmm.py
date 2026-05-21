@@ -1,3 +1,4 @@
+# pylint: disable=line-too-long
 """"Create, estimate, and sample from a hidden markov model with K emission distributions (i.e. K states).
 
 Defines the HierarchicalMixtureDistribution, HierarchicalMixtureSampler, HierarchicalMixtureEstimatorAccumulatorFactory,
@@ -26,6 +27,13 @@ Note that P_1() in (1) must be a distribution compatible with type T data. p_mat
 list of floats where the rows sum to 1.0. (3) is represented by a numpy array of list of floats that sum to 1.
 
 """
+
+# pylint: disable=line-too-long,too-many-positional-arguments,duplicate-code
+# pylint: disable=wildcard-import,unused-wildcard-import,redefined-builtin
+# pylint: disable=broad-exception-raised,consider-using-f-string,no-else-return
+# pylint: disable=no-else-raise,consider-using-enumerate,consider-using-generator
+# pylint: disable=use-dict-literal,super-with-arguments,unnecessary-comprehension
+# pylint: disable=simplifiable-if-statement,nested-min-max
 
 from typing import Any, Dict, List, Optional, Sequence, Set, Tuple, TypeVar, Union
 
@@ -242,9 +250,9 @@ class HiddenMarkovModelDistribution(TorchProbabilityDistribution):
             max_len,
             idx_bands,
             has_next,
-            len_vec,
+            _,
             idx_mat,
-            idx_vec,
+            _,
             enc_data,
         ), len_enc = x.data
         w = self.w
@@ -581,8 +589,8 @@ class HiddenMarkovAccumulator(TorchStatisticAccumulator):
             max_len,
             idx_bands,
             has_next,
-            len_vec,
-            idx_mat,
+            _,
+            _,
             idx_vec,
             enc_data,
         ), len_enc = x.data
@@ -651,7 +659,7 @@ class HiddenMarkovAccumulator(TorchStatisticAccumulator):
             max_len,
             idx_bands,
             has_next,
-            len_vec,
+            _,
             idx_mat,
             idx_vec,
             enc_data,
@@ -794,7 +802,7 @@ class HiddenMarkovAccumulator(TorchStatisticAccumulator):
 
         """
         (
-            num_states,
+            _,
             init_counts,
             state_counts,
             trans_counts,
@@ -920,8 +928,6 @@ class HiddenMarkovAccumulator(TorchStatisticAccumulator):
         if self.len_accumulator is not None:
             self.len_accumulator.key_merge(stats_dict)
 
-        return None
-
     def key_replace(self, stats_dict: Dict[str, Any]) -> None:
         """Replace the sufficient statistics of HiddenMarkovAccumulator object with matching sufficient statistics in
             arg suff_stat that have matching keys.
@@ -950,8 +956,6 @@ class HiddenMarkovAccumulator(TorchStatisticAccumulator):
 
         if self.len_accumulator is not None:
             self.len_accumulator.key_replace(stats_dict)
-
-        return None
 
     def acc_to_encoder(self) -> "HiddenMarkovDataEncoder":
         """Returns HiddenMarkovDataEncoder object for encoding sequences of iid HMM observations."""
@@ -1188,6 +1192,8 @@ class HiddenMarkovDataEncoder(TorchSequenceEncoder):
                 return True
         else:
             return False
+
+        return False
 
     def seq_encode(
         self, x: List[List[T]], device: Optional[tn.device] = None

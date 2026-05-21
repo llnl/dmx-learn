@@ -1,3 +1,4 @@
+# pylint: disable=line-too-long
 """Create, estimate, and sample from the binomial distribution.
 
 Defines the BinomialDistribution, BinomialSampler, BinomialAccumulatorFactory, BinomialAccumulator, BinomialEstimator,
@@ -7,7 +8,14 @@ Data type: int.
 
 """
 
-from typing import Any, Callable, Dict, List, Optional, Sequence, Tuple, Union
+# pylint: disable=line-too-long,too-many-positional-arguments,duplicate-code
+# pylint: disable=wildcard-import,unused-wildcard-import,redefined-builtin
+# pylint: disable=broad-exception-raised,consider-using-f-string,no-else-return
+# pylint: disable=no-else-raise,consider-using-enumerate,consider-using-generator
+# pylint: disable=use-dict-literal,super-with-arguments,unnecessary-comprehension
+# pylint: disable=simplifiable-if-statement,nested-min-max
+
+from typing import Any, Dict, List, Optional, Sequence, Tuple, Union
 
 import numpy as np
 import torch as tn
@@ -24,7 +32,6 @@ from dmx.torch_stats.pdist import (
     TorchStatisticAccumulator,
     TorchStatisticAccumulatorFactory,
 )
-from dmx.utils.vector import gammaln
 
 E = Tuple[tn.Tensor, tn.Tensor, tn.Tensor, int, int]
 
@@ -355,7 +362,7 @@ class BinomialAccumulatorFactory(TorchStatisticAccumulatorFactory):
         max_val: Optional[int] = None,
         min_val: Optional[int] = 0,
         keys: Optional[str] = None,
-        device: Optional[tn.device] = None,
+        _device: Optional[tn.device] = None,
     ) -> None:
         """BinomialAccumulatorFactory object.
 
