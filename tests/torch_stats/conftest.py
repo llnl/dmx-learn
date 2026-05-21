@@ -4,7 +4,6 @@ This conftest.py automatically skips all torch_stats tests if PyTorch is not ins
 """
 
 import os
-import sys
 
 import pytest
 
@@ -16,12 +15,15 @@ try:
     import torch
 
     TORCH_AVAILABLE = True
+    TORCH_VERSION = torch.__version__
 except ImportError:
     TORCH_AVAILABLE = False
+    TORCH_VERSION = None
 
 
 def pytest_ignore_collect(collection_path, config):
     """Prevent collection of torch_stats tests if torch is not available."""
+    del config
     if not TORCH_AVAILABLE:
         # Skip collection of all test files in torch_stats if torch is missing
         if "torch_stats" in str(collection_path):
@@ -31,6 +33,7 @@ def pytest_ignore_collect(collection_path, config):
 
 def pytest_collection_modifyitems(config, items):
     """Add markers to torch_stats tests."""
+    del config
     if not TORCH_AVAILABLE:
         # This shouldn't be reached due to pytest_ignore_collect,
         # but adding as a safety net
@@ -52,12 +55,10 @@ def pytest_configure(config):
 
 def pytest_report_header(config):
     """Add torch availability info to pytest header."""
+    del config
     if TORCH_AVAILABLE:
-        import torch
-
-        return [f"PyTorch: {torch.__version__} (available)"]
-    else:
-        return ["PyTorch: not installed (torch_stats tests will be skipped)"]
+        return [f"PyTorch: {TORCH_VERSION} (available)"]
+    return ["PyTorch: not installed (torch_stats tests will be skipped)"]
 
 
 # If torch is not available and we somehow got here during import,

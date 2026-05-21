@@ -6,7 +6,8 @@ mirroring tests/stats/stats_tests.py but adapted for the torch_stats API.
 Key differences from the stats version:
 - TorchProbabilityDistribution has no __eq__, so equality-based tests are
   replaced with isinstance / type-correctness checks.
-- Encoders accept an optional device= argument: encoder.seq_encode(data, device=device).
+- Encoders accept an optional ``device=`` argument:
+  ``encoder.seq_encode(data, device=device)``.
 - seq_initialize uses a seed (int) instead of a numpy RandomState.
 - All log-density comparisons use torch tensors; tolerance is 1e-10 for
   float64 (CPU/CUDA) and 1e-4 for float32 (MPS).
@@ -17,11 +18,14 @@ Tests provided:
 - test_02_log_density        – scalar log_density matches seq_log_density elementwise
 - test_03_dist_to_encoder    – dist.dist_to_encoder() returns TorchSequenceEncoder
 - test_04_estimator          – dist.estimator() returns TorchParameterEstimator
-- test_05_estimator_factory  – est.accumulator_factory() returns TorchStatisticAccumulatorFactory
+- test_05_estimator_factory  - est.accumulator_factory() returns
+  TorchStatisticAccumulatorFactory
 - test_06_factory_make       – factory.make() returns TorchStatisticAccumulator
 - test_07_acc_to_encoder     – acc.acc_to_encoder() returns TorchSequenceEncoder
-- test_08_seq_update         – one EM step from seq_initialize does not decrease log-likelihood
-- test_09_seq_initialize     – seq_initialize produces a model with finite log-likelihood
+- test_08_seq_update         - one EM step from seq_initialize does not
+  decrease log-likelihood
+- test_09_seq_initialize     - seq_initialize produces a model with
+  finite log-likelihood
 - test_10_device             – fitted model can be moved to CPU without error
 
 Required setUp attributes
@@ -29,10 +33,14 @@ Required setUp attributes
 self.sampler_dist         : TorchProbabilityDistribution
     Distribution used for sampler-repeatability test.
 
-self.density_dist_encoder : List[Tuple[TorchProbabilityDistribution, TorchSequenceEncoder]]
+self.density_dist_encoder : List[
+    Tuple[TorchProbabilityDistribution, TorchSequenceEncoder]
+]
     Pairs used for log-density, seq_update, and seq_initialize tests.
 
-self.dist_encoder         : List[Tuple[TorchProbabilityDistribution, TorchSequenceEncoder]]
+self.dist_encoder         : List[
+    Tuple[TorchProbabilityDistribution, TorchSequenceEncoder]
+]
     Pairs used for the dist_to_encoder type-correctness check.
 
 self.estimators           : List[TorchParameterEstimator]
@@ -48,6 +56,8 @@ self.device               : torch.device  (default: get_test_torch_device())
     Device used when encoding data and initialising models in tests.
 """
 
+# pylint: disable=duplicate-code,line-too-long,broad-exception-caught
+
 import abc
 import os
 import unittest
@@ -56,21 +66,14 @@ import numpy as np
 import pytest
 import torch
 
-from dmx.torch_stats import (
-    seq_encode,
-    seq_estimate,
-    seq_initialize,
-    seq_log_density_sum,
-)
+from dmx.torch_stats import seq_estimate, seq_initialize, seq_log_density_sum
 from dmx.torch_stats.pdist import (
-    TorchEncodedSequence,
     TorchParameterEstimator,
     TorchProbabilityDistribution,
     TorchSequenceEncoder,
     TorchStatisticAccumulator,
     TorchStatisticAccumulatorFactory,
 )
-from dmx.torch_utils.estimation import empirical_kl_divergence
 from dmx.torch_utils.vector import float_dtype_for_device, set_default_float_dtype
 
 # ---------------------------------------------------------------------------
