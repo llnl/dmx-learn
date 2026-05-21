@@ -6,16 +6,14 @@ import pickle
 import numpy as np
 import pytest
 
-from dmx.bstats import *
-from dmx.utils.automatic import get_dpm_mixture, get_estimator
+from dmx.utils.automatic import get_dpm_mixture
 
 DATA_DIR = "tests/data"
-ANSWER_DIR = "tests/answerkeys"
 
 
 @pytest.mark.parametrize("case_id", [0, 1])
 def test_get_dpm_mixture(case_id: int) -> None:
-    """Tests if pipeline for creating estimator and estiamting a DPM works."""
+    """Test that the DPM estimation pipeline runs successfully."""
     with open(os.path.join(DATA_DIR, f"testInput_automatic{case_id}.pkl"), "rb") as f:
         data = pickle.load(f)
 
