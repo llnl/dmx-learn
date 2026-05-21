@@ -4,14 +4,16 @@ Tests were run with mpiexec -n 4 pytest test_estimation
 
 """
 
+# pylint: disable=duplicate-code
+
 import os
 import pickle
 
 import numpy as np
-from mpi4py import MPI
+from mpi4py import MPI  # pylint: disable=no-name-in-module
 
 from dmx.mpi4py.utils.estimation import best_of_mpi, optimize_mpi
-from dmx.stats import *
+from dmx.stats import seq_encode
 from dmx.utils.estimation import empirical_kl_divergence
 
 DATA_DIR = "tests/data"
@@ -22,7 +24,6 @@ def test_optimize_mpi() -> None:
     """Test to ensure optimize works with mpi4py call."""
     comm = MPI.COMM_WORLD
     world_rank = comm.Get_rank()
-    world_size = comm.Get_size()
 
     if world_rank == 0:
         with open(os.path.join(DATA_DIR, "testInput_mpi_optimize.pkl"), "rb") as f:
@@ -47,14 +48,13 @@ def test_optimize_mpi() -> None:
             kl <= 1.0e-2
         ), f"Model estimate did not converge under empirical KL: {kl}."
     else:
-        assert model == None, f"Model was broadcast to worker!"
+        assert model is None, "Model was broadcast to worker!"
 
 
 def test_best_of_mpi() -> None:
     """Tests mpi4py on best of model fitting."""
     comm = MPI.COMM_WORLD
     world_rank = comm.Get_rank()
-    world_size = comm.Get_size()
 
     if world_rank == 0:
         with open(os.path.join(DATA_DIR, "testInput_mpi_optimize.pkl"), "rb") as f:
@@ -93,4 +93,4 @@ def test_best_of_mpi() -> None:
             kl <= 1.0e-2
         ), f"Model estimate did not converge under empirical KL: {kl}."
     else:
-        assert model == None, f"Model was broadcast to worker!"
+        assert model is None, "Model was broadcast to worker!"

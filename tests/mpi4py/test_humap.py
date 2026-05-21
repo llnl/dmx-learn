@@ -8,11 +8,10 @@ import os
 import pickle
 
 import numpy as np
-from mpi4py import MPI
+from mpi4py import MPI  # pylint: disable=no-name-in-module
 from umap import UMAP
 
 from dmx.bstats import MixtureDistribution as BMix
-from dmx.mpi4py.bstats import *
 from dmx.mpi4py.utils.humap import humap_mpi
 
 DATA_DIR = "tests/data"
@@ -54,4 +53,4 @@ def test_humap_mpi() -> None:
             isinstance(posteriors, np.ndarray) and posteriors.shape[0] == sz
         ), "Posterior dimension mismatch."
     else:
-        assert results is None, "Did not return None on worker {world_rank}."
+        assert results is None, f"Did not return None on worker {world_rank}."

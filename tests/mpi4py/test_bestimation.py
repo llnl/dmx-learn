@@ -4,15 +4,16 @@ All tests are run with mpiexec -n 4 pytest test_bestimation
 
 """
 
+# pylint: disable=duplicate-code
+
 import os
 import pickle
 
 import numpy as np
-from mpi4py import MPI
+from mpi4py import MPI  # pylint: disable=no-name-in-module
 
-from dmx.bstats import *
+from dmx.bstats import seq_encode
 from dmx.bstats.bestimation import empirical_kl_divergence
-from dmx.mpi4py.bstats import *
 from dmx.mpi4py.utils.bestimation import optimize_mpi
 
 DATA_DIR = "tests/data"
@@ -23,7 +24,6 @@ def test_bestimation_optimize_mpi() -> None:
     """Test bstats optimize mpi call with mpi4py using 4 cores."""
     comm = MPI.COMM_WORLD
     world_rank = comm.Get_rank()
-    world_size = comm.Get_size()
 
     if world_rank == 0:
         with open(os.path.join(DATA_DIR, "testInput_mpi_b_optimize.pkl"), "rb") as f:
@@ -48,4 +48,4 @@ def test_bestimation_optimize_mpi() -> None:
             kl <= 1.0e-2
         ), f"Model estimate did not converge under empirical KL: {kl}."
     else:
-        assert model == None, f"Model was broadcast to worker!"
+        assert model is None, "Model was broadcast to worker!"
