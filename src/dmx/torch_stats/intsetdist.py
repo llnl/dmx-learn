@@ -1,12 +1,13 @@
 """Create, estimate, and sample from a integer set Bernoulli distribution.
 
-Defines the IntegerBernoulliSetDistribution, IntegerBernoulliSetSampler, IntegerBernoulliSetAccumulatorFactory,
-IntegerBernoulliSetAccumulator, IntegerBernoulliSetEstimator, and the IntegerBernoulliSetDataEncoder classes for use
-with pysparkplug.
+Defines the IntegerBernoulliSetDistribution, IntegerBernoulliSetSampler,
+IntegerBernoulliSetAccumulatorFactory, IntegerBernoulliSetAccumulator,
+IntegerBernoulliSetEstimator, and the IntegerBernoulliSetDataEncoder classes
+for use with pysparkplug.
 
 
-Let S = {0,1,2,3...,N-1} be a set if integers. Let x_mat be a random subset of S. The Bernoulli set distribution models
-random subset of S as
+Let S = {0,1,2,3...,N-1} be a set of integers. Let x_mat be a random subset of
+S. The Bernoulli set distribution models a random subset of S as
 
     p_k = p_mat(k is in x_mat) , k = 0,2,...,N-1.
 
@@ -15,13 +16,15 @@ The density for an observed subset of S, x=(x_1,x_2,..,x_m), for m < N) is given
 
 """
 
+# pylint: disable=too-many-positional-arguments,duplicate-code
+
 from typing import Any, Dict, List, Optional, Sequence, Tuple, Union
 
 import numpy as np
 import torch as tn
 
 import dmx.torch_utils.vector as vec
-from dmx.arithmetic import *
+from dmx.arithmetic import exp
 from dmx.torch_stats.pdist import (
     DistributionSampler,
     TorchEncodedSequence,
@@ -34,14 +37,15 @@ from dmx.torch_stats.pdist import (
 
 
 class IntegerBernoulliSetDistribution(TorchProbabilityDistribution):
-    """IntegerBernoulliSetDistribution object defining a Bernoulli set distribution on integers [0,len(pvec)).
+    """Bernoulli set distribution on integers `[0, len(pvec))`.
 
     Attributes:
         log_pvec (Tensor): Probability of integer k being in set.
-        log_nvec (Tensor): Optional normalizing probability for each integer probability.
+        log_nvec (Tensor): Optional normalizing probability for each integer
+            probability.
         log_dvec (Tensor): Normalized probability for each integer value.
-        log_nsum (float): Sum of normalized probabilities used for easily adding unobserved (missing) integer
-            values in an observation.
+        log_nsum (float): Sum of normalized probabilities used to add
+            unobserved integer values in an observation.
         key (Optional[str]): Set keys for object instance.
 
     """
@@ -56,9 +60,10 @@ class IntegerBernoulliSetDistribution(TorchProbabilityDistribution):
         """IntegerBernoulliSetDistribution object.
 
         Args:
-            log_pvec (Union[Sequence[float], np.ndarray]): Log probability of integer k being in set.
-            log_nvec (Optional[Union[Sequence[float], np.ndarray]]): Optional normalizing probability for each
-                integer probability.
+            log_pvec (Union[Sequence[float], np.ndarray]): Log probability of
+                integer k being in the set.
+            log_nvec (Optional[Union[Sequence[float], np.ndarray]]): Optional
+                normalizing probability for each integer probability.
             keys (Optional[str]): Set keys for object instance.
             device (Optional[tn.device]): Set device for tensor calculations.
 
@@ -70,21 +75,6 @@ class IntegerBernoulliSetDistribution(TorchProbabilityDistribution):
         self.key = keys
 
         if log_nvec is None:
-            """
-            is_one   = log_pvec == 0
-            is_zero  = log_pvec == -np.inf
-            is_good  = np.bitwise_and(~is_one, ~is_zero)
-
-            log_nvec = np.zeros(len(log_pvec), dtype=np.float64)
-            log_dvec = np.zeros(len(log_pvec), dtype=np.float64)
-            log_nvec[is_good] = np.log1p(-np.exp(self.log_pvec[is_good]))
-            log_dvec[is_good] = self.log_pvec[is_good] - log_nvec[is_good]
-            log_dvec[is_zero] = -np.inf
-
-            self.log_nvec = None
-            self.log_dvec = log_dvec
-            self.log_nsum = np.sum(log_nvec)
-            """
             log_nvec = tn.log1p(-tn.exp(self.log_pvec))
             self.log_nvec = None
             self.log_dvec = self.log_pvec - log_nvec
@@ -107,7 +97,7 @@ class IntegerBernoulliSetDistribution(TorchProbabilityDistribution):
             None if self.log_nvec is None else self.log_nvec.cpu().detach().tolist()
         )
 
-        return "IntegerBernoulliSetDistribution(%s, log_nvec=%s)" % (s1, s2)
+        return f"IntegerBernoulliSetDistribution({s1}, log_nvec={s2})"
 
     def density(self, x: Union[Sequence[int], np.ndarray]) -> float:
         return exp(self.log_density(x))
@@ -121,7 +111,7 @@ class IntegerBernoulliSetDistribution(TorchProbabilityDistribution):
     def seq_log_density(self, x: "IntegerBernoulliSetTorchSequence") -> tn.Tensor:
 
         if not isinstance(x, IntegerBernoulliSetTorchSequence):
-            raise Exception(
+            raise TypeError(
                 "Requires IntegerBernoulliSetTorchSequence for `seq_` calls."
             )
         sz, idx, xs = x.data
@@ -150,7 +140,7 @@ class IntegerBernoulliSetDistribution(TorchProbabilityDistribution):
 
 
 class IntegerBernoulliSetSampler(DistributionSampler):
-    """IntegerBernoulliSetSampler object for sampling from an IntegerBernoulliSetDistribution instance.
+    """Sample from an IntegerBernoulliSetDistribution instance.
 
     Attributes:
         rng (RandomState): RandomState object with seed set if passed in args.
@@ -179,20 +169,21 @@ class IntegerBernoulliSetSampler(DistributionSampler):
         if size is None:
             log_u = np.log(self.rng.rand(self.num_vals))
             return list(np.flatnonzero(log_u <= self.log_pvec))
-        else:
-            rv = []
-            for i in range(size):
-                log_u = np.log(self.rng.rand(self.num_vals))
-                rv.append(list(np.flatnonzero(log_u <= self.log_pvec)))
-            return rv
+
+        rv = []
+        for _ in range(size):
+            log_u = np.log(self.rng.rand(self.num_vals))
+            rv.append(list(np.flatnonzero(log_u <= self.log_pvec)))
+        return rv
 
 
 class IntegerBernoulliSetAccumulator(TorchStatisticAccumulator):
-    """IntegerBernoulliSetAccumulator object for accumulating sufficient statistics from observed data.
+    """Accumulate sufficient statistics from observed data.
 
     Attributes:
         pcnt (np.ndarray): Used for aggregating weighted counts of integers.
-        key (Optional[str]): Keys for merging sufficient statistics with matching key'd objects.
+        key (Optional[str]): Keys for merging sufficient statistics with
+            matching keyed objects.
         num_vals (int): Number of values in integer range for the set.
         tot_sum (float): Sum of weights for observations.
 
@@ -204,11 +195,12 @@ class IntegerBernoulliSetAccumulator(TorchStatisticAccumulator):
         keys: Optional[str] = None,
         device: Optional[tn.device] = None,
     ) -> None:
-        """IntegerBernoulliSetAccumulator object for accumulating sufficient statistics from observed data.
+        """IntegerBernoulliSetAccumulator object.
 
         Args:
             num_vals (int): Number of values in integer range for the set.
-            keys (Optional[str]): Keys for merging sufficient statistics with matching key'd objects.
+            keys (Optional[str]): Keys for merging sufficient statistics with
+                matching keyed objects.
             device (Optional[tn.device]): Device for Tensor calculations.
 
         """
@@ -224,7 +216,7 @@ class IntegerBernoulliSetAccumulator(TorchStatisticAccumulator):
         weights: tn.Tensor,
         estimate: Optional[IntegerBernoulliSetDistribution],
     ) -> None:
-        sz, idx, xs = x.data
+        _, idx, xs = x.data
         agg_cnt = tn.bincount(xs, weights=weights[idx]).cpu().detach().numpy()
         n = len(agg_cnt)
         self.pcnt[:n] += agg_cnt
@@ -273,10 +265,11 @@ class IntegerBernoulliSetAccumulator(TorchStatisticAccumulator):
 
 
 class IntegerBernoulliSetAccumulatorFactory(TorchStatisticAccumulatorFactory):
-    """IntegerBernoulliSetAccumulatorFactory for creating IntegerBernoulliSetAccumulator objects.
+    """Factory for IntegerBernoulliSetAccumulator objects.
 
     Attributes:
-        keys (Optional[str]): Keys for merging sufficient statistics with matching key'd objects.
+        keys (Optional[str]): Keys for merging sufficient statistics with
+            matching keyed objects.
         num_vals (int): Number of values in integer range for the set.
 
     """
@@ -285,7 +278,8 @@ class IntegerBernoulliSetAccumulatorFactory(TorchStatisticAccumulatorFactory):
         """IntegerBernoulliSetAccumulatorFactory object.
 
         Args:
-            keys (Optional[str]): Keys for merging sufficient statistics with matching key'd objects.
+            keys (Optional[str]): Keys for merging sufficient statistics with
+                matching keyed objects.
             num_vals (int): Number of values in integer range for the set.
 
         """
@@ -301,14 +295,15 @@ class IntegerBernoulliSetAccumulatorFactory(TorchStatisticAccumulatorFactory):
 
 
 class IntegerBernoulliSetEstimator(TorchParameterEstimator):
-    """IntegerBernoulliSetEstimator object for estimating integer Bernoulli set distribution from sufficient statistics.
+    """Estimate integer Bernoulli set distributions from sufficient stats.
 
     Attributes:
         num_vals (int): Number of values in integer range for the set.
-        keys (Optional[str]): Keys for merging sufficient statistics with matching key'd objects.
+        keys (Optional[str]): Keys for merging sufficient statistics with
+            matching keyed objects.
         pseudo_count (Optional[float]): Re-weight suff stats in estimation.
         suff_stat (Optional[np.ndarray]): Probability for integer inclusion.
-        min_prob (float): Minimum probability for an integer in range of set dist.
+        min_prob (float): Minimum probability for an integer in the range.
 
     """
 
@@ -324,10 +319,11 @@ class IntegerBernoulliSetEstimator(TorchParameterEstimator):
 
         Args:
             num_vals (int): Number of values in integer range for the set.
-            min_prob (float): Minimum probability for an integer in range of set dist.
+            min_prob (float): Minimum probability for an integer in the range.
             pseudo_count (Optional[float]): Re-weight suff stats in estimation.
             suff_stat (Optional[np.ndarray]): Probability for integer inclusion.
-            keys (Optional[str]): Keys for merging sufficient statistics with matching key'd objects.
+            keys (Optional[str]): Keys for merging sufficient statistics with
+                matching keyed objects.
 
         """
         self.num_vals = num_vals
@@ -395,13 +391,13 @@ class IntegerBernoulliSetEstimator(TorchParameterEstimator):
 
 
 class IntegerBernoulliSetDataEncoder(TorchSequenceEncoder):
-    """IntegerBernoulliSetDataEncoder object for encoding sequences of iid integer Bernoulli set observations."""
+    """Encode sequences of iid integer Bernoulli set observations."""
 
     def __str__(self) -> str:
         return "IntegerBernoulliSetDataEncoder"
 
     def __eq__(self, other: object) -> bool:
-        return isinstance(object, IntegerBernoulliSetDataEncoder)
+        return isinstance(other, IntegerBernoulliSetDataEncoder)
 
     def seq_encode(
         self, x: Sequence[Sequence[int]], device: Optional[tn.device] = None

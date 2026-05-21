@@ -1,11 +1,12 @@
-from typing import Any, Callable, Dict, List, Optional, Sequence, Tuple, Union
+# pylint: disable=too-many-positional-arguments,duplicate-code
+
+from typing import Any, Dict, List, Optional, Tuple, Union
 
 import numpy as np
 import torch as tn
-from numpy.random import RandomState
 
 import dmx.torch_utils.vector as vec
-from dmx.arithmetic import *
+from dmx.arithmetic import exp, isinf, isnan, log, pi, sqrt
 from dmx.torch_stats.pdist import (
     DistributionSampler,
     TorchEncodedSequence,
@@ -31,7 +32,7 @@ class GaussianDistribution(TorchProbabilityDistribution):
 
     def __repr__(self) -> str:
         s0, s1 = repr(float(self.mu)), repr(float(self.sigma2))
-        return "GaussianDistribution(mu=%s, sigma2=%s)" % (s0, s1)
+        return f"GaussianDistribution(mu={s0}, sigma2={s1})"
 
     def density(self, x: float) -> float:
         """Density of Gaussian distribution at observation x.
@@ -59,7 +60,7 @@ class GaussianDistribution(TorchProbabilityDistribution):
 
     def seq_log_density(self, x: "GaussianTorchEncodedSequence") -> tn.Tensor:
         if not isinstance(x, GaussianTorchEncodedSequence):
-            raise Exception("Requires GaussianTorchEncodedSequence for `seq_` calls.")
+            raise TypeError("Requires GaussianTorchEncodedSequence for `seq_` calls.")
 
         rv = (x.data - self.mu) / np.sqrt(self.sigma2)
         rv *= rv
@@ -79,8 +80,8 @@ class GaussianDistribution(TorchProbabilityDistribution):
             return GaussianEstimator(
                 pseudo_count=(pseudo_count, pseudo_count), suff_stat=suff_stat
             )
-        else:
-            return GaussianEstimator()
+
+        return GaussianEstimator()
 
     def dist_to_encoder(self) -> "GaussianDataEncoder":
         return GaussianDataEncoder()
@@ -113,8 +114,9 @@ class GaussianSampler(DistributionSampler):
     def sample(self, size: Optional[int] = None) -> Union[float, np.ndarray]:
         """Draw 'size' iid samples from GaussianSampler object.
 
-        Numpy array of length 'size' from Gaussian distribution with mean mu and scale sigma2 if size not None.
-        Else a single sample is returned as float.
+        Numpy array of length 'size' from Gaussian distribution with mean mu and
+        scale sigma2 if size not None. Else a single sample is returned as
+        float.
 
         Args:
             size (Optional[int]): Treated as 1 if None is passed.
@@ -127,7 +129,7 @@ class GaussianSampler(DistributionSampler):
 
 
 class GaussianAccumulator(TorchStatisticAccumulator):
-    """GaussianAccumulator object used to accumulate sufficient statistics from observed data.
+    """GaussianAccumulator object used to accumulate sufficient statistics.
 
     Attributes:
         sum (float): Sum of weighted observations (sum_i w_i*X_i).
@@ -135,7 +137,8 @@ class GaussianAccumulator(TorchStatisticAccumulator):
         count (float): Sum of weights for observations (sum_i w_i).
         count2 (float): Sum of weights for squared observations (sum_i w_i).
         count (float): Tracks the sum of weighted observations used to form sum.
-        key (Optional[str]): Key string used to aggregate all sufficient statistics with same keys values.
+        key (Optional[str]): Key string used to aggregate all sufficient
+            statistics with same keys values.
 
     """
 
@@ -186,7 +189,7 @@ class GaussianAccumulator(TorchStatisticAccumulator):
 
         return self
 
-    def value(self, device: Optional[str] = None) -> Tuple[float, float, float, float]:
+    def value(self, _device: Optional[str] = None) -> Tuple[float, float, float, float]:
         return self.sum, self.sum2, self.count, self.count2
 
     def from_value(self, x: Tuple[float, float, float, float]) -> "GaussianAccumulator":
@@ -225,8 +228,10 @@ class GaussianEstimator(TorchParameterEstimator):
     """GaussianEstimator object for estimating GaussianDistribution with torch tensors.
 
     Attributes:
-        pseudo_count (Tuple[Optional[float], Optional[float]]): Pseudo count to regularize suff stats.
-        suff_stat (Tuple[Optional[float], Optional[float]]): Suff stats for Gaussian.
+        pseudo_count (Tuple[Optional[float], Optional[float]]): Pseudo count to
+            regularize suff stats.
+        suff_stat (Tuple[Optional[float], Optional[float]]): Suff stats for
+            Gaussian.
         keys (Optional[str]): Key for distribution.
 
     """
@@ -240,8 +245,10 @@ class GaussianEstimator(TorchParameterEstimator):
         """GaussianEstimator object.
 
         Args:
-            pseudo_count (Tuple[Optional[float], Optional[float]]): Pseudo count to regularize suff stats.
-            suff_stat (Tuple[Optional[float], Optional[float]]): Suff stats for Gaussian.
+            pseudo_count (Tuple[Optional[float], Optional[float]]): Pseudo count
+                to regularize suff stats.
+            suff_stat (Tuple[Optional[float], Optional[float]]): Suff stats for
+                Gaussian.
             keys (Optional[str]): Key for distribution.
 
         """
@@ -286,7 +293,7 @@ class GaussianEstimator(TorchParameterEstimator):
 
 
 class GaussianDataEncoder(TorchSequenceEncoder):
-    """GaussianDataEncoder object for encoding sequences of iid Gaussian observations with data type float."""
+    """Encode sequences of iid Gaussian observations with data type float."""
 
     def __str__(self) -> str:
         return "GaussianDataEncoder"
@@ -302,7 +309,7 @@ class GaussianDataEncoder(TorchSequenceEncoder):
         rv = vec.tensor(x, device=device)
 
         if tn.any(tn.isnan(rv)) or tn.any(tn.isinf(rv)):
-            raise Exception("GaussianDistribution requires support x in (-inf,inf).")
+            raise ValueError("GaussianDistribution requires support x in (-inf,inf).")
 
         return GaussianTorchEncodedSequence(data=rv, device=device)
 

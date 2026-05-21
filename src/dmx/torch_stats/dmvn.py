@@ -1,17 +1,22 @@
-"""Create, estimate, and sample from a diagonal Gaussian distribution (independent-multivariate Gaussian).
+"""Create, estimate, and sample from a diagonal Gaussian distribution.
 
-Defines the DiagonalGaussianDistribution, DiagonalGaussianSampler, DiagonalGaussianAccumulatorFactory,
-DiagonalGaussianAccumulator, DiagonalGaussianEstimator, and the DiagonalGaussianDataEncoder classes for use with
-pysparkplug.
+Defines the DiagonalGaussianDistribution, DiagonalGaussianSampler,
+DiagonalGaussianAccumulatorFactory, DiagonalGaussianAccumulator,
+DiagonalGaussianEstimator, and the DiagonalGaussianDataEncoder classes for use
+with pysparkplug.
 
-The log-density of an 'n' dimensional diagonal-gaussian observation x = (x_1,x_2,...,x_n) with mean mu=(m_1,m_2,..,m_n),
-and diagonal covariance matrix given by covar = diag(s2_1, s2_2,...,s2_n).
+The log-density of an `n`-dimensional diagonal-Gaussian observation
+`x = (x_1,x_2,...,x_n)` with mean `mu=(m_1,m_2,..,m_n)` and diagonal
+covariance matrix `diag(s2_1, s2_2,...,s2_n)` is
 
-    log(p_mat(x)) = -0.5*sum_{i=1}^{n} (x_i-m_i)^2 / s2_i - 0.5*log(s2_i) - (n/2)*log(pi).
+    log(p_mat(x)) = -0.5*sum_{i=1}^{n} (x_i-m_i)^2 / s2_i
+        - 0.5*log(s2_i) - (n/2)*log(pi).
 
 Data type: x (List[float], np.ndarray).
 
 """
+
+# pylint: disable=too-many-positional-arguments,duplicate-code
 
 from typing import Any, Dict, List, Optional, Sequence, Tuple, Union
 
@@ -19,7 +24,7 @@ import numpy as np
 import torch as tn
 
 import dmx.torch_utils.vector as vec
-from dmx.arithmetic import *
+from dmx.arithmetic import exp
 from dmx.torch_stats.pdist import (
     DistributionSampler,
     TorchEncodedSequence,
@@ -32,10 +37,11 @@ from dmx.torch_stats.pdist import (
 
 
 class DiagonalGaussianDistribution(TorchProbabilityDistribution):
-    """Create a DiagonalGaussianDistribution object with mean mu and covariance covar.
+    """Create a DiagonalGaussianDistribution with mean mu and covariance covar.
 
     Attributes:
-         dim (int): Dimension of the multivariate Gaussian. Determined by mean length.
+          dim (int): Dimension of the multivariate Gaussian. Determined by the
+              mean length.
          mu (np.ndarray): Mean of the Gaussian.
          covar (np.ndarray): Variance for each component.
          log_c (float): Normalizing constant for diagonal Gaussian.
@@ -87,7 +93,7 @@ class DiagonalGaussianDistribution(TorchProbabilityDistribution):
         s1 = repr(list(self.mu.data.cpu().numpy().flatten()))
         s2 = repr(list(self.covar.data.cpu().numpy().flatten()))
 
-        return "DiagonalGaussianDistribution(%s, %s)" % (s1, s2)
+        return f"DiagonalGaussianDistribution({s1}, {s2})"
 
     def density(self, x: Union[Sequence[float], np.ndarray]) -> float:
         return exp(self.log_density(x))
@@ -102,8 +108,9 @@ class DiagonalGaussianDistribution(TorchProbabilityDistribution):
 
     def seq_log_density(self, x: "DiagonalGaussianTorchEncodedSequence") -> tn.Tensor:
         if not isinstance(x, DiagonalGaussianTorchEncodedSequence):
-            raise Exception(
-                "Requires DiagonalGaussianTorchEncodedSequence for `seq_` function calls."
+            raise TypeError(
+                "Requires DiagonalGaussianTorchEncodedSequence for `seq_` "
+                "function calls."
             )
 
         ca = self.ca.to(device=x.data.device, dtype=x.data.dtype)
@@ -123,10 +130,10 @@ class DiagonalGaussianDistribution(TorchProbabilityDistribution):
     ) -> "DiagonalGaussianEstimator":
         if pseudo_count is None:
             return DiagonalGaussianEstimator(keys=self.key)
-        else:
-            return DiagonalGaussianEstimator(
-                pseudo_count=(pseudo_count, pseudo_count), keys=self.key
-            )
+
+        return DiagonalGaussianEstimator(
+            pseudo_count=(pseudo_count, pseudo_count), keys=self.key
+        )
 
     def dist_to_encoder(self) -> "DiagonalGaussianDataEncoder":
         return DiagonalGaussianDataEncoder(dim=self.dim)
@@ -164,19 +171,20 @@ class DiagonalGaussianSampler(DistributionSampler):
             rv *= np.sqrt(self.covar)
             rv += self.mu
             return rv
-        else:
-            return [self.sample() for i in range(size)]
+
+        return [self.sample() for _ in range(size)]
 
 
 class DiagonalGaussianAccumulator(TorchStatisticAccumulator):
-    """DiagonalGaussianAccumulator object for aggregating sufficient statistics from iid observations.
+    """Aggregate sufficient statistics from iid observations.
 
     Attributes:
          dim (Optional[int]): Optional dimension of Gaussian.
          count (float): Used for tracking weighted observations counts.
          sum (np.ndarray): Sum of observation vectors.
          sum2 (np.ndarray): Sum of squared observation vectors.
-         key (Optional[str]): If set, merge sufficient statistics with objects containing matching keys.
+          key (Optional[str]): If set, merge sufficient statistics with
+              objects containing matching keys.
 
     """
 
@@ -270,7 +278,7 @@ class DiagonalGaussianAccumulator(TorchStatisticAccumulator):
 class DiagonalGaussianAccumulatorFactory(TorchStatisticAccumulatorFactory):
 
     def __init__(self, dim: Optional[int] = None, keys: Optional[str] = None) -> None:
-        """DiagonalGaussianAccumulatorFactory object for creating DiagonalGaussianAccumulator objects.
+        """Create DiagonalGaussianAccumulator objects.
 
         Args:
             dim (Optional[int]): Optional dimension of Gaussian.
@@ -278,7 +286,8 @@ class DiagonalGaussianAccumulatorFactory(TorchStatisticAccumulatorFactory):
 
         Attributes:
              dim (Optional[int]): Optional dimension of Gaussian.
-             key (Optional[str]): If set, merge sufficient statistics with objects containing matching keys.
+             key (Optional[str]): If set, merge sufficient statistics with
+                 objects containing matching keys.
 
         """
         self.dim = dim
@@ -289,15 +298,14 @@ class DiagonalGaussianAccumulatorFactory(TorchStatisticAccumulatorFactory):
 
 
 class DiagonalGaussianEstimator(TorchParameterEstimator):
-    """DiagonalGaussianEstimator object for estimating diagonal Gaussian distributions from aggregated sufficient
-        statistics.
+    """Estimate diagonal Gaussian distributions from aggregated statistics.
 
     Attributes:
         dim (int): Dimension of Gaussian, either set of determined from suff_stat arg.
         prior_mu (Optional[np.ndarray]): Set from suff_stat[0].
         prior_covar ((Optional[np.ndarray]): Set from suff_stat[1].
-        pseudo_count (Tuple[Optional[float], Optional[float]]): Re-weight the sum of observations and sum of
-            squared observations in estimation.
+        pseudo_count (Tuple[Optional[float], Optional[float]]): Re-weight the
+            sum of observations and sum of squared observations in estimation.
         keys (Optional[str]): Key for merging sufficient statistics.
 
     """
@@ -313,10 +321,12 @@ class DiagonalGaussianEstimator(TorchParameterEstimator):
 
         Args:
             dim (Optional[int]): Optional dimension of Gaussian.
-            pseudo_count (Tuple[Optional[float], Optional[float]]): Re-weight the sum of observations and sum of
-                squared observations in estimation.
-            suff_stat (Tuple[Optional[np.ndarray], Optional[np.ndarray]]): Sum of observations and sum of squared
-                observations both having same dimension.
+            pseudo_count (Tuple[Optional[float], Optional[float]]): Re-weight
+                the sum of observations and sum of squared observations in
+                estimation.
+            suff_stat (Tuple[Optional[np.ndarray], Optional[np.ndarray]]): Sum
+                of observations and sum of squared observations, both having
+                the same dimension.
             keys (Optional[str]): Set keys for merging sufficient statistics.
 
         """
@@ -368,7 +378,7 @@ class DiagonalGaussianEstimator(TorchParameterEstimator):
 
 
 class DiagonalGaussianDataEncoder(TorchSequenceEncoder):
-    """DiagonalGaussianDataEncoder object for encoding sequences of iid diagonal-Gaussian observations.
+    """Encode sequences of iid diagonal-Gaussian observations.
 
     Attributes:
         dim (Optional[int]): Dimension of the Gaussian.
@@ -390,8 +400,8 @@ class DiagonalGaussianDataEncoder(TorchSequenceEncoder):
     def __eq__(self, other: object) -> bool:
         if isinstance(other, DiagonalGaussianDataEncoder):
             return self.dim == other.dim
-        else:
-            return False
+
+        return False
 
     def seq_encode(
         self,

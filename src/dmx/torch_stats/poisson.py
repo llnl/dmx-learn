@@ -1,7 +1,8 @@
 """Create, estimate, and sample from a Poisson distribution with rate lam > 0.0.
 
-Defines the PoissonDistribution, PoissonSampler, PoissonAccumulatorFactory, PoissonAccumulator,
-PoissonEstimator, and the PoissonDataEncoder classes for use with pysparkplug.
+Defines the PoissonDistribution, PoissonSampler,
+PoissonAccumulatorFactory, PoissonAccumulator, PoissonEstimator, and the
+PoissonDataEncoder classes for use with pysparkplug.
 
 Data type (int): The Poisson distribution with rate lam, has log-density
 
@@ -15,8 +16,10 @@ else.
 
 """
 
+# pylint: disable=too-many-positional-arguments,duplicate-code
+
 from math import log
-from typing import Any, Callable, Dict, List, Optional, Sequence, Tuple, Union
+from typing import Any, Dict, Optional, Sequence, Tuple, Union
 
 import numpy as np
 import torch as tn
@@ -86,12 +89,12 @@ class PoissonDistribution(TorchProbabilityDistribution):
         """
         if x < 0:
             return -np.inf
-        else:
-            return x * self.log_lam - gammaln(x + 1.0) - self.lam
+
+        return x * self.log_lam - gammaln(x + 1.0) - self.lam
 
     def seq_log_density(self, x: "PoissonTorchSequence") -> tn.tensor:
         if not isinstance(x, PoissonTorchSequence):
-            raise Exception("Requires PoissonTorchSequence for `seq_` function calls.")
+            raise TypeError("Requires PoissonTorchSequence for `seq_` function calls.")
 
         rv = x.data[0] * self.log_lam
         rv -= x.data[1]
@@ -105,8 +108,8 @@ class PoissonDistribution(TorchProbabilityDistribution):
     def estimator(self, pseudo_count: Optional[float] = None) -> "PoissonEstimator":
         if pseudo_count is None:
             return PoissonEstimator()
-        else:
-            return PoissonEstimator(pseudo_count=pseudo_count, suff_stat=self.lam)
+
+        return PoissonEstimator(pseudo_count=pseudo_count, suff_stat=self.lam)
 
     def dist_to_encoder(self) -> "PoissonDataEncoder":
         return PoissonDataEncoder()
@@ -126,7 +129,8 @@ class PoissonSampler(DistributionSampler):
 
         Args:
             dist (PoissonDistribution): Set PoissonDistribution to sample from.
-            seed (Optional[int]): Used to set seed on random number generator used in sampling.
+            seed (Optional[int]): Used to set seed on random number generator
+                used in sampling.
 
         """
         self.rng = RandomState(seed)
@@ -135,11 +139,13 @@ class PoissonSampler(DistributionSampler):
     def sample(self, size: Optional[int] = None) -> Union[int, np.ndarray]:
         """Generate iid samples from Poisson distribution.
 
-        Generates a single Poisson sample (int) if size is None, else a numpy array of integers of length size
-        containing iid samples, from the Poisson distribution.
+        Generates a single Poisson sample (int) if size is None, else a numpy
+        array of integers of length size containing iid samples from the
+        Poisson distribution.
 
         Args:
-            size (Optional[int]): Number of iid samples to draw. If None, assumed to be 1.
+            size (Optional[int]): Number of iid samples to draw. If None,
+                assumed to be 1.
 
         Returns:
             If size is None, int, else size length numpy array of ints.
@@ -149,12 +155,13 @@ class PoissonSampler(DistributionSampler):
 
 
 class PoissonAccumulator(TorchStatisticAccumulator):
-    """PoissonAccumulator object used to accumulate sufficient statistics from observed data.
+    """PoissonAccumulator object used to accumulate sufficient statistics.
 
     Attributes:
          sum (float): Aggregate sum of weighted observations.
          count (float): Aggregate sum of observation weights.
-         key (Optional[str]): Key for combining sufficient statistics with object instance containing the same key.
+         key (Optional[str]): Key for combining sufficient statistics with an
+             object instance containing the same key.
 
     """
 
@@ -223,11 +230,11 @@ class PoissonAccumulator(TorchStatisticAccumulator):
 
 
 class PoissonAccumulatorFactory(TorchStatisticAccumulatorFactory):
-    """PoissonAccumulatorFactory object used for constructing PoissonAccumulator objects.
+    """Create PoissonAccumulator objects.
 
     Attributes:
-         keys (Optional[str]): Tag for combining sufficient statistics of PoissonAccumulator objects when
-            constructed.
+         keys (Optional[str]): Tag for combining sufficient statistics of
+             PoissonAccumulator objects when constructed.
 
     """
 
@@ -245,12 +252,13 @@ class PoissonAccumulatorFactory(TorchStatisticAccumulatorFactory):
 
 
 class PoissonEstimator(TorchParameterEstimator):
-    """PoissonEstimator object for estimating PoissonDistribution object from aggregated sufficient statistics.
+    """Estimate PoissonDistribution from aggregated sufficient statistics.
 
     Attributes:
         pseudo_count (Optional[float]): Re-weight suff_stat.
         suff_stat (Optional[float]): Mean of Poisson if not None.
-        keys (Optional[str]): String keys of PoissonEstimator instance for combining sufficient statistics.
+        keys (Optional[str]): String keys of PoissonEstimator instance for
+            combining sufficient statistics.
 
     """
 
@@ -265,7 +273,8 @@ class PoissonEstimator(TorchParameterEstimator):
         Attributes:
             pseudo_count (Optional[float]): Re-weight suff_stat.
             suff_stat (Optional[float]): Mean of Poisson if not None.
-            keys (Optional[str]): String keys of PoissonEstimator instance for combining sufficient statistics.
+            keys (Optional[str]): String keys of PoissonEstimator instance for
+                combining sufficient statistics.
 
         """
         self.pseudo_count = pseudo_count
@@ -289,12 +298,12 @@ class PoissonEstimator(TorchParameterEstimator):
                 / (nobs + self.pseudo_count),
                 device=device,
             )
-        else:
-            return PoissonDistribution(psum / nobs, device=device)
+
+        return PoissonDistribution(psum / nobs, device=device)
 
 
 class PoissonDataEncoder(TorchSequenceEncoder):
-    """GeometricDataEncoder object for encoding sequences of iid Poisson observations with data type int."""
+    """Encode sequences of iid Poisson observations with data type int."""
 
     def __str__(self) -> str:
         return "PoissonDataEncoder"
@@ -308,10 +317,10 @@ class PoissonDataEncoder(TorchSequenceEncoder):
         rv1 = vec.tensor(x, device=device)
 
         if tn.any(rv1 < 0) or tn.any(tn.isnan(rv1)):
-            raise Exception("Poisson requires non-negative integer values of x.")
-        else:
-            rv2 = tn.lgamma(rv1 + 1.0)
-            return PoissonTorchSequence(data=(rv1, rv2), device=device)
+            raise ValueError("Poisson requires non-negative integer values of x.")
+
+        rv2 = tn.lgamma(rv1 + 1.0)
+        return PoissonTorchSequence(data=(rv1, rv2), device=device)
 
 
 class PoissonTorchSequence(TorchEncodedSequence):

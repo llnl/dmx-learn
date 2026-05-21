@@ -1,28 +1,6 @@
-"""Create, estimate, and sample from an integer PLSI model.
+"""Create, estimate, and sample from an integer PLSI model."""
 
-Defines the IntegerPLSIDistribution, IntegerPLSISampler, IntegerPLSIAccumulatorFactory, IntegerPLSIAccumulator,
-IntegerPLSIEstimator, and the IntegerPLSIDataEncoder classes for use with pysparkplug.
-
-Consider an Integer PLSI model for a corpus of documents with S states, V word values, and D authors (doc_ids).
-
-Let x (Tuple[int, Sequence[Tuple[int, float]]]) be an observation from a PLSI model, consisting of
-
-    x = (d, [(v_0, c_0), (v_1, c_1), ..., (v_{k-1}, c_{k-1})]),
-
-where the 'd' is some author (doc_id) in the corpus and each tuple (v_i, c_i) corresponds to a value-count couple
-for some value 'v_i' in dictionary of words used in the corpus. Let w denote the distinct words {v_i} in the document
-represented by x. The density for the PLSI model is given by
-
-    p_mat(w, d) = P_len(nn)*p_mat(d) sum_{j=0}^{k-1} sum_{s=0}^{S-1} ( p_mat(v_j | s )p_mat(s | d) )^(c_j),
-
-where P_len(nn) is the density of the length distribution for 'nn' representing the total number of words in
-the document (i.e. nn = sum_i c_i), p_mat(d) is the probability of observing a document from author 'd', p_mat(v_j|s) is the
-probability of observing word (integer-valued) given word-topic 's', and p_mat(s|d) are the weights for the word-topic for
-author 'd'.
-
-Note: To use this distribution, convert your words and authors of the corpus to unique integer keys.
-
-"""
+# pylint: disable=too-many-positional-arguments,duplicate-code
 
 from typing import Any, Dict, List, Optional, Sequence, Tuple, TypeVar, Union
 
@@ -63,35 +41,7 @@ class IntegerPLSIDistribution(TorchProbabilityDistribution):
         len_dist: Optional[TorchProbabilityDistribution] = NullDistribution(),
         device: Optional[tn.device] = None,
     ) -> None:
-        """IntegerPLSIDistribution object defining an Integer PLSI distribution.
-
-        Args:
-            state_word_mat (Union[List[List[float]], tn.Tensor]): Array-like of floats that contains a
-                p_mat(word | states) for each word in corpus of documents. Cols should sum to 1.0
-            doc_state_mat (Union[List[List[float]], tn.Tensor]): Array-like of floats that contains a p_mat(doc | states)
-                for each document id in corpus of documents. Rows should sum to 1.0
-            doc_vec (Union[List[float], tn.Tensor]): Array-like containing prior for documents p_mat(d) for each
-                document id in corpus of documents. Should sum to 1.0
-            len_dist (Optional[TorchProbabilityDistribution]): Optional distribution for the length of
-                each document (i.e. word count in an observed document). Should have support on positive integers.
-            device (Optional[str]): Set the device type for object.
-
-        Attributes:
-            prob_mat (tn.Tensor): 2-d numpy array of floats containing p_mat(word | states) in each row. Dimension is
-                given by number of words times number of states.
-            state_mat (tn.Tensor): 2-d numpy array of floats containing p_mat(doc | states) in each row. Dimension is
-                given by number of documents times number of states.
-            doc_vec (tn.Tensor): 1-d numpy array of floats containing p_mat(doc=d) for each entry. Length is equal to
-                number of document ids.
-            log_doc_vec (tn.Tensor): 1-d numpy array of the log(p_mat(doc=d)).
-            num_vals (int): Number of total words in corpus. (Number of rows in prob_mat).
-            num_states (int): Number of word topics (mixture components). (Number of columns in prob_mat/state_mat).
-            num_docs (int): Total number of document ids in corpus. (Number of rows in state_mat).
-            name (Optional[str]): Optional name for object instance.
-            len_dist (TorchProbabilityDistribution): Distribution object for the number of words per
-                document. Defaults to the NullDistribution if None is passed.
-
-        """
+        """IntegerPLSIDistribution object defining an Integer PLSI distribution."""
         super().__init__(device)
         self.prob_mat = vec.tensor(state_word_mat, device=self._device)
         self.state_mat = vec.tensor(doc_state_mat, device=device)
@@ -131,49 +81,14 @@ class IntegerPLSIDistribution(TorchProbabilityDistribution):
         s3 = ",".join(map(str, self.doc_vec.data.cpu().numpy()))
         s4 = str(self.len_dist)
 
-        return "IntegerPLSIDistribution([%s], [%s], [%s], len_dist=%s)" % (
-            s1,
-            s2,
-            s3,
-            s4,
-        )
+        return f"IntegerPLSIDistribution([{s1}], [{s2}], [{s3}], len_dist={s4})"
 
     def density(self, x: Tuple[int, Sequence[Tuple[int, float]]]) -> float:
-        """Evaluate the density of PLSI model for an observation x.
-
-        See log_density() for details on the density evaluation.
-
-        Args:
-            x (Tuple[int, Sequence[Tuple[int, float]]]): Single observation of integer PLSI.
-
-        Returns:
-            Density evaluated at observed value x.
-
-        """
+        """Evaluate the density of PLSI model for an observation x."""
         return np.exp(self.log_density(x))
 
     def log_density(self, x: Tuple[int, Sequence[Tuple[int, float]]]) -> float:
-        """Evaluate the log-density of PLSI model for an observation of x.
-
-        Consider an Integer PLSI model for a corpus of documents with S states, V word values, and D documents ids
-        (authors).
-
-        Let x (Tuple[int, Sequence[Tuple[int, float]]]) be an observation from a PLSI model, consisting of
-        x = (d, [(v_0, c_0), (v_1, c_1), ..., (v_{k-1}, c_{k-1})]), where the 'd' is some document d_id in the corpus and
-        each tuple (v_i, c_i) corresponds to a value-count couple in the corpus. The log-likelihood is given by
-
-        log(p_mat(x)) = log(p_mat(d)) + sum_{j=0}^{k-1} c_k*log( sum_{s=0}^{S-1} p_mat(d|s)p_mat(s|v_k) ) + log(P_len(nn)),
-
-        where P_len(nn) is the density of the length distribution for 'nn' representing the total number of words in
-        the document.
-
-        Args:
-            x (Tuple[int, Sequence[Tuple[int, float]]]): (doc_id, [(value_id, count_for_value)]). See above for details.
-
-        Returns:
-            Log-density evaluated at a single observation x.
-
-        """
+        """Evaluate the log-density of PLSI model for an observation of x."""
 
         d_id = x[0]
         xv = vec.int_tensor([u[0] for u in x[1]], device=self._device)
@@ -193,19 +108,7 @@ class IntegerPLSIDistribution(TorchProbabilityDistribution):
     def component_log_density(
         self, x: Tuple[int, Sequence[Tuple[int, float]]]
     ) -> tn.Tensor:
-        """Evaluate the log-density for each state in the PLSI.
-
-        Returns count*log(p_mat(W|S)) for each word-count pair in the document. Returned value is S by 1 where S is the
-        number of components in the model.
-
-        Args:
-            x (Tuple[int, Sequence[Tuple[int, float]]]): Single PLSI observation of form
-                (doc_id, [(value_id, count_for_value)]).
-
-        Returns:
-            Tensor of length S (num_states).
-
-        """
+        """Evaluate the log-density for each state in the PLSI."""
         xv = vec.int_tensor([u[0] for u in x[1]], device=self._device)
         xc = vec.tensor([u[1] for u in x[1]], device=self._device)
 
@@ -214,7 +117,7 @@ class IntegerPLSIDistribution(TorchProbabilityDistribution):
     def seq_log_density(self, x: "IntegerPLSITorchSequence") -> tn.Tensor:
 
         if not isinstance(x, IntegerPLSITorchSequence):
-            raise Exception("IntegerPLSITorchSequence required for `seq_` calls")
+            raise TypeError("IntegerPLSITorchSequence required for `seq_` calls")
 
         nn, (xv, xc, xd, xi, xn, xm) = x.data
         cnt = len(xn)
@@ -241,14 +144,8 @@ class IntegerPLSIDistribution(TorchProbabilityDistribution):
         return IntegerPLSISampler(self, seed)
 
     def estimator(self, pseudo_count: Optional[float] = None) -> "IntegerPLSIEstimator":
-        """Create an IntegerPLSIEstimator object from IntegerPLSIDistribution instance.
-
-        Args:
-            pseudo_count (Optional[float]): Re-weight object instance sufficient statistics when passed to estimator.
-
-        Returns:
-            IntegerPLSIEstimator object.
-
+        """
+        Create an IntegerPLSIEstimator object from IntegerPLSIDistribution instance.
         """
         if pseudo_count is None:
             return IntegerPLSIEstimator(
@@ -257,16 +154,15 @@ class IntegerPLSIDistribution(TorchProbabilityDistribution):
                 num_docs=self.num_docs,
                 len_estimator=self.len_dist.estimator(),
             )
-        else:
-            pseudo_count = (pseudo_count, pseudo_count, pseudo_count)
-            return IntegerPLSIEstimator(
-                num_vals=self.num_vals,
-                num_states=self.num_states,
-                num_docs=self.num_docs,
-                pseudo_count=pseudo_count,
-                suff_stat=(self.prob_mat.T, self.state_mat, self.doc_vec),
-                len_estimator=self.len_dist.estimator(),
-            )
+        pseudo_count = (pseudo_count, pseudo_count, pseudo_count)
+        return IntegerPLSIEstimator(
+            num_vals=self.num_vals,
+            num_states=self.num_states,
+            num_docs=self.num_docs,
+            pseudo_count=pseudo_count,
+            suff_stat=(self.prob_mat.T, self.state_mat, self.doc_vec),
+            len_estimator=self.len_dist.estimator(),
+        )
 
     def dist_to_encoder(self) -> "IntegerPLSIDataEncoder":
         """Returns IntegerPLSIDataEncoder object."""
@@ -278,18 +174,7 @@ class IntegerPLSISampler(DistributionSampler):
     def __init__(
         self, dist: IntegerPLSIDistribution, seed: Optional[int] = None
     ) -> None:
-        """IntegerPLSISampler object for sampling from IntegerPLSIDistribution.
-
-        Args:
-            dist (IntegerPLSIDistribution): IntegerPLSIDistribution instance to sampler from.
-            seed (Optional[int]): Set seed for random number generator used in sampling.
-
-        Attributes:
-            tng (Generator): RandomState object with seed set if passed.
-            dist (IntegerPLSIDistribution): IntegerPLSIDistribution instance to sampler from.
-            size_tng (Generator): RandomState object for sampling the length of documents.
-
-        """
+        """IntegerPLSISampler object for sampling from IntegerPLSIDistribution."""
         self.rng = np.random.RandomState(seed)
         self.doc_vec = dist.doc_vec.data.cpu().numpy()
         self.state_mat = dist.state_mat.data.cpu().numpy()
@@ -303,15 +188,7 @@ class IntegerPLSISampler(DistributionSampler):
         Tuple[int, Sequence[Tuple[int, float]]],
         Sequence[Tuple[int, Sequence[Tuple[int, float]]]],
     ]:
-        """Generate iid samples from PLSI model.
-
-        Args:
-            size (Optional[int]): Number of samples to generate. Defaults to 0 if size is None.
-
-        Returns:
-            Sequence of iid PLSI samples if size is not None, else a single sample from PLSI model.
-
-        """
+        """Generate iid samples from PLSI model."""
         if size is None:
             d_id = self.rng.choice(self.num_docs, p=self.doc_vec)
             cnt = self.size_rng.sample()
@@ -327,8 +204,7 @@ class IntegerPLSISampler(DistributionSampler):
 
             return d_id, list(count_by_value(rv).items())
 
-        else:
-            return [self.sample() for i in range(size)]
+        return [self.sample() for _ in range(size)]
 
 
 class IntegerPLSIAccumulator(TorchStatisticAccumulator):
@@ -346,38 +222,9 @@ class IntegerPLSIAccumulator(TorchStatisticAccumulator):
         ),
         device: Optional[str] = None,
     ) -> None:
-        """IntegerPLSIAccumulator object for aggregating sufficient statistics from observed data.
-
-        Note: Keys in order, words/values, states, documents.
-
-        Args:
-            num_vals (int): Number of words in the corpus.
-            num_states (int): Number of word-topics.
-            num_docs (int): Number of authors (doc_ids) in the corpus.
-            len_acc (Optional[TorchStatisticAccumulator]): Optional accumulator for the length of documents.
-                Should have support on non-negative integer values.
-            keys (Optional[Tuple[Optional[str], Optional[str], Optional[str]]]): Optional keys for words, states, and
-                authors (doc_ids).
-            device (Optional[str]): Set device type for object.
-
-        Attributes:
-            num_vals (int): Number of words in the corpus.
-            num_states (int): Number of word-topics or mixture components.
-            num_docs (int): Number of authors (doc_ids) in the corpus.
-            word_count (tn.Tensor): Numpy array of shape num_states by num_vals for aggregating state/word counts.
-            comp_count (tn.Tensor): Numpy array (num_docs by num_states) for aggregating doc/state counts.
-            doc_count (tn.Tensor): Numpy array for aggregating counts of authors (prior on doc_ids).
-            name (Optional[str]): Name of object instance.
-            wc_key (Optional[str]): Key for merging 'word_count' with objects containing matching keys.
-            sc_key (Optional[str]): Key for merging 'comp_count' with objects containing matching keys.
-            dc_key (Optional[str]): Key for merging 'doc_count' with objects containing matching keys.
-            len_acc (TorchStatisticAccumulator): Accumulator object for the lengths of documents (total
-                word counts). Defaults to the NullAccumulator if None is passed.
-
-            _init_tng (bool): True if Generator objects for accumulator have been initialized.
-            _acc_tng (Optional[Generator]): Generator object for initializing the PLSI model.
-            _len_tng (Optional[Generator]): Generator object for initializing the length accumulator.
-
+        """
+        IntegerPLSIAccumulator object for aggregating sufficient statistics from
+        observed data.
         """
         super().__init__(device)
         self.num_vals = num_vals
@@ -395,9 +242,9 @@ class IntegerPLSIAccumulator(TorchStatisticAccumulator):
     def seq_initialize(
         self, x: "IntegerPLSITorchSequence", weights: tn.Tensor, tng: Generator
     ) -> None:
-        nn, (xv, xc, xd, xi, xn, xm) = x.data
+        nn, (xv, xc, xd, xi, _, xm) = x.data
 
-        # update = vec.mixture_weights(k=self.num_states, alpha=1.0/self.num_states, size=len(xv), tng=tng).T
+        # Equivalent to mixture-weights initialization, but sampled directly.
         update = vec.sample_dirichlet(
             alpha=vec.ones(self.num_states) / self.num_states, size=len(xv), tng=tng
         ).T
@@ -430,7 +277,7 @@ class IntegerPLSIAccumulator(TorchStatisticAccumulator):
         estimate: IntegerPLSIDistribution,
     ) -> None:
 
-        nn, (xv, xc, xd, xi, xn, xm) = x.data
+        nn, (xv, xc, xd, xi, _, xm) = x.data
 
         temp = xc * weights[xi]
         update = estimate.prob_mat[xv, :] * estimate.state_mat[xd, :]
@@ -460,21 +307,7 @@ class IntegerPLSIAccumulator(TorchStatisticAccumulator):
     def combine(
         self, suff_stat: Tuple[np.ndarray, np.ndarray, np.ndarray, Optional[SS1]]
     ) -> "IntegerPLSIAccumulator":
-        """Combine the sufficient statistics in arg 'suff_stat' with object instance.
-
-        Arg 'suff_stat' is Tuple[tn.Tensor, tn.Tensor, tn.Tensor, Optional[SS1]] containing:
-            suff_stat[0] (np.ndarray): State/word counts with matching dimension of num_states by num_vals.
-            suff_stat[1] (np.ndarray): Doc/state counts with matching dimension of num_docs by num_states.
-            suff_stat[2] (np.ndarray): Author counts with length (num_docs).
-            suff_stat[3] (Optional[SS1]): Sufficient statistics for the length of document distribution having type SS1.
-
-        Args:
-            suff_stat: See above for details.
-
-        Returns:
-            IntegerPLSIAccumulator object.
-
-        """
+        """Combine the sufficient statistics in arg 'suff_stat' with object instance."""
         self.word_count += suff_stat[0]
         self.comp_count += suff_stat[1]
         self.doc_count += suff_stat[2]
@@ -497,21 +330,7 @@ class IntegerPLSIAccumulator(TorchStatisticAccumulator):
         return self
 
     def key_merge(self, stats_dict: Dict[str, Any]) -> None:
-        """Merge the sufficient statistics of object instance with matching keys.
-
-        If wc_key is set, merge the state/word count variable.
-        If sc_key is set, merge the doc/state count variable.
-        If dc_key is set, merge the author count variable.
-
-        Call key_merge() of accumulator for the length. Note nothing is done for this if default NullAccumulator is set.
-
-        Args:
-            stats_dict (Dict[str, Any]): Maps keys to sufficient statistics.
-
-        Returns:
-            None.
-
-        """
+        """Merge the sufficient statistics of object instance with matching keys."""
         if self.wc_key is not None:
             if self.wc_key in stats_dict:
                 stats_dict[self.wc_key] += self.word_count
@@ -533,21 +352,8 @@ class IntegerPLSIAccumulator(TorchStatisticAccumulator):
         self.len_acc.key_merge(stats_dict)
 
     def key_replace(self, stats_dict: Dict[str, Any]) -> None:
-        """Set the sufficient statistics of object instance to matching key values in arg 'stats_dict'.
-
-        If wc_key is set, set the state/word count variable to matching key in stats_dict.
-        If sc_key is set, set the doc/state count variable to matching key in stats_dict.
-        If dc_key is set, set the author count variable to matching key in stats_dict.
-
-        Call key_replace() of accumulator for the length. Note nothing is done for this if default NullAccumulator is
-        set.
-
-        Args:
-            stats_dict (Dict[str, Any]): Maps keys to sufficient statistics.
-
-        Returns:
-            None.
-
+        """
+        Set the sufficient statistics of object instance to matching key values in arg.
         """
         if self.wc_key is not None:
             if self.wc_key in stats_dict:
@@ -582,28 +388,11 @@ class IntegerPLSIAccumulatorFactory(TorchStatisticAccumulatorFactory):
             None,
             None,
         ),
-        device: Optional[tn.device] = None,
+        _device: Optional[tn.device] = None,
     ) -> None:
-        """IntegerPLSIAccumulatorFactory object for creating IntegerPLSIAccumulator objects.
-
-        Args:
-            num_vals (int): Number of words/values in PLSI.
-            num_states (int): Number of states in PLSI.
-            num_docs (int): Number of doc_ids (authors) in PLSI.
-            len_factory (Optional[StatisticsAccumulatorFactory]): Accumulator factory object for length distribution.
-            keys (Optional[Tuple[Optional[str], Optional[str], Optional[str]]]): Set keys for merging
-                word, state, and doc sufficient statistics with matching keys.
-            device (Optional[str]): Set device type for object
-
-        Attributes:
-            num_vals (int): Number of words/values in PLSI.
-            num_states (int): Number of states in PLSI.
-            num_docs (int): Number of doc_ids (authors) in PLSI.
-            len_factory (StatisticsAccumulatorFactory): Accumulator factory object for length distribution. Defaults
-                to the NullAccumulatorFactory(). Should have support on non-negative integers.
-            keys (Tuple[Optional[str], Optional[str], Optional[str]]): Set keys for merging word, state, and doc
-                sufficient statistics with matching keys.
-
+        """
+        IntegerPLSIAccumulatorFactory object for creating IntegerPLSIAccumulator
+        objects.
         """
         self.len_factory = (
             len_factory if len_factory is not None else NullAccumulatorFactory()
@@ -645,37 +434,8 @@ class IntegerPLSIEstimator(TorchParameterEstimator):
             None,
         ),
     ) -> None:
-        """IntegerPLSIEstimator for estimating integer PLSI distributions from aggregated sufficient statistics.
-
-        Args:
-            num_vals (int): Number of words/values in PLSI.
-            num_states (int): Number of states in PLSI.
-            num_docs (int): Number of doc_ids (authors) in PLSI.
-            len_estimator (Optional[TorchParameterEstimator]): Optional ParameterEstimator object for the length of
-                documents. Should have support on non-negative integers if not None.
-            pseudo_count (Optional[Tuple[Optional[float], Optional[float], Optional[float]]]): Optional re-weight
-                sufficient statistics in 'estimate()' function.
-            suff_stat (Optional[Tuple[Optional[tn.Tensor], Optional[tn.Tensor], Optional[tn.Tensor]]]): Optional
-                Tuple of numpy arrays containing 'word_counts' (num_states by num_vals), 'state_counts' (num_docs by
-                num_states), and doc_counts (length num_docs).
-            name (Optional[str]): Set name to object instance.
-            keys (Tuple[Optional[str], Optional[str], Optional[str]]): Set keys for merging word, state, and doc
-                sufficient statistics with matching keys.
-
-        Attributes:
-            num_vals (int): Number of words/values in PLSI.
-            num_states (int): Number of states in PLSI.
-            num_docs (int): Number of doc_ids (authors) in PLSI.
-            len_estimator (TorchParameterEstimator): Optional ParameterEstimator object for the length of documents.
-                Should have support on non-negative integers. Defaults to NullEstimator() if None is passed.
-            pseudo_count (Tuple[Optional[float], Optional[float], Optional[float]]): Optional re-weight sufficient
-                statistics in 'estimate()' function. Defaults to (None, None, None) if None is passed.
-            suff_stat (Tuple[Optional[tn.Tensor], Optional[tn.Tensor], Optional[tn.Tensor]]): Optional
-                Tuple of numpy arrays containing 'word_counts' (num_states by num_vals), 'state_counts' (num_docs by
-                num_states), and doc_counts (length num_docs). Defaults to (None, None, None) if None is passed.
-            name (Optional[str]): Name of object instance.
-            keys (Tuple[Optional[str], Optional[str], Optional[str]]): Keys for merging word, state, and doc
-                sufficient statistics with matching keys.
+        """
+        IntegerPLSIEstimator for estimating integer PLSI distributions from aggregated.
         """
         self.suff_stat = suff_stat if suff_stat is not None else (None, None, None)
         self.pseudo_count = (
@@ -702,15 +462,8 @@ class IntegerPLSIEstimator(TorchParameterEstimator):
         suff_stat: Tuple[np.ndarray, np.ndarray, np.ndarray, Optional[SS1]],
         device: Optional[tn.device] = None,
     ) -> "IntegerPLSIDistribution":
-        """Estimate IntegerPLSIDistribution from aggregated sufficient statistics in arg 'suff_stat'.
-
-        Args:
-            nobs (Optional[float]): Optional number of observations used to accumulate 'suff_stat'.
-            suff_stat: See above for details.
-
-        Returns:
-            IntegerPLSIDistribution object.
-
+        """
+        Estimate IntegerPLSIDistribution from aggregated sufficient statistics in arg.
         """
         word_count, comp_count, doc_count, len_suff_stats = suff_stat
 
@@ -773,66 +526,31 @@ class IntegerPLSIDataEncoder(TorchSequenceEncoder):
     def __init__(
         self,
         len_encoder: Optional[TorchSequenceEncoder] = NullDataEncoder(),
-        device: Optional[str] = None,
+        _device: Optional[str] = None,
     ):
-        """IntegerPLSIDataEncoder object for encoding sequences of iid observations from a PLSI model.
-
-        Args:
-            len_encoder (Optional[TorchSequenceEncoder]): Optional TorchSequenceEncoder for the total number of words
-                in each document.
-
-        Attributes:
-            len_encoder (TorchSequenceEncoder): TorchSequenceEncoder for the total number of words in each document,
-                defaulting to NullDataEncoder if None is passed.
-
+        """
+        IntegerPLSIDataEncoder object for encoding sequences of iid observations from a
+        PLSI.
         """
         self.len_encoder = len_encoder
 
     def __str__(self) -> str:
         """Returns a string representation of object instance."""
-        return "IntegerPLSIDataEncoder(len_dist=%s)" % (repr(self.len_encoder))
+        return f"IntegerPLSIDataEncoder(len_dist={self.len_encoder!r})"
 
     def __eq__(self, other: object) -> bool:
-        """Check if object is equivalent to instance of IntegerPLSIDataEncoder.
-
-        Args:
-            other (object): Other object to compare to instance.
-
-        Returns:
-            True if object is an instance of IntegerPLSIDataEncoder with matching 'len_encoder' attribute.
-
-        """
+        """Check if object is equivalent to instance of IntegerPLSIDataEncoder."""
         if isinstance(other, IntegerPLSIDataEncoder):
             return other.len_encoder == self.len_encoder
-        else:
-            return False
+        return False
 
     def seq_encode(
         self,
         x: Sequence[Tuple[int, Sequence[Tuple[int, float]]]],
         device: Optional[tn.device] = None,
     ) -> "IntegerPLSITorchSequence":
-        """Encode a sequence of iid PLSI observations for use with vectorized functions.
-
-        Input arg 'x' is a sequence of iid PLSI observations having form
-
-        x = [ (doc_id, [(value, count),...]),... ].
-
-        The return value is a Tuple length 2. The first component contains data type Optional[T1] corresponding to the
-        sequence encoding of the lengths. The second component is a Tuple of length 6 containing
-            xv (tn.Tensor[int]): Numpy array of flattened word values.
-            xc (tn.Tensor[float]): Numpy array of flattened counts for word values above.
-            xd (tn.Tensor[int]): Document d_id for each word-count pair in the arrays above.
-            xi (tn.Tensor[int]): Observed sequence index for each word-count pair in the arrays above.
-            xn (tn.Tensor[float]): Numpy array of the total number of words in each document.
-            xm (tn.Tensor[float]): Flattened array of document d_id's for the lengths above (len = len(x)).
-
-        Args:
-            x (Sequence[Tuple[int, Sequence[Tuple[int, float]]]]): See above for details.
-
-        Returns:
-            See above for details.
-
+        """
+        Encode a sequence of iid PLSI observations for use with vectorized functions.
         """
         xv = []
         xc = []

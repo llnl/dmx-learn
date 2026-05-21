@@ -1,9 +1,11 @@
 """Create, estimate, and sample from a null distribution.
 
-Defines the NullDistribution, NullSampler, NullAccumulatorFactory, NullAccumulator,
-NullEstimator, and the NullDataEncoder classes for use with pysparkplug.
+Defines the NullDistribution, NullSampler, NullAccumulatorFactory,
+NullAccumulator, NullEstimator, and the NullDataEncoder classes for use
+with pysparkplug.
 
-The NullDistribution object and its related classes are space filling objects meant for consistency in type hints.
+The NullDistribution object and its related classes are space filling
+objects meant for consistency in type hints.
 
 Notes:
     The density evaluates to 1.0 for any value (Any data type).
@@ -12,20 +14,25 @@ Notes:
 
 """
 
+# pylint: disable=too-many-positional-arguments,duplicate-code
+
 from typing import Any, Dict, Optional
 
-import numpy as np
 import torch as tn
-from numpy.random import RandomState
 
 import dmx.torch_utils.vector as vec
-from dmx.torch_stats.pdist import *
+from dmx.torch_stats.pdist import (
+    DistributionSampler,
+    TorchEncodedSequence,
+    TorchParameterEstimator,
+    TorchProbabilityDistribution,
+    TorchSequenceEncoder,
+    TorchStatisticAccumulator,
+    TorchStatisticAccumulatorFactory,
+)
 
 
 class NullDistribution(TorchProbabilityDistribution):
-
-    def __init__(self, device: Optional[tn.device] = None) -> None:
-        super(NullDistribution, self).__init__(device)
 
     def to(self, device: tn.device) -> None:
         self._device = device
@@ -46,13 +53,12 @@ class NullDistribution(TorchProbabilityDistribution):
         return NullSampler(dist=self, seed=seed)
 
     def estimator(
-        self, pseudo_count: Optional[float] = None, device: Optional[str] = None
+        self, pseudo_count: Optional[float] = None, _device: Optional[str] = None
     ) -> "NullEstimator":
         if pseudo_count is None:
             return NullEstimator()
 
-        else:
-            return NullEstimator(pseudo_count=pseudo_count)
+        return NullEstimator(pseudo_count=pseudo_count)
 
     def dist_to_encoder(self) -> "NullDataEncoder":
         return NullDataEncoder()
@@ -73,7 +79,7 @@ class NullAccumulator(TorchStatisticAccumulator):
     def __init__(
         self, keys: Optional[str] = None, device: Optional[tn.device] = None
     ) -> None:
-        super(NullAccumulator, self).__init__(device)
+        super().__init__(device)
         self.key = keys
 
     def seq_update(

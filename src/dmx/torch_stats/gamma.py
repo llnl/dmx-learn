@@ -1,13 +1,19 @@
-"""Create, estimate, and sample from a gamma distribution with shape k and scale theta.
+"""Create, estimate, and sample from a gamma distribution.
 
-Defines the GammaDistribution, GammaSampler, GammaAccumulatorFactory, GammaAccumulator, GammaEstimator,
-and the GammaDataEncoder classes for use with pysparkplug.
+Defines the GammaDistribution, GammaSampler, GammaAccumulatorFactory,
+GammaAccumulator, GammaEstimator, and the GammaDataEncoder classes for use with
+pysparkplug.
 
-Data type: (float): The GammaDistribution with shape k > 0.0 and scale theta > 0.0, has log-density
-    log(f(x;k,theta)) = -gammaln(k) - k*log(theta) + (k-1) * log(x) - x / theta, for x > 0.0, else -np.inf
+Data type: (float): The GammaDistribution with shape k > 0.0 and scale
+theta > 0.0 has log-density
+    log(f(x;k,theta)) = -gammaln(k) - k*log(theta) + (k-1) * log(x) - x /
+    theta, for x > 0.0, else -np.inf
 
 """
 
+# pylint: disable=too-many-positional-arguments,duplicate-code
+
+import builtins
 from typing import Any, Dict, List, Optional, Tuple, Union
 
 import numpy as np
@@ -15,7 +21,7 @@ import torch as tn
 from numpy.random import RandomState
 
 import dmx.torch_utils.vector as vec
-from dmx.arithmetic import *
+from dmx.arithmetic import exp, inf, log, one, sqrt, zero
 from dmx.torch_stats.pdist import (
     DistributionSampler,
     TorchEncodedSequence,
@@ -60,7 +66,7 @@ class GammaDistribution(TorchProbabilityDistribution):
     def __repr__(self) -> str:
         s0, s1 = repr(self.k), repr(self.theta)
 
-        return "GammaDistribution(%s, %s)" % (s0, s1)
+        return f"GammaDistribution({s0}, {s1})"
 
     def density(self, x: float) -> float:
         """Density of gamma distribution evaluated at x.
@@ -96,8 +102,8 @@ class GammaDistribution(TorchProbabilityDistribution):
     def seq_log_density(self, x: "GammaTorchEncodedSequence") -> tn.Tensor:
 
         if not isinstance(x, GammaTorchEncodedSequence):
-            raise Exception(
-                "Requires GammaTorchEncodedSequence for `seq_` function calls. "
+            raise TypeError(
+                "Requires GammaTorchEncodedSequence for `seq_` function calls."
             )
 
         rv = x.data[0] * (-1.0 / self.theta)
@@ -113,11 +119,11 @@ class GammaDistribution(TorchProbabilityDistribution):
     def estimator(self, pseudo_count: Optional[float] = None) -> "GammaEstimator":
         if pseudo_count is None:
             return GammaEstimator()
-        else:
-            suff_stat = (self.k * self.theta, exp(digamma(self.k) + log(self.theta)))
-            return GammaEstimator(
-                pseudo_count=(pseudo_count, pseudo_count), suff_stat=suff_stat
-            )
+
+        suff_stat = (self.k * self.theta, exp(digamma(self.k) + log(self.theta)))
+        return GammaEstimator(
+            pseudo_count=(pseudo_count, pseudo_count), suff_stat=suff_stat
+        )
 
     def dist_to_encoder(self) -> "GammaDataEncoder":
         return GammaDataEncoder()
@@ -129,7 +135,8 @@ class GammaSampler(DistributionSampler):
     Attributes:
         rng (RandomState): RandomState with seed set for sampling.
         dist (GammaDistribution): GammaDistribution to sample from.
-        seed (Optional[int]): Used to set seed on random number generator used in sampling.
+        seed (Optional[int]): Used to set seed on random number generator used
+            in sampling.
 
     """
 
@@ -138,7 +145,8 @@ class GammaSampler(DistributionSampler):
 
         Args:
             dist (GammaDistribution): GammaDistribution to sample from.
-            seed (Optional[int]): Used to set seed on random number generator used in sampling.
+            seed (Optional[int]): Used to set seed on random number generator
+                used in sampling.
 
         """
         self.rng = RandomState(seed)
@@ -152,31 +160,33 @@ class GammaSampler(DistributionSampler):
             size (Optional[int]): Number of iid samples to draw from GammaSampler.
 
         Returns:
-            Single sample (float) if size is None, else a numpy array of floats containing iid samples from
-            GammaDistribution.
+            Single sample (float) if size is None, else a numpy array of floats
+            containing iid samples from GammaDistribution.
 
         """
         return self.rng.gamma(shape=self.dist.k, scale=self.dist.theta, size=size)
 
 
 class GammaAccumulator(TorchStatisticAccumulator):
-    """GammaAccumulator object used to accumulate sufficient statistics from observations.
+    """GammaAccumulator object used to accumulate sufficient statistics.
 
     Attributes:
         nobs (float): Number of observations accumulated.
         sum (float): Weighted-sum of observations accumulated.
         sum_of_logs (float): log weighted sum of weighted log(observations).
-        key (Optional[str]): GammaAccumulator objects with same key merge sufficient statistics.
+        key (Optional[str]): GammaAccumulator objects with same key merge
+            sufficient statistics.
 
     """
 
     def __init__(
         self, keys: Optional[str] = None, device: Optional[tn.device] = None
     ) -> None:
-        """GammaAccumulator object used to accumulate sufficient statistics from observations.
+        """GammaAccumulator object used to accumulate sufficient statistics.
 
         Args:
-            keys (Optional[str]): GammaAccumulator objects with same key merge sufficient statistics.
+            keys (Optional[str]): GammaAccumulator objects with same key merge
+                sufficient statistics.
             device (Optional[tn.device]): Set device for tensor calculations.
 
         """
@@ -252,7 +262,8 @@ class GammaAccumulatorFactory(TorchStatisticAccumulatorFactory):
     """GammaAccumulatorFactory object for creating GammaAccumulator objects.
 
     Attributes:
-        keys (Optional[str]): Used for merging sufficient statistics of GammaAccumulator.
+        keys (Optional[str]): Used for merging sufficient statistics of
+            GammaAccumulator.
 
     """
 
@@ -260,7 +271,8 @@ class GammaAccumulatorFactory(TorchStatisticAccumulatorFactory):
         """GammaAccumulatorFactory object.
 
         Args:
-            keys (Optional[str]): Used for merging sufficient statistics of GammaAccumulator.
+            keys (Optional[str]): Used for merging sufficient statistics of
+                GammaAccumulator.
 
         """
         self.keys = keys
@@ -270,13 +282,15 @@ class GammaAccumulatorFactory(TorchStatisticAccumulatorFactory):
 
 
 class GammaEstimator(TorchParameterEstimator):
-    """GammaEstimator object used for estimating GammaDistribution from aggregated data.
+    """Estimate GammaDistribution from aggregated data.
 
     Attributes:
-        pseudo_count (Tuple[float, float]): Values used to re-weight member instances of sufficient statistics.
+        pseudo_count (Tuple[float, float]): Values used to re-weight member
+            instances of sufficient statistics.
         suff_stat (Tuple[float, float]):  shape 'k' and scale 'theta'.
         threshold (float): Threshold used for estimating the shape of gamma.
-        keys (Optional[str]): Assign keys to GammaEstimator for combining sufficient statistics.
+        keys (Optional[str]): Assign keys to GammaEstimator for combining
+            sufficient statistics.
 
     """
 
@@ -290,10 +304,12 @@ class GammaEstimator(TorchParameterEstimator):
         """GammaEstimator object.
 
         Args:
-            pseudo_count (Tuple[float, float]): Values used to re-weight member instances of sufficient statistics.
+            pseudo_count (Tuple[float, float]): Values used to re-weight member
+                instances of sufficient statistics.
             suff_stat (Tuple[float, float]):  shape 'k' and scale 'theta'.
             threshold (float): Threshold used for estimating the shape of gamma.
-            keys (Optional[str]): Assign keys to GammaEstimator for combining sufficient statistics.
+            keys (Optional[str]): Assign keys to GammaEstimator for combining
+                sufficient statistics.
 
         """
         self.pseudo_count = pseudo_count
@@ -310,7 +326,7 @@ class GammaEstimator(TorchParameterEstimator):
         suff_stat: Tuple[float, float, float],
         device: Optional[tn.device] = None,
     ) -> "GammaDistribution":
-        """Obtain GammaDistribution from aggregated sufficient statistics of observed data.
+        """Obtain GammaDistribution from aggregated sufficient statistics.
 
         Takes sufficient statistic aggregated from observed data:
             suff_stat[0]: weighted sum of observations
@@ -318,9 +334,10 @@ class GammaEstimator(TorchParameterEstimator):
             suff_stat[2]: weighted observation count.
 
         Args:
-            nobs (Optional[float]): Not used. Kept for consistency with ParameterEstimator.
+            nobs (Optional[float]): Not used. Kept for consistency with
+                ParameterEstimator.
             suff_stat: See description above for details.
-            device (Optional[tn.device]): Device to declare estiamte on.
+            device (Optional[tn.device]): Device to declare estimate on.
 
         Returns:
             GammaDistribution object.
@@ -353,7 +370,8 @@ class GammaEstimator(TorchParameterEstimator):
         Args:
             avg_sum (float): Weighted sum of gamma observations.
             avg_sum_of_logs (float): Weighted log sum of gamma observations.
-            threshold (float): Threshold used for assessing convergence of shape estimation.
+            threshold (float): Threshold used for assessing convergence of shape
+                estimation.
 
         Returns:
             Estimate of shape parameter 'k'.
@@ -362,14 +380,14 @@ class GammaEstimator(TorchParameterEstimator):
         s = log(avg_sum) - avg_sum_of_logs
         old_k = inf
         k = (3 - s + sqrt((s - 3) * (s - 3) + 24 * s)) / (12 * s)
-        while abs(old_k - k) > threshold:
+        while builtins.abs(old_k - k) > threshold:
             old_k = k
             k -= (log(k) - digamma(k) - s) / (one / k - trigamma(k))
         return k
 
 
 class GammaDataEncoder(TorchSequenceEncoder):
-    """GammaDataEncoder object for encoding sequences of iid Gamma observations with data type float."""
+    """Encode sequences of iid Gamma observations with data type float."""
 
     def __str__(self) -> str:
         return "GammaDataEncoder"
@@ -380,12 +398,13 @@ class GammaDataEncoder(TorchSequenceEncoder):
     def seq_encode(
         self, x: Union[List[float], np.ndarray], device: Optional[tn.device] = None
     ) -> "GammaTorchEncodedSequence":
-        """Encode iid sequence of gamma observations for vectorized "seq_" function calls.
+        """Encode iid gamma observations for vectorized "seq_" function calls.
 
         Note: Each entry of x must be positive float.
 
         Args:
-            x (Union[List[float], np.ndarray]): IID sequence of gamma distributed observations.
+            x (Union[List[float], np.ndarray]): IID sequence of gamma
+                distributed observations.
             device (Optional[tn.device]): Device to encode tensors on.
 
         Returns:
@@ -395,10 +414,10 @@ class GammaDataEncoder(TorchSequenceEncoder):
         rv1 = vec.tensor(x, device=device)
 
         if tn.any(rv1 <= 0) or tn.any(tn.isnan(rv1)):
-            raise Exception("GammaDistribution has support x > 0.")
-        else:
-            rv2 = tn.log(rv1)
-            return GammaTorchEncodedSequence(data=(rv1, rv2))
+            raise ValueError("GammaDistribution has support x > 0.")
+
+        rv2 = tn.log(rv1)
+        return GammaTorchEncodedSequence(data=(rv1, rv2))
 
 
 class GammaTorchEncodedSequence(TorchEncodedSequence):

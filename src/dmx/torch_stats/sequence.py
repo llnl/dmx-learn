@@ -1,27 +1,25 @@
-"""Create, estimate, and sample from a sequence of iid sequence of base distribution 'dist' with data type T. A
-length distribution for the lengths of the iid sequences can be specified as a discrete distribution compatible with
-non-negative integer values.
-
-Defines the SequenceDistribution, SequenceSampler, SequenceAccumulatorFactory, SequenceAccumulator,
-SequenceEstimator, and the SequenceDataEncoder classes for use with pysparkplug.
-
-Data type (T): Assume the sequence distribution has a base distribution 'dist' compatible with data type T and length
-distribution compatible with positive integers len_dist with respective densities P_dist() and P_len(). The density
-of the sequence distribution is given by
-
-p_mat(x) = P_dist(x[0])*...*P_dist(x[n-1])*P_len(n),
-
-for an observation x of data type Sequence[T] having length n.
-
+"""
+Create, estimate, and sample from a sequence of iid sequence of base distribution
+'dist'.
 """
 
-from typing import Any, Dict, List, Optional, Sequence, Tuple, TypeVar, Union
+# pylint: disable=too-many-positional-arguments,duplicate-code
 
+from typing import Any, Dict, List, Optional, Sequence, Tuple, TypeVar
+
+import numpy as np
 import torch as tn
+from numpy.random import RandomState
 
 import dmx.torch_utils.vector as vec
 from dmx.arithmetic import maxrandint
-from dmx.torch_stats.null_dist import *
+from dmx.torch_stats.null_dist import (
+    NullAccumulator,
+    NullAccumulatorFactory,
+    NullDataEncoder,
+    NullDistribution,
+    NullEstimator,
+)
 from dmx.torch_stats.pdist import (
     DistributionSampler,
     TorchEncodedSequence,
@@ -42,15 +40,9 @@ E = Tuple[tn.Tensor, tn.Tensor, tn.Tensor, E1, Optional[E2]]
 
 
 class SequenceDistribution(TorchProbabilityDistribution):
-    """SequenceDistribution object for sequence of iid observations from distribution of data type T.
-
-    Attributes:
-        dist (TorchProbabilityDistribution): Base distribution of sequence (compatible with T).
-        len_dist (Optional[TorchProbabilityDistribution]): Length distribution for modeling lengths
-            of sequences of observations (compatible with type int). Set to NullDistribution if None is passed.
-        len_normalized (Optional[bool]): If True, take geometric mean density for any density evaluation.
-        null_len_dist (bool): True if 'len_dist' is set to instance of NullDistribution.
-
+    """
+    SequenceDistribution object for sequence of iid observations from distribution of
+    data.
     """
 
     def __init__(
@@ -60,14 +52,9 @@ class SequenceDistribution(TorchProbabilityDistribution):
         len_normalized: Optional[bool] = False,
         device: Optional[tn.device] = None,
     ) -> None:
-        """SequenceDistribution object for sequence of iid observations from distribution a of data type T.
-
-        Args:
-            dist (TorchProbabilityDistribution): Set base distribution of sequence (compatible with T).
-            len_dist (Optional[TorchProbabilityDistribution]): Length distribution for modeling lengths
-                of sequences of observations (compatible with type int).
-            len_normalized (Optional[bool]): If True, take geometric mean density for any density evaluation.
-
+        """
+        SequenceDistribution object for sequence of iid observations from distribution a
+        of data.
         """
         super().__init__(device)
         self.dist = dist
@@ -82,8 +69,8 @@ class SequenceDistribution(TorchProbabilityDistribution):
         s4 = repr(self.model_device().type)
 
         return (
-            "SequenceDistribution(%s, len_dist=%s, len_normalized=%s, device=tn.device(%s))"
-            % (s1, s2, s3, s4)
+            f"SequenceDistribution({s1}, len_dist={s2}, "
+            f"len_normalized={s3}, device=tn.device({s4}))"
         )
 
     def to(self, device: tn.device) -> None:
@@ -92,33 +79,11 @@ class SequenceDistribution(TorchProbabilityDistribution):
         self._device = device
 
     def density(self, x: Sequence[T]) -> float:
-        """Evaluate the density of SequenceDistribution at observed sequence x.
-
-        Notes:
-            Assume x is a Sequence of data type T with length n > 0. Assume P_dist() is the density for the base
-            distribution with data type T of SequenceDistribution, and P_len() is the length distribution with data type
-            int. Then,
-
-            P(x) = P_dist(x[0])*...*P_dist(x[n-1])*P_len(n), if len_normalize is False,
-
-            or,
-
-            P(x) = (P_dist(x[0])*...*P_dist(x[n-1])*P_len(n))^(1/n) if len_normalize is True.
-
-
-
-        Args:
-            x (Sequence[T]): Sequence of iid observations from base distribution of SequenceDistribution.
-
-        Returns:
-            float: Density evaluated at observation x.
-
-
-        """
+        """Evaluate the density of SequenceDistribution at observed sequence x."""
         rv = 1.0
 
-        for i in range(len(x)):
-            rv *= self.dist.density(x[i])
+        for x_i in x:
+            rv *= self.dist.density(x_i)
 
         if not self.null_len_dist:
             rv *= self.len_dist.density(len(x))
@@ -129,22 +94,11 @@ class SequenceDistribution(TorchProbabilityDistribution):
         return rv
 
     def log_density(self, x: Sequence[T]) -> float:
-        """Evaluate the log-density of SequenceDistribution at observed sequence x.
-
-        Notes:
-            See density() for details.
-
-        Args:
-            x (Sequence[T]): Sequence of iid observations from base distribution of SequenceDistribution.
-
-        Returns:
-            float: Log-density evaluated at observation x.
-
-        """
+        """Evaluate the log-density of SequenceDistribution at observed sequence x."""
         rv = 0.0
 
-        for i in range(len(x)):
-            rv += self.dist.log_density(x[i])
+        for x_i in x:
+            rv += self.dist.log_density(x_i)
 
         if self.len_normalized and len(x) > 0:
             rv /= len(x)
@@ -157,11 +111,11 @@ class SequenceDistribution(TorchProbabilityDistribution):
     def seq_log_density(self, x: "SequenceTorchEncodedSequence") -> tn.Tensor:
 
         if not isinstance(x, SequenceTorchEncodedSequence):
-            raise Exception(
+            raise TypeError(
                 "SequenceTorchEncodedSequence required for `seq_` function calls."
             )
 
-        idx, icnt, inz, enc_seq, enc_nseq = x.data
+        idx, icnt, _, enc_seq, enc_nseq = x.data
 
         if tn.all(icnt == 0):
             ll_sum = vec.zeros(len(icnt))
@@ -181,11 +135,11 @@ class SequenceDistribution(TorchProbabilityDistribution):
 
     def sampler(self, seed: Optional[int] = None) -> "SequenceSampler":
         if self.null_len_dist:
-            raise Exception(
-                "Error: len_dist cannot be none for SequenceDistribution.sampler(seed:Optional[int]=None)."
+            raise RuntimeError(
+                "Error: len_dist cannot be none for "
+                "SequenceDistribution.sampler(seed:Optional[int]=None)."
             )
-        else:
-            return SequenceSampler(self.dist, self.len_dist, seed)
+        return SequenceSampler(self.dist, self.len_dist, seed)
 
     def estimator(self, pseudo_count: Optional[float] = None) -> "SequenceEstimator":
         len_est = self.len_dist.estimator(pseudo_count=pseudo_count)
@@ -205,17 +159,7 @@ class SequenceDistribution(TorchProbabilityDistribution):
 
 
 class SequenceSampler(DistributionSampler):
-    """SequenceSampler object for sampling from an SequenceDistribution instance.
-
-    Attributes:
-        dist (TorchProbabilityDistribution): The Base distribution for the sequences (data type T).
-        len_dist (TorchProbabilityDistribution): Length distribution for the length of the
-            sequences (support on positive integers).
-        rng (RandomState): RandomState object for random sampling.
-        dist_sampler (DistributionSampler): DistributionSampler instance from base distribution.
-        len_sampler (DistributionSampler): DistributionSampler instance from length distribution.
-
-    """
+    """SequenceSampler object for sampling from an SequenceDistribution instance."""
 
     def __init__(
         self,
@@ -223,15 +167,7 @@ class SequenceSampler(DistributionSampler):
         len_dist: TorchProbabilityDistribution,
         seed: Optional[int] = None,
     ) -> None:
-        """SequenceSampler object.
-
-        Args:
-            dist (TorchProbabilityDistribution): Set the base distribution for the sequences (data type T).
-            len_dist (TorchProbabilityDistribution): Set the length distribution for the length of the
-                sequences (support on positive integers).
-            seed (Optional[int]): Set seed of random number generator for sampling.
-
-        """
+        """SequenceSampler object."""
         self.dist = dist
         self.len_dist = len_dist
         self.rng = RandomState(seed)
@@ -239,41 +175,15 @@ class SequenceSampler(DistributionSampler):
         self.len_sampler = self.len_dist.sampler(seed=self.rng.randint(0, maxrandint))
 
     def sample(self, size: Optional[int] = None) -> List[Any]:
-        """Generate iid samples from SequenceSampler object.
-
-        If size is None, the length 'n' of the iid sequence is sampled from len_sampler. Then 'n' iid samples are
-        drawn from the base dist sampled 'dist_sampler'.
-
-        If size > 0, above is repeated size times and a List of size List[T] is retured.
-
-        Args:
-            size (Optional[int]) Number of sequences to be sampled.
-
-        Returns:
-            List[T] or List[List[T]] with length(size).
-
-        """
+        """Generate iid samples from SequenceSampler object."""
         if size is None:
             n = self.len_sampler.sample()
-            return [self.dist_sampler.sample() for i in range(n)]
-        else:
-            return [self.sample() for i in range(size)]
+            return [self.dist_sampler.sample() for _ in range(n)]
+        return [self.sample() for _ in range(size)]
 
 
 class SequenceAccumulator(TorchStatisticAccumulator):
-    """SequenceAccumulator object for aggregating sufficient statistics of sequence distribution from observed data.
-
-    Attributes:
-        accumulator (TorchStatisticAccumulator): TorchStatisticAccumulator object for
-            accumulating sufficient statistics of base distribution compatible with data type T.
-        len_accumulator (TorchStatisticAccumulator): TorchStatisticAccumulator object
-            for accumulating sufficient statistics of length distribution compatible with non-negative integers.
-        len_normalized (Optional[bool]): Geometric mean of density taken if set to True. Else ignored.
-        keys (Optional[str]): Set keys for merging sufficient statistics of SequenceAccumulator objects with
-            matching keys.
-        null_len_accumulator (bool): True if len_accumulator is an instance of NullAccumulator object.
-
-    """
+    """SequenceAccumulator object for aggregating sufficient statistics of sequence."""
 
     def __init__(
         self,
@@ -283,18 +193,7 @@ class SequenceAccumulator(TorchStatisticAccumulator):
         keys: Optional[str] = None,
         device: Optional[str] = None,
     ) -> None:
-        """SequenceAccumulator object.
-
-        Args:
-            accumulator (TorchStatisticAccumulator): Set TorchStatisticAccumulator object for
-                accumulating sufficient statistics of base distribution compatible with data type T.
-            len_accumulator (TorchStatisticAccumulator): Set TorchStatisticAccumulator object
-                for accumulating sufficient statistics of length distribution compatible with non-negative integers.
-            len_normalized (Optional[bool]): Geometric mean of density taken if set to True. Else ignored.
-            keys (Optional[str]): Set keys for merging sufficient statistics of SequenceAccumulator objects with
-                matching keys.
-
-        """
+        """SequenceAccumulator object."""
         super().__init__(device)
         self.accumulator = accumulator
         self.len_accumulator = len_accumulator
@@ -306,7 +205,7 @@ class SequenceAccumulator(TorchStatisticAccumulator):
     def seq_initialize(
         self, x: "SequenceTorchEncodedSequence", weights: tn.Tensor, tng: tn.Generator
     ) -> None:
-        idx, icnt, inz, enc_seq, enc_nseq = x.data
+        idx, icnt, _, enc_seq, enc_nseq = x.data
 
         w = weights[idx] * icnt[idx] if self.len_normalized else weights[idx]
 
@@ -322,7 +221,7 @@ class SequenceAccumulator(TorchStatisticAccumulator):
         estimate: Optional["SequenceDistribution"],
     ) -> None:
 
-        idx, icnt, inz, enc_seq, enc_nseq = x.data
+        idx, icnt, _, enc_seq, enc_nseq = x.data
 
         w = weights[idx] * icnt[idx] if self.len_normalized else weights[idx]
 
@@ -384,18 +283,7 @@ class SequenceAccumulator(TorchStatisticAccumulator):
 
 
 class SequenceAccumulatorFactory(TorchStatisticAccumulatorFactory):
-    """SequenceAccumulatorFactory object for creating SequenceAccumulator objects.
-
-    Attributes:
-        dist_factory (TorchStatisticAccumulatorFactory): TorchStatisticAccumulatorFactory for base distribution of sequence
-            distribution.
-        len_factory (TorchStatisticAccumulatorFactory): TorchStatisticAccumulatorFactory for length distribution of sequence
-            distribution, set to NullAccumulatorFactory() if corresponding SequenceDistribution has no length
-            distribution desired to be estimated.
-        len_normalized (Optional[bool]): Standardize by length of sequence distribution.
-        keys (Optional[str]): Key for merging/combining sufficient statistics of SequenceAccumulator.
-
-    """
+    """SequenceAccumulatorFactory object for creating SequenceAccumulator objects."""
 
     def __init__(
         self,
@@ -404,17 +292,7 @@ class SequenceAccumulatorFactory(TorchStatisticAccumulatorFactory):
         len_normalized: Optional[bool] = False,
         keys: Optional[str] = None,
     ) -> None:
-        """SequenceAccumulatorFactory object.
-
-        Args:
-            dist_factory (TorchStatisticAccumulatorFactory): TorchStatisticAccumulatorFactory for base distribution of sequence
-                distribution.
-            len_factory (TorchStatisticAccumulatorFactory): TorchStatisticAccumulatorFactory for length distribution of sequence
-                distribution.
-            len_normalized (Optional[bool]): Standardize by length of sequence distribution.
-            keys (Optional[str]): Set key for merging/combining sufficient statistics of SequenceAccumulator.
-
-        """
+        """SequenceAccumulatorFactory object."""
         self.dist_factory = dist_factory
         self.len_factory = len_factory
         self.len_normalized = len_normalized
@@ -432,25 +310,9 @@ class SequenceAccumulatorFactory(TorchStatisticAccumulatorFactory):
 
 
 class SequenceEstimator(TorchParameterEstimator):
-    """SequenceEstimator object for estimating SequenceDistribution from aggregated sufficient statistics.
-
-    Notes:
-        Requires arg 'estimator' to be TorchParameterEstimator of data type T, compatible with the observed entry values
-        of SequenceDistribution.
-
-        If arg 'len_estimator' is passed, it must be a TorchParameterEstimator object compatible with non-negative
-        integers.
-
-        If len_estimator is NullEstimator() or None, len_dist is used as length distribution in estimation.
-
-    Attributes:
-        estimator (TorchParameterEstimator): TorchParameterEstimator for base distribution.
-        len_estimator (Optional[TorchParameterEstimator]): TorchParameterEstimator for length distribution. If None,
-            set to NullEstimator.
-        len_dist (Optional[TorchProbabilityDistribution]): Set a fixed length distribution.
-        len_normalized (Optional[bool]): Take geometric mean of density if True.
-        keys (Optional[str]): Key for SequenceEstimator instance used in aggregating sufficient statistics.
-
+    """
+    SequenceEstimator object for estimating SequenceDistribution from aggregated
+    sufficient.
     """
 
     def __init__(
@@ -461,16 +323,7 @@ class SequenceEstimator(TorchParameterEstimator):
         len_normalized: Optional[bool] = False,
         keys: Optional[str] = None,
     ) -> None:
-        """SequenceEstimator object.
-
-        Args:
-            estimator (TorchParameterEstimator): Set TorchParameterEstimator for base distribution.
-            len_estimator (Optional[TorchParameterEstimator]): Set TorchParameterEstimator for length distribution.
-            len_dist (Optional[TorchProbabilityDistribution]): Set a fixed length distribution.
-            len_normalized (Optional[bool]): Take geometric mean of density if True.
-            keys (Optional[str]): Set key to SequenceEstimator instance for merging sufficient statistics.
-
-        """
+        """SequenceEstimator object."""
         self.estimator = estimator
         self.len_estimator = (
             len_estimator if len_estimator is not None else NullEstimator()
@@ -501,40 +354,23 @@ class SequenceEstimator(TorchParameterEstimator):
                 device=device,
             )
 
-        else:
-            return SequenceDistribution(
-                self.estimator.estimate(nobs, suff_stat[0]),
-                len_dist=self.len_estimator.estimate(nobs, suff_stat[1], device),
-                len_normalized=self.len_normalized,
-                device=device,
-            )
+        return SequenceDistribution(
+            self.estimator.estimate(nobs, suff_stat[0]),
+            len_dist=self.len_estimator.estimate(nobs, suff_stat[1], device),
+            len_normalized=self.len_normalized,
+            device=device,
+        )
 
 
 class SequenceDataEncoder(TorchSequenceEncoder):
-    """SequenceDataEncoder object for encoding sequences of iid observations from sequence distributions.
-
-    Notes:
-        encoders[0] is a TorchSequenceEncoder for data type T, producing encoded sequences of type T1.
-        encoders[1] is a TorchSequenceEncoder for data type int, production encoded sequences of type T2 or None.
-
-    Attributes:
-        encoder (TorchSequenceEncoder): TorchSequenceEncoder object for the distribution of sequence distribution.
-        len_encoder (TorchSequenceEncoder): TorchSequenceEncoder object for the length distribution of sequence
-            distribution. Generally NullDataEncoder() object is no intended length distribution.
-        null_len_enc (bool): True if len_encoder is a NullDataEncoder(), else False.
-
+    """
+    SequenceDataEncoder object for encoding sequences of iid observations from sequence.
     """
 
     def __init__(
         self, encoders: Tuple[TorchSequenceEncoder, TorchSequenceEncoder]
     ) -> None:
-        """SequenceDataEncoder object.
-
-        Args:
-            encoders (Tuple[TorchSequenceEncoder, TorchSequenceEncoder]): Tuple of TorchSequenceEncoder objects for
-                distribution and length distribution of sequence distribution.
-
-        """
+        """SequenceDataEncoder object."""
         self.encoder = encoders[0]
         self.len_encoder = encoders[1]
 
@@ -551,14 +387,13 @@ class SequenceDataEncoder(TorchSequenceEncoder):
         if not isinstance(other, SequenceDataEncoder):
             return False
 
-        else:
-            if not self.encoder == other.encoder:
-                return False
+        if self.encoder != other.encoder:
+            return False
 
-            if not self.len_encoder == other.len_encoder:
-                return False
+        if self.len_encoder != other.len_encoder:
+            return False
 
-            return True
+        return True
 
     def seq_encode(
         self, x: Sequence[Sequence[T]], device: Optional[tn.device] = None
@@ -567,12 +402,12 @@ class SequenceDataEncoder(TorchSequenceEncoder):
         nx = []
         tidx = []
 
-        for i in range(len(x)):
-            nx.append(len(x[i]))
+        for i, x_i in enumerate(x):
+            nx.append(len(x_i))
 
-            for j in range(len(x[i])):
+            for x_ij in x_i:
                 tidx.append(i)
-                tx.append(x[i][j])
+                tx.append(x_ij)
 
         rv1 = vec.int_tensor(tidx, device=device)
         rv2 = vec.tensor(nx, device=device)
