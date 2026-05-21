@@ -79,7 +79,8 @@ class HeterogeneousMixtureDistribution(TorchProbabilityDistribution):
         HeterogeneousMixtureDistribution object.
 
                 Args:
-                    components (Sequence[TorchProbabilityDistribution]): Mixture components.
+                    components (Sequence[TorchProbabilityDistribution]):
+                    Mixture components.
                     w (tn.tensor): Weights for the mixture.
                     device (Optional[tn.device]): Device to declare model on.
 
@@ -115,8 +116,8 @@ class HeterogeneousMixtureDistribution(TorchProbabilityDistribution):
         Evaluate density of Heterogeneous Mixture distribution at observation x.
 
                 Args:
-                    x: (T): Single observation from mixture distribution. T is data type of
-                    components.
+                    x: (T): Single observation from mixture distribution. T is
+                    data type of components.
 
                 Returns:
                     float: Density at x.
@@ -129,8 +130,8 @@ class HeterogeneousMixtureDistribution(TorchProbabilityDistribution):
         Evaluate log-density of heterogeneous mixture distribution at observation x.
 
                 Args:
-                    x: (T): Single observation from heterogeneous mixture distribution. T is
-                    data type of components.
+                    x: (T): Single observation from heterogeneous mixture
+                    distribution. T is data type of components.
 
                 Returns:
                     float: Log-density at x.
@@ -174,7 +175,8 @@ class HeterogeneousMixtureDistribution(TorchProbabilityDistribution):
                     HeterogeneousMixture.
 
                 Returns:
-                    tn.tensor: log-density of mixture components evaluated at each observation.
+                    tn.tensor: log-density of mixture components evaluated at
+                    each observation.
 
         """
         if not isinstance(x, HeterogeneousMixtureTorchSequence):
@@ -257,16 +259,16 @@ class HeterogeneousMixtureDistribution(TorchProbabilityDistribution):
 
     def seq_posterior(self, x: "HeterogeneousMixtureTorchSequence") -> tn.Tensor:
         """
-        Vectorized evaluation of posterior of HeterogeneousMixtureDistribution for encoded
-        sequence x.
+        Vectorized evaluation of posterior of
+        HeterogeneousMixtureDistribution for encoded sequence x.
 
                 Args:
                     x (HeterogeneousMixtureTorchSequence): TorchEncodedSequence for
                     HeterogeneousMixture.
 
                 Returns:
-                    tn.tensor: Tensor containing the posterior of each observation in encoded
-                    sequence.
+                    tn.tensor: Tensor containing the posterior of each
+                    observation in encoded sequence.
 
         """
         if not isinstance(x, HeterogeneousMixtureTorchSequence):
@@ -339,8 +341,8 @@ class HeterogeneousMixtureSampler(DistributionSampler):
             rng (RandomState): Seeded RandomState for sampling.
             w (np.ndarray): Weights for the mixture components.
             ncomps (int): Number of mixture components.
-            comp_samplers (List[DistributionSamplers]): List of DistributionSampler objects
-            for each mixture component.
+            comp_samplers (List[DistributionSamplers]): List of
+            DistributionSampler objects for each mixture component.
 
     """
 
@@ -368,13 +370,13 @@ class HeterogeneousMixtureSampler(DistributionSampler):
         """
         Draw iid samples from a heterogeneous mixture distribution.
 
-                The data type drawn from 'comp_samplers' is type T, corresponding to the data
-                type of the mixture components.
+                The data type drawn from 'comp_samplers' is type T,
+                corresponding to the data type of the mixture components.
 
-                If size is None, a single sample (of data type T) is drawn and returned. If size
-                is not None, 'size'-iid
-                heterogeneous mixture samples are drawn and returned as a List with data type
-                List[T].
+                If size is None, a single sample (of data type T) is drawn
+                and returned. If size is not None, 'size'-iid
+                heterogeneous mixture samples are drawn and returned as a
+                List with data type List[T].
 
                 Args:
                     size (Optional[int]): Number of iid samples to draw.
@@ -566,9 +568,10 @@ class HeterogeneousMixtureAccumulatorFactory(TorchStatisticAccumulatorFactory):
         HeterogeneousMixtureAccumulatorFactory object.
 
                 Args:
-                    factories (Sequence[TorchStatisticAccumulatorFactory]): Factories for the
-                    mixture components.
-                    keys (Tuple[Optional[str], Optional[str]]): Keys for weights and components.
+                    factories (Sequence[TorchStatisticAccumulatorFactory]):
+                    Factories for the mixture components.
+                    keys (Tuple[Optional[str], Optional[str]]): Keys for
+                    weights and components.
 
         """
         self.factories = factories
@@ -589,9 +592,8 @@ class HeterogeneousMixtureAccumulatorFactory(TorchStatisticAccumulatorFactory):
 
 class HeterogeneousMixtureEstimator(TorchParameterEstimator):
     """
-    HeterogeneousMixtureEstimator object used to estimate HeterogeneousMixtureDistribution
-    from aggregated
-            sufficient statistics.
+    HeterogeneousMixtureEstimator object used to estimate
+    HeterogeneousMixtureDistribution from aggregated sufficient statistics.
 
         Attributes:
             estimators (Sequence[TorchParameterEstimator]): Sequence of
@@ -600,10 +602,10 @@ class HeterogeneousMixtureEstimator(TorchParameterEstimator):
             fixed_weights (Optional[np.ndarray]): Treat mixture weights as fixed values.
             Must sum to 1.0.
             suff_stat (Optional[np.ndarray]): Weights of the mixture. Must sum to 1.0.
-            pseudo_count (Optional[float]): Used to re-weight the member variable sufficient
-            statistics in estimation.
-            keys (Tuple[Optional[str], Optional[str]]): Keys for the weights and component
-            distributions.
+            pseudo_count (Optional[float]): Used to re-weight the member
+            variable sufficient statistics in estimation.
+            keys (Tuple[Optional[str], Optional[str]]): Keys for the weights
+            and component distributions.
 
     """
 
@@ -622,14 +624,14 @@ class HeterogeneousMixtureEstimator(TorchParameterEstimator):
                     estimators (Sequence[TorchParameterEstimator]): Sequence of
                     TorchParameterEstimator objects for the mixture
                         components.
-                    fixed_weights (Optional[Union[List[float], np.ndarray]]): Set fixed values
-                    for mixture weights.
-                    suff_stat (Optional[np.ndarray]): Numpy array of floats with length equal to
-                    length of estimators.
-                    pseudo_count (Optional[float]): Used to re-weight the member variable
-                    sufficient statistics in estimation.
-                    keys (Tuple[Optional[str], Optional[str]]): Set keys for the weights and
-                    component distributions.
+                    fixed_weights (Optional[Union[List[float], np.ndarray]]):
+                    Set fixed values for mixture weights.
+                    suff_stat (Optional[np.ndarray]): Numpy array of floats
+                    with length equal to length of estimators.
+                    pseudo_count (Optional[float]): Used to re-weight the
+                    member variable sufficient statistics in estimation.
+                    keys (Tuple[Optional[str], Optional[str]]): Set keys for
+                    the weights and component distributions.
 
         """
         self.num_components = len(estimators)
@@ -687,8 +689,8 @@ class HeterogeneousMixtureEstimator(TorchParameterEstimator):
 
 class HeterogeneousMixtureDataEncoder(TorchSequenceEncoder):
     """
-    HeterogeneousMixtureDataEncoder used for sequence encoding data for use with vectorized
-    'seq_' functions.
+    HeterogeneousMixtureDataEncoder used for sequence encoding data for use
+    with vectorized 'seq_' functions.
 
         Attributes:
             encoder_dict (Dict[DataSequenceEncoder, List[int]]): Dictionary of distinct
@@ -704,8 +706,8 @@ class HeterogeneousMixtureDataEncoder(TorchSequenceEncoder):
         HeterogeneousMixtureDataEncoder object.
 
                 Args:
-                    encoders (List[DataSequenceEncoder]): List of DataSequenceEncoder objects
-                    for each heterogeneous mixture
+                    encoders (List[DataSequenceEncoder]): List of
+                    DataSequenceEncoder objects for each heterogeneous mixture
                         component.
 
         """

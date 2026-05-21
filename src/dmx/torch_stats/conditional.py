@@ -65,31 +65,32 @@ class ConditionalDistribution(TorchProbabilityDistribution):
 
             p_cond(x[1] | x[0]) is a conditional distribution defined through dictionary
             dmap, with keys over data type T0,
-            and values containing the ArkoudaProbabilityDistribution objects compatible with
-            data type T1.
+            and values containing the ArkoudaProbabilityDistribution objects
+            compatible with data type T1.
 
-            P_given(x[0]) is defined as the given distribution. If None is provided, it is
-            assumed that P_given(x[0]) = 1
+            P_given(x[0]) is defined as the given distribution. If None is
+            provided, it is assumed that P_given(x[0]) = 1
             for all x[0].
 
-            default_dist defines the distribution for the case where x[0] is not a key in
-            dmap. That is, x[0] is not in the
-            support of P_cond(X_1 | X_0). If None is provided we assume that P_cond(X1 | X0)
-            = 0, for all X0 not in dmap.
+            default_dist defines the distribution for the case where x[0] is
+            not a key in dmap. That is, x[0] is not in the
+            support of P_cond(X_1 | X_0). If None is provided we assume that
+            P_cond(X1 | X0) = 0, for all X0 not in dmap.
 
         Attributes:
             dmap (Dict[T0, TorchProbabilityDistribution]): T0 is integer if dmap arg was
             list, else T0 is
                 data type of the "given" or conditional.
-            default_dist (TorchProbabilityDistribution): Set to NullDistribution if None is
-            passed as arg.
-            given_dist (TorchProbabilityDistribution): Set to NullDistribution if None is
-            passed as arg.
-            has_default (bool): True if default distribution is not NullDistribution, else
-            False.
-            has_given (bool): True if given_dist is not NullDistribution, else False.
-            keys (Optional[str]): All ConditionalDistribution objects with same keys value
-            are the same distribution.
+            default_dist (TorchProbabilityDistribution): Set to
+            NullDistribution if None is passed as arg.
+            given_dist (TorchProbabilityDistribution): Set to NullDistribution
+            if None is passed as arg.
+            has_default (bool): True if default distribution is not
+            NullDistribution, else False.
+            has_given (bool): True if given_dist is not NullDistribution,
+            else False.
+            keys (Optional[str]): All ConditionalDistribution objects with
+            same keys value are the same distribution.
 
     """
 
@@ -107,18 +108,19 @@ class ConditionalDistribution(TorchProbabilityDistribution):
         ConditionalDistribution object.
                 Args:
                     dmap Union[Dict[Any, TorchProbabilityDistribution],
-                        List[TorchProbabilityDistribution]]): Used to create dictionary of
-                        TorchProbabilityDistribution objects. Type T0 is inferred to be type of
+                        List[TorchProbabilityDistribution]]): Used to create
+                        dictionary of TorchProbabilityDistribution objects.
+                        Type T0 is inferred to be type of
                         dmap keys if dict,
                         else the T0 is inferred to integer.
                     default_dist (Optional[TorchProbabilityDistribution]): Defines the
                     distribution for the case
                         where x[0] is not a key in dmap
-                    given_dist (Optional[TorchProbabilityDistribution]): p_mat(x[0]) is defined
-                    as the given
+                    given_dist (Optional[TorchProbabilityDistribution]):
+                    p_mat(x[0]) is defined as the given
                         distribution.
-                    keys (Optional[str]): All ConditionalDistribution objects with same keys
-                    value are the same distribution.
+                    keys (Optional[str]): All ConditionalDistribution objects
+                    with same keys value are the same distribution.
                     device (Optional[str]): Set the device of the object.
 
         """
@@ -159,12 +161,12 @@ class ConditionalDistribution(TorchProbabilityDistribution):
         Evaluates density of ConditionalDistribution at Tuple x.
 
                 Notes:
-                    Calls log_density() and returns the exponentiated result. See log_density()
-                    for details.
+                    Calls log_density() and returns the exponentiated result.
+                    See log_density() for details.
 
                 Args:
-                    x (Tuple[T0, T1]): T0 data type much match keys of dmap, T1 much match value
-                    of dmap distribution for key
+                    x (Tuple[T0, T1]): T0 data type much match keys of dmap,
+                    T1 much match value of dmap distribution for key
                         value.
 
                 Returns:
@@ -179,12 +181,12 @@ class ConditionalDistribution(TorchProbabilityDistribution):
 
                 Log-density:
                     log(P(x)) = log(P_cond(x[1] | x[0])) + log(P_given(x[0])), where
-                    log(P_cond(x[1] | x[0])) is defined from dmap, and log(P_given(x[0])) is
-                    defined from given_dist.
+                    log(P_cond(x[1] | x[0])) is defined from dmap, and
+                    log(P_given(x[0])) is defined from given_dist.
 
                 Args:
-                    x (Tuple[T0, T1]): T0 data type much match keys of dmap, T1 much match value
-                    of dmap distribution for key
+                    x (Tuple[T0, T1]): T0 data type much match keys of dmap,
+                    T1 much match value of dmap distribution for key
                         value.
 
                 Returns:
@@ -271,20 +273,20 @@ class ConditionalDistributionSampler(ConditionalSampler, DistributionSampler):
     directly or conditionally.
 
         Attributes:
-            dist (ConditionalDistribution): ConditionalDistribution object to draw samples
-            from.
-            default_sampler (DistributionSampler): DistributionSampler object for sampling
-            from default_dist of
+            dist (ConditionalDistribution): ConditionalDistribution object to
+            draw samples from.
+            default_sampler (DistributionSampler): DistributionSampler object
+            for sampling from default_dist of
                 ConditionalDistribution.
             has_default_sampler (bool): True if default sampler is not NullDistribution,
             else False.
             given_sampler (DistributionSampler): DistributionSampler object for sampling
             from given_dist of
                 ConditionalDistribution.
-            has_given_sampler (bool): True if given sampler is not NullDistribution, else
-            False.
-            samplers (Dict[T0,DistributionSampler]): Dictionary of samplers for sampling
-            from ConditionalDistribution,
+            has_given_sampler (bool): True if given sampler is not
+            NullDistribution, else False.
+            samplers (Dict[T0,DistributionSampler]): Dictionary of samplers
+            for sampling from ConditionalDistribution,
                 given a key of data type T0. Note returns List[T1] or T1.
 
     """
@@ -296,10 +298,10 @@ class ConditionalDistributionSampler(ConditionalSampler, DistributionSampler):
         ConditionalDistributionSampler object.
 
                 Args:
-                    dist (ConditionalDistribution): ConditionalDistribution object to draw
-                    samples from.
-                    seed (Optional[int]): Used to set the seed of random number generator used
-                    in sampling.
+                    dist (ConditionalDistribution): ConditionalDistribution
+                    object to draw samples from.
+                    seed (Optional[int]): Used to set the seed of random
+                    number generator used in sampling.
 
         """
         self.dist = dist
@@ -327,7 +329,8 @@ class ConditionalDistributionSampler(ConditionalSampler, DistributionSampler):
                 the given distribution.
 
                 Returns:
-                    Tuple[T0, T1] as defined from dmap and given_distribution types in dist
+                    Tuple[T0, T1] as defined from dmap and
+                    given_distribution types in dist
                     (ConditionalDistribution instance).
 
         """
@@ -344,11 +347,11 @@ class ConditionalDistributionSampler(ConditionalSampler, DistributionSampler):
         """
         Sample 'size' independent samples from ConditionalDistribution.
 
-                Sequence of 'size' calls to single_sample(). If size is None, size is taken to
-                be 1.
+                Sequence of 'size' calls to single_sample(). If size is None,
+                size is taken to be 1.
 
-                Data type returned is a Tuple[T0, T1], where T0 and T1 are the respective data
-                types of the given_dist and
+                Data type returned is a Tuple[T0, T1], where T0 and T1 are
+                the respective data types of the given_dist and
                 dmap defined in the CompositeDistribution instance 'dist'.
 
                 Args:
@@ -366,17 +369,19 @@ class ConditionalDistributionSampler(ConditionalSampler, DistributionSampler):
 
     def sample_given(self, x: T0) -> Any:
         """
-        Sample from conditional distribution of ConditionalDistribution object with given value
-        x.
+        Sample from conditional distribution of ConditionalDistribution
+        object with given value x.
 
                 Return data type T1 as defined for dictionary of ConditionalDistribution
                 instance.
 
                 Args:
-                    x (T0): Value of given/conditional value for ConditionalDistribution.
+                    x (T0): Value of given/conditional value for
+                    ConditionalDistribution.
 
                 Returns:
-                    Single sample from ConditionalDistribution object 'dist.dmap' given x.
+                    Single sample from ConditionalDistribution object
+                    'dist.dmap' given x.
 
         """
         if x in self.samplers:
@@ -408,8 +413,8 @@ class ConditionalDistributionAccumulator(TorchStatisticAccumulator):
             key (Optional[str]): All ConditionalAccumulator objects with same keys value
             will merge suff stats.
 
-            _init_tng (bool): False unless a single call to initialize or seq_initialize has
-            been made.
+            _init_tng (bool): False unless a single call to initialize or
+            seq_initialize has been made.
             _acc_tng (Optional[Dict[T0, Generator]]): Used to seed Generator calls of
             accumulator_map.
             _default_tng (Optional[Generator]): Used to seed Generator calls of
@@ -431,17 +436,17 @@ class ConditionalDistributionAccumulator(TorchStatisticAccumulator):
         ConditionalDistributionAccumulator object.
 
                 Args:
-                    accumulator_map (Dict[T0, TorchStatisticAccumulator]): Stores sufficient
-                    statistics of each
+                    accumulator_map (Dict[T0, TorchStatisticAccumulator]):
+                    Stores sufficient statistics of each
                         conditional distribution for a given key value of data type T0.
-                    default_accumulator (Optional[TorchStatisticAccumulator]): Stores sufficient
-                    statistics of
+                    default_accumulator (Optional[TorchStatisticAccumulator]):
+                    Stores sufficient statistics of
                         distribution for case where key not in accumulator_map.
-                    given_accumulator (Optional[TorchStatisticAccumulator]): Stores sufficient
-                    statistics of
+                    given_accumulator (Optional[TorchStatisticAccumulator]):
+                    Stores sufficient statistics of
                         given distribution if provided.
-                    keys (Optional[str]): All ConditionalAccumulator objects with same keys
-                    value will merge suff stats.
+                    keys (Optional[str]): All ConditionalAccumulator objects
+                    with same keys value will merge suff stats.
                     device (Optional[str]): Set object device.
 
         """
@@ -621,8 +626,8 @@ class ConditionalDistributionAccumulatorFactory(TorchStatisticAccumulatorFactory
             given_factory (TorchStatisticAccumulatorFactory): Used to create
             TorchStatisticAccumulator for
                 given_accumulator in ConditionalDistributionAccumulator.
-            keys (Optional[str]): All ConditionalAccumulator objects with same keys value
-            will merge suff stats.
+            keys (Optional[str]): All ConditionalAccumulator objects with
+            same keys value will merge suff stats.
 
     """
 
@@ -637,18 +642,18 @@ class ConditionalDistributionAccumulatorFactory(TorchStatisticAccumulatorFactory
         ConditionalDistributionAccumulatorFactory object.
 
                 Args:
-                    factory_map (Dict[T0, TorchStatisticAccumulatorFactory]): Dictionary of
-                    TorchStatisticAccumulatorFactory objects for
+                    factory_map (Dict[T0, TorchStatisticAccumulatorFactory]):
+                    Dictionary of TorchStatisticAccumulatorFactory objects for
                         creating TorchStatisticAccumulator objects in
                         ConditionalDistributionAccumulator
                     default_factory (TorchStatisticAccumulatorFactory): Used to create
                     TorchStatisticAccumulator for
                         defualt_accumulator in ConditionalDistributionAccumulator.
-                    given_factory (TorchStatisticAccumulatorFactory): Used to create
-                    TorchStatisticAccumulator for
+                    given_factory (TorchStatisticAccumulatorFactory): Used to
+                    create TorchStatisticAccumulator for
                         given_accumulator in ConditionalDistributionAccumulator.
-                    keys (Optional[str]): All ConditionalAccumulator objects with same keys
-                    value will merge suff stats.
+                    keys (Optional[str]): All ConditionalAccumulator objects
+                    with same keys value will merge suff stats.
 
         """
         self.factory_map = factory_map
@@ -671,8 +676,8 @@ class ConditionalDistributionAccumulatorFactory(TorchStatisticAccumulatorFactory
 
 class ConditionalDistributionEstimator(TorchParameterEstimator):
     """
-    ConditionalDistributionEstimator object used to estimate ConditionalDistribution from
-    aggregated data.
+    ConditionalDistributionEstimator object used to estimate
+    ConditionalDistribution from aggregated data.
 
         Notes:
             If None is passed for default_estimator, default_estimator is set to
@@ -688,8 +693,8 @@ class ConditionalDistributionEstimator(TorchParameterEstimator):
             given_estimator (TorchParameterEstimator): TorchParameterEstimator for
             given_distribution set to NullEstimator
                 if None is passed as arg.
-            keys (Optional[str]): ConditionalDistributionEstimator with matching 'keys' will
-            be aggregated.
+            keys (Optional[str]): ConditionalDistributionEstimator with
+            matching 'keys' will be aggregated.
 
     """
 
@@ -707,10 +712,11 @@ class ConditionalDistributionEstimator(TorchParameterEstimator):
                     estimator_map (Dict[T0, TorchParameterEstimator]):
                     default_estimator (Optional[TorchParameterEstimator]):
                     TorchParameterEstimator for default_distribution, can be None.
-                    given_estimator (Optional[TorchParameterEstimator]): TorchParameterEstimator
-                    for given_distribution, can be None.
-                    keys (Optional[str]): ConditionalDistributionEstimator with matching 'keys'
-                    will be aggregated.
+                    given_estimator (Optional[TorchParameterEstimator]):
+                    TorchParameterEstimator for given_distribution, can be
+                    None.
+                    keys (Optional[str]): ConditionalDistributionEstimator
+                    with matching 'keys' will be aggregated.
 
         """
         self.estimator_map = estimator_map
@@ -743,7 +749,8 @@ class ConditionalDistributionEstimator(TorchParameterEstimator):
                 Args:
                     nobs (Optional[float]): Not used. Kept for consistency.
                     suff_stat: See description above.
-                    device (Optional[tn.device]): Device to declare new estimated model on.
+                    device (Optional[tn.device]): Device to declare new
+                    estimated model on.
 
                 Returns:
                     ConditionalDistribution
@@ -771,19 +778,19 @@ class ConditionalDistributionDataEncoder(TorchSequenceEncoder):
     ConditionalDistributionDataEncoder used to encode sequence of data.
 
         Notes:
-            Data type should be Tuple[T0, T1] where T0 is the type of the conditional value
-            in ConditionalDistribution.
+            Data type should be Tuple[T0, T1] where T0 is the type of the
+            conditional value in ConditionalDistribution.
             I.e.,
             p_mat(X1|X0), should have x_mat as type T0, and Y as type T1.
 
         Attributes:
-            encoder_map (Dict[T0, TorchSequenceEncoder]): Dictionary of TorchSequenceEncoder
-            objects for each conditional
+            encoder_map (Dict[T0, TorchSequenceEncoder]): Dictionary of
+            TorchSequenceEncoder objects for each conditional
                 value of data type T0. Data types of the encoders must be of type T1.
-            default_encoder (TorchSequenceEncoder): TorchSequenceEncoder compatible with
-            data type T1.
-            given_encoder (TorchSequenceEncoder): TorchSequenceEncoder compatible with data
-            type T0.
+            default_encoder (TorchSequenceEncoder): TorchSequenceEncoder
+            compatible with data type T1.
+            given_encoder (TorchSequenceEncoder): TorchSequenceEncoder
+            compatible with data type T0.
             null_default_encoder (bool): True if default_encoder is instance of
             NullDataEncoder, else false.
             null_given_encoder (bool): True if default_encoder is instance of
@@ -803,11 +810,12 @@ class ConditionalDistributionDataEncoder(TorchSequenceEncoder):
                 Args:
                     encoder_map (Dict[T0, TorchSequenceEncoder]): Dictionary of
                     TorchSequenceEncoder objects for each conditional
-                        value of data type T0. Data types of the encoders must be of type T1.
-                    default_encoder (TorchSequenceEncoder): TorchSequenceEncoder compatible with
-                    data type T1.
-                    given_encoder ((TorchSequenceEncoder): TorchSequenceEncoder compatible with
-                    data type T0.
+                        value of data type T0. Data types of the encoders
+                        must be of type T1.
+                    default_encoder (TorchSequenceEncoder):
+                    TorchSequenceEncoder compatible with data type T1.
+                    given_encoder ((TorchSequenceEncoder):
+                    TorchSequenceEncoder compatible with data type T0.
 
         """
         self.encoder_map = encoder_map
@@ -857,33 +865,35 @@ class ConditionalDistributionDataEncoder(TorchSequenceEncoder):
         self, x: List[Tuple[T0, T1]], device: Optional[tn.device] = None
     ) -> "ConditionalTorchEncodedSequence":
         """
-        Encode sequence of iid observations from ConditionalDistribution for vectorized "seq_"
-        function calls.
+        Encode sequence of iid observations from ConditionalDistribution for
+        vectorized "seq_" function calls.
 
                 Notes:
-                    Data must be a List of Tuple of two types, T0 and T1. T0 is the data type
-                    compatible with the conditional
-                    values of the ConditionalDistribution. T1 must be consistent with the data
-                    type of the conditional
+                    Data must be a List of Tuple of two types, T0 and T1. T0
+                    is the data type compatible with the conditional
+                    values of the ConditionalDistribution. T1 must be
+                    consistent with the data type of the conditional
                     distributions.
 
                     E Tuple of length 5:
                         E[0] (int): length of x (i.e. total observations).
                         E[1] (Tuple[T0]): Unique conditional values in data.
-                        E[2] (Tuple[Encoded[T1]): Tuple of sequence encoded data of type T1
-                        encoded by
-                            encoder_map[key] or default_encoder if key not in default_encoder
-                            and default_encoder is not
+                        E[2] (Tuple[Encoded[T1]): Tuple of sequence encoded
+                        data of type T1 encoded by
+                            encoder_map[key] or default_encoder if key not in
+                            default_encoder and default_encoder is not
                             the NullDataEncoder.
-                        E[3] (Tuple[tn.Tensor,...]): Tuple of length equal to the number of
-                        unique conditional
-                            values encountered in the data. Each entry contains a numpy array
-                            for the indices of x that correspond
+                        E[3] (Tuple[tn.Tensor,...]): Tuple of length equal to
+                        the number of unique conditional
+                            values encountered in the data. Each entry
+                            contains a numpy array for the indices of x that
+                            correspond
                             to a unique conditional value.
-                        E[4] (Optional[Encoded[T0]]): If the given_encoder is not the
-                        NullDataEncoder, the
-                            observed conditional values of data type T0 are sequence encoded by
-                            given_encoder. Else return None.
+                        E[4] (Optional[Encoded[T0]]): If the given_encoder is
+                        not the NullDataEncoder, the
+                            observed conditional values of data type T0 are
+                            sequence encoded by given_encoder. Else return
+                            None.
 
                 Args:
                     x (List[Tuple[T0, T1]]): List of data observations.

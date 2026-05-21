@@ -72,9 +72,9 @@ class MixtureDistribution(TorchProbabilityDistribution):
         MixtureDistribution object.
 
                 Args:
-                    components (Sequence[TorchProbabilityDistribution]): Mixture components, all
-                    TorchProbabilityDistributions of
-                        the same type.
+                    components (Sequence[TorchProbabilityDistribution]):
+                        Mixture components, all TorchProbabilityDistributions of the
+                        same type.
                     w (Union[np.ndarray, List[float], tn.Tensor]): Mixture weights.
                     device (Optional[tn.device]): Device to declare tensors on.
 
@@ -112,8 +112,8 @@ class MixtureDistribution(TorchProbabilityDistribution):
                     See log_density() for details.
 
                 Args:
-                    x: (T): Single observation from mixture distribution. T is data type of
-                    components.
+                    x: (T): Single observation from mixture distribution. T is
+                    data type of components.
 
                 Returns:
                     float: Density at x.
@@ -136,8 +136,8 @@ class MixtureDistribution(TorchProbabilityDistribution):
                     dmx.utils.vector.log_sum() for details).
 
                 Args:
-                    x: (T): Single observation from mixture distribution. T is data type of
-                    components.
+                    x: (T): Single observation from mixture distribution. T is
+                    data type of components.
 
                 Returns:
                     float: Log-density at x.
@@ -301,8 +301,8 @@ class MixtureSampler(DistributionSampler):
         Attributes:
             rng (RandomState): Seeded RandomState for sampling.
             w (np.ndarray): Mixture weights.
-            comp_samplers (List[DistributionSamplers]): List of DistributionSampler objects
-            for each mixture component.
+            comp_samplers (List[DistributionSamplers]): List of
+            DistributionSampler objects for each mixture component.
             num_components (int): Number of mixture components.
 
     """
@@ -312,7 +312,8 @@ class MixtureSampler(DistributionSampler):
         MixtureSampler object.
 
                 Args:
-                    dist (MixtureDistribution): Assign MixtureDistribution to draw samples from.
+                    dist (MixtureDistribution): Assign MixtureDistribution to
+                    draw samples from.
                     seed (Optional[int]): Seed to set for sampling with RandomState.
 
         """
@@ -328,11 +329,11 @@ class MixtureSampler(DistributionSampler):
         """
         Draw iid samples from a mixture distribution.
 
-                The data type drawn from 'comp_samplers' is type T, corresponding to the data
-                type of the mixture components.
+                The data type drawn from 'comp_samplers' is type T,
+                corresponding to the data type of the mixture components.
 
-                If size is None, a single sample (of data type T) is drawn and returned. If size
-                is not None, 'size'-iid
+                If size is None, a single sample (of data type T) is drawn
+                and returned. If size is not None, 'size'-iid
                 mixture samples are drawn and returned as a List with data type List[T].
 
                 Args:
@@ -513,8 +514,8 @@ class MixtureAccumulatorFactory(TorchStatisticAccumulatorFactory):
                     factories (Sequence[StatisticAccumulatorFactory]): Sequence of
                     StatisticAccumulatorFactory for the mixture
                         components.
-                    keys (Tuple[Optional[str], Optional[str]]): Assign keys for weights and
-                    component aggregations.
+                    keys (Tuple[Optional[str], Optional[str]]): Assign keys
+                    for weights and component aggregations.
 
         """
         self.factories = factories
@@ -531,8 +532,8 @@ class MixtureAccumulatorFactory(TorchStatisticAccumulatorFactory):
 
 class MixtureEstimator(TorchParameterEstimator):
     """
-    MixtureEstimator object used to estimate MixtureDistribution from aggregated sufficient
-    statistics.
+    MixtureEstimator object used to estimate MixtureDistribution from
+    aggregated sufficient statistics.
 
         Attributes:
             estimators (Sequence[ParameterEstimator]): Sequence of ParameterEstimator
@@ -541,10 +542,10 @@ class MixtureEstimator(TorchParameterEstimator):
             fixed_weights (Optional[np.ndarray]): Treat mixture weights as fixed values.
             Must sum to 1.0.
             suff_stat (Optional[np.ndarray]): Weights of the mixture. Must sum to 1.0.
-            pseudo_count (Optional[float]): Used to re-weight the member variable sufficient
-            statistics in estimation.
-            keys (Tuple[Optional[str], Optional[str]]): Keys for the weights and component
-            distributions.
+            pseudo_count (Optional[float]): Used to re-weight the member
+            variable sufficient statistics in estimation.
+            keys (Tuple[Optional[str], Optional[str]]): Keys for the weights
+            and component distributions.
 
     """
 
@@ -557,21 +558,21 @@ class MixtureEstimator(TorchParameterEstimator):
         keys: Tuple[Optional[str], Optional[str]] = (None, None),
     ) -> None:
         """
-        MixtureEstimator object used to estimate MixtureDistribution from aggregated sufficient
-        statistics.
+        MixtureEstimator object used to estimate MixtureDistribution from
+        aggregated sufficient statistics.
 
                 Args:
                     estimators (Sequence[TorchParameterEstimator]): Sequence of
                     TorchParameterEstimator objects for the mixture
                         components.
-                    fixed_weights (Optional[Union[List[float], np.ndarray]]): Set fixed values
-                    for mixture weights.
-                    suff_stat (Optional[np.ndarray]): Numpy array of floats with length equal to
-                    length of estimators.
-                    pseudo_count (Optional[float]): Used to re-weight the member variable
-                    sufficient statistics in estimation.
-                    keys (Tuple[Optional[str], Optional[str]]): Set keys for the weights and
-                    component distributions.
+                    fixed_weights (Optional[Union[List[float], np.ndarray]]):
+                    Set fixed values for mixture weights.
+                    suff_stat (Optional[np.ndarray]): Numpy array of floats
+                    with length equal to length of estimators.
+                    pseudo_count (Optional[float]): Used to re-weight the
+                    member variable sufficient statistics in estimation.
+                    keys (Tuple[Optional[str], Optional[str]]): Set keys for
+                    the weights and component distributions.
 
         """
         self.num_components = len(estimators)
@@ -631,8 +632,8 @@ class MixtureDataEncoder(TorchSequenceEncoder):
     MixtureDataEncoder object for creating MixtureTorchEncodedSequence instances.
 
         Attributes:
-            encoder (TorchSequenceEncoder): TorchSequenceEncoder for data compatible with
-            each mixture component.
+            encoder (TorchSequenceEncoder): TorchSequenceEncoder for data
+            compatible with each mixture component.
 
     """
 
@@ -641,8 +642,8 @@ class MixtureDataEncoder(TorchSequenceEncoder):
         MixtureDataEncoder object.
 
                 Args:
-                    encoder (TorchSequenceEncoder): TorchSequenceEncoder for data compatible
-                    with each mixture component.
+                    encoder (TorchSequenceEncoder): TorchSequenceEncoder for
+                    data compatible with each mixture component.
 
         """
         self.encoder = encoder
@@ -679,9 +680,10 @@ class MixtureTorchEncodedSequence(TorchEncodedSequence):
         MixtureTorchEncodedSequence object.
 
                 Args:
-                    data (TorchEncodedSequence): TorchEncodedSequence for data of mixture
-                    components.
-                    device (Optional[tn.device]): Device tensors of instance are declared on.
+                    data (TorchEncodedSequence): TorchEncodedSequence for
+                    data of mixture components.
+                    device (Optional[tn.device]): Device tensors of instance
+                    are declared on.
 
         """
         super().__init__(data=data, device=device)

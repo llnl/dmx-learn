@@ -17,11 +17,6 @@ Classes:
 
 """
 
-# pylint: disable=unnecessary-ellipsis
-# Rationale: Ellipsis (...) is the standard Python idiom for abstract method stubs
-# and is preferred over 'pass' as it more clearly indicates that the method must
-# be implemented by subclasses.
-
 import math
 from abc import abstractmethod
 from typing import Any, Dict, Generic, Optional, TypeVar
@@ -76,7 +71,7 @@ class TorchProbabilityDistribution:
             Distribution instance on the target device.
 
         """
-        ...
+        raise NotImplementedError
 
     @abstractmethod
     def density(self, x: Any) -> float:
@@ -102,7 +97,7 @@ class TorchProbabilityDistribution:
             Log probability density value.
 
         """
-        ...
+        raise NotImplementedError
 
     @abstractmethod
     def sampler(self, seed: Optional[int] = None) -> "DistributionSampler":
@@ -115,7 +110,7 @@ class TorchProbabilityDistribution:
             A DistributionSampler instance.
 
         """
-        ...
+        raise NotImplementedError
 
     @abstractmethod
     def estimator(
@@ -130,7 +125,7 @@ class TorchProbabilityDistribution:
             A TorchParameterEstimator instance.
 
         """
-        ...
+        raise NotImplementedError
 
     @abstractmethod
     def seq_log_density(self, x: Any) -> tn.Tensor:
@@ -153,7 +148,7 @@ class TorchProbabilityDistribution:
             A TorchSequenceEncoder instance.
 
         """
-        ...
+        raise NotImplementedError
 
 
 class DistributionSampler:
@@ -174,7 +169,7 @@ class DistributionSampler:
             Generated samples.
 
         """
-        ...
+        raise NotImplementedError
 
 
 class ConditionalSampler:
@@ -195,7 +190,7 @@ class ConditionalSampler:
             Generated sample conditioned on x.
 
         """
-        ...
+        raise NotImplementedError
 
 
 class TorchStatisticAccumulator(Generic[SS]):
@@ -231,7 +226,7 @@ class TorchStatisticAccumulator(Generic[SS]):
             estimate: Current parameter estimate.
 
         """
-        ...
+        raise NotImplementedError
 
     @abstractmethod
     def seq_initialize(self, x: Any, weights: tn.Tensor, tng: tn.Generator) -> None:
@@ -243,7 +238,7 @@ class TorchStatisticAccumulator(Generic[SS]):
             tng: PyTorch random number generator.
 
         """
-        ...
+        raise NotImplementedError
 
     @abstractmethod
     def combine(self, suff_stat: SS) -> "TorchStatisticAccumulator":
@@ -256,7 +251,7 @@ class TorchStatisticAccumulator(Generic[SS]):
             Updated accumulator with combined statistics.
 
         """
-        ...
+        raise NotImplementedError
 
     @abstractmethod
     def value(self) -> SS:
@@ -266,7 +261,7 @@ class TorchStatisticAccumulator(Generic[SS]):
             Current sufficient statistics.
 
         """
-        ...
+        raise NotImplementedError
 
     @abstractmethod
     def from_value(self, x: SS) -> "TorchStatisticAccumulator":
@@ -279,7 +274,7 @@ class TorchStatisticAccumulator(Generic[SS]):
             Accumulator initialized with the given statistics.
 
         """
-        ...
+        raise NotImplementedError
 
     @abstractmethod
     def key_merge(self, stats_dict: Dict[str, Any]) -> None:
@@ -289,7 +284,7 @@ class TorchStatisticAccumulator(Generic[SS]):
             stats_dict: Dictionary of statistics to merge.
 
         """
-        ...
+        raise NotImplementedError
 
     @abstractmethod
     def key_replace(self, stats_dict: Dict[str, Any]) -> None:
@@ -299,7 +294,7 @@ class TorchStatisticAccumulator(Generic[SS]):
             stats_dict: Dictionary of statistics to use as replacements.
 
         """
-        ...
+        raise NotImplementedError
 
     @abstractmethod
     def acc_to_encoder(self) -> "TorchSequenceEncoder":
@@ -309,7 +304,7 @@ class TorchStatisticAccumulator(Generic[SS]):
             A TorchSequenceEncoder instance.
 
         """
-        ...
+        raise NotImplementedError
 
 
 class TorchStatisticAccumulatorFactory:
@@ -331,7 +326,7 @@ class TorchStatisticAccumulatorFactory:
             A new TorchStatisticAccumulator instance.
 
         """
-        ...
+        raise NotImplementedError
 
 
 class TorchParameterEstimator(Generic[SS]):
@@ -364,7 +359,7 @@ class TorchParameterEstimator(Generic[SS]):
             Estimated probability distribution.
 
         """
-        ...
+        raise NotImplementedError
 
     @abstractmethod
     def accumulator_factory(self) -> "TorchStatisticAccumulatorFactory":
@@ -374,7 +369,7 @@ class TorchParameterEstimator(Generic[SS]):
             A TorchStatisticAccumulatorFactory instance.
 
         """
-        ...
+        raise NotImplementedError
 
 
 class TorchSequenceEncoder:
@@ -403,7 +398,7 @@ class TorchSequenceEncoder:
             Encoded sequence.
 
         """
-        ...
+        raise NotImplementedError
 
     @abstractmethod
     def __eq__(self, other: object) -> bool:
@@ -416,7 +411,7 @@ class TorchSequenceEncoder:
             True if encoders are equal, False otherwise.
 
         """
-        ...
+        raise NotImplementedError
 
 
 class TorchEncodedSequence:
@@ -445,4 +440,4 @@ class TorchEncodedSequence:
     @abstractmethod
     def __str__(self) -> str:
         """Return string representation of the encoded sequence."""
-        ...
+        raise NotImplementedError

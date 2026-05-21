@@ -43,17 +43,18 @@ class CompositeDistribution(TorchProbabilityDistribution):
     (Dist_0,Dist_1,...,Dist_{n-1}).
 
         Notes:
-            Data type must be (T_0, T_1, ..., T_{n-1}), where data type T_k is consistent
-            with distribution Dist_k. The
-            density for a single observation tuple x = (x_0,x_1,...,x_{n-1}) is given by,
+            Data type must be (T_0, T_1, ..., T_{n-1}), where data type T_k
+            is consistent with distribution Dist_k. The
+            density for a single observation tuple x =
+            (x_0,x_1,...,x_{n-1}) is given by,
 
             p_mat(x) = p_mat(x_0 | Dist_0)*p_mat(x_1 | Dist_1)*...*p_mat(x_{n-1} |
             Dist_{n-1}).
 
 
         Attributes:
-            dists: (Sequence[TorchProbabilityDistribution]): Distributions given by Dist_k
-            above.
+            dists: (Sequence[TorchProbabilityDistribution]): Distributions
+            given by Dist_k above.
             counts (int): Number of components (i.e. len(dists)).
 
     """
@@ -67,8 +68,8 @@ class CompositeDistribution(TorchProbabilityDistribution):
         CompositeDistribution object.
 
                 Args:
-                    dists (Sequence[TorchProbabilityDistribution]): Distributions given by
-                    Dist_k above.
+                    dists (Sequence[TorchProbabilityDistribution]):
+                    Distributions given by Dist_k above.
                     device (Optional[str]): Set the device type for object.
 
         """
@@ -90,15 +91,15 @@ class CompositeDistribution(TorchProbabilityDistribution):
         Evaluates density of CompositeDistribution for single observation tuple x.
 
                 Notes:
-                    p_mat(x) = p_mat(x_0 | dist_0)*p_mat(x_1 | dist_1)*...*p_mat(x_{n-1} |
-                    dist_{n-1}),
+                    p_mat(x) = p_mat(x_0 | dist_0)*p_mat(x_1 | dist_1)*...
+                    *p_mat(x_{n-1} | dist_{n-1}),
 
                     where dist_k is the k^{th} element of member variable dists and is
                     consistent with data type type(x[k]).
 
                 Args:
-                    x (Tuple[Any, ...]): Tuple of length = len(dists), the k^{th} data type must
-                    be consistent with dists[k].
+                    x (Tuple[Any, ...]): Tuple of length = len(dists), the
+                    k^{th} data type must be consistent with dists[k].
 
                 Returns:
                     float: Density as float.
@@ -116,15 +117,16 @@ class CompositeDistribution(TorchProbabilityDistribution):
         Evaluates log-density of CompositeDistribution for single observation tuple x.
 
                 Notes:
-                    log(p_mat(x)) = log(p_mat(x_0 | dist_0)) + log(p_mat(x_1 | dist_1)) + ... +
+                    log(p_mat(x)) = log(p_mat(x_0 | dist_0)) +
+                    log(p_mat(x_1 | dist_1)) + ... +
                     log(p_mat(x_{n-1} | dist_{n-1})),
 
                     where dist_k is the k^{th} element of member variable dists and is
                     consistent with data type type(x[k]).
 
                 Args:
-                    x (Tuple[Any, ...]): Tuple of length = len(dists), the k^{th} data type must
-                    be consistent with dists[k].
+                    x (Tuple[Any, ...]): Tuple of length = len(dists), the
+                    k^{th} data type must be consistent with dists[k].
 
                 Returns:
                     float: Log-density as float.
@@ -169,8 +171,8 @@ class CompositeSampler(DistributionSampler):
         Attributes:
             dist (CompositeDistribution): CompositeDistribution to draw samples from.
             rng (RandomState): RandomState with seed set if provided.
-            dist_samplers (List[DistributionSamplers]): List of DistributionSamplers for
-            each component
+            dist_samplers (List[DistributionSamplers]): List of
+            DistributionSamplers for each component
                 (len=len(dists)).
     """
 
@@ -181,7 +183,8 @@ class CompositeSampler(DistributionSampler):
         CompositeSampler object.
 
                 Args:
-                    dist (CompositeDistribution): CompositeDistribution to draw samples from.
+                    dist (CompositeDistribution): CompositeDistribution to
+                    draw samples from.
                     seed (Optional[int]): Seed to set for sampling with RandomState.
 
         """
@@ -197,18 +200,18 @@ class CompositeSampler(DistributionSampler):
         """
         Generate independent samples from a CompositeDistribution.
 
-                If size is None, draw one sample and return as Tuple of length = len(dists). If
-                size > 0,
+                If size is None, draw one sample and return as Tuple of
+                length = len(dists). If size > 0,
                 draw size samples and return a list of length size containing tuples of
                 len(dists).
 
                 Args:
-                    size (Optional[int]): If None, draw 1 sample. Else, draw size number of iid
-                    samples.
+                    size (Optional[int]): If None, draw 1 sample. Else, draw
+                    size number of iid samples.
 
                 Returns:
-                    A tuple of length = len(dists) or a list of length size containing tuples of
-                    length = len(dists).
+                    A tuple of length = len(dists) or a list of length size
+                    containing tuples of length = len(dists).
 
         """
         if size is None:
@@ -219,9 +222,8 @@ class CompositeSampler(DistributionSampler):
 
 class CompositeAccumulator(TorchStatisticAccumulator):
     """
-    CompositeAccumulator object used for aggregating suffcient statistics of each component
-    of the
-            CompositeDistribution.
+    CompositeAccumulator object used for aggregating suffcient statistics of
+    each component of the CompositeDistribution.
 
         Attributes:
             accumulators (List[TorchStatisticAccumulator]): List of
@@ -231,10 +233,10 @@ class CompositeAccumulator(TorchStatisticAccumulator):
             count (int): Length of accumulators.
             keys (Optional[str]): All CompositeAccumulators with same keys will have
             suff-stats merged.
-            _init_tng (bool): Is True if _acc_tng has been set by a single function call to
-            initialize.
-            _acc_tng (List[Generator]): List of Generator objects generated from seeds set
-            by tng in initialize.
+            _init_tng (bool): Is True if _acc_tng has been set by a single
+            function call to initialize.
+            _acc_tng (List[Generator]): List of Generator objects generated
+            from seeds set by tng in initialize.
 
     """
 
@@ -249,8 +251,8 @@ class CompositeAccumulator(TorchStatisticAccumulator):
 
                 Args:
                     accumulators (List[TorchStatisticAccumulator]):
-                    keys (Optional[str]): All CompositeAccumulators with same keys will have
-                    suff-stats merged.
+                    keys (Optional[str]): All CompositeAccumulators with same
+                    keys will have suff-stats merged.
                     device (Optional[str]): Set the device type for object.
 
         """
@@ -343,8 +345,8 @@ class CompositeAccumulatorFactory(TorchStatisticAccumulatorFactory):
                     factories (List[TorchStatisticAccumulatorFactory]): List of
                     TorchStatisticAccumulatorFactory objects for
                         each component.
-                    keys (Optional[str]): Declare keys for merging sufficient statistics of
-                    CompositeAccumulator objects.
+                    keys (Optional[str]): Declare keys for merging sufficient
+                    statistics of CompositeAccumulator objects.
 
         """
         self.factories = factories
@@ -358,9 +360,8 @@ class CompositeAccumulatorFactory(TorchStatisticAccumulatorFactory):
 
 class CompositeEstimator(TorchParameterEstimator):
     """
-    CompositeEstimator object used to estimate CompositeDistribution from sufficient
-    statistics of each
-            component.
+    CompositeEstimator object used to estimate CompositeDistribution from
+    sufficient statistics of each component.
 
         Attributes:
             estimators (List[TorchParameterEstimator]): List of TorchParameterEstimator
@@ -379,11 +380,11 @@ class CompositeEstimator(TorchParameterEstimator):
         CompositeEstimator object.
 
                 Args:
-                    estimators (List[TorchParameterEstimator]): List of TorchParameterEstimator
-                    objects for each component of
+                    estimators (List[TorchParameterEstimator]): List of
+                    TorchParameterEstimator objects for each component of
                         CompositeEstimator.
-                    keys (Optional[str]): Keys used for merging sufficient statistics of
-                    CompositeEstimator objects.
+                    keys (Optional[str]): Keys used for merging sufficient
+                    statistics of CompositeEstimator objects.
 
         """
         self.estimators = estimators
@@ -392,7 +393,8 @@ class CompositeEstimator(TorchParameterEstimator):
 
     def accumulator_factory(self) -> "CompositeAccumulatorFactory":
         """
-        Creates CompositeAccumulatorFactory from each TorchParameterEstimator in estimators.
+        Creates CompositeAccumulatorFactory from each TorchParameterEstimator
+        in estimators.
 
                 Returns:
                     CompositeAccumulatorFactory.
@@ -406,9 +408,8 @@ class CompositeEstimator(TorchParameterEstimator):
         self, nobs: Optional[float], suff_stat: SS, device: Optional[TorchDevice] = None
     ) -> "CompositeDistribution":
         """
-        Estimate a CompositeDistribution from an aggregated sufficient statistics Tuple for a
-        given number of
-                    observations (nobs).
+        Estimate a CompositeDistribution from an aggregated sufficient
+        statistics Tuple for a given number of observations (nobs).
 
                 Args:
                     nobs (Optional[float]): Weighted number of observations used to form
@@ -448,8 +449,8 @@ class CompositeDataEncoder(TorchSequenceEncoder):
         CompositeDataEncoder object.
 
                 Args:
-                    encoders (Sequence[TorchSequenceEncoder]): TorchSequenceEncoders for each
-                    component of the
+                    encoders (Sequence[TorchSequenceEncoder]):
+                    TorchSequenceEncoders for each component of the
                         CompositeDistribution.
 
         """
@@ -482,9 +483,10 @@ class CompositeDataEncoder(TorchSequenceEncoder):
         """
         Encode Sequence of tuples of data for use with vectorized "seq_" functions.
 
-                The input x must be a Sequence of Tuples of length equal to the length of
-                encoders. Each component tuple
-                observation of x, say x[i], must be component-wise compatible with encoders.
+                The input x must be a Sequence of Tuples of length equal to
+                the length of encoders. Each component tuple
+                observation of x, say x[i], must be component-wise
+                compatible with encoders.
 
                 Args:
                     x (Sequence[Tuple[Any, ...]]): Sequence of tuples of length equal to

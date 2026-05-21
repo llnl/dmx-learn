@@ -54,8 +54,8 @@ class JointMixtureDistribution(TorchProbabilityDistribution):
     JointMixtureDistribution object for defining a joint mixture distribution.
 
         Notes:
-            Data type is Tuple[T0, T1] where all components1 entries and component2 entries
-            are compatible with
+            Data type is Tuple[T0, T1] where all components1 entries and
+            component2 entries are compatible with
             T0 and T1 respectively.
 
         Attributes:
@@ -67,22 +67,22 @@ class JointMixtureDistribution(TorchProbabilityDistribution):
             w2 (np.ndarray): Probability of drawing X2 from component j.
             num_components1 (int): Number of mixture components for X1.
             num_components2 (int): Number of mixture components for X2.
-            taus12 (np.ndarray): 2-d Numpy array with probabilities of drawing X2 from comp
-            j given X1 was drawn from
+            taus12 (np.ndarray): 2-d Numpy array with probabilities of
+            drawing X2 from comp j given X1 was drawn from
                 comp i. Rows are component X1 state.
-            taus21 (np.ndarray): 2-d Numpy array with probabilities of drawing X1 from comp
-            i given X2 was drawn from
+            taus21 (np.ndarray): 2-d Numpy array with probabilities of
+            drawing X1 from comp i given X2 was drawn from
                 comp j. Rows are component X1 state.
             log_w1 (np.ndarray): Log-probability of drawing X1 from component i.
             log_w2 (np.ndarray): Log-probability of drawing X2 from component j.
-            log_taus12 (np.ndarray): 2-d Numpy array with log-probabilities of drawing X2
-            from comp j given X1 was
+            log_taus12 (np.ndarray): 2-d Numpy array with
+            log-probabilities of drawing X2 from comp j given X1 was
                 drawn from comp i. Rows are component X1 state.
-            log_taus21 (np.ndarray): 2-d Numpy array with log-probabilities of drawing X1
-            from comp i given X2 was
+            log_taus21 (np.ndarray): 2-d Numpy array with
+            log-probabilities of drawing X1 from comp i given X2 was
                 drawn from comp j. Rows are component X1 state.
-            keys (Optional[Tuple[Optional[str], Optional[str], Optional[str]]]): Set keys
-            for weights, mixture
+            keys (Optional[Tuple[Optional[str], Optional[str],
+            Optional[str]]]): Set keys for weights, mixture
                 components of X1, mixture components of X2.
 
     """
@@ -105,25 +105,25 @@ class JointMixtureDistribution(TorchProbabilityDistribution):
         """
         JointMixtureDistribution object for defining a joint mixture distribution.
 
-                Note: Data type is Tuple[T0, T1] where all components1 entries and component2
-                entries are compatible with
+                Note: Data type is Tuple[T0, T1] where all components1
+                entries and component2 entries are compatible with
                 T0 and T1 respectively.
 
                 Args:
-                    components1(Sequence[TorchProbabilityDistribution]): Mixture components for
-                    mixture of X1.
-                    components2 (Sequence[TorchProbabilityDistribution]): Mixture components for
-                    mixture X2.
+                    components1(Sequence[TorchProbabilityDistribution]):
+                    Mixture components for mixture of X1.
+                    components2 (Sequence[TorchProbabilityDistribution]):
+                    Mixture components for mixture X2.
                     w1 (np.ndarray): Probability of drawing X1 from component i.
                     w2 (np.ndarray): Probability of drawing X2 from component j.
-                    taus12 (np.ndarray): 2-d Numpy array with probabilities of drawing X2 from
-                    comp j given X1 was drawn from
+                    taus12 (np.ndarray): 2-d Numpy array with probabilities
+                    of drawing X2 from comp j given X1 was drawn from
                         comp i. Rows are component X1 state.
-                    taus21 (np.ndarray): 2-d Numpy array with probabilities of drawing X1 from
-                    comp i given X2 was drawn from
+                    taus21 (np.ndarray): 2-d Numpy array with probabilities
+                    of drawing X1 from comp i given X2 was drawn from
                         comp j. Rows are component X1 state.
-                    keys (Optional[Tuple[Optional[str], Optional[str], Optional[str]]]): Set
-                    keys for weights, mixture
+                    keys (Optional[Tuple[Optional[str], Optional[str],
+                    Optional[str]]]): Set keys for weights, mixture
                         components of X1, mixture components of X2.
                     device (Optional[device]): Set device for tensor calculations.
 
@@ -298,21 +298,21 @@ class JointMixtureEstimatorAccumulator(TorchStatisticAccumulator):
     Joint mixture model.
 
         Attributes:
-            accumulators1 (Sequence[TorchStatisticAccumulator]): Accumulators for the outer
-            mixture components.
-            accumulators2 (Sequence[TorchStatisticAccumulator]): Accumulators for the inner
-            mixture components.
-            keys (Optional[Tuple[Optional[str], Optional[str], Optional[str]]]): Set keys
-            for weights, mixture
+            accumulators1 (Sequence[TorchStatisticAccumulator]):
+            Accumulators for the outer mixture components.
+            accumulators2 (Sequence[TorchStatisticAccumulator]):
+            Accumulators for the inner mixture components.
+            keys (Optional[Tuple[Optional[str], Optional[str],
+            Optional[str]]]): Set keys for weights, mixture
                 components of X1, mixture components of X2.
             num_components1 (int): Number of X1 mixture components.
             num_components2 (int): Number of X2 mixture components.
-            comp_counts1 (np.ndarray): Weighted observation counts for states of mixture on
-            X1.
-            comp_counts2 (np.ndarray): Weighted observation counts for states of mixture on
-            X2.
-            joint_counts (np.ndarray): 2-d Numpy array for counts of state-given-state
-            weights. Row indexed by states
+            comp_counts1 (np.ndarray): Weighted observation counts for states
+            of mixture on X1.
+            comp_counts2 (np.ndarray): Weighted observation counts for states
+            of mixture on X2.
+            joint_counts (np.ndarray): 2-d Numpy array for counts of
+            state-given-state weights. Row indexed by states
                 of X1, cols indexed by states of X2.
 
     """
@@ -329,18 +329,18 @@ class JointMixtureEstimatorAccumulator(TorchStatisticAccumulator):
         device: Optional[tn.device] = None,
     ) -> None:
         """
-        JointMixtureEstimatorAccumulator object for accumulating sufficient statistics of a
-        Joint mixture model.
+        JointMixtureEstimatorAccumulator object for accumulating sufficient
+        statistics of a Joint mixture model.
 
                 Args:
-                    accumulators1 (Sequence[TorchStatisticAccumulator]): Accumulators for the
-                    mixture components
+                    accumulators1 (Sequence[TorchStatisticAccumulator]):
+                    Accumulators for the mixture components
                         of X1.
-                    accumulators2 (Sequence[TorchStatisticAccumulator]): Accumulators for the
-                    mixture components
+                    accumulators2 (Sequence[TorchStatisticAccumulator]):
+                    Accumulators for the mixture components
                         of X2.
-                    keys (Optional[Tuple[Optional[str], Optional[str], Optional[str]]]): Set
-                    keys for weights, mixture
+                    keys (Optional[Tuple[Optional[str], Optional[str],
+                    Optional[str]]]): Set keys for weights, mixture
                         components of X1, mixture components of X2.
 
         """
@@ -577,20 +577,20 @@ class JointMixtureEstimatorAccumulatorFactory(TorchStatisticAccumulatorFactory):
 
 class JointMixtureEstimator(TorchParameterEstimator):
     """
-    JointMixtureEstimator object for estimating joint mixture distribution from aggregated
-    sufficient stats.
+    JointMixtureEstimator object for estimating joint mixture distribution
+    from aggregated sufficient stats.
 
         Attributes:
             estimators1 (Sequence[TorchParameterEstimator]): Estimators for mixture
             component of X1.
             estimators2 (Sequence[TorchParameterEstimator]): Estimators for mixture
             component of X2.
-            suff_stat (Optional[Tuple[np.ndarray, np.ndarray, np.ndarray, Tuple[E0, ...],
-            Tuple[E1, ...]]]): Suff stats.
-            pseudo_count (Optional[Tuple[float, float, float]]): Used to re-weight the state
-            counts in estimation.
-            keys (Optional[Tuple[Optional[str], Optional[str], Optional[str]]]): Set keys
-            for weights, mixture
+            suff_stat (Optional[Tuple[np.ndarray, np.ndarray, np.ndarray,
+            Tuple[E0, ...], Tuple[E1, ...]]]): Suff stats.
+            pseudo_count (Optional[Tuple[float, float, float]]): Used to
+            re-weight the state counts in estimation.
+            keys (Optional[Tuple[Optional[str], Optional[str],
+            Optional[str]]]): Set keys for weights, mixture
                 components of X1, mixture components of X2.
 
     """
@@ -613,16 +613,17 @@ class JointMixtureEstimator(TorchParameterEstimator):
         JointMixtureEstimator object.
 
                 Args:
-                    estimators1 (Sequence[TorchParameterEstimator]): Estimators for outer
-                    mixture component of X1.
-                    estimators2 (Sequence[TorchParameterEstimator]): Estimators for inner
-                    mixture component of X2.
-                    suff_stat (Optional[Tuple[np.ndarray, np.ndarray, np.ndarray, Tuple[E0,
-                    ...], Tuple[E1, ...]]]): suff stats.
-                    pseudo_count (Optional[Tuple[float, float, float]]): Used to re-weight the
-                    state counts in estimation.
-                    keys (Optional[Tuple[Optional[str], Optional[str], Optional[str]]]): Set
-                    keys for weights, mixture
+                    estimators1 (Sequence[TorchParameterEstimator]):
+                    Estimators for outer mixture component of X1.
+                    estimators2 (Sequence[TorchParameterEstimator]):
+                    Estimators for inner mixture component of X2.
+                    suff_stat (Optional[Tuple[np.ndarray, np.ndarray,
+                    np.ndarray, Tuple[E0, ...], Tuple[E1, ...]]]): suff
+                    stats.
+                    pseudo_count (Optional[Tuple[float, float, float]]):
+                    Used to re-weight the state counts in estimation.
+                    keys (Optional[Tuple[Optional[str], Optional[str],
+                    Optional[str]]]): Set keys for weights, mixture
                         components of X1, mixture components of X2.
 
         """
