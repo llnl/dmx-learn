@@ -3,7 +3,7 @@
 [![Tests](https://github.com/LLNL/dmx-learn/workflows/Tests/badge.svg)](https://github.com/LLNL/dmx-learn/actions/workflows/test.yml)
 [![Code Quality](https://github.com/LLNL/dmx-learn/workflows/Code%20Quality/badge.svg)](https://github.com/LLNL/dmx-learn/actions/workflows/quality.yml)
 [![Documentation](https://readthedocs.org/projects/dmx-learn/badge/?version=latest)](https://dmx-learn.readthedocs.io/en/latest/)
-[![License](https://img.shields.io/badge/License-BSD-blue.svg)](LICENSE)
+[![License](https://img.shields.io/badge/License-BSD-3-Clause-blue.svg)](LICENSE)
 [![Python](https://img.shields.io/badge/python-3.10+-blue.svg)](https://www.python.org/downloads/)
 
 **Distributed Mixture Learning** - A package for distributed heterogeneous density estimation. With only a few lines of code you can specify and fit complex models on variable-length heterogeneous data.
