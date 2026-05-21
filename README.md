@@ -53,3 +53,13 @@ Below will run the example ./dmx/mpi4py/examples/estimation_example.py with 4 co
 > export PYHONPATH=$PYTHONPATH:/path./to/dmx-learn
 > mpiexec -n 4 python /path/to/package/dmx/mpi4py/examples/estimation_example.py
 ```
+
+License
+-------
+
+dmx-learn is distributed under the terms of the BSD 3-Clause license.  See
+[LICENSE](./LICENSE) and [NOTICE](./NOTICE) for details.
+
+SPDX-License-Identifier: BSD-3-Clause
+
+LLNL-CODE-844837
