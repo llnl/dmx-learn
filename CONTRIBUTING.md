@@ -369,7 +369,7 @@ See `.pycharm-config.md` for detailed PyCharm configuration instructions includi
 
 ## License
 
-By contributing to dmx-learn, you agree that your contributions will be licensed under the BSD License.
+By contributing to dmx-learn, you agree that your contributions will be licensed under the -3-Clause License.
 
 ---
 
