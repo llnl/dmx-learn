@@ -50,7 +50,7 @@ if __name__ == "__main__":
     )
     # Fit model
     model = optimize(
-        data, est, max_its=10000, print_iter=500, rng=np.random.RandomState(2)
+        data, est, max_its=1000, print_iter=250, rng=np.random.RandomState(2)
     )
     print(str(model))
     # Evaluate the likelihood of one obs
