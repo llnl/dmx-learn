@@ -1,27 +1,21 @@
-# pylint: disable=line-too-long
-""""Create, estimate, and sample from a multivariate normal distribution with mean vector 'mu' (length n), and
-covariance matrix 'covar' (n by n).
+"""Create, estimate, and sample from a multivariate normal distribution.
 
-Defines the MultivariateGaussianDistribution, MultivariateGaussianSampler, MultivariateGaussianAccumulatorFactory,
-MultivariateGaussianAccumulator, MultivariateGaussianEstimator, and the MultivariateGaussianDataEncoder classes for use
-with pysparkplug.
+Defines the MultivariateGaussianDistribution, MultivariateGaussianSampler,
+MultivariateGaussianAccumulatorFactory, MultivariateGaussianAccumulator,
+MultivariateGaussianEstimator, and the MultivariateGaussianDataEncoder classes
+for use with pysparkplug.
 
 Data type: np.ndarray[float]
 
-x = (x_1,x_2,..,x_n) ~ MVN(mu, covar), where mu is a length n numpy array, anc covar is an n by n positive definite
-covariance matrix.
+x = (x_1,x_2,..,x_n) ~ MVN(mu, covar), where mu is a length-n numpy array and
+covar is an n by n positive definite covariance matrix.
 
 The log-density is given by
     log(p(x)) = -0.5*k*log(2*pi) - 0.5*det(covar) - 0.5*(x-mu)' covar^{-1} (x-mu).
 
 """
 
-# pylint: disable=line-too-long,too-many-positional-arguments,duplicate-code
-# pylint: disable=wildcard-import,unused-wildcard-import,redefined-builtin
-# pylint: disable=broad-exception-raised,consider-using-f-string,no-else-return
-# pylint: disable=no-else-raise,consider-using-enumerate,consider-using-generator
-# pylint: disable=use-dict-literal,super-with-arguments,unnecessary-comprehension
-# pylint: disable=simplifiable-if-statement,nested-min-max,not-callable
+# pylint: disable=too-many-positional-arguments,duplicate-code
 
 from typing import Any, Dict, List, Optional, Sequence, Tuple, Union
 
@@ -29,7 +23,7 @@ import numpy as np
 import torch as tn
 
 import dmx.torch_utils.vector as vec
-from dmx.arithmetic import *
+from dmx.arithmetic import exp, pi
 from dmx.torch_stats.pdist import (
     DistributionSampler,
     TorchEncodedSequence,
@@ -42,7 +36,7 @@ from dmx.torch_stats.pdist import (
 
 
 class MultivariateGaussianDistribution(TorchProbabilityDistribution):
-    """MultivariateGaussianDistribution object for multivariate Gaussian with mean mu and covaraince 'covar'.
+    """Multivariate Gaussian with mean mu and covariance `covar`.
 
     Attributes:
         dim (int): N is the dim of multivariate normal.
@@ -51,7 +45,8 @@ class MultivariateGaussianDistribution(TorchProbabilityDistribution):
         chol (tn.tensor): Cholesky decomposition of covar.
         name (Optional[str]): Set name to object.
         keys (Optional[str]): Set keys for distribution.
-        self.use_lstsq (bool): Cholesky does not exist so use least squares approx.
+        self.use_lstsq (bool): Cholesky does not exist so use least-squares
+            approximation.
         self.chol_const (float): det from covar if lstsq is to be used.
 
     """
@@ -67,7 +62,8 @@ class MultivariateGaussianDistribution(TorchProbabilityDistribution):
 
         Args:
             mu (Union[List[float], np.ndarray]): N-dimensional mean.
-            covar (Union[List[List[float]], np.ndarray]): Covariance matrix, should be N by N and positive definite.
+            covar (Union[List[List[float]], np.ndarray]): Covariance matrix;
+                should be N by N and positive definite.
             keys (Optional[str]): Set keys for distribution.
 
         """
@@ -77,7 +73,7 @@ class MultivariateGaussianDistribution(TorchProbabilityDistribution):
         self.covar = vec.tensor(covar, device=self._device).reshape(
             (self.dim, self.dim)
         )
-        self.chol = tn.linalg.cholesky(self.covar)
+        self.chol = tn.cholesky(self.covar)
         self.keys = keys
         self.chol_const = -0.5 * (
             len(self.mu) * np.log(2.0 * pi) + 2.0 * tn.log(tn.diag(self.chol)).sum()
@@ -97,7 +93,7 @@ class MultivariateGaussianDistribution(TorchProbabilityDistribution):
         s2 = repr([list(u) for u in self.covar.data.cpu().tolist()])
         s3 = repr(self.keys)
 
-        return "MultivariateGaussianDistribution(%s, %s, keys=%s)" % (s1, s2, s3)
+        return f"MultivariateGaussianDistribution({s1}, {s2}, keys={s3})"
 
     def density(self, x: np.ndarray) -> float:
         """Evaluate the density at x.
@@ -115,7 +111,8 @@ class MultivariateGaussianDistribution(TorchProbabilityDistribution):
         """Evaluate the log-density at x.
 
         Notes:
-            log(p(x)) = -0.5*k*log(2*pi) - 0.5*det(covar) - 0.5*(x-mu)' covar^{-1} (x-mu).
+            log(p(x)) = -0.5*k*log(2*pi) - 0.5*det(covar)
+            - 0.5*(x-mu)' covar^{-1} (x-mu).
         Args:
             x (np.ndarray): Observation from multivariate Gaussian distribution.
 
@@ -123,28 +120,24 @@ class MultivariateGaussianDistribution(TorchProbabilityDistribution):
             float: Log-density at x.
 
         """
-        try:
-            if self.model_device().type == "mps":
-                x_cpu = vec.tensor(x, device=tn.device("cpu"))
-                mu_cpu = self.mu.detach().cpu()
-                chol_cpu = self.chol.detach().cpu()
-                diff = mu_cpu - x_cpu
-                soln = tn.cholesky_solve(diff[:, None], chol_cpu).T
-                rv = self.chol_const.detach().cpu() - 0.5 * ((diff * soln).sum())
-                return float(rv)
-
-            diff = self.mu - vec.tensor(x, device=self._device)
-            soln = tn.cholesky_solve(diff[:, None], self.chol).T
-
-            rv = self.chol_const - 0.5 * ((diff * soln).sum())
+        if self.model_device().type == "mps":
+            x_cpu = vec.tensor(x, device=tn.device("cpu"))
+            mu_cpu = self.mu.detach().cpu()
+            chol_cpu = self.chol.detach().cpu()
+            diff = mu_cpu - x_cpu
+            soln = tn.cholesky_solve(diff[:, None], chol_cpu).T
+            rv = self.chol_const.detach().cpu() - 0.5 * ((diff * soln).sum())
             return float(rv)
 
-        except Exception as e:
-            raise e
+        diff = self.mu - vec.tensor(x, device=self._device)
+        soln = tn.cholesky_solve(diff[:, None], self.chol).T
+
+        rv = self.chol_const - 0.5 * ((diff * soln).sum())
+        return float(rv)
 
     def seq_log_density(self, x: "MultivariateGaussianTorchSequence") -> tn.Tensor:
         if not isinstance(x, MultivariateGaussianTorchSequence):
-            raise Exception(
+            raise TypeError(
                 "Requires MultivariateGaussianTorchSequence for `seq_` function calls."
             )
         if self.model_device().type == "mps":
@@ -167,11 +160,11 @@ class MultivariateGaussianDistribution(TorchProbabilityDistribution):
     def estimator(self, pseudo_count: Optional[float] = None):
         if pseudo_count is None:
             return MultivariateGaussianEstimator()
-        else:
-            pseudo_count = (pseudo_count, pseudo_count)
-            return MultivariateGaussianEstimator(
-                pseudo_count=pseudo_count, suff_stat=(self.mu, self.covar)
-            )
+
+        pseudo_count = (pseudo_count, pseudo_count)
+        return MultivariateGaussianEstimator(
+            pseudo_count=pseudo_count, suff_stat=(self.mu, self.covar)
+        )
 
     def dist_to_encoder(self) -> "MultivariateGaussianDataEncoder":
         return MultivariateGaussianDataEncoder(dim=self.dim)
@@ -288,13 +281,15 @@ class MultivariateGaussianAccumulatorFactory(TorchStatisticAccumulatorFactory):
 
 
 class MultivariateGaussianEstimator(TorchParameterEstimator):
-    """MultivariateGaussianEstimator object for estimating multivariate normal distribution from sufficient stats.
+    """Estimate a multivariate normal distribution from sufficient stats.
 
     Attributes:
         dim (int): Dimension of multivariate normal.
-        pseudo_count (Optional[Tuple[Optional[float], Optional[float]]]): Regularize mean and/or covariance.
+        pseudo_count (Optional[Tuple[Optional[float], Optional[float]]]):
+            Regularize mean and/or covariance.
         prior_mu (Optional[np.ndarray]): Mean from prior data or used to regularize.
-        prior_covar (Optional[np.ndarray]): Covariance matrix from prior data or used to regularize.
+        prior_covar (Optional[np.ndarray]): Covariance matrix from prior data or
+            used to regularize.
         key (Optional[str]): Keys for merging sufficient statistics.
 
     """
@@ -302,7 +297,10 @@ class MultivariateGaussianEstimator(TorchParameterEstimator):
     def __init__(
         self,
         dim: Optional[int] = None,
-        pseudo_count: Optional[Tuple[Optional[float], Optional[float]]] = (None, None),
+        pseudo_count: Optional[Tuple[Optional[float], Optional[float]]] = (
+            None,
+            None,
+        ),
         suff_stat: Optional[Tuple[Optional[np.ndarray], Optional[np.ndarray]]] = (
             None,
             None,
@@ -312,10 +310,13 @@ class MultivariateGaussianEstimator(TorchParameterEstimator):
         """MultivariateGaussianEstimator object.
 
         Args:
-            dim (Optional[int]): Dimension of multivariate normal. Inferred from 'suff_stat' if None.
-            pseudo_count (Optional[Tuple[Optional[float], Optional[float]]]): Regularize mean and/or covariance.
-            suff_stat (Optional[Tuple[Optional[np.ndarray], Optional[np.ndarray]]]): Mean and covariance estimated
-                from previous data or used to regularize.
+            dim (Optional[int]): Dimension of multivariate normal. Inferred
+                from `suff_stat` if None.
+            pseudo_count (Optional[Tuple[Optional[float], Optional[float]]]):
+                Regularize mean and/or covariance.
+            suff_stat (Optional[Tuple[Optional[np.ndarray], Optional[np.ndarray]]]):
+                Mean and covariance estimated from previous data or used to
+                regularize.
             keys (Optional[str]): Set keys for estimator.
 
         """

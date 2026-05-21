@@ -1,9 +1,4 @@
-# pylint: disable=line-too-long,too-many-positional-arguments,duplicate-code
-# pylint: disable=wildcard-import,unused-wildcard-import,redefined-builtin
-# pylint: disable=broad-exception-raised,consider-using-f-string,no-else-return
-# pylint: disable=no-else-raise,consider-using-enumerate,consider-using-generator
-# pylint: disable=use-dict-literal,super-with-arguments,unnecessary-comprehension
-# pylint: disable=simplifiable-if-statement,nested-min-max
+# pylint: disable=too-many-positional-arguments,duplicate-code
 
 from typing import Any, Dict, List, Optional, Tuple, Union, cast
 
@@ -11,7 +6,7 @@ import numpy as np
 import torch as tn
 
 import dmx.torch_utils.vector as vec
-from dmx.arithmetic import *
+from dmx.arithmetic import inf
 from dmx.torch_stats.pdist import (
     DistributionSampler,
     TorchDevice,
@@ -41,7 +36,7 @@ class ExponentialDistribution(TorchProbabilityDistribution):
             device (Optional[TorchDevice]): Device for model calculations.
 
         """
-        super(ExponentialDistribution, self).__init__(device)
+        super().__init__(device)
         self.beta = beta
         self.log_beta = np.log(beta)
 
@@ -69,7 +64,8 @@ class ExponentialDistribution(TorchProbabilityDistribution):
         """Log-density of Exponential distribution at observation x.
 
         Log-density of Exponential with mean mu and variance sigma2 given by,
-            log(f(x;mu, sigma2)) = -log(2*pi*sigma2) - (x-mu)^2/sigma2, for real-valued x.
+            log(f(x;mu, sigma2)) = -log(2*pi*sigma2) - (x-mu)^2/sigma2,
+            for real-valued x.
 
         Args:
             x (float): Real-valued observation of Exponential.
@@ -80,13 +76,13 @@ class ExponentialDistribution(TorchProbabilityDistribution):
         """
         if x < 0:
             return -inf
-        else:
-            return -x / self.beta - self.log_beta
+
+        return -x / self.beta - self.log_beta
 
     def seq_log_density(self, x: "ExponentialTorchEncodedSequence") -> tn.Tensor:
 
         if not isinstance(x, ExponentialTorchEncodedSequence):
-            raise Exception(
+            raise TypeError(
                 "Requires ExponentialTorchEncodedSequence for `seq_` function calls."
             )
 
@@ -101,8 +97,8 @@ class ExponentialDistribution(TorchProbabilityDistribution):
     def estimator(self, pseudo_count: Optional[float] = None) -> "ExponentialEstimator":
         if pseudo_count is None:
             return ExponentialEstimator()
-        else:
-            return ExponentialEstimator(pseudo_count=pseudo_count, suff_stat=self.beta)
+
+        return ExponentialEstimator(pseudo_count=pseudo_count, suff_stat=self.beta)
 
     def dist_to_encoder(self) -> "ExponentialDataEncoder":
         """Returns a ExponentialDataEncoder object for encoding sequences of data."""
@@ -117,11 +113,13 @@ class ExponentialSampler(DistributionSampler):
         """ExponentialSampler for drawing samples from ExponentialSampler instance.
 
         Args:
-            dist (ExponentialDistribution): ExponentialDistribution instance to sample from.
+            dist (ExponentialDistribution): ExponentialDistribution instance to
+                sample from.
             seed (Optional[int]): Used to set seed in random sampler.
 
         Attributes:
-            dist (ExponentialDistribution): ExponentialDistribution instance to sample from.
+            dist (ExponentialDistribution): ExponentialDistribution instance to
+                sample from.
             tng (tn.Generator): RandomState with seed set to seed if passed in args.
 
         """
@@ -137,8 +135,9 @@ class ExponentialSampler(DistributionSampler):
             size (Optional[int]): Treated as 1 if None is passed.
 
         Returns:
-            Numpy array of length 'size' from exponential distribution with scale beta if size not None. Else a single
-            sample is returned as float.
+            Numpy array of length 'size' from exponential distribution with
+            scale beta if size not None. Else a single sample is returned as
+            float.
 
 
         """
@@ -162,11 +161,12 @@ class ExponentialAccumulator(TorchStatisticAccumulator):
         """ExponentialAccumulator object.
 
         Args:
-            keys (Optional[str]): Aggregate all sufficient statistics with same keys values.
+            keys (Optional[str]): Aggregate all sufficient statistics with same
+                keys values.
             device: Optional[device]: Sets device for GPU calculations
 
         """
-        super(ExponentialAccumulator, self).__init__(cast(Optional[str], device))
+        super().__init__(cast(Optional[str], device))
         self.sum = 0.0
         self.count = 0.0
         self.key = keys
@@ -258,7 +258,8 @@ class ExponentialEstimator(TorchParameterEstimator):
         "suff_stat", which is the scale of ExponentialEstimator object.
 
         Args:
-            nobs (Optional[float]): Not used. Kept for consistency with ParameterEstimator.
+            nobs (Optional[float]): Not used. Kept for consistency with
+                ParameterEstimator.
             suff_stat (Tuple[float, float]): Tuple of (sum, count). Both are
                 positive real-valued floats.
             device (Optional[TorchDevice]): Set for estimating model on GPU device
@@ -283,7 +284,7 @@ class ExponentialEstimator(TorchParameterEstimator):
 
 
 class ExponentialDataEncoder(TorchSequenceEncoder):
-    """ExponentialDataEncoder object for encoding sequences of iid exponential observations with data type float."""
+    """Encode iid exponential observations with data type float."""
 
     def __str__(self) -> str:
         return "ExponentialDataEncoder"
@@ -297,7 +298,7 @@ class ExponentialDataEncoder(TorchSequenceEncoder):
         rv = vec.tensor(x, device=device)
 
         if tn.any(rv <= 0) or tn.any(tn.isnan(rv)):
-            raise Exception("Exponential requires x > 0.")
+            raise ValueError("Exponential requires x > 0.")
 
         return ExponentialTorchEncodedSequence(data=rv, device=device)
 

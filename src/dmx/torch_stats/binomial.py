@@ -1,19 +1,14 @@
-# pylint: disable=line-too-long
 """Create, estimate, and sample from the binomial distribution.
 
-Defines the BinomialDistribution, BinomialSampler, BinomialAccumulatorFactory, BinomialAccumulator, BinomialEstimator,
-and the BinomialDataEncoder classes for use with pysparkplug.
+Defines the BinomialDistribution, BinomialSampler,
+BinomialAccumulatorFactory, BinomialAccumulator, BinomialEstimator, and the
+BinomialDataEncoder classes for use with pysparkplug.
 
 Data type: int.
 
 """
 
-# pylint: disable=line-too-long,too-many-positional-arguments,duplicate-code
-# pylint: disable=wildcard-import,unused-wildcard-import,redefined-builtin
-# pylint: disable=broad-exception-raised,consider-using-f-string,no-else-return
-# pylint: disable=no-else-raise,consider-using-enumerate,consider-using-generator
-# pylint: disable=use-dict-literal,super-with-arguments,unnecessary-comprehension
-# pylint: disable=simplifiable-if-statement,nested-min-max
+# pylint: disable=too-many-positional-arguments,duplicate-code
 
 from typing import Any, Dict, List, Optional, Sequence, Tuple, Union
 
@@ -22,7 +17,6 @@ import torch as tn
 from numpy.random import RandomState
 
 import dmx.torch_utils.vector as vec
-from dmx.arithmetic import *
 from dmx.torch_stats.pdist import (
     DistributionSampler,
     TorchEncodedSequence,
@@ -37,10 +31,11 @@ E = Tuple[tn.Tensor, tn.Tensor, tn.Tensor, int, int]
 
 
 class BinomialDistribution(TorchProbabilityDistribution):
-    """BinomialDistribution object used for x~Binomial(n,p) with support (min_val, n-min_val-1).
+    """BinomialDistribution object used for x~Binomial(n,p).
 
     Notes:
-        Supports data types of int between (0, n-1) or (min_val, n-min_val-1) if min_val is not None.
+        Supports data types of int between (0, n-1) or (min_val,
+        n-min_val-1) if min_val is not None.
         Log-probability mass for BinomialDistribution(n,p),
 
         log(f(x|n,p)) = log(n!) - log((n-x)!) - log(x!) + x*log(p) + (1-x)*log(1-p),
@@ -52,8 +47,10 @@ class BinomialDistribution(TorchProbabilityDistribution):
         log_p (float): Logrithm of p above.
         log_1p (float): Logrithm of 1-p, p defined above.
         n (int): Number of trials in binomial distribution, n > 0.
-        min_val (Optional[int]): Change domain of binomial from (0,n-1) to (min_val, n-min_val).
-        keys (Optional[str]): All BinomialDistributions with same keys are same distributions.
+        min_val (Optional[int]): Change domain of binomial from (0,n-1) to
+            (min_val, n-min_val).
+        keys (Optional[str]): All BinomialDistributions with same keys are same
+            distributions.
 
     """
 
@@ -70,21 +67,23 @@ class BinomialDistribution(TorchProbabilityDistribution):
         Args:
             p (float): Proportion for binomial distribution, between (0,1.0].
             n (int): Number of trials in binomial distribution, n > 0.
-            min_val (Optional[int]): Change domain of binomial from (0,n-1) to (min_val, n-min_val-1).
-            keys (Optional[str]): All BinomialDistributions with same keys are same distributions.
+            min_val (Optional[int]): Change domain of binomial from (0,n-1) to
+                (min_val, n-min_val-1).
+            keys (Optional[str]): All BinomialDistributions with same keys are
+                same distributions.
             device: Device for Tensor calculations.
 
         """
         super().__init__(device)
         if p <= 0.0 or p >= 1.0:
-            raise Exception("Binomial distribution requires p in [0,1]")
-        else:
-            self.p = p
+            raise ValueError("Binomial distribution requires p in [0,1]")
+
+        self.p = p
 
         if n < 0 or np.isinf(n):
-            raise Exception("Binomial distribution requires n > 0.")
-        else:
-            self.n = n
+            raise ValueError("Binomial distribution requires n > 0.")
+
+        self.n = n
 
         self.log_p = np.log(p)
         self.log_1p = np.log1p(-p)
@@ -95,36 +94,38 @@ class BinomialDistribution(TorchProbabilityDistribution):
         self._device = device
 
     def __repr__(self) -> str:
-        return "BinomialDistribution(p=%s, n=%s, min_val=%s, keys=%s)" % (
-            repr(self.p),
-            repr(self.n),
-            repr(self.min_val),
-            repr(self.keys),
+        return (
+            f"BinomialDistribution(p={self.p!r}, n={self.n!r}, "
+            f"min_val={self.min_val!r}, keys={self.keys!r})"
         )
 
     def density(self, x: int) -> float:
         """Returns the probability mass of integer value x.
 
-        If x is not an integer between [0,n) or [min_val, n-1-min_val), density is 0.0.
+        If x is not an integer between [0,n) or [min_val, n-1-min_val),
+        density is 0.0.
 
         Args:
             x (int): Integer value for density evaluation.
 
         Returns:
-            float: Probability mass of x for binomial(n,p) with min_val=min_val. 0.0 if x is not in support.
+            float: Probability mass of x for binomial(n,p) with
+                min_val=min_val. 0.0 if x is not in support.
         """
         return np.exp(self.log_density(x))
 
     def log_density(self, x: int) -> float:
         """Returns the log-probability mass of integer value x.
 
-        If x is not an integer between [0,n) or [min_val, n-1-min_val), log-density is -inf.
+        If x is not an integer between [0,n) or [min_val, n-1-min_val),
+        log-density is -inf.
 
         Args:
             x (int): Integer value for density evaluation.
 
         Returns:
-            float: Log-probability mass of x for binomial(n,p) with min_val=min_val. -inf if x is not in support.
+            float: Log-probability mass of x for binomial(n,p) with
+                min_val=min_val. -inf if x is not in support.
 
         """
         return float(
@@ -136,7 +137,7 @@ class BinomialDistribution(TorchProbabilityDistribution):
     def seq_log_density(self, x: "BinomialTorchEncodedSequence") -> tn.Tensor:
 
         if not isinstance(x, BinomialTorchEncodedSequence):
-            raise Exception(
+            raise TypeError(
                 "Required BinomialTorchEncodedSequence for `seq_` function calls."
             )
 
@@ -157,10 +158,11 @@ class BinomialDistribution(TorchProbabilityDistribution):
         return cc[ix]
 
     def sampler(self, seed: Optional[int] = None) -> "BinomialSampler":
-        """Returns BinomialSampler for generating samples from BinomialDistribution(n,p,min_val).
+        """Return a BinomialSampler for `BinomialDistribution(n, p, min_val)`.
 
         Args:
-            seed Optional[int]: Used to set seed on random number generator for sampling.
+            seed Optional[int]: Used to set seed on the random number
+                generator for sampling.
 
         Returns:
             BinomialSampler for BinomialDistribution with seed.
@@ -168,23 +170,24 @@ class BinomialDistribution(TorchProbabilityDistribution):
         return BinomialSampler(self, seed)
 
     def estimator(self, pseudo_count: Optional[float] = None) -> "BinomialEstimator":
-        """Creates a BinomialEstimator for estimating parameters of BinomialDistribution.
+        """Create a BinomialEstimator for estimating BinomialDistribution.
 
         Args:
-            pseudo_count (Optional[float]): If set, inflates counts for currently set sufficient statistic (p).
+            pseudo_count (Optional[float]): If set, inflates counts for the
+                currently set sufficient statistic (p).
 
         Returns:
             BinomialEstimator object.
         """
         if pseudo_count is None:
             return BinomialEstimator(keys=self.keys)
-        else:
-            return BinomialEstimator(
-                max_val=self.n,
-                min_val=self.min_val,
-                pseudo_count=pseudo_count,
-                suff_stat=self.p * self.n * pseudo_count,
-            )
+
+        return BinomialEstimator(
+            max_val=self.n,
+            min_val=self.min_val,
+            pseudo_count=pseudo_count,
+            suff_stat=self.p * self.n * pseudo_count,
+        )
 
     def dist_to_encoder(self) -> "BinomialDataEncoder":
         """Creates a BinomialDataEncoder object for sequence encoding data.
@@ -216,10 +219,12 @@ class BinomialSampler(DistributionSampler):
         """Draw samples from BinomialSampler.
 
         Args:
-            size (Optional[int]): Number of samples to draw from BinomialSampler (1 if size is None).
+            size (Optional[int]): Number of samples to draw from
+                BinomialSampler (1 if size is None).
 
         Returns:
-            An integer sample from BinomialDistribution(n,p,min_val), or List[int] of samples with length = size.
+            An integer sample from `BinomialDistribution(n,p,min_val)`, or
+            `List[int]` of samples with length `size`.
 
         """
         rv = self.rng.binomial(n=self.dist.n, p=self.dist.p, size=size)
@@ -227,24 +232,28 @@ class BinomialSampler(DistributionSampler):
         if size is None:
             if self.dist.min_val is not None:
                 return int(rv) + self.dist.min_val
-            else:
-                return int(rv)
-        else:
-            if self.dist.min_val is not None:
-                return list(rv + self.dist.min_val)
-            else:
-                return list(rv)
+
+            return int(rv)
+
+        if self.dist.min_val is not None:
+            return list(rv + self.dist.min_val)
+
+        return list(rv)
 
 
 class BinomialAccumulator(TorchStatisticAccumulator):
-    """BinomialAccumulator object used for aggregating sufficient statistics of BinomialDistribution.
+    """Aggregate sufficient statistics of BinomialDistribution.
 
     Attributes:
         sum (float): Aggregates the sum of all data observations.
-        count (float): Aggregates the number of weighted-data observations used in accumulating sum.
-        max_val (Optional[int]): Largest integer value encountered while accumulating sufficient statistics.
-        min_val (Optional[int]): Smallest integer value encountered while accumulating sufficient statistics.
-        key (Optional[str]): All BinomialAccumulators with same key will have suff-stats merged.
+        count (float): Aggregates the number of weighted-data observations used
+            in accumulating sum.
+        max_val (Optional[int]): Largest integer value encountered while
+            accumulating sufficient statistics.
+        min_val (Optional[int]): Smallest integer value encountered while
+            accumulating sufficient statistics.
+        key (Optional[str]): All BinomialAccumulators with the same key will
+            have suff-stats merged.
 
     """
 
@@ -258,9 +267,12 @@ class BinomialAccumulator(TorchStatisticAccumulator):
         """BinomialAccumulator object.
 
         Args:
-            max_val (Optional[int]): Largest integer value encountered while accumulating sufficient statistics.
-            min_val (Optional[int]): Smallest integer value encountered while accumulating sufficient statistics.
-            keys (Optional[str]): All BinomialAccumulators with same keys will have suff-stats merged.
+            max_val (Optional[int]): Largest integer value encountered while
+                accumulating sufficient statistics.
+            min_val (Optional[int]): Smallest integer value encountered while
+                accumulating sufficient statistics.
+            keys (Optional[str]): All BinomialAccumulators with same keys will
+                have suff-stats merged.
             device (device): Set device for tensor calculations.
 
         """
@@ -353,7 +365,8 @@ class BinomialAccumulatorFactory(TorchStatisticAccumulatorFactory):
     Attributes:
         max_val (Optional[int]): Max value for binomial observations.
         min_val (Optional[int]): min value for binomial observations.
-        keys (Optional[str]): Declare BinomialAccumulatorFactory objects for merging suff_stats.
+        keys (Optional[str]): Declare BinomialAccumulatorFactory objects for
+            merging suff_stats.
 
     """
 
@@ -369,7 +382,8 @@ class BinomialAccumulatorFactory(TorchStatisticAccumulatorFactory):
         Args:
             max_val (Optional[int]): Max value for binomial observations.
             min_val (Optional[int]): min value for binomial observations.
-            keys (Optional[str]): Declare BinomialAccumulatorFactory objects for merging suff_stats.
+            keys (Optional[str]): Declare BinomialAccumulatorFactory objects for
+                merging suff_stats.
 
         """
 
@@ -391,8 +405,8 @@ class BinomialEstimator(TorchParameterEstimator):
         min_val (Optional[int]): Set min value for BinomialDistribution.
         pseudo_count (Optional[float]): Inflate sufficient statistic (p).
         suff_stat (Optional[float]): Set p from prior observations.
-        keys (Optional[str]): Assign key to BinomialEstimator designating all same key estimators to later be combined,
-            in aggregation.
+        keys (Optional[str]): Assign a key so matching estimators can later be
+            combined in aggregation.
 
     """
 
@@ -411,8 +425,8 @@ class BinomialEstimator(TorchParameterEstimator):
             min_val (Optional[int]): Set min value for BinomialDistribution.
             pseudo_count (Optional[float]): Inflate sufficient statistic (p).
             suff_stat (Optional[float]): Set p from prior observations.
-            keys (Optional[str]): Assign key to BinomialEstimator designating all same key estimators to later be combined,
-                in accumualtation.
+            keys (Optional[str]): Assign a key so matching estimators can later
+                be combined in accumulation.
 
         """
         self.pseudo_count = pseudo_count
@@ -431,24 +445,28 @@ class BinomialEstimator(TorchParameterEstimator):
         suff_stat: Tuple[float, float, Optional[int], Optional[int]],
         device: Optional[tn.device] = None,
     ) -> "BinomialDistribution":
-        """Estimate a BinomialDistribution from BinomialEstimator using sufficient statistics in suff_stat.
+        """Estimate a BinomialDistribution from `suff_stat`.
 
-        Note: nobs is not used here. Kept for consistency with other ParameterEstimators.
+        Note: nobs is not used here. Kept for consistency with other
+        ParameterEstimators.
 
-        Memeber variable suff_stat is simply the proportion (p) of the BinomialDistributon passed to BinomalEstimator.
+        Member variable `suff_stat` is simply the proportion (p) of the
+        BinomialDistribution passed to BinomialEstimator.
         The pseudo_count is used to inflate (p) in estimation.
 
         Args:
             nobs (Optional[float]): Not used.
-            suff_stat (Tuple[float, float, Optional[int], Optional[int]]): Tuple of count, sum, min_val max_val,
-                obtained from aggregation of data.
+            suff_stat (Tuple[float, float, Optional[int], Optional[int]]):
+                Tuple of count, sum, min_val, and max_val obtained from data
+                aggregation.
             device: Set the device for the estimate to be returned to.
 
         Returns:
-            BinomialDistribution estimated from suff_stat input and member variables suff_stat and pseudo_count.
+            BinomialDistribution estimated from `suff_stat`, `self.suff_stat`,
+            and `pseudo_count`.
 
         """
-        count, sum, min_val, max_val = suff_stat
+        count, total, min_val, max_val = suff_stat
 
         if min_val is not None:
             if self.min_val is not None:
@@ -473,16 +491,16 @@ class BinomialEstimator(TorchParameterEstimator):
         if self.pseudo_count is not None and self.suff_stat is not None:
             pn = self.pseudo_count
             pp = self.suff_stat
-            p = (sum - min_val * count + pp) / ((count + pn) * n)
+            p = (total - min_val * count + pp) / ((count + pn) * n)
 
         elif self.pseudo_count is not None and self.suff_stat is None:
             pn = self.pseudo_count
             pp = self.pseudo_count * 0.5 * n
-            p = (sum - min_val * count + pp) / ((count + pn) * n)
+            p = (total - min_val * count + pp) / ((count + pn) * n)
 
         else:
             if count > 0 and n > 0:
-                p = (sum - min_val * count) / (count * n)
+                p = (total - min_val * count) / (count * n)
             else:
                 p = 0.5
 
@@ -518,21 +536,22 @@ class BinomialDataEncoder(TorchSequenceEncoder):
     def seq_encode(
         self, x: Sequence[int], device: Optional[tn.device] = None
     ) -> "BinomialTorchEncodedSequence":
-        """Encode List[int] for vectorized seq calls in Accumulator and Distribution.
+        """Encode integer sequences for vectorized accumulator/distribution use.
 
         Args:
-            x (List[int]): List of integers.
+            x (Sequence[int]): Sequence of integers.
             device (Optional[device]): Set device for data to be encoded to.
 
         Returns:
-            Tuple[tn.Tensor, tn.Tensor, tn.Tensor, int, int] containing unique values in x, indices of ux to
-                reconstruct x, numpy array of x, min value of x, and max value of x.
+            Tuple[tn.Tensor, tn.Tensor, tn.Tensor, int, int] containing unique
+                values in x, indices of ux to reconstruct x, the tensorized x,
+                the min value of x, and the max value of x.
 
         """
         xx = vec.int_tensor(x, device=device)
 
         if tn.any(xx < 0) or tn.any(tn.isnan(xx)):
-            raise Exception(
+            raise ValueError(
                 "BinomialDistribution requires non-negative integer values for x."
             )
 

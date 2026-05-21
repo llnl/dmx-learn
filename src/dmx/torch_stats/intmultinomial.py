@@ -1,27 +1,26 @@
-# pylint: disable=line-too-long
-"""Evaluate, estimate, and sample from a integer multinomial distribution on range [min_val, max_val].
+"""Evaluate, estimate, and sample from an integer multinomial distribution.
 
-Defines the IntegerMultinomialDistribution, IntegerMultinomialSampler, IntegerMultinomialAccumulatorFactory,
-IntegerMultinomialAccumulator, IntegerMultinomialEstimator, and the IntegerMultinomialDataEncoder classes for use with
-pysparkplug.
+Defines the IntegerMultinomialDistribution, IntegerMultinomialSampler,
+IntegerMultinomialAccumulatorFactory, IntegerMultinomialAccumulator,
+IntegerMultinomialEstimator, and the IntegerMultinomialDataEncoder classes for
+use with pysparkplug.
 
-Data type: Sequence[Tuple[int, float]]: Consider an observation of a multinomial consisting of integer-category
-counts of the form x = (x_0,..,x_K), where K is the number of integers in the range [min_val, max_val]. The
-IntegerMultinomialDistribution with support [min_val, max_value], number of trials 'N', and probability of success for
-the integer-categories given by p = (p_0, ..., p_k), is given by
+Data type: Sequence[Tuple[int, float]]: Consider an observation of a
+multinomial consisting of integer-category counts of the form
+`x = (x_0,..,x_K)`, where K is the number of integers in the range
+`[min_val, max_val]`. The IntegerMultinomialDistribution with support
+`[min_val, max_value]`, number of trials `N`, and success probabilities
+`p = (p_0, ..., p_k)` is given by
 
-    log(P(x,N|p)) = -log(n!) - sum_{k=1}^{K} (x_k * log(p_k) + log(x_k!)) + log(P_len(N))
+    log(P(x,N|p)) = -log(n!)
+        - sum_{k=1}^{K} (x_k * log(p_k) + log(x_k!))
+        + log(P_len(N))
 
 where P_len(N) is a distribution for the number of trials in the multinomial.
 
 """
 
-# pylint: disable=line-too-long,too-many-positional-arguments,duplicate-code
-# pylint: disable=wildcard-import,unused-wildcard-import,redefined-builtin
-# pylint: disable=broad-exception-raised,consider-using-f-string,no-else-return
-# pylint: disable=no-else-raise,consider-using-enumerate,consider-using-generator
-# pylint: disable=use-dict-literal,super-with-arguments,unnecessary-comprehension
-# pylint: disable=simplifiable-if-statement,nested-min-max
+# pylint: disable=too-many-positional-arguments,duplicate-code
 
 from typing import Any, Dict, List, Optional, Sequence, Tuple, TypeVar, Union
 
@@ -29,7 +28,7 @@ import numpy as np
 import torch as tn
 
 import dmx.torch_utils.vector as vec
-from dmx.arithmetic import *
+from dmx.arithmetic import inf, maxrandint
 from dmx.torch_stats.null_dist import (
     NullAccumulator,
     NullAccumulatorFactory,
@@ -54,17 +53,19 @@ E = Tuple[int, tn.Tensor, tn.Tensor, tn.Tensor, Optional[E0]]
 
 
 class IntegerMultinomialDistribution(TorchProbabilityDistribution):
-    """IntegerMultinomialDistribution object for declaring a multinomial distribution on a set of integers.
+    """Declare a multinomial distribution on a set of integers.
 
     Attributes:
         p_vec (tn.tensor): Probability of each integer category for a trial.
         min_val (int): Smallest integer value for category range. Defaults to 0.
-        max_val (int): Largest value of category range. Set by min_val + len(p_vec) - 1.
+        max_val (int): Largest value of category range. Set by
+            `min_val + len(p_vec) - 1`.
         log_p_vec (tn.tensor): Log of p_vec member instance.
         num_vals (int): Total number of integer valued categories.
-        len_dist (SequenceEncodableProbabilityDistribution): Distribution for number of trials. Set to
-            NullDistribution if None.
-        keys (Optional[str]): Keys for distribution passed when ParameterEstimator is created.
+        len_dist (SequenceEncodableProbabilityDistribution): Distribution for
+            number of trials. Set to NullDistribution if None.
+        keys (Optional[str]): Keys for distribution passed when
+            ParameterEstimator is created.
 
     """
 
@@ -80,9 +81,10 @@ class IntegerMultinomialDistribution(TorchProbabilityDistribution):
 
         Args:
             min_val (int): Set the minimum value on range of values.
-            p_vec (Union[List[float],np.ndarray): Probabilities for values. Length determines number of categories.
-            len_dist (Optional[TorchProbabilityDistribution]): Optional length distributions serving as
-                for the number of trials.
+            p_vec (Union[List[float],np.ndarray): Probabilities for values.
+                Length determines number of categories.
+            len_dist (Optional[TorchProbabilityDistribution]): Optional length
+                distribution for the number of trials.
             keys (Optional[str]): Set key for distribution.
 
         """
@@ -108,14 +110,14 @@ class IntegerMultinomialDistribution(TorchProbabilityDistribution):
         s2 = repr(self.p_vec.data.cpu().tolist())
         s3 = repr(self.len_dist)
 
-        return "IntegerMultinomialDistribution(%s, %s, len_dist=%s)" % (s1, s2, s3)
+        return f"IntegerMultinomialDistribution({s1}, {s2}, len_dist={s3})"
 
     def density(self, x: Sequence[Tuple[int, float]]) -> float:
         """Evaluate the density of IntegerMultinomialDistribution at observed value x.
 
         Args:
-            x (Sequence[Tuple[int, float]]): Sequence of Tuple(s) containing the integer category value and number of
-                successes.
+            x (Sequence[Tuple[int, float]]): Sequence of tuples containing the
+                integer category value and number of successes.
 
         Returns:
             float: Density at x.
@@ -124,19 +126,21 @@ class IntegerMultinomialDistribution(TorchProbabilityDistribution):
         return np.exp(self.log_density(x))
 
     def log_density(self, x: Sequence[Tuple[int, float]]) -> float:
-        """Evaluate the log-density of IntegerMultinomialDistribution at observed value x.
+        """Evaluate the log-density at observed value x.
 
         Notes:
             Log-density given by,
 
-            log(p_mat(x)) = log(n!) - sum_k x_k*log(p_k) - log(x_k!), for x having k integer categories.
+            log(p_mat(x)) = log(n!) - sum_k x_k*log(p_k) - log(x_k!), for x
+            having k integer categories.
 
-            n is the total number of trials in observation x and x has k integer values. p_k denotes the probability
-            of success for integer-category x_k.
+            n is the total number of trials in observation x and x has k
+            integer values. p_k denotes the probability of success for
+            integer-category x_k.
 
         Args:
-            x (Sequence[Tuple[int, float]]): Sequence of Tuple(s) containing the integer category value and number of
-                successes.
+            x (Sequence[Tuple[int, float]]): Sequence of tuples containing the
+                integer category value and number of successes.
 
         Returns:
             float: Log-density at x.
@@ -158,7 +162,7 @@ class IntegerMultinomialDistribution(TorchProbabilityDistribution):
 
     def seq_log_density(self, x: "IntegerMultinomialTorchSequence") -> tn.Tensor:
         if not isinstance(x, IntegerMultinomialTorchSequence):
-            raise Exception(
+            raise TypeError(
                 "Requires IntegerMultinomialTorchSequence for `seq_` function calls."
             )
         sz, idx, cnt, val, tcnt = x.data
@@ -183,8 +187,9 @@ class IntegerMultinomialDistribution(TorchProbabilityDistribution):
 
     def sampler(self, seed: Optional[int] = None) -> "IntegerMultinomialSampler":
         if isinstance(self.len_dist, NullDistribution):
-            raise Exception(
-                "IntegerMultinomialDistribution must have len_dist set to distribution with support on "
+            raise ValueError(
+                "IntegerMultinomialDistribution must have len_dist set to "
+                "distribution with support on "
                 "non-negative integers."
             )
         return IntegerMultinomialSampler(self, seed)
@@ -200,14 +205,14 @@ class IntegerMultinomialDistribution(TorchProbabilityDistribution):
 
         if pseudo_count is None:
             return IntegerMultinomialEstimator(len_estimator=len_est)
-        else:
-            return IntegerMultinomialEstimator(
-                min_val=self.min_val,
-                max_val=self.max_val,
-                len_estimator=len_est,
-                pseudo_count=pseudo_count,
-                suff_stat=(self.min_val, self.p_vec),
-            )
+
+        return IntegerMultinomialEstimator(
+            min_val=self.min_val,
+            max_val=self.max_val,
+            len_estimator=len_est,
+            pseudo_count=pseudo_count,
+            suff_stat=(self.min_val, self.p_vec),
+        )
 
     def dist_to_encoder(self) -> "IntegerMultinomialDataEncoder":
         len_encoder = self.len_dist.dist_to_encoder()
@@ -215,14 +220,15 @@ class IntegerMultinomialDistribution(TorchProbabilityDistribution):
 
 
 class IntegerMultinomialSampler(DistributionSampler):
-    """Create IntegerMultinomialSampler object for sampling from IntegerMultinomialDistribution object instance.
+    """Sample from IntegerMultinomialDistribution.
 
     Attributes:
         p_vec (np.ndarray): Probability for each value.
         min_val (int): Min value of multinomial
         max_val (int): Max value of multinomial
         rng (RandomState): RandomState set with seed if passed.
-        len_sampler (DistributionSampler): DistributionSampler object for number of trials.
+        len_sampler (DistributionSampler): DistributionSampler for the number
+            of trials.
 
     """
 
@@ -232,7 +238,8 @@ class IntegerMultinomialSampler(DistributionSampler):
         """IntegerMultinomialSampler object.
 
         Args:
-            dist (IntegerMultinomialDistribution): IntegerMultinomialDistribution object instance to sample from.
+            dist (IntegerMultinomialDistribution): Distribution instance to
+                sample from.
             seed (Optional[int]): Optional seed for random number generator.
 
         """
@@ -254,8 +261,8 @@ class IntegerMultinomialSampler(DistributionSampler):
             size (Optional[int]): Number of samples to draw.
 
         Returns:
-            List length size containing List[Tuple[int, float]]. If size is None, returns one sample
-                List[Tuple[int, float]].
+            List of length `size` containing `List[Tuple[int, float]]`. If
+            size is None, returns one sample `List[Tuple[int, float]]`.
 
         """
         if size is None:
@@ -266,30 +273,32 @@ class IntegerMultinomialSampler(DistributionSampler):
                 rrv.append((j + self.min_val, entry[j]))
             return rrv
 
-        else:
-            cnt = self.len_sampler.sample(size=size)
-            rv = []
+        cnt = self.len_sampler.sample(size=size)
+        rv = []
 
-            for i in range(size):
-                rrv = []
-                entry = self.rng.multinomial(cnt[i], self.p_vec)
-                for j in np.flatnonzero(entry):
-                    rrv.append((j + self.min_val, entry[j]))
-                rv.append(rrv)
-            return rv
+        for i in range(size):
+            rrv = []
+            entry = self.rng.multinomial(cnt[i], self.p_vec)
+            for j in np.flatnonzero(entry):
+                rrv.append((j + self.min_val, entry[j]))
+            rv.append(rrv)
+        return rv
 
 
 class IntegerMultinomialAccumulator(TorchStatisticAccumulator):
-    """Create IntegerMultinomialAccumulator object for accumulating sufficient statistics from observed data.
+    """Accumulate sufficient statistics from observed data.
 
     Attributes:
         min_val (Optional[int]): Minimum value for integer multinomial.
         max_val (Optional[int]): Maximum value for integer multinomial.
-        len_accumulator (Optional[TorchStatisticAccumulator]): Optional accumulator for number of
-            integer multinomial trial counts. Set to NullAccumulator() if None.
-        count_vec (Optional[ndarray]): Set counter for the number of values in integer multinomial range to zero
-            ndarray if min_val and max_val are passed. Else, set to none.
-        key (Optional[str]): Keys for merging sufficient stats with other objects containing matching key.
+        len_accumulator (Optional[TorchStatisticAccumulator]): Optional
+            accumulator for integer multinomial trial counts. Set to
+            NullAccumulator() if None.
+        count_vec (Optional[ndarray]): Counter for the number of values in the
+            integer multinomial range. Initialized if `min_val` and `max_val`
+            are passed; otherwise set to None.
+        key (Optional[str]): Keys for merging sufficient stats with other
+            objects containing a matching key.
 
     """
 
@@ -306,9 +315,10 @@ class IntegerMultinomialAccumulator(TorchStatisticAccumulator):
         Args:
             min_val (Optional[int]): Set minimum value for integer multinomial.
             max_val (Optional[int]): Set maximum value for integer multinomial.
-            keys (Optional[str]): Set keys for merging sufficient stats with other objects containing matching keys.
-            len_accumulator (Optional[TorchStatisticAccumulator]): Optional accumulator for number of
-                integer multinomial trial counts.
+            keys (Optional[str]): Set keys for merging sufficient stats with
+                other objects containing matching keys.
+            len_accumulator (Optional[TorchStatisticAccumulator]): Optional
+                accumulator for integer multinomial trial counts.
             device: Device for tensor calculations
 
         """
@@ -451,14 +461,18 @@ class IntegerMultinomialAccumulator(TorchStatisticAccumulator):
 
 
 class IntegerMultinomialAccumulatorFactory(TorchStatisticAccumulatorFactory):
-    """Create IntegerMultinomialAccumulatorFactory object for creating IntegerMultinomialAccumulator objects.
+    """Factory for IntegerMultinomialAccumulator objects.
 
     Attributes:
-        min_val (Optional[int]): Optional minimum value for IntegerMultinomialAccumulator.
-        max_val (Optional[int]): Optional maximum value for IntegerMultinomialAccumulator.
-        keys (Optional[str]): Optional keys for merging sufficient statistics of object instance.
-        len_factory (Optional[StatisticAccumulatorFactory]): Optional StatisticAccumulatorFactory object for
-            creating StatisticAccumulator object for number of trials. Default to NullAccumulatorFactory()
+        min_val (Optional[int]): Optional minimum value for
+            IntegerMultinomialAccumulator.
+        max_val (Optional[int]): Optional maximum value for
+            IntegerMultinomialAccumulator.
+        keys (Optional[str]): Optional keys for merging sufficient statistics
+            of the object instance.
+        len_factory (Optional[StatisticAccumulatorFactory]): Optional factory
+            for the number-of-trials accumulator. Defaults to
+            NullAccumulatorFactory().
 
     """
 
@@ -474,11 +488,14 @@ class IntegerMultinomialAccumulatorFactory(TorchStatisticAccumulatorFactory):
         """IntegerMultinomialAccumulatorFactory object.
 
         Args:
-            min_val (Optional[int]): Optional minimum value for IntegerMultinomialAccumulator.
-            max_val (Optional[int]): Optional maximum value for IntegerMultinomialAccumulator.
-            keys (Optional[str]): Optional keys for merging sufficient statistics of object instance.
-            len_factory (Optional[StatisticAccumulatorFactory]): Optional StatisticAccumulatorFactory object for
-                creating StatisticAccumulator object for number of trials.
+            min_val (Optional[int]): Optional minimum value for
+                IntegerMultinomialAccumulator.
+            max_val (Optional[int]): Optional maximum value for
+                IntegerMultinomialAccumulator.
+            keys (Optional[str]): Optional keys for merging sufficient
+                statistics of the object instance.
+            len_factory (Optional[StatisticAccumulatorFactory]): Optional
+                factory for creating the number-of-trials accumulator.
 
         """
         self.min_val = min_val
@@ -502,19 +519,23 @@ class IntegerMultinomialAccumulatorFactory(TorchStatisticAccumulatorFactory):
 
 
 class IntegerMultinomialEstimator(TorchParameterEstimator):
-    """IntegerMultinomialEstimator object for estimating integer multinomial distributions from aggregated data.
+    """Estimate integer multinomial distributions from aggregated data.
 
     Attributes:
         min_val (Optional[int]): Set minimum value integer multinomial.
         max_val (Optional[int]): Set maximum value for integer multinomial.
-        len_estimator (TorchParameterEstimator): ParameterEstimator for number of trials, default NullEstimator()
+        len_estimator (TorchParameterEstimator): ParameterEstimator for number
+            of trials, default `NullEstimator()`.
         len_dist (Optional[TorchProbabilityDistribution]): Optional
             TorchProbabilityDistribution for fixing distribution on number of trials.
         name (Optional[str]): Set name for object instance.
-        pseudo_count (Optional[float]): Used to re-weight sufficient statistics if suff_stat is passed.
-        suff_stat (Optional[Tuple[int, np.ndarray]]): Set minimum value and counts for categories. If 'min_val'
-            and 'max_val' are both not None, this is ignored in estimation.
-        keys (Optional[str]): Set key for merging sufficient statistics of objects with matching keys.
+        pseudo_count (Optional[float]): Used to re-weight sufficient statistics
+            if suff_stat is passed.
+        suff_stat (Optional[Tuple[int, np.ndarray]]): Set minimum value and
+            counts for categories. If `min_val` and `max_val` are both not
+            None, this is ignored in estimation.
+        keys (Optional[str]): Set key for merging sufficient statistics of
+            objects with matching keys.
 
     """
 
@@ -533,12 +554,17 @@ class IntegerMultinomialEstimator(TorchParameterEstimator):
         Args:
             min_val (Optional[int]): Set minimum value integer multinomial.
             max_val (Optional[int]): Set maximum value for integer multinomial.
-            len_estimator (Optional[ParameterEstimator]): Optional ParameterEstimator for number of trials.
+            len_estimator (Optional[ParameterEstimator]): Optional
+                ParameterEstimator for number of trials.
             len_dist (Optional[TorchProbabilityDistribution]): Optional
-                TorchProbabilityDistribution for fixing distribution on number of trials.
-            pseudo_count (Optional[float]): Used to re-weight sufficient statistics if suff_stat is passed.
-            suff_stat (Optional[Tuple[int, np.ndarray]]): Set minimum value and counts for categories.
-            keys (Optional[str]): Set key for merging sufficient statistics of objects with matching keys.
+                TorchProbabilityDistribution for fixing the distribution on the
+                number of trials.
+            pseudo_count (Optional[float]): Used to re-weight sufficient
+                statistics if suff_stat is passed.
+            suff_stat (Optional[Tuple[int, np.ndarray]]): Set minimum value and
+                counts for categories.
+            keys (Optional[str]): Set key for merging sufficient statistics of
+                objects with matching keys.
 
         """
         self.suff_stat = suff_stat
@@ -564,7 +590,10 @@ class IntegerMultinomialEstimator(TorchParameterEstimator):
 
         len_factory = self.len_estimator.accumulator_factory()
         return IntegerMultinomialAccumulatorFactory(
-            min_val=min_val, max_val=max_val, keys=self.keys, len_factory=len_factory
+            min_val=min_val,
+            max_val=max_val,
+            keys=self.keys,
+            len_factory=len_factory,
         )
 
     def estimate(
@@ -592,7 +621,7 @@ class IntegerMultinomialEstimator(TorchParameterEstimator):
                 device=device,
             )
 
-        elif (
+        if (
             self.pseudo_count is not None
             and self.min_val is not None
             and self.max_val is not None
@@ -617,7 +646,7 @@ class IntegerMultinomialEstimator(TorchParameterEstimator):
                 device=device,
             )
 
-        elif self.pseudo_count is not None and self.suff_stat is not None:
+        if self.pseudo_count is not None and self.suff_stat is not None:
             s_max_val = self.suff_stat[0] + len(self.suff_stat[1]) - 1
             s_min_val = self.suff_stat[0]
 
@@ -641,22 +670,22 @@ class IntegerMultinomialEstimator(TorchParameterEstimator):
                 keys=self.keys,
                 device=device,
             )
-        else:
-            return IntegerMultinomialDistribution(
-                suff_stat[0],
-                suff_stat[1] / (suff_stat[1].sum()),
-                len_dist=len_dist,
-                keys=self.keys,
-                device=device,
-            )
+        return IntegerMultinomialDistribution(
+            suff_stat[0],
+            suff_stat[1] / (suff_stat[1].sum()),
+            len_dist=len_dist,
+            keys=self.keys,
+            device=device,
+        )
 
 
 class IntegerMultinomialDataEncoder(TorchSequenceEncoder):
-    """IntegerMultinomialDataEncoder object for encoding sequence of iid integer multinomial observations.
+    """Encode sequences of iid integer multinomial observations.
 
     Attributes:
-        len_encoder (TorchSequenceEncoder): TorchSequenceEncoder for encoding number of trials in each iid
-            observation of integer multinomial. Defaults to NullDataEncoder() if None is passed.
+        len_encoder (TorchSequenceEncoder): TorchSequenceEncoder for encoding
+            the number of trials in each iid integer multinomial observation.
+            Defaults to `NullDataEncoder()` if None is passed.
 
     """
 
@@ -666,8 +695,9 @@ class IntegerMultinomialDataEncoder(TorchSequenceEncoder):
         """IntegerMultinomialDataEncoder object.
 
         Args:
-            len_encoder (Optional[TorchSequenceEncoder]): Optional DataSequenceEncoder for encoding the number of trials
-                in each iid observation of integer multinomial.
+            len_encoder (Optional[TorchSequenceEncoder]): Optional sequence
+                encoder for the number of trials in each iid integer
+                multinomial observation.
 
         """
         self.len_encoder = len_encoder if len_encoder is not None else NullDataEncoder()
@@ -680,8 +710,8 @@ class IntegerMultinomialDataEncoder(TorchSequenceEncoder):
     def __eq__(self, other: object) -> bool:
         if isinstance(other, IntegerMultinomialDataEncoder):
             return self.len_encoder == other.len_encoder
-        else:
-            return False
+
+        return False
 
     def seq_encode(
         self,

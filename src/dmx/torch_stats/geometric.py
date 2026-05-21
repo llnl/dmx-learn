@@ -1,8 +1,8 @@
-# pylint: disable=line-too-long
-"""Create, estimate, and sample from a geometric distribution with probability of success p.
+"""Create, estimate, and sample from a geometric distribution.
 
-Defines the GeometricDistribution, GeometricSampler, GeometricAccumulatorFactory, GeometricAccumulator,
-GeometricEstimator, and the GeometricDataEncoder classes for use with pysparkplug.
+Defines the GeometricDistribution, GeometricSampler,
+GeometricAccumulatorFactory, GeometricAccumulator, GeometricEstimator, and the
+GeometricDataEncoder classes for use with pysparkplug.
 
 Data type (int): The geometric distribution with probability of success p, has density
 
@@ -10,12 +10,7 @@ Data type (int): The geometric distribution with probability of success p, has d
 
 """
 
-# pylint: disable=line-too-long,too-many-positional-arguments,duplicate-code
-# pylint: disable=wildcard-import,unused-wildcard-import,redefined-builtin
-# pylint: disable=broad-exception-raised,consider-using-f-string,no-else-return
-# pylint: disable=no-else-raise,consider-using-enumerate,consider-using-generator
-# pylint: disable=use-dict-literal,super-with-arguments,unnecessary-comprehension
-# pylint: disable=simplifiable-if-statement,nested-min-max
+# pylint: disable=too-many-positional-arguments,duplicate-code
 
 from typing import Any, Dict, Optional, Sequence, Tuple, Union
 
@@ -24,7 +19,7 @@ import torch as tn
 from numpy.random import RandomState
 
 import dmx.torch_utils.vector as vec
-from dmx.arithmetic import *
+from dmx.arithmetic import exp
 from dmx.torch_stats.pdist import (
     DistributionSampler,
     TorchEncodedSequence,
@@ -37,7 +32,7 @@ from dmx.torch_stats.pdist import (
 
 
 class GeometricDistribution(TorchProbabilityDistribution):
-    """GeometricDistribution object defining geometric distribution with probability of success p.
+    """GeometricDistribution object with probability of success p.
 
     Notes:
         Mean: 1/p, Variance: (1-p)/p^2.
@@ -104,7 +99,7 @@ class GeometricDistribution(TorchProbabilityDistribution):
     def seq_log_density(self, x: "GeometricTorchEncodedSequence") -> tn.Tensor:
 
         if not isinstance(x, GeometricTorchEncodedSequence):
-            raise Exception(
+            raise TypeError(
                 "Requires GeometricTorchEncodedSequence for `seq_` function calls."
             )
 
@@ -120,8 +115,8 @@ class GeometricDistribution(TorchProbabilityDistribution):
     def estimator(self, pseudo_count: Optional[float] = None) -> "GeometricEstimator":
         if pseudo_count is None:
             return GeometricEstimator()
-        else:
-            return GeometricEstimator(pseudo_count=pseudo_count, suff_stat=self.p)
+
+        return GeometricEstimator(pseudo_count=pseudo_count, suff_stat=self.p)
 
     def dist_to_encoder(self) -> "GeometricDataEncoder":
         return GeometricDataEncoder()
@@ -141,7 +136,8 @@ class GeometricSampler(DistributionSampler):
 
         Args:
             dist (GeometricDistribution): GeometricDistribution to sample from.
-            seed (Optional[int]): Used to set seed on random number generator used in sampling.
+            seed (Optional[int]): Used to set seed on random number generator
+                used in sampling.
 
         """
         self.rng = RandomState(seed)
@@ -150,11 +146,13 @@ class GeometricSampler(DistributionSampler):
     def sample(self, size: Optional[int] = None) -> Union[int, np.ndarray]:
         """Generate iid samples from geometric distribution.
 
-        Generates a single geometric sample (int) if size is None, else a numpy array of integers of length size,
-        iid samples, from the geometric distribution.
+        Generates a single geometric sample (int) if size is None, else a numpy
+        array of integers of length size, iid samples, from the geometric
+        distribution.
 
         Args:
-            size (Optional[int]): Number of iid samples to draw. If None, assumed to be 1.
+            size (Optional[int]): Number of iid samples to draw. If None,
+                assumed to be 1.
 
         Returns:
             If size is None, int, else size length numpy array of ints.
@@ -164,7 +162,7 @@ class GeometricSampler(DistributionSampler):
 
 
 class GeometricAccumulator(TorchStatisticAccumulator):
-    """GeometricAccumulator object used to accumulate sufficient statistics from observations.
+    """GeometricAccumulator object used to accumulate sufficient statistics.
 
     Attributes:
         sum (float): Aggregate weighted sum of observations.
@@ -177,7 +175,8 @@ class GeometricAccumulator(TorchStatisticAccumulator):
         """GeometricAccumulator object.
 
         Args:
-            keys (Optional[str]): GeometricAccumulator objects with same key merge sufficient statistics.
+            keys (Optional[str]): GeometricAccumulator objects with same key
+                merge sufficient statistics.
             device (Optional[device]): Device for tensor calculations.
 
         """
@@ -249,11 +248,12 @@ class GeometricAccumulatorFactory(TorchStatisticAccumulatorFactory):
 
 
 class GeometricEstimator(TorchParameterEstimator):
-    """GeometricEstimator object for estimating GeometricDistribution object from aggregated sufficient statistics.
+    """Estimate GeometricDistribution from aggregated sufficient statistics.
 
     Attributes:
         pseudo_count (Optional[float]): Assigned from pseudo_count arg.
-        suff_stat (Optional[float]): Assigned from suff_stat arg (corrected for [0,1] constraint).
+        suff_stat (Optional[float]): Assigned from suff_stat arg and corrected
+            for the [0,1] constraint.
         keys (Optional[str]): Assigned from keys arg.
 
     """
@@ -267,14 +267,17 @@ class GeometricEstimator(TorchParameterEstimator):
         """GeometricEstimator object.
 
         Args:
-            pseudo_count (Optional[float]): Float value for re-weighting suff_stat member variable.
-            suff_stat (Optional[float]): Probability of success (value between (0,1)).
-            keys (Optional[str]): GeometricAccumulator objects with same key merge sufficient statistics.
+            pseudo_count (Optional[float]): Float value for re-weighting
+                suff_stat member variable.
+            suff_stat (Optional[float]): Probability of success (value between
+                (0,1)).
+            keys (Optional[str]): GeometricAccumulator objects with same key
+                merge sufficient statistics.
 
         """
         self.pseudo_count = pseudo_count
         self.suff_stat = (
-            min(min(suff_stat, 1.0), 0.0) if suff_stat is not None else None
+            max(0.0, min(suff_stat, 1.0)) if suff_stat is not None else None
         )
         self.keys = keys
 
@@ -300,7 +303,7 @@ class GeometricEstimator(TorchParameterEstimator):
 
 
 class GeometricDataEncoder(TorchSequenceEncoder):
-    """GeometricDataEncoder object for encoding sequences of iid geometric observations with data type int."""
+    """Encode sequences of iid geometric observations with data type int."""
 
     def __str__(self) -> str:
         return "GeometricDataEncoder"
@@ -313,7 +316,7 @@ class GeometricDataEncoder(TorchSequenceEncoder):
     ) -> "GeometricTorchEncodedSequence":
         rv = vec.tensor(x, device=device)
         if tn.any(rv < 1) or tn.any(tn.isnan(rv)):
-            raise Exception(
+            raise ValueError(
                 "GeometricDistribution requires integers greater than 0 for x."
             )
 

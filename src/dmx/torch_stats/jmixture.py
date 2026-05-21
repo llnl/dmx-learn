@@ -1,29 +1,28 @@
-# pylint: disable=line-too-long
-"""Create, estimate, and sample from a Joint mixture distribution.
+"""
+Create, estimate, and sample from a Joint mixture distribution.
 
-Defines the JointMixtureDistribution, JointMixtureSampler, JointMixtureAccumulatorFactory, JointMixtureAccumulator,
+Defines the JointMixtureDistribution, JointMixtureSampler,
+JointMixtureAccumulatorFactory, JointMixtureAccumulator,
 JointMixtureEstimator, and the JointMixtureDataEncoder classes for use with pysparkplug.
 
 Data type: Tuple[T0, T1].
 
-Consider a random variable X = (X_1, X_2). A joint mixture with N components for X_1, and M components for X_2 is
+Consider a random variable X = (X_1, X_2). A joint mixture with N components for X_1,
+and M components for X_2 is
 given by
 
     P(X) = sum_{i=1}^{N} w_i * f_i(X_1) * sum_{j=1}^{M} tau_{ij}*g_j(X_2),
 
-where w_i is the probability of sampling X_1 from distribution f_i() (data type T0), tau_{ij} is the probability of
+where w_i is the probability of sampling X_1 from distribution f_i() (data type T0),
+tau_{ij} is the probability of
 sampling X_2 from g_j() (data type T1) given X_1 was sampled from f_i().
 
 
 """
 
-# pylint: disable=line-too-long,too-many-positional-arguments,duplicate-code
-# pylint: disable=wildcard-import,unused-wildcard-import,redefined-builtin
-# pylint: disable=broad-exception-raised,consider-using-f-string,no-else-return
-# pylint: disable=no-else-raise,consider-using-enumerate,consider-using-generator
-# pylint: disable=use-dict-literal,super-with-arguments,unnecessary-comprehension
-# pylint: disable=simplifiable-if-statement,nested-min-max
+# pylint: disable=too-many-positional-arguments,duplicate-code
 
+from math import exp
 from typing import Any, Dict, List, Optional, Sequence, Tuple, TypeVar, Union
 
 import numpy as np
@@ -31,7 +30,6 @@ import torch as tn
 from numpy.random import RandomState
 
 import dmx.torch_utils.vector as vec
-from dmx.arithmetic import *
 from dmx.arithmetic import maxrandint
 from dmx.torch_stats.pdist import (
     DistributionSampler,
@@ -52,31 +50,40 @@ SS1 = TypeVar("SS1")
 
 
 class JointMixtureDistribution(TorchProbabilityDistribution):
-    """JointMixtureDistribution object for defining a joint mixture distribution.
+    """
+    JointMixtureDistribution object for defining a joint mixture distribution.
 
-    Notes:
-        Data type is Tuple[T0, T1] where all components1 entries and component2 entries are compatible with
-        T0 and T1 respectively.
+        Notes:
+            Data type is Tuple[T0, T1] where all components1 entries and component2 entries
+            are compatible with
+            T0 and T1 respectively.
 
-    Attributes:
-        components1(Sequence[TorchProbabilityDistribution]): Mixture components for mixture of X1.
-        components2 (Sequence[TorchProbabilityDistribution]): Mixture components for mixture X2.
-        w1 (np.ndarray): Probability of drawing X1 from component i.
-        w2 (np.ndarray): Probability of drawing X2 from component j.
-        num_components1 (int): Number of mixture components for X1.
-        num_components2 (int): Number of mixture components for X2.
-        taus12 (np.ndarray): 2-d Numpy array with probabilities of drawing X2 from comp j given X1 was drawn from
-            comp i. Rows are component X1 state.
-        taus21 (np.ndarray): 2-d Numpy array with probabilities of drawing X1 from comp i given X2 was drawn from
-            comp j. Rows are component X1 state.
-        log_w1 (np.ndarray): Log-probability of drawing X1 from component i.
-        log_w2 (np.ndarray): Log-probability of drawing X2 from component j.
-        log_taus12 (np.ndarray): 2-d Numpy array with log-probabilities of drawing X2 from comp j given X1 was
-            drawn from comp i. Rows are component X1 state.
-        log_taus21 (np.ndarray): 2-d Numpy array with log-probabilities of drawing X1 from comp i given X2 was
-            drawn from comp j. Rows are component X1 state.
-        keys (Optional[Tuple[Optional[str], Optional[str], Optional[str]]]): Set keys for weights, mixture
-            components of X1, mixture components of X2.
+        Attributes:
+            components1(Sequence[TorchProbabilityDistribution]): Mixture components for
+            mixture of X1.
+            components2 (Sequence[TorchProbabilityDistribution]): Mixture components for
+            mixture X2.
+            w1 (np.ndarray): Probability of drawing X1 from component i.
+            w2 (np.ndarray): Probability of drawing X2 from component j.
+            num_components1 (int): Number of mixture components for X1.
+            num_components2 (int): Number of mixture components for X2.
+            taus12 (np.ndarray): 2-d Numpy array with probabilities of drawing X2 from comp
+            j given X1 was drawn from
+                comp i. Rows are component X1 state.
+            taus21 (np.ndarray): 2-d Numpy array with probabilities of drawing X1 from comp
+            i given X2 was drawn from
+                comp j. Rows are component X1 state.
+            log_w1 (np.ndarray): Log-probability of drawing X1 from component i.
+            log_w2 (np.ndarray): Log-probability of drawing X2 from component j.
+            log_taus12 (np.ndarray): 2-d Numpy array with log-probabilities of drawing X2
+            from comp j given X1 was
+                drawn from comp i. Rows are component X1 state.
+            log_taus21 (np.ndarray): 2-d Numpy array with log-probabilities of drawing X1
+            from comp i given X2 was
+                drawn from comp j. Rows are component X1 state.
+            keys (Optional[Tuple[Optional[str], Optional[str], Optional[str]]]): Set keys
+            for weights, mixture
+                components of X1, mixture components of X2.
 
     """
 
@@ -95,23 +102,30 @@ class JointMixtureDistribution(TorchProbabilityDistribution):
         ),
         device: Optional[tn.device] = None,
     ) -> None:
-        """JointMixtureDistribution object for defining a joint mixture distribution.
+        """
+        JointMixtureDistribution object for defining a joint mixture distribution.
 
-        Note: Data type is Tuple[T0, T1] where all components1 entries and component2 entries are compatible with
-        T0 and T1 respectively.
+                Note: Data type is Tuple[T0, T1] where all components1 entries and component2
+                entries are compatible with
+                T0 and T1 respectively.
 
-        Args:
-            components1(Sequence[TorchProbabilityDistribution]): Mixture components for mixture of X1.
-            components2 (Sequence[TorchProbabilityDistribution]): Mixture components for mixture X2.
-            w1 (np.ndarray): Probability of drawing X1 from component i.
-            w2 (np.ndarray): Probability of drawing X2 from component j.
-            taus12 (np.ndarray): 2-d Numpy array with probabilities of drawing X2 from comp j given X1 was drawn from
-                comp i. Rows are component X1 state.
-            taus21 (np.ndarray): 2-d Numpy array with probabilities of drawing X1 from comp i given X2 was drawn from
-                comp j. Rows are component X1 state.
-            keys (Optional[Tuple[Optional[str], Optional[str], Optional[str]]]): Set keys for weights, mixture
-                components of X1, mixture components of X2.
-            device (Optional[device]): Set device for tensor calculations.
+                Args:
+                    components1(Sequence[TorchProbabilityDistribution]): Mixture components for
+                    mixture of X1.
+                    components2 (Sequence[TorchProbabilityDistribution]): Mixture components for
+                    mixture X2.
+                    w1 (np.ndarray): Probability of drawing X1 from component i.
+                    w2 (np.ndarray): Probability of drawing X2 from component j.
+                    taus12 (np.ndarray): 2-d Numpy array with probabilities of drawing X2 from
+                    comp j given X1 was drawn from
+                        comp i. Rows are component X1 state.
+                    taus21 (np.ndarray): 2-d Numpy array with probabilities of drawing X1 from
+                    comp i given X2 was drawn from
+                        comp j. Rows are component X1 state.
+                    keys (Optional[Tuple[Optional[str], Optional[str], Optional[str]]]): Set
+                    keys for weights, mixture
+                        components of X1, mixture components of X2.
+                    device (Optional[device]): Set device for tensor calculations.
 
         """
         super().__init__(device)
@@ -154,13 +168,9 @@ class JointMixtureDistribution(TorchProbabilityDistribution):
         s5 = ", ".join([repr(u) for u in self.taus12.cpu().detach().tolist()])
         s6 = ", ".join([repr(u) for u in self.taus21.cpu().detach().tolist()])
 
-        return "JointMixtureDistribution([%s], [%s], [%s], [%s], [%s], [%s])" % (
-            s1,
-            s2,
-            s3,
-            s4,
-            s5,
-            s6,
+        return (
+            f"JointMixtureDistribution([{s1}], [{s2}], [{s3}], "
+            f"[{s4}], [{s5}], [{s6}])"
         )
 
     def density(self, x: Tuple[T0, T1]) -> float:
@@ -192,7 +202,7 @@ class JointMixtureDistribution(TorchProbabilityDistribution):
 
     def seq_log_density(self, x: "JointMixtureTorchEncodedSequence") -> tn.Tensor:
         if not isinstance(x, JointMixtureTorchEncodedSequence):
-            raise Exception(
+            raise TypeError(
                 "JointMixtureTorchEncodedSequence required for `seq_` function calls."
             )
 
@@ -279,24 +289,31 @@ class JointMixtureSampler(DistributionSampler):
             f2 = self.comp_sampler2[comp_state2].sample()
 
             return f1, f2
-        else:
-            return [self.sample() for i in range(size)]
+        return [self.sample() for _ in range(size)]
 
 
 class JointMixtureEstimatorAccumulator(TorchStatisticAccumulator):
-    """JointMixtureEstimatorAccumulator object for accumulating sufficient statistics of a Joint mixture model.
+    """
+    JointMixtureEstimatorAccumulator object for accumulating sufficient statistics of a
+    Joint mixture model.
 
-    Attributes:
-        accumulators1 (Sequence[TorchStatisticAccumulator]): Accumulators for the outer mixture components.
-        accumulators2 (Sequence[TorchStatisticAccumulator]): Accumulators for the inner mixture components.
-        keys (Optional[Tuple[Optional[str], Optional[str], Optional[str]]]): Set keys for weights, mixture
-            components of X1, mixture components of X2.
-        num_components1 (int): Number of X1 mixture components.
-        num_components2 (int): Number of X2 mixture components.
-        comp_counts1 (np.ndarray): Weighted observation counts for states of mixture on X1.
-        comp_counts2 (np.ndarray): Weighted observation counts for states of mixture on X2.
-        joint_counts (np.ndarray): 2-d Numpy array for counts of state-given-state weights. Row indexed by states
-            of X1, cols indexed by states of X2.
+        Attributes:
+            accumulators1 (Sequence[TorchStatisticAccumulator]): Accumulators for the outer
+            mixture components.
+            accumulators2 (Sequence[TorchStatisticAccumulator]): Accumulators for the inner
+            mixture components.
+            keys (Optional[Tuple[Optional[str], Optional[str], Optional[str]]]): Set keys
+            for weights, mixture
+                components of X1, mixture components of X2.
+            num_components1 (int): Number of X1 mixture components.
+            num_components2 (int): Number of X2 mixture components.
+            comp_counts1 (np.ndarray): Weighted observation counts for states of mixture on
+            X1.
+            comp_counts2 (np.ndarray): Weighted observation counts for states of mixture on
+            X2.
+            joint_counts (np.ndarray): 2-d Numpy array for counts of state-given-state
+            weights. Row indexed by states
+                of X1, cols indexed by states of X2.
 
     """
 
@@ -311,15 +328,20 @@ class JointMixtureEstimatorAccumulator(TorchStatisticAccumulator):
         ),
         device: Optional[tn.device] = None,
     ) -> None:
-        """JointMixtureEstimatorAccumulator object for accumulating sufficient statistics of a Joint mixture model.
+        """
+        JointMixtureEstimatorAccumulator object for accumulating sufficient statistics of a
+        Joint mixture model.
 
-        Args:
-            accumulators1 (Sequence[TorchStatisticAccumulator]): Accumulators for the mixture components
-                of X1.
-            accumulators2 (Sequence[TorchStatisticAccumulator]): Accumulators for the mixture components
-                of X2.
-            keys (Optional[Tuple[Optional[str], Optional[str], Optional[str]]]): Set keys for weights, mixture
-                components of X1, mixture components of X2.
+                Args:
+                    accumulators1 (Sequence[TorchStatisticAccumulator]): Accumulators for the
+                    mixture components
+                        of X1.
+                    accumulators2 (Sequence[TorchStatisticAccumulator]): Accumulators for the
+                    mixture components
+                        of X2.
+                    keys (Optional[Tuple[Optional[str], Optional[str], Optional[str]]]): Set
+                    keys for weights, mixture
+                        components of X1, mixture components of X2.
 
         """
         super().__init__(device)
@@ -457,8 +479,8 @@ class JointMixtureEstimatorAccumulator(TorchStatisticAccumulator):
             self.comp_counts1,
             self.comp_counts2,
             self.joint_counts,
-            tuple([u.value() for u in self.accumulators1]),
-            tuple([u.value() for u in self.accumulators2]),
+            tuple(u.value() for u in self.accumulators1),
+            tuple(u.value() for u in self.accumulators2),
         )
 
     def from_value(
@@ -494,18 +516,14 @@ class JointMixtureEstimatorAccumulator(TorchStatisticAccumulator):
                 for i, u in enumerate(stats_dict[acc1_key]):
                     self.accumulators1[i].combine(u)
             else:
-                stats_dict[acc1_key] = tuple(
-                    [acc.value() for acc in self.accumulators1]
-                )
+                stats_dict[acc1_key] = tuple(acc.value() for acc in self.accumulators1)
 
         if acc2_key is not None:
             if acc2_key in stats_dict[acc2_key]:
                 for i, u in enumerate(stats_dict[acc2_key]):
                     self.accumulators2[i].combine(u)
             else:
-                stats_dict[acc2_key] = tuple(
-                    [acc.value() for acc in self.accumulators2]
-                )
+                stats_dict[acc2_key] = tuple(acc.value() for acc in self.accumulators2)
 
     def key_replace(self, stats_dict: Dict[str, Any]) -> None:
         weight_key, acc1_key, acc2_key = self.keys
@@ -552,21 +570,28 @@ class JointMixtureEstimatorAccumulatorFactory(TorchStatisticAccumulatorFactory):
     def make(
         self, device: Optional[tn.device] = None
     ) -> "JointMixtureEstimatorAccumulator":
-        f1 = [self.factories1[i].make(device) for i in range(len(self.factories1))]
-        f2 = [self.factories2[i].make(device) for i in range(len(self.factories2))]
+        f1 = [factory.make(device) for factory in self.factories1]
+        f2 = [factory.make(device) for factory in self.factories2]
         return JointMixtureEstimatorAccumulator(f1, f2, keys=self.keys, device=device)
 
 
 class JointMixtureEstimator(TorchParameterEstimator):
-    """JointMixtureEstimator object for estimating joint mixture distribution from aggregated sufficient stats.
+    """
+    JointMixtureEstimator object for estimating joint mixture distribution from aggregated
+    sufficient stats.
 
-    Attributes:
-        estimators1 (Sequence[TorchParameterEstimator]): Estimators for mixture component of X1.
-        estimators2 (Sequence[TorchParameterEstimator]): Estimators for mixture component of X2.
-        suff_stat (Optional[Tuple[np.ndarray, np.ndarray, np.ndarray, Tuple[E0, ...], Tuple[E1, ...]]]): Suff stats.
-        pseudo_count (Optional[Tuple[float, float, float]]): Used to re-weight the state counts in estimation.
-        keys (Optional[Tuple[Optional[str], Optional[str], Optional[str]]]): Set keys for weights, mixture
-            components of X1, mixture components of X2.
+        Attributes:
+            estimators1 (Sequence[TorchParameterEstimator]): Estimators for mixture
+            component of X1.
+            estimators2 (Sequence[TorchParameterEstimator]): Estimators for mixture
+            component of X2.
+            suff_stat (Optional[Tuple[np.ndarray, np.ndarray, np.ndarray, Tuple[E0, ...],
+            Tuple[E1, ...]]]): Suff stats.
+            pseudo_count (Optional[Tuple[float, float, float]]): Used to re-weight the state
+            counts in estimation.
+            keys (Optional[Tuple[Optional[str], Optional[str], Optional[str]]]): Set keys
+            for weights, mixture
+                components of X1, mixture components of X2.
 
     """
 
@@ -584,15 +609,21 @@ class JointMixtureEstimator(TorchParameterEstimator):
             None,
         ),
     ) -> None:
-        """JointMixtureEstimator object.
+        """
+        JointMixtureEstimator object.
 
-        Args:
-            estimators1 (Sequence[TorchParameterEstimator]): Estimators for outer mixture component of X1.
-            estimators2 (Sequence[TorchParameterEstimator]): Estimators for inner mixture component of X2.
-            suff_stat (Optional[Tuple[np.ndarray, np.ndarray, np.ndarray, Tuple[E0, ...], Tuple[E1, ...]]]): suff stats.
-            pseudo_count (Optional[Tuple[float, float, float]]): Used to re-weight the state counts in estimation.
-            keys (Optional[Tuple[Optional[str], Optional[str], Optional[str]]]): Set keys for weights, mixture
-                components of X1, mixture components of X2.
+                Args:
+                    estimators1 (Sequence[TorchParameterEstimator]): Estimators for outer
+                    mixture component of X1.
+                    estimators2 (Sequence[TorchParameterEstimator]): Estimators for inner
+                    mixture component of X2.
+                    suff_stat (Optional[Tuple[np.ndarray, np.ndarray, np.ndarray, Tuple[E0,
+                    ...], Tuple[E1, ...]]]): suff stats.
+                    pseudo_count (Optional[Tuple[float, float, float]]): Used to re-weight the
+                    state counts in estimation.
+                    keys (Optional[Tuple[Optional[str], Optional[str], Optional[str]]]): Set
+                    keys for weights, mixture
+                        components of X1, mixture components of X2.
 
         """
         self.num_components1 = len(estimators1)
@@ -688,8 +719,7 @@ class JointMixtureDataEncoder(TorchSequenceEncoder):
     def __eq__(self, other: object) -> bool:
         if isinstance(other, JointMixtureDataEncoder):
             return self.encoder2 == other.encoder2 and self.encoder1 == other.encoder1
-        else:
-            return False
+        return False
 
     def seq_encode(
         self, x: Sequence[Tuple[T0, T1]], device: Optional[tn.device] = None

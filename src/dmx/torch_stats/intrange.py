@@ -1,14 +1,14 @@
-# pylint: disable=line-too-long
-"""Create, estimate, and sample from a Categorical distribution defined on a range of integers starting a user
-defined minimum value.
+"""Create, estimate, and sample from a categorical distribution on integers.
 
-Defines the IntegerCategoricalDistribution, IntegerCategoricalSampler, IntegerCategoricalAccumulatorFactory,
-IntegerCategoricalAccumulator, IntegerCategoricalEstimator, and the IntegerCategoricalDataEncoder classes for use
-with pysparkplug.
+Defines the IntegerCategoricalDistribution, IntegerCategoricalSampler,
+IntegerCategoricalAccumulatorFactory, IntegerCategoricalAccumulator,
+IntegerCategoricalEstimator, and the IntegerCategoricalDataEncoder classes for
+use with pysparkplug.
 
-Data type (int): The integer categorical distribution is defined through summary statistics min_val (int)
-and vector of probabilities p_vec (np.ndarray[float]) that sum to 1.0. The range of values is given by
-[min_val, min_val + len(p_vec) - ). The density is then,
+Data type (int): The integer categorical distribution is defined through
+summary statistics `min_val` (int) and a probability vector `p_vec`
+(`np.ndarray[float]`) that sums to 1.0. The range of values is given by
+`[min_val, min_val + len(p_vec) - 1]`. The density is then,
 
     P(x_mat=i) = p_vec[i]
 
@@ -16,12 +16,7 @@ for x in {min_val,min_val+1, ..., min_val + length(p_vec) - 1}, else 0.0.
 
 """
 
-# pylint: disable=line-too-long,too-many-positional-arguments,duplicate-code
-# pylint: disable=wildcard-import,unused-wildcard-import,redefined-builtin
-# pylint: disable=broad-exception-raised,consider-using-f-string,no-else-return
-# pylint: disable=no-else-raise,consider-using-enumerate,consider-using-generator
-# pylint: disable=use-dict-literal,super-with-arguments,unnecessary-comprehension
-# pylint: disable=simplifiable-if-statement,nested-min-max
+# pylint: disable=too-many-positional-arguments,duplicate-code
 
 from typing import Any, Dict, List, Optional, Tuple, Union
 
@@ -29,7 +24,7 @@ import numpy as np
 import torch as tn
 
 import dmx.torch_utils.vector as vec
-from dmx.arithmetic import *
+from dmx.arithmetic import inf
 from dmx.torch_stats.pdist import (
     DistributionSampler,
     TorchEncodedSequence,
@@ -42,7 +37,7 @@ from dmx.torch_stats.pdist import (
 
 
 class IntegerCategoricalDistribution(TorchProbabilityDistribution):
-    """IntegerCategoricalDistribution object defining an integer categorical distribution.
+    """IntegerCategoricalDistribution object defining an integer category range.
 
     Attributes:
         p_vec (tn.Tensor): Must sum to 1.0. First probability is probability
@@ -66,7 +61,8 @@ class IntegerCategoricalDistribution(TorchProbabilityDistribution):
 
         Args:
             min_val (int): Minimum value of the integer categorical support.
-            p_vec (Union[List[float], np.ndarray]): Probability vector for each value in range.
+            p_vec (Union[List[float], np.ndarray]): Probability vector for each
+                value in range.
             device (Optional[str]): Device on which to perform computations.
 
         """
@@ -81,7 +77,7 @@ class IntegerCategoricalDistribution(TorchProbabilityDistribution):
         s1 = str(self.min_val)
         s2 = ",".join([str(x) for x in self.p_vec.data.cpu().tolist()])
 
-        return "IntegerCategoricalDistribution(min_val=%s, p_vec=[%s])" % (s1, s2)
+        return f"IntegerCategoricalDistribution(min_val={s1}, p_vec=[{s2}])"
 
     def to(self, device: tn.device):
         self.p_vec = self.p_vec.to(device)
@@ -111,7 +107,8 @@ class IntegerCategoricalDistribution(TorchProbabilityDistribution):
         """Evaluate the log-density of the integer categorical at observation x.
 
         Notes:
-            log_p(x_mat=x) = log_p_vec[x] if x in support [min_val, max_val], else -np.inf.
+            log_p(x_mat=x) = log_p_vec[x] if x is in support
+            [min_val, max_val], else -np.inf.
 
         Args:
             x (int): Integer value.
@@ -128,7 +125,7 @@ class IntegerCategoricalDistribution(TorchProbabilityDistribution):
 
     def seq_log_density(self, x: "IntegerCategoricalTorchSequence") -> tn.Tensor:
         if not isinstance(x, IntegerCategoricalTorchSequence):
-            raise Exception(
+            raise TypeError(
                 "Requires IntegerCategoricalTorchSequence for `seq_` function calls."
             )
         v = x.data - self.min_val
@@ -162,7 +159,7 @@ class IntegerCategoricalDistribution(TorchProbabilityDistribution):
 
 
 class IntegerCategoricalSampler(DistributionSampler):
-    """IntegerCategoricalSampler object for sampling from IntegerCategoricalDistribution.
+    """Sample from IntegerCategoricalDistribution.
 
     Attributes:
         p_vec (np.ndarray): Numpy array of probs for each integer value.
@@ -178,8 +175,8 @@ class IntegerCategoricalSampler(DistributionSampler):
         """IntegerCategoricalSampler object.
 
         Args:
-            dist (IntegerCategoricalDistribution): Set IntegerCategoricalDistribution
-                instance to sample from.
+            dist (IntegerCategoricalDistribution): Distribution instance to
+                sample from.
             seed (Optional[int]): Set the seed for random number generator used
                 to sample.
 
@@ -212,7 +209,7 @@ class IntegerCategoricalSampler(DistributionSampler):
 
 
 class IntegerCategoricalAccumulator(TorchStatisticAccumulator):
-    """IntegerCategoricalAccumulator object for accumulating sufficient statistics from observed data.
+    """Accumulate sufficient statistics from observed data.
 
     Notes:
         If min_val and max_val are not provided, they are obtained from the data
@@ -239,14 +236,16 @@ class IntegerCategoricalAccumulator(TorchStatisticAccumulator):
         """IntegerCategoricalAccumulator object.
 
         Args:
-            min_val (Optional[TI]): Sets the minimum value of integer categorical range.
-            max_val (Optional[TI]): Sets the maximum value of integer categorical range.
+            min_val (Optional[TI]): Sets the minimum value of the integer
+                categorical range.
+            max_val (Optional[TI]): Sets the maximum value of the integer
+                categorical range.
             keys (Optional[str]): Set key for merging sufficient statistics of
                 integer IntegerCategoricalAccumulator objects.
             device (Optional[str]): Device on which to perform computations.
 
         """
-        super(IntegerCategoricalAccumulator, self).__init__(device)
+        super().__init__(device)
         self.min_val = min_val
         self.max_val = max_val
 
@@ -359,11 +358,13 @@ class IntegerCategoricalAccumulator(TorchStatisticAccumulator):
 
 
 class IntegerCategoricalAccumulatorFactory(TorchStatisticAccumulatorFactory):
-    """IntegerCategoricalAccumulatorFactory object for creating IntegerCategoricalAccumulator object.
+    """Factory for IntegerCategoricalAccumulator objects.
 
     Attributes:
-        min_val (Optional[int]): Minimum value of integer categorical, if None estimated from data.
-        max_val (Optional[int]): Maximum value of integer categorical, if None estimated from data.
+        min_val (Optional[int]): Minimum value of integer categorical, if None
+            estimated from data.
+        max_val (Optional[int]): Maximum value of integer categorical, if None
+            estimated from data.
 
     """
 
@@ -378,7 +379,8 @@ class IntegerCategoricalAccumulatorFactory(TorchStatisticAccumulatorFactory):
         Args:
             min_val (Optional[TI]): Set minimum value of integer categorical.
             max_val (Optional[TI]): Set maximum value of integer categorical.
-            keys (Optional[str]): Set keys for accumulating merging statistics of IntegerCategoricalAccumulator objects.
+            keys (Optional[str]): Set keys for merging statistics of
+                IntegerCategoricalAccumulator objects.
 
         """
         self.min_val = min_val
@@ -389,12 +391,15 @@ class IntegerCategoricalAccumulatorFactory(TorchStatisticAccumulatorFactory):
         self, device: Optional[tn.device] = None
     ) -> "IntegerCategoricalAccumulator":
         return IntegerCategoricalAccumulator(
-            min_val=self.min_val, max_val=self.max_val, keys=self.keys, device=device
+            min_val=self.min_val,
+            max_val=self.max_val,
+            keys=self.keys,
+            device=device,
         )
 
 
 class IntegerCategoricalEstimator(TorchParameterEstimator):
-    """IntegerCategoricalEstimator object for estimating IntegerCategoricalDistribution from sufficient statistics.
+    """Estimate IntegerCategoricalDistribution from sufficient statistics.
 
     Attributes:
         min_val (Optional[TI]): Minimum value of integer categorical.
@@ -511,7 +516,7 @@ class IntegerCategoricalEstimator(TorchParameterEstimator):
 
 
 class IntegerCategoricalDataEncoder(TorchSequenceEncoder):
-    """IntegerCategoricalDataEncoder object for encoding sequences of iid integer categorical observations."""
+    """Encode sequences of iid integer categorical observations."""
 
     def __str__(self) -> str:
         return "IntegerCategoricalDataEncoder"

@@ -1,9 +1,4 @@
-# pylint: disable=line-too-long,too-many-positional-arguments,duplicate-code
-# pylint: disable=wildcard-import,unused-wildcard-import,redefined-builtin
-# pylint: disable=broad-exception-raised,consider-using-f-string,no-else-return
-# pylint: disable=no-else-raise,consider-using-enumerate,consider-using-generator
-# pylint: disable=use-dict-literal,super-with-arguments,unnecessary-comprehension
-# pylint: disable=simplifiable-if-statement,nested-min-max
+# pylint: disable=too-many-positional-arguments,duplicate-code
 
 __all__ = [
     "ExponentialDistribution",
@@ -96,7 +91,6 @@ if not TORCH_AVAILABLE:
 
 else:
     # Torch is available, proceed with normal imports
-    import os
     from typing import Any, List, Optional, Sequence, Tuple, TypeVar, Union
 
     import numpy as np
@@ -166,7 +160,8 @@ else:
 
     T = TypeVar("T")
 
-    # need to figure out chunking with sequence encoder. Should be returning a DataLoader.
+    # Need to figure out chunking with sequence encoder.
+    # Should be returning a DataLoader.
     # may need to add this to each class.
     def seq_encode_mp(
         world_rank: int,
@@ -186,7 +181,7 @@ else:
         # chunks of data are sent to each worker.
         if world_rank == 0:
             if data is None:
-                raise Exception(f"Data cannot be None on device id {world_rank}.")
+                raise ValueError(f"Data cannot be None on device id {world_rank}.")
             if encoder is None:
                 if model is not None:
                     local_encoder = [model.dist_to_encoder()]
@@ -202,7 +197,6 @@ else:
                 for r in range(world_size)
             ]
             # data_scatter = [(len(xx), xx) for xx in data_scatter]
-            data_scatter = [xx for xx in data_scatter]
 
         else:
 
@@ -214,10 +208,13 @@ else:
         tn.distributed.broadcast_object_list(local_encoder, src=0)
         tn.distributed.scatter_object_list(data_loc, data_scatter, src=0)
 
-        # sequence encode the data on the worker (i.e. the seq encoded data now lives on GPU device)
+        # Sequence-encode the data on the worker so the encoded data now
+        # lives on the GPU device.
         # enc_local = []
         # for sz, xx in data_loc:
-        #     enc_local.append((sz, local_encoder[0].seq_encode(xx, device=device if device is not None else None)))
+        #     enc_local.append(
+        #         (sz, local_encoder[0].seq_encode(xx, device=device))
+        #     )
         #
         # return enc_local
 
@@ -258,7 +255,8 @@ else:
 
         tn.distributed.broadcast(seeds, src=0)
 
-        # make local accumulator object with tensors on device (estimator was defined on each node)
+        # Make a local accumulator with tensors on device.
+        # The estimator was defined on each node.
         local_acc = estimator.accumulator_factory().make(device=device)
 
         # perform updates on each GPU device
@@ -293,7 +291,7 @@ else:
                 local_acc.combine(ss)
             nobs = sum(nobs_list)
 
-            stats_dict = dict()
+            stats_dict = {}
             local_acc.key_merge(stats_dict)
             local_acc.key_replace(stats_dict)
 
@@ -304,7 +302,7 @@ else:
         # broadcast aggregated suff stat to each worker
         tn.distributed.broadcast_object_list(agg_ss, src=0)
 
-        # next model is returned to each device (parameters of model are tensors on worker GPU)
+        # Return the next model to each device with parameters on worker GPU.
         return estimator.estimate(None, agg_ss[0], device=device)
 
     def seq_estimate_mp(
@@ -318,7 +316,8 @@ else:
         # set the device for nccl backend GPUs
         device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
 
-        # estimator defined on each device (no tensors), creates accumulator with tensors on device
+        # The estimator is defined on each device and creates an accumulator
+        # with tensors on device.
         local_acc = estimator.accumulator_factory().make(device=device)
 
         # accumulate sufficient statistics with tensor calcs, result on local node cpu.
@@ -346,7 +345,7 @@ else:
                 local_acc.combine(ss)
             nobs = sum(nobs_list)
 
-            stats_dict = dict()
+            stats_dict = {}
             local_acc.key_merge(stats_dict)
             local_acc.key_replace(stats_dict)
 
@@ -357,7 +356,7 @@ else:
         # broadcast aggregated suff stat to each worker
         tn.distributed.broadcast_object_list(agg_ss, src=0)
 
-        # next model is returned to each device (parameters of model are tensors on worker GPU)
+        # Return the next model to each device with parameters on worker GPU.
         return estimator.estimate(None, agg_ss[0], device=device)
 
     def seq_log_density_sum_mp(
@@ -381,11 +380,12 @@ else:
         tn.distributed.reduce(ll_sum, dst=0, op=tn.distributed.ReduceOp.SUM)
         tn.distributed.reduce(nobs_sum, dst=0, op=tn.distributed.ReduceOp.SUM)
 
-        # only return likelihood and nobs_sum on CPU for master (optimize only needs 1 check)
+        # Only return likelihood and nobs_sum on CPU for master.
+        # Optimize only needs one check.
         if world_rank == 0:
             return float(nobs_sum), float(ll_sum)
-        else:
-            return None, None
+
+        return None, None
 
     def seq_encode(
         data: Sequence[T],
@@ -403,7 +403,7 @@ else:
             elif estimator is not None:
                 encoder = estimator.accumulator_factory().make().acc_to_encoder()
             else:
-                raise Exception(
+                raise ValueError(
                     "At least one arg: encoder, estimator, or dist must be passed."
                 )
 
@@ -426,7 +426,7 @@ else:
     def seq_log_density_sum(
         enc_data: List[Tuple[int, T]], estimate: TorchProbabilityDistribution
     ) -> Tuple[float, float]:
-        return sum([u[0] for u in enc_data]), float(
+        return sum(u[0] for u in enc_data), float(
             sum(estimate.seq_log_density(u[1]).sum() for u in enc_data)
         )
 
@@ -444,8 +444,8 @@ else:
                 tn.concatenate([ee.seq_log_density(u[1]) for ee in estimate], 0)
                 for u in enc_data
             ]
-        else:
-            return [estimate.seq_log_density(u[1]) for u in enc_data]
+
+        return [estimate.seq_log_density(u[1]) for u in enc_data]
 
     def seq_estimate(
         enc_data: List[Tuple[int, T]],
@@ -461,7 +461,7 @@ else:
             nobs += sz
             accumulator.seq_update(x, vec.ones(sz, device=device), prev_estimate)
 
-        stats_dict = dict()
+        stats_dict = {}
         accumulator.key_merge(stats_dict)
         accumulator.key_replace(stats_dict)
 
@@ -487,244 +487,8 @@ else:
             accumulator.seq_initialize(enc_x, w, tng)
             nobs += sz
 
-        stats_dict = dict()
+        stats_dict = {}
         accumulator.key_merge(stats_dict)
         accumulator.key_replace(stats_dict)
 
         return estimator.estimate(nobs, accumulator.value(), device=device)
-
-    # def seq_encode_mp(data: Sequence[T], encoder: Optional[TorchSequenceEncoder] = None,
-    #                   estimator: Optional[TorchParameterEstimator] = None,
-    #                   model: Optional[TorchProbabilityDistribution] = None) -> Sequence[Tuple[int, Any]]:
-    #
-    #     if WORLD_RANK == 0:
-    #         if encoder is None:
-    #             if model is not None:
-    #                 local_encoder = [model.dist_to_encoder()]
-    #             else:
-    #                 local_encoder = [estimator.accumulator_factory().make().acc_to_encoder()]
-    #         else:
-    #             local_encoder = [encoder]
-    #
-    #         data_scatter = [[data[i] for i in range(r, len(data), WORLD_SIZE)] for r in range(WORLD_SIZE)]
-    #         data_scatter = [(len(xx), xx) for xx in data_scatter]
-    #
-    #     else:
-    #         local_encoder: List[Optional[TorchSequenceEncoder]] = [None]
-    #         data_scatter = [None]*WORLD_SIZE
-    #
-    #     data_loc = [None]
-    #
-    #     tn.distributed.broadcast_object_list(local_encoder, src=0)
-    #     tn.distributed.scatter_object_list(data_loc, data_scatter, src=0)
-    #
-    #     enc_local = []
-    #     for sz, xx in data_loc:
-    #         enc_local.append((sz, local_encoder[0].seq_encode(xx)))
-    #
-    #     return enc_local
-    #
-    #
-    # def seq_initialize_mp(enc_data: List[Tuple[int, T]],
-    #                    estimator: TorchParameterEstimator,
-    #                    tng: tn.Generator,
-    #                    p: float = 0.1) -> Optional[TorchProbabilityDistribution]:
-    #
-    #     if WORLD_RANK == 0:
-    #         local_fac = [estimator.accumulator_factory()]
-    #         seeds = tn.randint(0, 2 ** 31, (WORLD_SIZE, 2), generator=tng, dtype=tn.int)
-    #     else:
-    #         local_fac = [None]
-    #         seeds = tn.zeros((WORLD_SIZE, 2), dtype=tn.int)
-    #
-    #     tn.distributed.broadcast(seeds, src=0)
-    #     tn.distributed.broadcast_object_list(local_fac, src=0)
-    #
-    #     local_acc = local_fac[0].make()
-    #
-    #     nobs = 0.0
-    #     local_seeds = seeds[WORLD_RANK, :]
-    #     tng_local = tn.Generator().manual_seed(int(local_seeds[0]))
-    #     tng_w = tn.Generator().manual_seed(int(local_seeds[1]))
-    #
-    #     for sz, enc_x in enc_data:
-    #         u = tn.rand(sz, generator=tng_w, dtype=tn.float64)
-    #         w = tn.zeros(sz, dtype=tn.float64)
-    #         w[u <= p] += 1.0
-    #
-    #         local_acc.seq_initialize(enc_x, w, tng_local)
-    #         nobs += sz
-    #
-    #     suff_stats = [None]*WORLD_SIZE
-    #     nobs_list = [None]*WORLD_SIZE
-    #     tn.distributed.gather_object(local_acc.value(), suff_stats if WORLD_RANK == 0 else None, dst=0)
-    #     tn.distributed.gather_object(nobs, nobs_list if WORLD_RANK == 0 else None, dst=0)
-    #
-    #     if WORLD_RANK == 0:
-    #
-    #         for ss in suff_stats[1:]:
-    #             local_acc.combine(ss)
-    #         nobs = sum(nobs_list)
-    #
-    #         stats_dict = dict()
-    #         local_acc.key_merge(stats_dict)
-    #         local_acc.key_replace(stats_dict)
-    #
-    #         return estimator.estimate(None, local_acc.value())
-    #
-    #     else:
-    #         return None
-    #
-    #
-    # def seq_estimate_mp(enc_data: List[Tuple[int, T]],
-    #                    estimator: TorchParameterEstimator,
-    #                    prev_estimate: TorchProbabilityDistribution) -> Optional[TorchProbabilityDistribution]:
-    #
-    #     if WORLD_RANK == 0:
-    #         local_fac = [estimator.accumulator_factory()]
-    #         bcast_model = [prev_estimate]
-    #
-    #     else:
-    #         local_fac = [None]
-    #         bcast_model: List[Optional[TorchProbabilityDistribution]] = [None]
-    #
-    #     tn.distributed.broadcast_object_list(bcast_model, src=0)
-    #     tn.distributed.broadcast_object_list(local_fac, src=0)
-    #
-    #     local_acc = local_fac[0].make()
-    #     nobs = 0.0
-    #
-    #     for sz, enc_x in enc_data:
-    #         w = tn.ones(sz, dtype=tn.float64)
-    #         local_acc.seq_update(enc_x, w, bcast_model[0])
-    #         nobs += sz
-    #
-    #     suff_stats = [None]*WORLD_SIZE
-    #     nobs_list = [None]*WORLD_SIZE
-    #     tn.distributed.gather_object(local_acc.value(), suff_stats if WORLD_RANK == 0 else None, dst=0)
-    #     tn.distributed.gather_object(nobs, nobs_list if WORLD_RANK == 0 else None, dst=0)
-    #
-    #     if WORLD_RANK == 0:
-    #         for ss in suff_stats:
-    #             local_acc.combine(ss)
-    #         nobs = sum(nobs_list)
-    #         stats_dict = dict()
-    #         local_acc.key_merge(stats_dict)
-    #         local_acc.key_replace(stats_dict)
-    #
-    #         return estimator.estimate(None, local_acc.value())
-    #
-    #     else:
-    #         return None
-    #
-    #
-    # def seq_log_density_sum_mp(enc_data: List[Tuple[int, T]], estimate: TorchProbabilityDistribution) \
-    #         -> Optional[Tuple[Optional[float], Optional[float]]]:
-    #     if WORLD_RANK == 0:
-    #         bcast_model = [estimate]
-    #     else:
-    #         bcast_model: List[Optional[TorchProbabilityDistribution]] = [None]
-    #
-    #     tn.distributed.broadcast_object_list(bcast_model, src=0)
-    #
-    #     nobs_sum = 0.0
-    #     ll_sum = 0.0
-    #     for sz, enc_x in enc_data:
-    #         nobs_sum += sz
-    #         ll_sum += bcast_model[0].seq_log_density(enc_x).sum()
-    #
-    #     nobs_list = [None]*WORLD_SIZE
-    #     ll_list = [None]*WORLD_SIZE
-    #
-    #     tn.distributed.gather_object(float(nobs_sum), nobs_list if WORLD_RANK == 0 else None, dst=0)
-    #     tn.distributed.gather_object(float(ll_sum), ll_list if WORLD_RANK == 0 else None, dst=0)
-    #
-    #     if WORLD_RANK == 0:
-    #         return sum(nobs_list), sum(ll_list)
-    #     else:
-    #         return None, None
-    #
-    #
-    # def seq_encode(data: Sequence[T],
-    #                encoder: Optional[TorchSequenceEncoder] = None,
-    #                estimator: Optional[TorchParameterEstimator] = None,
-    #                model: Optional[TorchProbabilityDistribution] = None,
-    #                num_chunks: int = 1, chunk_size: Optional[int] = None) -> List[Tuple[int, Any]]:
-    #
-    #     if encoder is None:
-    #         if model is not None:
-    #             encoder = model.dist_to_encoder()
-    #         elif estimator is not None:
-    #             encoder = estimator.accumulator_factory().make().acc_to_encoder()
-    #         else:
-    #             raise Exception('At least one arg: encoder, estimator, or dist must be passed.')
-    #
-    #     sz = len(data)
-    #     if chunk_size is not None:
-    #         num_chunks_loc = int(np.ceil(float(sz) / float(chunk_size)))
-    #     else:
-    #         num_chunks_loc = num_chunks
-    #
-    #     rv = []
-    #     for i in range(num_chunks_loc):
-    #         data_loc = [data[i] for i in range(i, sz, num_chunks_loc)]
-    #         enc_data = encoder.seq_encode(data_loc)
-    #         rv.append((len(data_loc), enc_data))
-    #
-    #     return rv
-    #
-    #
-    # def seq_log_density_sum(enc_data: List[Tuple[int, T]], estimate: TorchProbabilityDistribution) -> Tuple[float, float]:
-    #     return sum([u[0] for u in enc_data]), float(sum(estimate.seq_log_density(u[1]).sum()for u in enc_data))
-    #
-    #
-    # def seq_log_density(enc_data: List[Tuple[int, T]],
-    #                     estimate: Union[Sequence[TorchProbabilityDistribution], TorchProbabilityDistribution]) \
-    #         -> List[tn.Tensor]:
-    #
-    #     is_list = issubclass(type(estimate), Sequence)
-    #
-    #     if is_list:
-    #         return [
-    #             tn.asarray([ee.seq_log_density(u[1]) for ee in estimate])
-    #             for u in enc_data
-    #         ]
-    #     else:
-    #         return [estimate.seq_log_density(u[1]) for u in enc_data]
-    #
-    #
-    # def seq_estimate(enc_data: List[Tuple[int, T]], estimator: TorchParameterEstimator, prev_estimate: TorchProbabilityDistribution) -> TorchProbabilityDistribution:
-    #     accumulator = estimator.accumulator_factory().make()
-    #     nobs = 0.0
-    #
-    #     for sz, x in enc_data:
-    #         nobs += sz
-    #         accumulator.seq_update(x, tn.ones(sz, dtype=tn.float64), prev_estimate)
-    #
-    #     stats_dict = dict()
-    #     accumulator.key_merge(stats_dict)
-    #     accumulator.key_replace(stats_dict)
-    #
-    #     return estimator.estimate(None, accumulator.value())
-    #
-    #
-    # def seq_initialize(enc_data: List[Tuple[int, T]], estimator: TorchParameterEstimator, tng: tn.Generator,
-    #                    p: float = 0.1) -> TorchProbabilityDistribution:
-    #
-    #     accumulator = estimator.accumulator_factory().make()
-    #     nobs = 0.0
-    #     tng_w = tn.Generator().manual_seed(int(tn.randint(0, 2 ** 31, (1,), generator=tng)[0]))
-    #
-    #     for sz, enc_x in enc_data:
-    #         u = tn.rand(sz, generator=tng_w, dtype=tn.float64)
-    #         w = tn.zeros(sz, dtype=tn.float64)
-    #         w[u <= p] += 1.0
-    #
-    #         accumulator.seq_initialize(enc_x, w, tng)
-    #         nobs += sz
-    #
-    #     stats_dict = dict()
-    #     accumulator.key_merge(stats_dict)
-    #     accumulator.key_replace(stats_dict)
-    #
-    #     return estimator.estimate(nobs, accumulator.value())
