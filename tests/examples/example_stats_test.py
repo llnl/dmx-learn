@@ -1,12 +1,10 @@
 """Run pytests on all examples/examples_stats files."""
 
+# pylint: disable=duplicate-code
+
 import os
 import subprocess
-from pathlib import Path
 
-from dmx.utils.optsutil import get_parent_directory
-
-file_path = get_parent_directory(__file__, 4)
 examples_path = "examples/stats_examples"
 
 
@@ -18,6 +16,7 @@ def test_association_example():
         ],  # Command to run the script
         capture_output=True,  # Capture stdout and stderr
         text=True,  # Return output as string (instead of bytes)
+        check=False,
     )
 
     # Check that the script ran successfully (exit code 0)
@@ -32,6 +31,7 @@ def test_binomial_example():
         ],  # Command to run the script
         capture_output=True,  # Capture stdout and stderr
         text=True,  # Return output as string (instead of bytes)
+        check=False,
     )
 
     # Check that the script ran successfully (exit code 0)
@@ -43,6 +43,7 @@ def test_categorical_example():
         ["python", os.path.join(examples_path, "categorical_example.py")],
         capture_output=True,
         text=True,
+        check=False,
     )
 
     # Check that the script ran successfully (exit code 0)
@@ -54,6 +55,7 @@ def test_catmultinomial_example():
         ["python", os.path.join(examples_path, "catmultinomial_example.py")],
         capture_output=True,
         text=True,
+        check=False,
     )
 
     # Check that the script ran successfully (exit code 0)
@@ -65,6 +67,7 @@ def test_composite_example():
         ["python", os.path.join(examples_path, "composite_example.py")],
         capture_output=True,
         text=True,
+        check=False,
     )
 
     # Check that the script ran successfully (exit code 0)
@@ -76,6 +79,7 @@ def test_conditional_example():
         ["python", os.path.join(examples_path, "conditional_example.py")],
         capture_output=True,
         text=True,
+        check=False,
     )
 
     # Check that the script ran successfully (exit code 0)
@@ -87,6 +91,7 @@ def test_dirichlet_example():
         ["python", os.path.join(examples_path, "dirichlet_example.py")],
         capture_output=True,
         text=True,
+        check=False,
     )
 
     # Check that the script ran successfully (exit code 0)
@@ -98,6 +103,7 @@ def test_dmvn_mixture_example():
         ["python", os.path.join(examples_path, "dmvn_mixture_example.py")],
         capture_output=True,
         text=True,
+        check=False,
     )
 
     # Check that the script ran successfully (exit code 0)
@@ -109,6 +115,7 @@ def test_exponential_example():
         ["python", os.path.join(examples_path, "exponential_example.py")],
         capture_output=True,
         text=True,
+        check=False,
     )
 
     # Check that the script ran successfully (exit code 0)
@@ -120,6 +127,7 @@ def test_gamma_example():
         ["python", os.path.join(examples_path, "gamma_example.py")],
         capture_output=True,
         text=True,
+        check=False,
     )
 
     # Check that the script ran successfully (exit code 0)
@@ -131,6 +139,7 @@ def test_gaussian_example():
         ["python", os.path.join(examples_path, "gaussian_example.py")],
         capture_output=True,
         text=True,
+        check=False,
     )
 
     # Check that the script ran successfully (exit code 0)
@@ -142,6 +151,7 @@ def test_geometric_example():
         ["python", os.path.join(examples_path, "geometric_example.py")],
         capture_output=True,
         text=True,
+        check=False,
     )
 
     # Check that the script ran successfully (exit code 0)
@@ -153,6 +163,7 @@ def test_gmm_example():
         ["python", os.path.join(examples_path, "gmm_example.py")],
         capture_output=True,
         text=True,
+        check=False,
     )
 
     # Check that the script ran successfully (exit code 0)
@@ -164,6 +175,7 @@ def test_heterogeneous_mixture_example():
         ["python", os.path.join(examples_path, "heterogeneous_mixture_example.py")],
         capture_output=True,
         text=True,
+        check=False,
     )
 
     # Check that the script ran successfully (exit code 0)
@@ -175,6 +187,7 @@ def test_hidden_association_example():
         ["python", os.path.join(examples_path, "hidden_association_example.py")],
         capture_output=True,
         text=True,
+        check=False,
     )
 
     # Check that the script ran successfully (exit code 0)
@@ -186,6 +199,7 @@ def test_hidden_markov_example():
         ["python", os.path.join(examples_path, "hidden_markov_example.py")],
         capture_output=True,
         text=True,
+        check=False,
     )
 
     # Check that the script ran successfully (exit code 0)
@@ -197,6 +211,7 @@ def test_hierarchical_mixture_example():
         ["python", os.path.join(examples_path, "hierarchical_mixture_example.py")],
         capture_output=True,
         text=True,
+        check=False,
     )
 
     # Check that the script ran successfully (exit code 0)
@@ -208,6 +223,7 @@ def test_icltree_example():
         ["python", os.path.join(examples_path, "icltree_example.py")],
         capture_output=True,
         text=True,
+        check=False,
     )
 
     # Check that the script ran successfully (exit code 0)
@@ -219,6 +235,7 @@ def test_ignored_example():
         ["python", os.path.join(examples_path, "ignored_example.py")],
         capture_output=True,
         text=True,
+        check=False,
     )
 
     # Check that the script ran successfully (exit code 0)
@@ -230,6 +247,7 @@ def test_int_plsi_example():
         ["python", os.path.join(examples_path, "int_plsi_example.py")],
         capture_output=True,
         text=True,
+        check=False,
     )
 
     # Check that the script ran successfully (exit code 0)
@@ -241,6 +259,7 @@ def test_int_spike_example():
         ["python", os.path.join(examples_path, "int_spike_example.py")],
         capture_output=True,
         text=True,
+        check=False,
     )
 
     # Check that the script ran successfully (exit code 0)
@@ -252,6 +271,7 @@ def test_intmultinomial_example():
         ["python", os.path.join(examples_path, "intmultinomial_example.py")],
         capture_output=True,
         text=True,
+        check=False,
     )
 
     # Check that the script ran successfully (exit code 0)
@@ -263,6 +283,7 @@ def test_intrange_example():
         ["python", os.path.join(examples_path, "intrange_example.py")],
         capture_output=True,
         text=True,
+        check=False,
     )
 
     # Check that the script ran successfully (exit code 0)
@@ -274,6 +295,7 @@ def test_intsetdist_example():
         ["python", os.path.join(examples_path, "intsetdist_example.py")],
         capture_output=True,
         text=True,
+        check=False,
     )
 
     # Check that the script ran successfully (exit code 0)
@@ -285,6 +307,7 @@ def test_jmixture_example():
         ["python", os.path.join(examples_path, "jmixture_example.py")],
         capture_output=True,
         text=True,
+        check=False,
     )
 
     # Check that the script ran successfully (exit code 0)
@@ -307,6 +330,7 @@ def test_log_gaussian_example():
         ["python", os.path.join(examples_path, "log_gaussian_example.py")],
         capture_output=True,
         text=True,
+        check=False,
     )
 
     # Check that the script ran successfully (exit code 0)
@@ -318,6 +342,7 @@ def test_markov_chain_example():
         ["python", os.path.join(examples_path, "log_gaussian_example.py")],
         capture_output=True,
         text=True,
+        check=False,
     )
 
     # Check that the script ran successfully (exit code 0)
@@ -329,6 +354,7 @@ def test_mixture_example():
         ["python", os.path.join(examples_path, "log_gaussian_example.py")],
         capture_output=True,
         text=True,
+        check=False,
     )
 
     # Check that the script ran successfully (exit code 0)
@@ -340,6 +366,7 @@ def test_mvn_example():
         ["python", os.path.join(examples_path, "mvn_example.py")],
         capture_output=True,
         text=True,
+        check=False,
     )
 
     # Check that the script ran successfully (exit code 0)
@@ -351,6 +378,7 @@ def test_optional_example():
         ["python", os.path.join(examples_path, "optional_example.py")],
         capture_output=True,
         text=True,
+        check=False,
     )
 
     # Check that the script ran successfully (exit code 0)
@@ -362,6 +390,7 @@ def test_poisson_example():
         ["python", os.path.join(examples_path, "poisson_example.py")],
         capture_output=True,
         text=True,
+        check=False,
     )
 
     # Check that the script ran successfully (exit code 0)
@@ -373,6 +402,7 @@ def test_semi_supervised_mixture_example():
         ["python", os.path.join(examples_path, "semi_supervised_mixture_example.py")],
         capture_output=True,
         text=True,
+        check=False,
     )
 
     # Check that the script ran successfully (exit code 0)
@@ -384,6 +414,7 @@ def test_sequence_example():
         ["python", os.path.join(examples_path, "sequence_example.py")],
         capture_output=True,
         text=True,
+        check=False,
     )
 
     # Check that the script ran successfully (exit code 0)
@@ -395,6 +426,7 @@ def test_set_edit_example():
         ["python", os.path.join(examples_path, "set_edit_example.py")],
         capture_output=True,
         text=True,
+        check=False,
     )
 
     # Check that the script ran successfully (exit code 0)
@@ -406,6 +438,7 @@ def test_spearman_rho_example():
         ["python", os.path.join(examples_path, "spearman_rho_example.py")],
         capture_output=True,
         text=True,
+        check=False,
     )
 
     # Check that the script ran successfully (exit code 0)
@@ -417,6 +450,7 @@ def test_stepset_edit_example():
         ["python", os.path.join(examples_path, "stepset_edit_example.py")],
         capture_output=True,
         text=True,
+        check=False,
     )
 
     # Check that the script ran successfully (exit code 0)
