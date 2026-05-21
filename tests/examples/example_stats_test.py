@@ -110,14 +110,9 @@ def test_jmixture_example():
 
 
 # def test_lda_example():
-#     result = subprocess.run(
-#         ['python', os.path.join(examples_path, 'lda_example.py')],
-#         capture_output=True,
-#         text=True
+#     run_example(
+#         "lda_example.py", examples_path=EXAMPLES_PATH, disable_numba_jit=False
 #     )
-
-#     # Check that the script ran successfully (exit code 0)
-#     assert result.returncode == 0, f"Script failed with error: {result.stderr}"
 
 
 def test_log_gaussian_example():
