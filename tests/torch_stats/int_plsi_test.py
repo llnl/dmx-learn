@@ -8,6 +8,9 @@ IntegerPLSIDistribution expects:
 Each sample is (doc_id, [(word_id, count), ...]).
 """
 
+# pylint: disable=duplicate-code,line-too-long,wildcard-import
+# pylint: disable=unused-wildcard-import,unused-import
+
 from typing import Sequence, Tuple, cast
 
 import numpy as np
@@ -122,7 +125,7 @@ class IntegerPLSIDistributionTestCase(TorchStatsTestClass):
                     2,
                     f"Expected (doc_id, word_counts) pair, got length {len(obs)}",
                 )
-                doc_idx, word_counts = obs
+                doc_idx, _word_counts = obs
                 self.assertGreaterEqual(doc_idx, 0)
                 self.assertLess(
                     doc_idx, num_docs, f"doc_id {doc_idx} out of [0, {num_docs - 1}]"

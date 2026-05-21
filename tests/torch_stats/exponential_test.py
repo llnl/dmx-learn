@@ -1,5 +1,8 @@
 """Tests for ExponentialDistribution and related torch_stats classes."""
 
+# pylint: disable=duplicate-code,line-too-long,wildcard-import
+# pylint: disable=unused-wildcard-import,unused-import
+
 import numpy as np
 import torch
 

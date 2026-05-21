@@ -1,5 +1,8 @@
 """Tests for MixtureDistribution and related torch_stats classes."""
 
+# pylint: disable=duplicate-code,line-too-long,wildcard-import
+# pylint: disable=unused-wildcard-import,unused-import
+
 import numpy as np
 import pytest
 import torch
@@ -84,8 +87,6 @@ class MixtureDistributionTestCase(TorchStatsTestClass):
         The log-sum-exp of (log_weights + component_log_densities) must equal
         seq_log_density up to tolerance.
         """
-        import math
-
         for dist, encoder in zip(self._dists, self._encoders):
             data = dist.sampler(seed=1).sample(size=50)
             enc = encoder.seq_encode(data, device=self.device)

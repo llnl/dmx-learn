@@ -1,5 +1,8 @@
 """Tests for HiddenMarkovModelDistribution and related torch_stats classes."""
 
+# pylint: disable=duplicate-code,line-too-long,wildcard-import
+# pylint: disable=unused-wildcard-import,unused-import
+
 from typing import List, cast
 
 import numpy as np
