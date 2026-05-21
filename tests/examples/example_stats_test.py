@@ -1,317 +1,112 @@
 """Run pytests on all examples/examples_stats files."""
 
-# pylint: disable=duplicate-code
+from . import run_example
 
-import os
-import subprocess
-
-examples_path = "examples/stats_examples"
+EXAMPLES_PATH = "examples/stats_examples"
 
 
 def test_association_example():
-    result = subprocess.run(
-        [
-            "python",
-            os.path.join(examples_path, "association_example.py"),
-        ],  # Command to run the script
-        capture_output=True,  # Capture stdout and stderr
-        text=True,  # Return output as string (instead of bytes)
-        check=False,
-    )
-
-    # Check that the script ran successfully (exit code 0)
-    assert result.returncode == 0, f"Script failed with error: {result.stderr}"
+    run_example("association_example.py", examples_path=EXAMPLES_PATH)
 
 
 def test_binomial_example():
-    result = subprocess.run(
-        [
-            "python",
-            os.path.join(examples_path, "binomial_example.py"),
-        ],  # Command to run the script
-        capture_output=True,  # Capture stdout and stderr
-        text=True,  # Return output as string (instead of bytes)
-        check=False,
-    )
-
-    # Check that the script ran successfully (exit code 0)
-    assert result.returncode == 0, f"Script failed with error: {result.stderr}"
+    run_example("binomial_example.py", examples_path=EXAMPLES_PATH)
 
 
 def test_categorical_example():
-    result = subprocess.run(
-        ["python", os.path.join(examples_path, "categorical_example.py")],
-        capture_output=True,
-        text=True,
-        check=False,
-    )
-
-    # Check that the script ran successfully (exit code 0)
-    assert result.returncode == 0, f"Script failed with error: {result.stderr}"
+    run_example("categorical_example.py", examples_path=EXAMPLES_PATH)
 
 
 def test_catmultinomial_example():
-    result = subprocess.run(
-        ["python", os.path.join(examples_path, "catmultinomial_example.py")],
-        capture_output=True,
-        text=True,
-        check=False,
-    )
-
-    # Check that the script ran successfully (exit code 0)
-    assert result.returncode == 0, f"Script failed with error: {result.stderr}"
+    run_example("catmultinomial_example.py", examples_path=EXAMPLES_PATH)
 
 
 def test_composite_example():
-    result = subprocess.run(
-        ["python", os.path.join(examples_path, "composite_example.py")],
-        capture_output=True,
-        text=True,
-        check=False,
-    )
-
-    # Check that the script ran successfully (exit code 0)
-    assert result.returncode == 0, f"Script failed with error: {result.stderr}"
+    run_example("composite_example.py", examples_path=EXAMPLES_PATH)
 
 
 def test_conditional_example():
-    result = subprocess.run(
-        ["python", os.path.join(examples_path, "conditional_example.py")],
-        capture_output=True,
-        text=True,
-        check=False,
-    )
-
-    # Check that the script ran successfully (exit code 0)
-    assert result.returncode == 0, f"Script failed with error: {result.stderr}"
+    run_example("conditional_example.py", examples_path=EXAMPLES_PATH)
 
 
 def test_dirichlet_example():
-    result = subprocess.run(
-        ["python", os.path.join(examples_path, "dirichlet_example.py")],
-        capture_output=True,
-        text=True,
-        check=False,
-    )
-
-    # Check that the script ran successfully (exit code 0)
-    assert result.returncode == 0, f"Script failed with error: {result.stderr}"
+    run_example("dirichlet_example.py", examples_path=EXAMPLES_PATH)
 
 
 def test_dmvn_mixture_example():
-    result = subprocess.run(
-        ["python", os.path.join(examples_path, "dmvn_mixture_example.py")],
-        capture_output=True,
-        text=True,
-        check=False,
-    )
-
-    # Check that the script ran successfully (exit code 0)
-    assert result.returncode == 0, f"Script failed with error: {result.stderr}"
+    run_example("dmvn_mixture_example.py", examples_path=EXAMPLES_PATH)
 
 
 def test_exponential_example():
-    result = subprocess.run(
-        ["python", os.path.join(examples_path, "exponential_example.py")],
-        capture_output=True,
-        text=True,
-        check=False,
-    )
-
-    # Check that the script ran successfully (exit code 0)
-    assert result.returncode == 0, f"Script failed with error: {result.stderr}"
+    run_example("exponential_example.py", examples_path=EXAMPLES_PATH)
 
 
 def test_gamma_example():
-    result = subprocess.run(
-        ["python", os.path.join(examples_path, "gamma_example.py")],
-        capture_output=True,
-        text=True,
-        check=False,
-    )
-
-    # Check that the script ran successfully (exit code 0)
-    assert result.returncode == 0, f"Script failed with error: {result.stderr}"
+    run_example("gamma_example.py", examples_path=EXAMPLES_PATH)
 
 
 def test_gaussian_example():
-    result = subprocess.run(
-        ["python", os.path.join(examples_path, "gaussian_example.py")],
-        capture_output=True,
-        text=True,
-        check=False,
-    )
-
-    # Check that the script ran successfully (exit code 0)
-    assert result.returncode == 0, f"Script failed with error: {result.stderr}"
+    run_example("gaussian_example.py", examples_path=EXAMPLES_PATH)
 
 
 def test_geometric_example():
-    result = subprocess.run(
-        ["python", os.path.join(examples_path, "geometric_example.py")],
-        capture_output=True,
-        text=True,
-        check=False,
-    )
-
-    # Check that the script ran successfully (exit code 0)
-    assert result.returncode == 0, f"Script failed with error: {result.stderr}"
+    run_example("geometric_example.py", examples_path=EXAMPLES_PATH)
 
 
 def test_gmm_example():
-    result = subprocess.run(
-        ["python", os.path.join(examples_path, "gmm_example.py")],
-        capture_output=True,
-        text=True,
-        check=False,
-    )
-
-    # Check that the script ran successfully (exit code 0)
-    assert result.returncode == 0, f"Script failed with error: {result.stderr}"
+    run_example("gmm_example.py", examples_path=EXAMPLES_PATH)
 
 
 def test_heterogeneous_mixture_example():
-    result = subprocess.run(
-        ["python", os.path.join(examples_path, "heterogeneous_mixture_example.py")],
-        capture_output=True,
-        text=True,
-        check=False,
-    )
-
-    # Check that the script ran successfully (exit code 0)
-    assert result.returncode == 0, f"Script failed with error: {result.stderr}"
+    run_example("heterogeneous_mixture_example.py", examples_path=EXAMPLES_PATH)
 
 
 def test_hidden_association_example():
-    result = subprocess.run(
-        ["python", os.path.join(examples_path, "hidden_association_example.py")],
-        capture_output=True,
-        text=True,
-        check=False,
-    )
-
-    # Check that the script ran successfully (exit code 0)
-    assert result.returncode == 0, f"Script failed with error: {result.stderr}"
+    run_example("hidden_association_example.py", examples_path=EXAMPLES_PATH)
 
 
 def test_hidden_markov_example():
-    result = subprocess.run(
-        ["python", os.path.join(examples_path, "hidden_markov_example.py")],
-        capture_output=True,
-        text=True,
-        check=False,
+    run_example(
+        "hidden_markov_example.py", examples_path=EXAMPLES_PATH, disable_numba_jit=False
     )
-
-    # Check that the script ran successfully (exit code 0)
-    assert result.returncode == 0, f"Script failed with error: {result.stderr}"
 
 
 def test_hierarchical_mixture_example():
-    result = subprocess.run(
-        ["python", os.path.join(examples_path, "hierarchical_mixture_example.py")],
-        capture_output=True,
-        text=True,
-        check=False,
-    )
-
-    # Check that the script ran successfully (exit code 0)
-    assert result.returncode == 0, f"Script failed with error: {result.stderr}"
+    run_example("hierarchical_mixture_example.py", examples_path=EXAMPLES_PATH)
 
 
 def test_icltree_example():
-    result = subprocess.run(
-        ["python", os.path.join(examples_path, "icltree_example.py")],
-        capture_output=True,
-        text=True,
-        check=False,
-    )
-
-    # Check that the script ran successfully (exit code 0)
-    assert result.returncode == 0, f"Script failed with error: {result.stderr}"
+    run_example("icltree_example.py", examples_path=EXAMPLES_PATH)
 
 
 def test_ignored_example():
-    result = subprocess.run(
-        ["python", os.path.join(examples_path, "ignored_example.py")],
-        capture_output=True,
-        text=True,
-        check=False,
-    )
-
-    # Check that the script ran successfully (exit code 0)
-    assert result.returncode == 0, f"Script failed with error: {result.stderr}"
+    run_example("ignored_example.py", examples_path=EXAMPLES_PATH)
 
 
 def test_int_plsi_example():
-    result = subprocess.run(
-        ["python", os.path.join(examples_path, "int_plsi_example.py")],
-        capture_output=True,
-        text=True,
-        check=False,
+    run_example(
+        "int_plsi_example.py", examples_path=EXAMPLES_PATH, disable_numba_jit=False
     )
-
-    # Check that the script ran successfully (exit code 0)
-    assert result.returncode == 0, f"Script failed with error: {result.stderr}"
 
 
 def test_int_spike_example():
-    result = subprocess.run(
-        ["python", os.path.join(examples_path, "int_spike_example.py")],
-        capture_output=True,
-        text=True,
-        check=False,
-    )
-
-    # Check that the script ran successfully (exit code 0)
-    assert result.returncode == 0, f"Script failed with error: {result.stderr}"
+    run_example("int_spike_example.py", examples_path=EXAMPLES_PATH)
 
 
 def test_intmultinomial_example():
-    result = subprocess.run(
-        ["python", os.path.join(examples_path, "intmultinomial_example.py")],
-        capture_output=True,
-        text=True,
-        check=False,
-    )
-
-    # Check that the script ran successfully (exit code 0)
-    assert result.returncode == 0, f"Script failed with error: {result.stderr}"
+    run_example("intmultinomial_example.py", examples_path=EXAMPLES_PATH)
 
 
 def test_intrange_example():
-    result = subprocess.run(
-        ["python", os.path.join(examples_path, "intrange_example.py")],
-        capture_output=True,
-        text=True,
-        check=False,
-    )
-
-    # Check that the script ran successfully (exit code 0)
-    assert result.returncode == 0, f"Script failed with error: {result.stderr}"
+    run_example("intrange_example.py", examples_path=EXAMPLES_PATH)
 
 
 def test_intsetdist_example():
-    result = subprocess.run(
-        ["python", os.path.join(examples_path, "intsetdist_example.py")],
-        capture_output=True,
-        text=True,
-        check=False,
-    )
-
-    # Check that the script ran successfully (exit code 0)
-    assert result.returncode == 0, f"Script failed with error: {result.stderr}"
+    run_example("intsetdist_example.py", examples_path=EXAMPLES_PATH)
 
 
 def test_jmixture_example():
-    result = subprocess.run(
-        ["python", os.path.join(examples_path, "jmixture_example.py")],
-        capture_output=True,
-        text=True,
-        check=False,
-    )
-
-    # Check that the script ran successfully (exit code 0)
-    assert result.returncode == 0, f"Script failed with error: {result.stderr}"
+    run_example("jmixture_example.py", examples_path=EXAMPLES_PATH)
 
 
 # def test_lda_example():
@@ -326,132 +121,44 @@ def test_jmixture_example():
 
 
 def test_log_gaussian_example():
-    result = subprocess.run(
-        ["python", os.path.join(examples_path, "log_gaussian_example.py")],
-        capture_output=True,
-        text=True,
-        check=False,
-    )
-
-    # Check that the script ran successfully (exit code 0)
-    assert result.returncode == 0, f"Script failed with error: {result.stderr}"
+    run_example("log_gaussian_example.py", examples_path=EXAMPLES_PATH)
 
 
 def test_markov_chain_example():
-    result = subprocess.run(
-        ["python", os.path.join(examples_path, "log_gaussian_example.py")],
-        capture_output=True,
-        text=True,
-        check=False,
-    )
-
-    # Check that the script ran successfully (exit code 0)
-    assert result.returncode == 0, f"Script failed with error: {result.stderr}"
+    run_example("log_gaussian_example.py", examples_path=EXAMPLES_PATH)
 
 
 def test_mixture_example():
-    result = subprocess.run(
-        ["python", os.path.join(examples_path, "log_gaussian_example.py")],
-        capture_output=True,
-        text=True,
-        check=False,
-    )
-
-    # Check that the script ran successfully (exit code 0)
-    assert result.returncode == 0, f"Script failed with error: {result.stderr}"
+    run_example("log_gaussian_example.py", examples_path=EXAMPLES_PATH)
 
 
 def test_mvn_example():
-    result = subprocess.run(
-        ["python", os.path.join(examples_path, "mvn_example.py")],
-        capture_output=True,
-        text=True,
-        check=False,
-    )
-
-    # Check that the script ran successfully (exit code 0)
-    assert result.returncode == 0, f"Script failed with error: {result.stderr}"
+    run_example("mvn_example.py", examples_path=EXAMPLES_PATH)
 
 
 def test_optional_example():
-    result = subprocess.run(
-        ["python", os.path.join(examples_path, "optional_example.py")],
-        capture_output=True,
-        text=True,
-        check=False,
-    )
-
-    # Check that the script ran successfully (exit code 0)
-    assert result.returncode == 0, f"Script failed with error: {result.stderr}"
+    run_example("optional_example.py", examples_path=EXAMPLES_PATH)
 
 
 def test_poisson_example():
-    result = subprocess.run(
-        ["python", os.path.join(examples_path, "poisson_example.py")],
-        capture_output=True,
-        text=True,
-        check=False,
-    )
-
-    # Check that the script ran successfully (exit code 0)
-    assert result.returncode == 0, f"Script failed with error: {result.stderr}"
+    run_example("poisson_example.py", examples_path=EXAMPLES_PATH)
 
 
 def test_semi_supervised_mixture_example():
-    result = subprocess.run(
-        ["python", os.path.join(examples_path, "semi_supervised_mixture_example.py")],
-        capture_output=True,
-        text=True,
-        check=False,
-    )
-
-    # Check that the script ran successfully (exit code 0)
-    assert result.returncode == 0, f"Script failed with error: {result.stderr}"
+    run_example("semi_supervised_mixture_example.py", examples_path=EXAMPLES_PATH)
 
 
 def test_sequence_example():
-    result = subprocess.run(
-        ["python", os.path.join(examples_path, "sequence_example.py")],
-        capture_output=True,
-        text=True,
-        check=False,
-    )
-
-    # Check that the script ran successfully (exit code 0)
-    assert result.returncode == 0, f"Script failed with error: {result.stderr}"
+    run_example("sequence_example.py", examples_path=EXAMPLES_PATH)
 
 
 def test_set_edit_example():
-    result = subprocess.run(
-        ["python", os.path.join(examples_path, "set_edit_example.py")],
-        capture_output=True,
-        text=True,
-        check=False,
-    )
-
-    # Check that the script ran successfully (exit code 0)
-    assert result.returncode == 0, f"Script failed with error: {result.stderr}"
+    run_example("set_edit_example.py", examples_path=EXAMPLES_PATH)
 
 
 def test_spearman_rho_example():
-    result = subprocess.run(
-        ["python", os.path.join(examples_path, "spearman_rho_example.py")],
-        capture_output=True,
-        text=True,
-        check=False,
-    )
-
-    # Check that the script ran successfully (exit code 0)
-    assert result.returncode == 0, f"Script failed with error: {result.stderr}"
+    run_example("spearman_rho_example.py", examples_path=EXAMPLES_PATH)
 
 
 def test_stepset_edit_example():
-    result = subprocess.run(
-        ["python", os.path.join(examples_path, "stepset_edit_example.py")],
-        capture_output=True,
-        text=True,
-        check=False,
-    )
-
-    # Check that the script ran successfully (exit code 0)
-    assert result.returncode == 0, f"Script failed with error: {result.stderr}"
+    run_example("stepset_edit_example.py", examples_path=EXAMPLES_PATH)
