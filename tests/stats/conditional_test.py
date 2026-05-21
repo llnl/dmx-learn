@@ -1,4 +1,8 @@
-""""Tests for the ConditionalDistribution class and related components."""
+"""Tests the conditional distribution."""
+
+# pylint: disable=duplicate-code,wildcard-import,unused-wildcard-import,line-too-long
+# pylint: disable=too-many-instance-attributes,unnecessary-comprehension
+# pylint: disable=redefined-builtin
 
 import numpy as np
 

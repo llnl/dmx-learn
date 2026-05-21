@@ -1,5 +1,8 @@
-"Tests for the Hidden Association Distribution and its related classes."
-import numpy as np
+"""Tests the hidden association distribution."""
+
+# pylint: disable=duplicate-code,wildcard-import,unused-wildcard-import,line-too-long
+# pylint: disable=too-many-instance-attributes,unnecessary-comprehension
+# pylint: disable=redefined-builtin
 
 from dmx.stats import *
 from dmx.stats.binomial import *

@@ -1,5 +1,9 @@
 """Tests for DirichletDistribution and related classes."""
 
+# pylint: disable=duplicate-code,wildcard-import,unused-wildcard-import,line-too-long
+# pylint: disable=too-many-instance-attributes,unnecessary-comprehension
+# pylint: disable=redefined-builtin
+
 import numpy as np
 import pytest
 
