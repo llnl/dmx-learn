@@ -3,13 +3,9 @@
 import os
 import pickle
 
-import numpy as np
-
-from dmx.stats import *
 from dmx.utils.humap import humap
 
 DATA_DIR = "tests/data"
-ANSWER_DIR = "tests/answerkeys"
 
 
 def test_humap() -> None:
