@@ -344,8 +344,12 @@ export PYTHONPATH=/path/to/dmx-learn:$PYTHONPATH
 
 ---
 
-## 📄 License
+License
+-------
 
-BSD License
+dmx-learn is distributed under the terms of the BSD 3-Clause license.  See
+[LICENSE](./LICENSE) and [NOTICE](./NOTICE) for details.
 
----
+SPDX-License-Identifier: BSD-3-Clause
+
+LLNL-CODE-844837
