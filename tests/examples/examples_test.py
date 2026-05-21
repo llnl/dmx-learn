@@ -1,10 +1,10 @@
 """Run pytests on all py files in examples folder."""
 
+# pylint: disable=duplicate-code
+
 import os
 import subprocess
-from pathlib import Path
 
-file_path = Path(__file__)
 examples_path = "examples"
 
 
@@ -13,6 +13,7 @@ def test_auto_example():
         ["python", os.path.join(examples_path, "auto_example.py")],
         capture_output=True,
         text=True,
+        check=False,
     )
 
     # Check that the script ran successfully (exit code 0)
@@ -24,6 +25,7 @@ def test_detailed_estimation_example():
         ["python", os.path.join(examples_path, "detailed_estimation_example.py")],
         capture_output=True,
         text=True,
+        check=False,
     )
 
     # Check that the script ran successfully (exit code 0)
@@ -35,6 +37,7 @@ def test_htsne_example():
         ["python", os.path.join(examples_path, "htsne_example.py")],
         capture_output=True,
         text=True,
+        check=False,
     )
 
     # Check that the script ran successfully (exit code 0)
