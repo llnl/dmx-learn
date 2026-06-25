@@ -87,6 +87,7 @@ class IntegerBernoulliEditDistribution(SequenceEncodableProbabilityDistribution)
             name (Optional[str]): Name for object.
             keys (Optional[str]): Keys for parameters of distribution.
         """
+        super().__init__()
         num_vals = len(log_edit_pmat)
         self.name = name
         self.init_dist = init_dist if init_dist is not None else NullDistribution()
@@ -160,7 +161,7 @@ class IntegerBernoulliEditDistribution(SequenceEncodableProbabilityDistribution)
         self, x: "IntegerBernoulliEditEncodedDataSequence"
     ) -> np.ndarray:
         if not isinstance(x, IntegerBernoulliEditEncodedDataSequence):
-            raise Exception(
+            raise TypeError(
                 "IntegerBernoulliEditEncodedDataSequence required for "
                 "seq_log_density()."
             )
@@ -210,8 +211,7 @@ class IntegerBernoulliEditSampler(DistributionSampler):
             dist (IntegerBernoulliEditDistribution): The distribution to sample from.
             seed (Optional[int]): Random seed for reproducibility.
         """
-        self.rng = np.random.RandomState(seed)
-        self.dist = dist
+        super().__init__(dist, seed)
         self.init_rng = dist.init_dist.sampler(self.rng.randint(0, maxrandint))
         self.next_rng = np.random.RandomState(self.rng.randint(0, maxrandint))
 
@@ -272,6 +272,7 @@ class IntegerBernoulliEditAccumulator(SequenceEncodableStatisticAccumulator):
         name: Optional[str] = None,
         keys: Optional[str] = None,
     ) -> None:
+        del name
         self.pcnt = np.zeros((num_vals, 3), dtype=np.float64)
         self.keys = keys
         self.num_vals = num_vals

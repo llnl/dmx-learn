@@ -49,6 +49,7 @@ class GeometricDistribution(SequenceEncodableProbabilityDistribution):
             name (Optional[str], optional): Name for the GeometricDistribution object.
             keys (Optional[str], optional): Key for parameter p.
         """
+        super().__init__()
         self.p = max(0.0, min(p, 1.0))
         self.log_p = np.log(self.p)
         self.log_1p = np.log1p(-self.p)
@@ -97,7 +98,7 @@ class GeometricDistribution(SequenceEncodableProbabilityDistribution):
             np.ndarray: Log-density values.
         """
         if not isinstance(x, GeometricEncodedDataSequence):
-            raise Exception(
+            raise TypeError(
                 "GeometricEncodedDataSequence required for seq_log_density()."
             )
 
@@ -160,8 +161,7 @@ class GeometricSampler(DistributionSampler):
             dist (GeometricDistribution): GeometricDistribution to sample from.
             seed (Optional[int], optional): Seed for random number generator.
         """
-        self.rng = RandomState(seed)
-        self.dist = dist
+        super().__init__(dist, seed)
 
     def sample(self, size: Optional[int] = None) -> Union[int, np.ndarray]:
         """Generate iid samples from geometric distribution.
@@ -236,6 +236,7 @@ class GeometricAccumulator(SequenceEncodableStatisticAccumulator):
             weight (float): Weight for the observation.
             rng (Optional[RandomState]): Random number generator (not used).
         """
+        del rng
         self.update(x, weight, None)
 
     def seq_initialize(
@@ -455,7 +456,7 @@ class GeometricDataEncoder(DataSequenceEncoder):
         """
         rv = np.asarray(x)
         if np.any(rv < 1) or np.any(np.isnan(rv)):
-            raise Exception(
+            raise ValueError(
                 "GeometricDistribution requires integers greater than 0 for x."
             )
         return GeometricEncodedDataSequence(data=np.asarray(rv, dtype=float))

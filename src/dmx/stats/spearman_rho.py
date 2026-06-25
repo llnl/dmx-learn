@@ -64,6 +64,7 @@ class SpearmanRankingDistribution(SequenceEncodableProbabilityDistribution):
             keys (Optional[str]): Set keys for object instance.
 
         """
+        super().__init__()
         self.sigma = np.asarray(sigma)
         self.rho = rho
         self.name = name
@@ -91,7 +92,7 @@ class SpearmanRankingDistribution(SequenceEncodableProbabilityDistribution):
     def seq_log_density(self, x: "SpearmanRankingEncodedDataSequence") -> np.ndarray:
 
         if not isinstance(x, SpearmanRankingEncodedDataSequence):
-            raise Exception(
+            raise TypeError(
                 "SpearmanRankingEncodedDataSequence required for seq_log_density()."
             )
 
@@ -136,8 +137,7 @@ class SpearmanRankingSampler(DistributionSampler):
             seed (Optional[int]): Set seed for generating samples.
 
         """
-        self.rng = np.random.RandomState(seed)
-        self.dist = dist
+        super().__init__(dist, seed)
 
         self.perms = list(map(list, itertools.permutations(range(dist.dim))))
         encoder = self.dist.dist_to_encoder()
@@ -192,6 +192,7 @@ class SpearmanRankingAccumulator(SequenceEncodableStatisticAccumulator):
     def initialize(
         self, x: Union[List[int], np.ndarray], weight: float, rng: RandomState
     ) -> None:
+        del rng
         if weight != 0:
             self.sum += np.multiply(x, weight)
             self.count += 0

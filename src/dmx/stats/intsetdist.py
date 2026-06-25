@@ -73,6 +73,7 @@ class IntegerBernoulliSetDistribution(SequenceEncodableProbabilityDistribution):
 
         """
 
+        super().__init__()
         num_vals = len(log_pvec)
         self.name = name
         self.num_vals = num_vals
@@ -111,7 +112,7 @@ class IntegerBernoulliSetDistribution(SequenceEncodableProbabilityDistribution):
     ) -> np.ndarray:
 
         if not isinstance(x, IntegerBernoulliSetEncodedDataSequence):
-            raise Exception(
+            raise TypeError(
                 "IntegerBernoulliSetEncodedDataSequence required for seq_log_density()."
             )
 
@@ -155,8 +156,7 @@ class IntegerBernoulliSetSampler(DistributionSampler):
             seed (Optional[int]): Seed for random number generator.
 
         """
-        self.rng = np.random.RandomState(seed)
-        self.dist = dist
+        super().__init__(dist, seed)
 
     def sample(
         self, size: Optional[int] = None
@@ -220,6 +220,7 @@ class IntegerBernoulliSetAccumulator(SequenceEncodableStatisticAccumulator):
         weight: float,
         rng: Optional[RandomState],
     ) -> None:
+        del rng
         self.update(x, weight, None)
 
     def seq_update(

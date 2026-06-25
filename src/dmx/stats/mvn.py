@@ -63,6 +63,7 @@ class MultivariateGaussianDistribution(SequenceEncodableProbabilityDistribution)
             keys (Optional[str]): Set keys for distribution.
 
         """
+        super().__init__()
         self.dim = len(mu)
         self.mu = np.asarray(mu, dtype=float)
         self.covar = np.asarray(covar, dtype=float)
@@ -127,7 +128,7 @@ class MultivariateGaussianDistribution(SequenceEncodableProbabilityDistribution)
     ) -> np.ndarray:
 
         if not isinstance(x, MultivariateGaussianEncodedDataSequence):
-            raise Exception(
+            raise TypeError(
                 "MultivariateGaussianEncodedDataSequence required for "
                 "seq_log_density()."
             )
@@ -182,8 +183,7 @@ class MultivariateGaussianSampler(DistributionSampler):
                 sample from.
 
         """
-        self.rng = RandomState(seed)
-        self.dist = dist
+        super().__init__(dist, seed)
 
     def sample(self, size: Optional[int] = None) -> np.ndarray:
         """Generate samples from MultivariateGaussianDistribution.
@@ -258,6 +258,7 @@ class MultivariateGaussianAccumulator(SequenceEncodableStatisticAccumulator):
     def initialize(
         self, x: np.ndarray, weight: float, rng: Optional[RandomState]
     ) -> None:
+        del rng
         self.update(x, weight, None)
 
     def seq_update(

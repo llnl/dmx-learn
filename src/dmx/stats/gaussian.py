@@ -52,6 +52,7 @@ class GaussianDistribution(SequenceEncodableProbabilityDistribution):
             name (Optional[str], optional): Name for the object.
             keys (Optional[str], optional): Key for the distribution.
         """
+        super().__init__()
         self.mu = mu
         self.sigma2 = 1.0 if (sigma2 <= 0 or isnan(sigma2) or isinf(sigma2)) else sigma2
         self.log_const = -0.5 * log(2.0 * pi * self.sigma2)
@@ -102,7 +103,7 @@ class GaussianDistribution(SequenceEncodableProbabilityDistribution):
             np.ndarray: Log-density values.
         """
         if not isinstance(x, GaussianEncodedDataSequence):
-            raise Exception(
+            raise TypeError(
                 "GaussianDistribution.seq_log_density() requires "
                 "GaussianEncodedDataSequence."
             )
@@ -168,8 +169,7 @@ class GaussianSampler(DistributionSampler):
             dist (GaussianDistribution): GaussianDistribution instance to sample from.
             seed (Optional[int], optional): Seed for random number generator.
         """
-        self.rng = RandomState(seed)
-        self.dist = dist
+        super().__init__(dist, seed)
 
     def sample(self, size: Optional[int] = None) -> Union[float, np.ndarray]:
         """Draw iid samples from the Gaussian distribution.
@@ -236,6 +236,7 @@ class GaussianAccumulator(SequenceEncodableStatisticAccumulator):
             weight (float): Weight for the observation.
             rng (Optional[RandomState]): Random number generator (not used).
         """
+        del rng
         self.update(x, weight, None)
 
     def seq_initialize(
@@ -499,7 +500,7 @@ class GaussianDataEncoder(DataSequenceEncoder):
         rv = np.asarray(x, dtype=float)
 
         if np.any(np.isnan(rv)) or np.any(np.isinf(rv)):
-            raise Exception("GaussianDistribution requires support x in (-inf, inf).")
+            raise ValueError("GaussianDistribution requires support x in (-inf, inf).")
 
         return GaussianEncodedDataSequence(data=rv)
 

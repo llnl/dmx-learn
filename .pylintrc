@@ -19,7 +19,6 @@ extension-pkg-allow-list=numpy,scipy,torch,numba
 disable=
     # Keep pylint focused on correctness; formatting/docs/style are enforced by Black,
     # isort, and pydocstyle in separate CI jobs.
-    W,
 
     # Too strict for scientific code
     R0913,  # Too many arguments (common in scientific functions)

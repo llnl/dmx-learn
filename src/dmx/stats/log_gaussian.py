@@ -54,6 +54,7 @@ class LogGaussianDistribution(SequenceEncodableProbabilityDistribution):
             keys (Optional[str]): Key for parameters of dist.
 
         """
+        super().__init__()
         self.mu = mu
         self.sigma2 = 1.0 if (sigma2 <= 0 or isnan(sigma2) or isinf(sigma2)) else sigma2
         self.log_const = -0.5 * log(2.0 * pi * self.sigma2)
@@ -101,7 +102,7 @@ class LogGaussianDistribution(SequenceEncodableProbabilityDistribution):
     def seq_log_density(self, x: "LogGaussianEncodedDataSequence") -> np.ndarray:
 
         if not isinstance(x, LogGaussianEncodedDataSequence):
-            raise Exception(
+            raise TypeError(
                 "LogGaussianEncodedDataSequence required for seq_log_density()."
             )
 
@@ -151,8 +152,7 @@ class LogGaussianSampler(DistributionSampler):
             seed (Optional[int]): Used to set seed in random sampler.
 
         """
-        self.rng = RandomState(seed)
-        self.dist = dist
+        super().__init__(dist, seed)
 
     def sample(self, size: Optional[int] = None) -> Union[float, np.ndarray]:
         """Draw 'size' iid samples from LogGaussianSampler object.
@@ -216,6 +216,7 @@ class LogGaussianAccumulator(SequenceEncodableStatisticAccumulator):
         self.count2 += weight
 
     def initialize(self, x: float, weight: float, rng: Optional[RandomState]) -> None:
+        del rng
         self.update(x, weight, None)
 
     def seq_initialize(
@@ -407,7 +408,7 @@ class LogGaussianDataEncoder(DataSequenceEncoder):
         rv = np.asarray(np.log(x), dtype=float)
 
         if np.any(np.isnan(rv)) or np.any(np.isinf(rv)):
-            raise Exception("LogGaussianDistribution requires support x in (0,inf).")
+            raise ValueError("LogGaussianDistribution requires support x in (0,inf).")
         return LogGaussianEncodedDataSequence(data=rv)
 
 

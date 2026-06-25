@@ -16,7 +16,6 @@ Notes:
 from typing import Any, Dict, Optional
 
 import numpy as np
-from numpy.random import RandomState
 
 import dmx.utils.vector as vec
 from dmx.stats.pdist import (
@@ -45,6 +44,7 @@ class NullDistribution(SequenceEncodableProbabilityDistribution):
             name (Optional[str]): Name for object.
 
         """
+        super().__init__()
         self.name = name
 
     def __str__(self) -> str:
@@ -111,8 +111,7 @@ class NullSampler(DistributionSampler):
             dist (NullDistribution): For consistency with other samplers.
 
         """
-        self.rng = RandomState(seed)
-        self.dist = dist
+        super().__init__(dist, seed)
 
     def sample(self, size: Optional[int] = None) -> None:
         """Generate samples from NullDistribution.
@@ -168,6 +167,7 @@ class NullAccumulator(SequenceEncodableStatisticAccumulator):
     def initialize(
         self, x: Optional[Any], weight: float, rng: Optional["np.random.RandomState"]
     ) -> None:
+        del rng
         self.update(x, weight, None)
 
     def seq_initialize(

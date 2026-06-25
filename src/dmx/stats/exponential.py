@@ -8,7 +8,6 @@ ExponentialEstimator, and the ExponentialDataEncoder classes for use with dmx-le
 from typing import Any, Dict, List, Optional, Tuple, Union
 
 import numpy as np
-from numpy.random import RandomState
 
 from dmx.arithmetic import inf
 from dmx.stats.pdist import (
@@ -44,6 +43,7 @@ class ExponentialDistribution(SequenceEncodableProbabilityDistribution):
             name (Optional[str], optional): Name for the ExponentialDistribution object.
             keys (Optional[str], optional): Key for parameters.
         """
+        super().__init__()
         self.beta = beta
         self.log_beta = np.log(beta)
         self.name = name
@@ -90,7 +90,7 @@ class ExponentialDistribution(SequenceEncodableProbabilityDistribution):
             np.ndarray: Log-density values.
         """
         if not isinstance(x, ExponentialEncodedDataSequence):
-            raise Exception(
+            raise TypeError(
                 "ExponentialEncodedDataSequence required for seq_log_density()."
             )
 
@@ -154,8 +154,7 @@ class ExponentialSampler(DistributionSampler):
                 from.
             seed (Optional[int], optional): Seed for random number generator.
         """
-        self.rng = RandomState(seed)
-        self.dist = dist
+        super().__init__(dist, seed)
 
     def sample(self, size: Optional[int] = None) -> Union[float, np.ndarray]:
         """Draw iid samples from the exponential distribution.
@@ -216,6 +215,7 @@ class ExponentialAccumulator(SequenceEncodableStatisticAccumulator):
             weight (float): Weight for the observation.
             rng (Optional[np.random.RandomState]): Not used.
         """
+        del rng
         self.update(x, weight, None)
 
     def seq_update(
@@ -456,7 +456,7 @@ class ExponentialDataEncoder(DataSequenceEncoder):
         rv = np.asarray(x, dtype=float)
 
         if np.any(rv <= 0) or np.any(np.isnan(rv)):
-            raise Exception("Exponential requires x > 0.")
+            raise ValueError("Exponential requires x > 0.")
 
         return ExponentialEncodedDataSequence(data=rv)
 

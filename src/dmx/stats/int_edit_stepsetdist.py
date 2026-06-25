@@ -36,6 +36,7 @@ class IntegerStepBernoulliEditDistribution(SequenceEncodableProbabilityDistribut
         name: Optional[str] = None,
         keys: Optional[str] = None,
     ) -> None:
+        super().__init__()
         num_vals = len(log_edit_pmat)
         self.name = name
         self.init_dist = init_dist if init_dist is not None else NullDistribution()
@@ -109,7 +110,7 @@ class IntegerStepBernoulliEditDistribution(SequenceEncodableProbabilityDistribut
         self, x: "IntegerStepBernoulliEncodedDataSequence"
     ) -> np.ndarray:
         if not isinstance(x, IntegerStepBernoulliEncodedDataSequence):
-            raise Exception(
+            raise TypeError(
                 "IntegerStepBernoulliEditEncodedDataSequence required for "
                 "seq_log_density()."
             )
@@ -148,8 +149,7 @@ class IntegerStepBernoulliEditSampler(DistributionSampler):
     def __init__(
         self, dist: IntegerStepBernoulliEditDistribution, seed: Optional[int] = None
     ) -> None:
-        self.rng = np.random.RandomState(seed)
-        self.dist = dist
+        super().__init__(dist, seed)
         self.init_rng = dist.init_dist.sampler(self.rng.randint(0, maxrandint))
         self.next_rng = np.random.RandomState(self.rng.randint(0, maxrandint))
 

@@ -56,6 +56,7 @@ class WeightedDistribution(SequenceEncodableProbabilityDistribution):
             keys (Optional[str]): Keys for parameters of dist.
 
         """
+        super().__init__()
         self.dist = dist
         self.name = name
         self.keys = keys
@@ -74,7 +75,7 @@ class WeightedDistribution(SequenceEncodableProbabilityDistribution):
 
     def seq_log_density(self, x: "WeightedEncodedDataSequence") -> np.ndarray:
         if not isinstance(x, WeightedEncodedDataSequence):
-            raise Exception(
+            raise TypeError(
                 "WeightedEncodedDataSequence required for seq_log_density()."
             )
 

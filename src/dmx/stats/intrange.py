@@ -69,6 +69,7 @@ class IntegerCategoricalDistribution(SequenceEncodableProbabilityDistribution):
             keys (Optional[str]): Key for parameter.
 
         """
+        super().__init__()
         with np.errstate(divide="ignore"):
             self.p_vec = np.asarray(p_vec, dtype=np.float64)
             self.min_val = min_val
@@ -121,7 +122,7 @@ class IntegerCategoricalDistribution(SequenceEncodableProbabilityDistribution):
     def seq_log_density(self, x: "IntegerCategoricalEncodedDataSequence") -> np.ndarray:
 
         if not isinstance(x, IntegerCategoricalEncodedDataSequence):
-            raise Exception(
+            raise TypeError(
                 "IntegerCategoricalEncodedDataSequence required for seq_log_density()."
             )
 
@@ -178,8 +179,7 @@ class IntegerCategoricalSampler(DistributionSampler):
                 sample.
 
         """
-        self.rng = RandomState(seed)
-        self.dist = dist
+        super().__init__(dist, seed)
 
     def sample(self, size: Optional[int] = None) -> Union[int, List[int]]:
         """Draw iid samples from IntegerCategoricalSampler object.
@@ -293,6 +293,7 @@ class IntegerCategoricalAccumulator(SequenceEncodableStatisticAccumulator):
             self.count_vec[x - self.min_val] += weight
 
     def initialize(self, x: int, weight: float, rng: RandomState) -> None:
+        del rng
         return self.update(x, weight, None)
 
     def seq_initialize(

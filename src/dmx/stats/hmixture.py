@@ -121,6 +121,7 @@ class HierarchicalMixtureDistribution(SequenceEncodableProbabilityDistribution):
                 weights and topics.
 
         """
+        super().__init__()
         with np.errstate(divide="ignore"):
             self.topics = topics
             self.num_topics = len(topics)
@@ -264,9 +265,9 @@ class HierarchicalMixtureDistribution(SequenceEncodableProbabilityDistribution):
 
         """
         if not isinstance(x, HierarchicalMixtureEncodedDataSequence):
-            raise Exception("Requires HierarchicalMixtureEncodedDataSequence.")
+            raise TypeError("Requires HierarchicalMixtureEncodedDataSequence.")
 
-        sz, idx, cnt, enc_data, enc_len = x.data
+        sz, idx, cnt, enc_data, _enc_len = x.data
         tsz = len(idx)
 
         if (sz > 0) and np.all(cnt == 0):
@@ -305,10 +306,9 @@ class HierarchicalMixtureDistribution(SequenceEncodableProbabilityDistribution):
         self, x: "HierarchicalMixtureEncodedDataSequence"
     ) -> np.ndarray:
         if not isinstance(x, HierarchicalMixtureEncodedDataSequence):
-            raise Exception("Requires HierarchicalMixtureEncodedDataSequence.")
+            raise TypeError("Requires HierarchicalMixtureEncodedDataSequence.")
 
-        sz, idx, cnt, enc_data, enc_len = x.data
-        tsz = len(idx)
+        _sz, _idx, _cnt, _enc_data, enc_len = x.data
 
         # Compute ln p_mat(bag of data | mixture)
         rv = self.seq_component_log_density(x)
@@ -345,12 +345,11 @@ class HierarchicalMixtureDistribution(SequenceEncodableProbabilityDistribution):
 
         """
         if not isinstance(x, HierarchicalMixtureEncodedDataSequence):
-            raise Exception(
+            raise TypeError(
                 "Requires HierarchicalMixtureEncodedDataSequence for seq_posterior()."
             )
 
-        sz, idx, cnt, enc_data, enc_len = x.data
-        tsz = len(idx)
+        _sz, _idx, _cnt, _enc_data, _enc_len = x.data
 
         # Compute ln p_mat(bag of data | mixture)
         rv = self.seq_component_log_density(x)
@@ -415,8 +414,7 @@ class HierarchicalMixtureSampler(DistributionSampler):
             seed (Optional[int]): Set seed for random number generator used in sampling.
 
         """
-        self.rng = np.random.RandomState(seed)
-        self.dist = dist
+        super().__init__(dist, seed)
         self.sampler = dist.to_mixture().sampler(seed)
 
     def sample(self, size: Optional[int] = None) -> Union[Sequence[Any], Any]:
@@ -496,6 +494,7 @@ class HierarchicalMixtureEstimatorAccumulator(SequenceEncodableStatisticAccumula
         keys_temp = keys if keys is not None else (None, None)
         self.weight_key = keys_temp[0]
         self.comp_key = keys_temp[1]
+        self.name = name
 
         # Initializer seeds
         self._init_rng: bool = False
@@ -539,7 +538,7 @@ class HierarchicalMixtureEstimatorAccumulator(SequenceEncodableStatisticAccumula
         weights: np.ndarray,
         rng: RandomState,
     ) -> None:
-        sz, idx, cnt, enc_data, enc_len = x.data
+        sz, idx, _cnt, enc_data, enc_len = x.data
         tsz = len(idx)
 
         if not self._init_rng:
@@ -570,7 +569,7 @@ class HierarchicalMixtureEstimatorAccumulator(SequenceEncodableStatisticAccumula
         weights: np.ndarray,
         estimate: HierarchicalMixtureDistribution,
     ) -> None:
-        sz, idx, cnt, enc_data, enc_len = x.data
+        sz, idx, _cnt, enc_data, enc_len = x.data
         tsz = len(idx)
 
         ll_mat = np.zeros((tsz, self.num_topics))

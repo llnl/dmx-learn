@@ -49,6 +49,7 @@ class GammaDistribution(SequenceEncodableProbabilityDistribution):
             name (Optional[str], optional): Name for the GammaDistribution instance.
             keys (Optional[str], optional): Key for parameters of distribution.
         """
+        super().__init__()
         self.k = k
         self.theta = theta
         self.log_const = -(gammaln(k) + k * log(theta))
@@ -95,7 +96,7 @@ class GammaDistribution(SequenceEncodableProbabilityDistribution):
             np.ndarray: Log-density values.
         """
         if not isinstance(x, GammaEncodedDataSequence):
-            raise Exception("GammaEncodedDataSequence required for seq_log_density().")
+            raise TypeError("GammaEncodedDataSequence required for seq_log_density().")
 
         rv = x.data[0] * (-1.0 / self.theta)
         if self.k != 1.0:
@@ -158,8 +159,7 @@ class GammaSampler(DistributionSampler):
             dist (GammaDistribution): GammaDistribution to sample from.
             seed (Optional[int], optional): Seed for random number generator.
         """
-        self.rng = RandomState(seed)
-        self.dist = dist
+        super().__init__(dist, seed)
         self.seed = seed
 
     def sample(self, size: Optional[int] = None) -> Union[float, List[float]]:
@@ -212,6 +212,7 @@ class GammaAccumulator(SequenceEncodableStatisticAccumulator):
             weight (float): Weight for the observation.
             rng (Optional[RandomState]): Random number generator (not used).
         """
+        del rng
         self.update(x, weight, None)
 
     def seq_initialize(
@@ -501,7 +502,7 @@ class GammaDataEncoder(DataSequenceEncoder):
         """
         rv1 = np.asarray(x, dtype=float)
         if np.any(rv1 <= 0) or np.any(np.isnan(rv1)):
-            raise Exception("GammaDistribution has support x > 0.")
+            raise ValueError("GammaDistribution has support x > 0.")
         rv2 = np.log(rv1)
         return GammaEncodedDataSequence(data=(rv1, rv2))
 

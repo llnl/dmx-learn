@@ -158,7 +158,7 @@ class IntegerMultinomialDistribution(SequenceEncodableProbabilityDistribution):
     def seq_log_density(self, x: "IntegerMultinomialEncodedDataSequence") -> np.ndarray:
 
         if not isinstance(x, IntegerMultinomialEncodedDataSequence):
-            raise Exception(
+            raise TypeError(
                 "IntegerMultinomialEncodedDataSequence required for seq_log_density()."
             )
         sz, idx, cnt, val, tcnt = x.data
@@ -179,7 +179,7 @@ class IntegerMultinomialDistribution(SequenceEncodableProbabilityDistribution):
     def sampler(self, seed: Optional[int] = None) -> "IntegerMultinomialSampler":
 
         if isinstance(self.len_dist, NullDistribution):
-            raise Exception(
+            raise RuntimeError(
                 "IntegerMultinomialDistribution must have len_dist set to distribution "
                 "with support on "
                 "non-negative integers."
@@ -239,8 +239,7 @@ class IntegerMultinomialSampler(DistributionSampler):
             seed (Optional[int]): Optional seed for random number generator.
 
         """
-        self.dist = dist
-        self.rng = np.random.RandomState(seed)
+        super().__init__(dist, seed)
         self.len_sampler = self.dist.len_dist.sampler(
             seed=self.rng.randint(0, maxrandint)
         )
@@ -373,6 +372,7 @@ class IntegerMultinomialAccumulator(SequenceEncodableStatisticAccumulator):
     def initialize(
         self, x: Sequence[Tuple[int, float]], weight: float, rng: Optional[RandomState]
     ) -> None:
+        del rng
         self.update(x, weight, None)
 
     def seq_update(

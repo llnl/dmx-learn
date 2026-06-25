@@ -73,8 +73,9 @@ class DiracMixtureDistribution(SequenceEncodableProbabilityDistribution):
         Raises:
             Exception: If p is not in (0, 1].
         """
+        super().__init__()
         if not 0 < p <= 1:
-            raise Exception("p must be between (0,1].")
+            raise ValueError("p must be between (0,1].")
         with np.errstate(divide="ignore"):
             self.p = p
             self.v = v
@@ -187,7 +188,7 @@ class DiracMixtureDistribution(SequenceEncodableProbabilityDistribution):
             np.ndarray: Log-densities for each component.
         """
         if not isinstance(x, DiracMixtureEncodedDataSequence):
-            raise Exception(
+            raise TypeError(
                 "DiracMixtureEncodedDataSequence required for `seq_` function calls."
             )
 
@@ -209,7 +210,7 @@ class DiracMixtureDistribution(SequenceEncodableProbabilityDistribution):
             np.ndarray: Log-density values.
         """
         if not isinstance(x, DiracMixtureEncodedDataSequence):
-            raise Exception(
+            raise TypeError(
                 "DiracMixtureEncodedDataSequence required for `seq_` function calls."
             )
 
@@ -256,7 +257,7 @@ class DiracMixtureDistribution(SequenceEncodableProbabilityDistribution):
             np.ndarray: Posterior probabilities for each component.
         """
         if not isinstance(x, DiracMixtureEncodedDataSequence):
-            raise Exception(
+            raise TypeError(
                 "DiracMixtureEncodedDataSequence required for `seq_` function calls."
             )
 
@@ -345,6 +346,7 @@ class DiracMixtureSampler(DistributionSampler):
                 from.
             seed (Optional[int], optional): Seed for random number generator.
         """
+        super().__init__(dist, seed)
         rng_loc = np.random.RandomState(seed)
         self.rng = np.random.RandomState(rng_loc.randint(0, maxrandint))
         self.p = np.exp(dist.log_p)

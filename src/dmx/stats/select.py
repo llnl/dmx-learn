@@ -36,6 +36,7 @@ class SelectDistribution(SequenceEncodableProbabilityDistribution):
         dists: Sequence[SequenceEncodableProbabilityDistribution],
         choice_function: Callable[[T], int],
     ) -> None:
+        super().__init__()
         self.dists = dists
         self.choice_function = choice_function
         self.count = len(dists)
@@ -54,7 +55,7 @@ class SelectDistribution(SequenceEncodableProbabilityDistribution):
     def seq_log_density(self, x: "SelectEncodedDataSequence") -> np.ndarray:
 
         if not isinstance(x, SelectEncodedDataSequence):
-            raise Exception("Requires SelectEncodedDataSequence for `seq_` calls.")
+            raise TypeError("Requires SelectEncodedDataSequence for `seq_` calls.")
 
         xi, idx, enc_tuple = x.data
         rv = np.zeros(len(xi))
@@ -80,8 +81,7 @@ class SelectDistribution(SequenceEncodableProbabilityDistribution):
 
 class SelectSampler(DistributionSampler):
     def __init__(self, dist: SelectDistribution, seed: Optional[int] = None) -> None:
-        self.dist = dist
-        self.rng = RandomState(seed)
+        super().__init__(dist, seed)
         self.dist_samplers = [
             d.sampler(seed=self.rng.randint(maxint)) for d in dist.dists
         ]

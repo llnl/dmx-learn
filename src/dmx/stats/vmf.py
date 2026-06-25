@@ -132,6 +132,7 @@ class VonMisesFisherDistribution(SequenceEncodableProbabilityDistribution):
             name (Optional[str]): Optional name for the distribution instance.
             keys (Optional[str]): Optional keys for the distribution instance.
         """
+        super().__init__()
         dim = len(mu)
         mu = np.asarray(mu).copy()
 
@@ -170,7 +171,7 @@ class VonMisesFisherDistribution(SequenceEncodableProbabilityDistribution):
     def seq_log_density(self, x: "VonMisesFisherEncodedDataSequence") -> np.ndarray:
 
         if not isinstance(x, VonMisesFisherEncodedDataSequence):
-            raise Exception(
+            raise TypeError(
                 "VonMisesFisherEncodedDataSequence required for seq_log_density()."
             )
         return np.dot(x.data, self.mu) * self.kappa + self.log_const
@@ -206,8 +207,7 @@ class VonMisesFisherSampler(DistributionSampler):
             dist (VonMisesFisherDistribution): The vmf distribution instance.
             seed (Optional[int]): Random seed for sampling.
         """
-        self.rng = RandomState(seed)
-        self.dist = dist
+        super().__init__(dist, seed)
 
     def sample(self, size: Optional[int] = None) -> np.ndarray:
         """Generates samples from the vmf distribution.
@@ -314,6 +314,7 @@ class VonMisesFisherAccumulator(SequenceEncodableStatisticAccumulator):
     def initialize(
         self, x: Union[Sequence[float], np.ndarray], weight: float, rng: RandomState
     ) -> None:
+        del rng
         self.update(x, weight, None)
 
     def seq_update(

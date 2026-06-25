@@ -118,6 +118,7 @@ class JointMixtureDistribution(SequenceEncodableProbabilityDistribution):
             name (Optional[str]): Set name to object.
 
         """
+        super().__init__()
         with np.errstate(divide="ignore"):
             self.components1 = components1
             self.components2 = components2
@@ -183,7 +184,7 @@ class JointMixtureDistribution(SequenceEncodableProbabilityDistribution):
     def seq_log_density(self, x: "JointMixtureEncodedDataSequence") -> np.ndarray:
 
         if not isinstance(x, JointMixtureEncodedDataSequence):
-            raise Exception(
+            raise TypeError(
                 "JointMixtureEncodedDataSequence required for seq_log_density()."
             )
 
@@ -259,8 +260,7 @@ class JointMixtureSampler(DistributionSampler):
 
 
         """
-        self.rng = RandomState(seed)
-        self.dist = dist
+        super().__init__(dist, seed)
         self.comp_sampler1 = [
             d.sampler(seed=self.rng.randint(0, maxrandint))
             for d in self.dist.components1
