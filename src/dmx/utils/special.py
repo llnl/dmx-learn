@@ -1,6 +1,7 @@
 """Defines log-pseudo-determinant and special-function helpers."""
 
 import math
+from functools import lru_cache
 from importlib import import_module
 from typing import Iterable, List, Optional, Union
 
@@ -8,14 +9,48 @@ import numpy as np
 
 from dmx.arithmetic import exp
 
-SPECIAL = import_module("scipy.special")
-beta = SPECIAL.beta
-betaln = SPECIAL.betaln
-digamma = SPECIAL.digamma
-gamma = SPECIAL.gamma
-gammaln = SPECIAL.gammaln
-zeta = SPECIAL.zeta
-D1 = SPECIAL.digamma(1.0)
+
+@lru_cache(maxsize=1)
+def _scipy_special():
+    return import_module("scipy.special")
+
+
+def beta(*args, **kwargs):
+    """Proxy `scipy.special.beta` through a lazy import."""
+    return _scipy_special().beta(*args, **kwargs)
+
+
+def betaln(*args, **kwargs):
+    """Proxy `scipy.special.betaln` through a lazy import."""
+    return _scipy_special().betaln(*args, **kwargs)
+
+
+def digamma(*args, **kwargs):
+    """Proxy `scipy.special.digamma` through a lazy import."""
+    return _scipy_special().digamma(*args, **kwargs)
+
+
+def gamma(*args, **kwargs):
+    """Proxy `scipy.special.gamma` through a lazy import."""
+    return _scipy_special().gamma(*args, **kwargs)
+
+
+def gammaln(*args, **kwargs):
+    """Proxy `scipy.special.gammaln` through a lazy import."""
+    return _scipy_special().gammaln(*args, **kwargs)
+
+
+def ive(*args, **kwargs):
+    """Proxy `scipy.special.ive` through a lazy import."""
+    return _scipy_special().ive(*args, **kwargs)
+
+
+def zeta(*args, **kwargs):
+    """Proxy `scipy.special.zeta` through a lazy import."""
+    return _scipy_special().zeta(*args, **kwargs)
+
+
+D1 = digamma(1.0)
 
 
 def logpdet(x_mat: np.ndarray) -> float:
@@ -59,10 +94,10 @@ def polygamma_loc(
             - If `out` is not provided, returns the computed result as a float.
     """
     if out is not None:
-        fac2 = SPECIAL.zeta(n + 1, y, out=out)
-        fac2 *= (-1.0) ** (n + 1) * SPECIAL.gamma(n + 1.0)
+        fac2 = zeta(n + 1, y, out=out)
+        fac2 *= (-1.0) ** (n + 1) * gamma(n + 1.0)
     else:
-        fac2 = (-1.0) ** (n + 1) * SPECIAL.gamma(n + 1.0) * SPECIAL.zeta(n + 1, y)
+        fac2 = (-1.0) ** (n + 1) * gamma(n + 1.0) * zeta(n + 1, y)
 
     return fac2  # type: ignore[no-any-return]
 
@@ -81,7 +116,7 @@ def trigamma(
         Numpy array of trigamma function evaluated at y.
 
     """
-    return SPECIAL.zeta(2, y, out=out)  # type: ignore[no-any-return]
+    return zeta(2, y, out=out)  # type: ignore[no-any-return]
 
 
 def digammainv(
@@ -114,8 +149,8 @@ def digammainv(
         t2 = np.zeros(x.shape, dtype=float)
 
         for _ in range(5):
-            SPECIAL.digamma(x, out=t1)
-            SPECIAL.zeta(2, x, out=t2)
+            digamma(x, out=t1)
+            zeta(2, x, out=t2)
 
             t1 -= z
             t1 /= t2
@@ -128,11 +163,11 @@ def digammainv(
         m = y >= -2.22
         x = m * (exp(y) + 0.5) + (1.0 - m) * (-1.0 / (y - D1))
 
-        x -= (SPECIAL.digamma(x) - y) / trigamma(x)
-        x -= (SPECIAL.digamma(x) - y) / trigamma(x)
-        x -= (SPECIAL.digamma(x) - y) / trigamma(x)
-        x -= (SPECIAL.digamma(x) - y) / trigamma(x)
-        x -= (SPECIAL.digamma(x) - y) / trigamma(x)
+        x -= (digamma(x) - y) / trigamma(x)
+        x -= (digamma(x) - y) / trigamma(x)
+        x -= (digamma(x) - y) / trigamma(x)
+        x -= (digamma(x) - y) / trigamma(x)
+        x -= (digamma(x) - y) / trigamma(x)
 
     return x  # type: ignore[no-any-return]
 

@@ -3,7 +3,7 @@
 jobs=0
 
 # Pickle collected data for later comparisons
-persistent=yes
+persistent=no
 
 # List of plugins (as comma separated values of python module names)
 load-plugins=
@@ -17,6 +17,12 @@ extension-pkg-allow-list=numpy,scipy,torch,numba
 [MESSAGES CONTROL]
 # Disable specific messages that are too strict for scientific computing
 disable=
+    # Keep pylint focused on correctness; formatting/docs/style are enforced by Black,
+    # isort, and pydocstyle in separate CI jobs.
+    C,
+    R,
+    W,
+
     # Too strict for scientific code
     R0913,  # Too many arguments (common in scientific functions)
     R0914,  # Too many local variables (common in algorithms)
@@ -33,6 +39,8 @@ disable=
 
     # Numpy/scientific conventions
     E1101,  # No member (numpy has dynamic members)
+    E1123,  # Numba/numpy signatures can confuse pylint inference
+    E1133,  # numba.prange is iterable at runtime but pylint flags it
 
     # Allow TODO comments
     W0511,  # fixme/todo

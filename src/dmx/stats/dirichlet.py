@@ -17,7 +17,6 @@ from typing import Any, Callable, Dict, List, Optional, Sequence, Tuple, Union
 
 import numpy as np
 from numpy.random import RandomState
-from scipy.special import gammaln
 
 from dmx.stats.pdist import (
     DataSequenceEncoder,
@@ -28,7 +27,7 @@ from dmx.stats.pdist import (
     SequenceEncodableStatisticAccumulator,
     StatisticAccumulatorFactory,
 )
-from dmx.utils.special import digamma, digammainv
+from dmx.utils.special import digamma, digammainv, gammaln
 
 
 def dirichlet_param_solve(

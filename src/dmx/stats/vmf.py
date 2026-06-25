@@ -23,9 +23,7 @@ from typing import Any, Dict, Optional, Sequence, Tuple, Union
 
 import numpy as np
 import scipy.linalg
-import scipy.special
 from numpy.random import RandomState
-from scipy.special import gammaln
 
 import dmx.utils.vector as vec
 from dmx.arithmetic import *
@@ -38,6 +36,7 @@ from dmx.stats.pdist import (
     SequenceEncodableStatisticAccumulator,
     StatisticAccumulatorFactory,
 )
+from dmx.utils.special import gammaln, ive
 
 
 def lniv_z(v: float, ln_z: float) -> float:
@@ -89,7 +88,7 @@ def lniv(v: float, ln_z: float) -> float:
     """
     z = np.exp(ln_z)
     if np.isfinite(ln_z):
-        rv0 = scipy.special.ive(v, z)
+        rv0 = ive(v, z)
         if rv0 == 0:
             rv = lniv_z(v, ln_z)
         elif np.isposinf(rv0):

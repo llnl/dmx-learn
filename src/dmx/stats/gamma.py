@@ -8,7 +8,6 @@ from typing import Any, Dict, List, Optional, Tuple, Union
 
 import numpy as np
 from numpy.random import RandomState
-from scipy.special import gammaln
 
 from dmx.arithmetic import *
 from dmx.stats.pdist import (
@@ -20,7 +19,7 @@ from dmx.stats.pdist import (
     SequenceEncodableStatisticAccumulator,
     StatisticAccumulatorFactory,
 )
-from dmx.utils.special import digamma, trigamma
+from dmx.utils.special import digamma, gammaln, trigamma
 
 
 class GammaDistribution(SequenceEncodableProbabilityDistribution):

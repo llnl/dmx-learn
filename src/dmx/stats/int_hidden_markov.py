@@ -331,7 +331,8 @@ class IntegerHiddenMarkovModelDistribution(SequenceEncodableProbabilityDistribut
         )
 
         return IntegerHiddenMarkovEstimator(
-            max_val=self.n_words,
+            num_words=self.n_words,
+            num_states=self.n_states,
             pseudo_count=(pseudo_count, pseudo_count),
             len_estimator=len_est,
             name=self.name,
@@ -1310,7 +1311,7 @@ def numba_baum_welch(
     parallel=True,
     fastmath=True,
 )
-def numba_baum_welch2(
+def numba_baum_welch_alphas(
     num_states: int,
     tz: np.ndarray,
     prob_mat: np.ndarray,

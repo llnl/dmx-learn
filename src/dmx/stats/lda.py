@@ -22,7 +22,6 @@ from typing import Any, Callable, Dict, List, Optional, Sequence, Tuple, TypeVar
 
 import numpy as np
 from numpy.random import RandomState
-from scipy.special import digamma, gammaln
 
 from dmx.arithmetic import maxrandint
 from dmx.stats.dirichlet import DirichletDistribution
@@ -43,7 +42,7 @@ from dmx.stats.pdist import (
     StatisticAccumulatorFactory,
 )
 from dmx.utils.optsutil import count_by_value
-from dmx.utils.special import digammainv
+from dmx.utils.special import digamma, digammainv, gammaln
 from dmx.utils.vector import row_choice
 
 E0 = TypeVar("E0")
@@ -736,69 +735,7 @@ def find_alpha(current_alpha: np.ndarray, mlp: float, thresh: float):
 def seq_posterior2(
     estimate: LDADistribution, x: Tuple[int, np.ndarray, np.ndarray, Optional[Any], E0]
 ):
-    alpha = estimate.alpha
-    topics = estimate.topics
-    gamma_threshold = estimate.gamma_threshold
-
-    num_documents, idx, counts, gammas, enc_data = x
-
-    num_topics = len(topics)
-    num_samples = len(idx)
-
-    per_topic_log_densities0 = np.asarray(
-        [topics[i].seq_log_density(enc_data) for i in range(num_topics)]
-    ).transpose()
-
-    per_topic_log_densities = per_topic_log_densities0.copy()
-    max_val = per_topic_log_densities.max(axis=1, keepdims=True)
-    per_topic_log_densities -= max_val
-    per_topic_log_densities = np.exp(per_topic_log_densities)
-
-    idx_full = np.repeat(np.reshape(idx, (-1, 1)), num_topics, axis=1)
-    idx_full *= num_topics
-    idx_full += np.reshape(np.arange(num_topics), (1, num_topics))
-    alpha_loc = np.repeat(np.reshape(alpha, (1, num_topics)), num_documents, axis=0)
-
-    if gammas is None:
-        document_gammas = alpha_loc + np.reshape(
-            np.bincount(idx_full.flat), (num_documents, num_topics)
-        ) / float(num_topics)
-    else:
-        document_gammas = gammas.copy()
-
-    document_gammas = document_gammas.astype(np.float64)
-    idx = idx.astype(np.intp)
-    alpha_loc = alpha_loc.astype(np.float64)
-    per_topic_log_densities = per_topic_log_densities.astype(np.float64)
-    ccc = counts.astype(np.float64)
-
-    rv0 = np.zeros(num_documents, dtype=bool)
-    rv1 = np.zeros(document_gammas.shape, dtype=np.float64)
-    rv2 = np.zeros(document_gammas.shape, dtype=np.float64)
-    rv3 = np.zeros(per_topic_log_densities.shape, dtype=np.float64)
-    rv4 = np.arange(0, num_samples, dtype=np.intp)
-    rv5 = np.zeros(num_documents, dtype=np.float64)
-
-    aa, bb = dmx.c_ext.lda_update(
-        idx,
-        document_gammas,
-        rv1,
-        rv2,
-        alpha_loc,
-        per_topic_log_densities,
-        rv3,
-        ccc,
-        rv0,
-        rv4,
-        rv5,
-        -1,
-        gamma_threshold,
-    )
-
-    final_gammas = bb + alpha_loc
-    log_density_gamma = aa
-
-    return log_density_gamma, final_gammas, per_topic_log_densities0
+    return seq_posterior(estimate, x)
 
 
 def seq_posterior(

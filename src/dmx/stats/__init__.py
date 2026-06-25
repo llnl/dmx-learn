@@ -116,8 +116,8 @@ from typing import Any, List, Optional, Sequence, Tuple, TypeVar, Union
 import numpy as np
 
 # Abstract Classes
-import pyspark.rdd
 from numpy.random import RandomState
+from pyspark import RDD
 
 # Discrete base distributions
 from dmx.stats.binomial import BinomialDistribution, BinomialEstimator
@@ -268,7 +268,7 @@ def dump_models(x: SequenceEncodableProbabilityDistribution) -> str:
 
 
 def initialize(
-    data: Union[Sequence[T], pyspark.rdd.RDD],
+    data: Union[Sequence[T], RDD],
     estimator: ParameterEstimator,
     rng: np.random.RandomState,
     p: float = 0.1,
@@ -276,7 +276,7 @@ def initialize(
     """Randomly initialize a model corresponding to ParameterEstimator for iid observations data.
 
     Args:
-        data (Union[Sequence[T], pyspark.rdd.RDD]): Set of iid observations compatible with 'estimator'.
+        data (Union[Sequence[T], RDD]): Set of iid observations compatible with 'estimator'.
         estimator (ParameterEstimator): ParameterEstimator object for desired model to be estimated from data.
         rng (np.random.RandomState): RandomState object for setting seed.
         p (float, optional): Proportion of data to randomly sample for initializing model. Defaults to 0.1.
@@ -284,7 +284,7 @@ def initialize(
     Returns:
         SequenceEncodableProbabilityDistribution: Initialized model.
     """
-    if isinstance(data, pyspark.rdd.RDD):
+    if isinstance(data, RDD):
         factory = estimator.accumulator_factory()
         sc = data.context
 
@@ -342,14 +342,14 @@ def initialize(
 
 
 def estimate(
-    data: Union[Sequence[T], pyspark.rdd.RDD],
+    data: Union[Sequence[T], RDD],
     estimator: ParameterEstimator,
     prev_estimate: Optional[SequenceEncodableProbabilityDistribution] = None,
 ) -> SequenceEncodableProbabilityDistribution:
     """Perform E-step in EM algorithm by iterating over all observations in 'data'.
 
     Args:
-        data (Union[Sequence[T], pyspark.rdd.RDD]): Sequence of iid observations of data type consistent with
+        data (Union[Sequence[T], RDD]): Sequence of iid observations of data type consistent with
             'estimator' and/or 'prev_estimate'.
         estimator (ParameterEstimator): Model to be estimated from 'data'.
         prev_estimate (Optional[SequenceEncodableProbabilityDistribution], optional): Previous estimate of EM algorithm. Must
@@ -358,7 +358,7 @@ def estimate(
     Returns:
         SequenceEncodableProbabilityDistribution: Next iteration of EM algorithm.
     """
-    if isinstance(data, pyspark.rdd.RDD):
+    if isinstance(data, RDD):
         sc = data.context
         factory = estimator.accumulator_factory()
         estimator_broadcast = sc.broadcast(estimator)
@@ -402,17 +402,17 @@ def estimate(
 
 
 def seq_encode(
-    data: Union[Sequence[T], pyspark.rdd.RDD],
+    data: Union[Sequence[T], RDD],
     encoder: Optional[DataSequenceEncoder] = None,
     estimator: Optional[ParameterEstimator] = None,
     model: Optional[SequenceEncodableProbabilityDistribution] = None,
     num_chunks: int = 1,
     chunk_size: Optional[int] = None,
-) -> Union["pyspark.rdd.RDD", List[Tuple[int, EncodedDataSequence]]]:
+) -> Union[RDD, List[Tuple[int, EncodedDataSequence]]]:
     """Sequence encode a sequence of iid observations from a distribution corresponding to 'encoder'.
 
     Args:
-        data (Union[Sequence[T], pyspark.rdd.RDD]): Sequence of iid observations of data type consistent with
+        data (Union[Sequence[T], RDD]): Sequence of iid observations of data type consistent with
             'encoder'.
         encoder (Optional[DataSequenceEncoder], optional): A DataSequenceEncoder object for sequence encoding iid sequences.
         estimator (Optional[ParameterEstimator], optional): An estimator to create DataSequenceEncoder from.
@@ -421,7 +421,7 @@ def seq_encode(
         chunk_size (Optional[int], optional): Approximate size of chunks to determine num_chunks above.
 
     Returns:
-        Union[pyspark.rdd.RDD, List[Tuple[int, EncodedDataSequence]]]: Encoded data.
+        Union[RDD, List[Tuple[int, EncodedDataSequence]]]: Encoded data.
     """
     if encoder is None:
         if model is not None:
@@ -433,7 +433,7 @@ def seq_encode(
                 "At least one arg: encoder, estimator, or dist must be passed."
             )
 
-    if isinstance(data, pyspark.rdd.RDD):
+    if isinstance(data, RDD):
         sc = data.context
         temp_encoder = pickle.dumps(encoder, protocol=0)
         encoder_broadcast = sc.broadcast(temp_encoder)
@@ -465,7 +465,7 @@ def seq_encode(
 
 
 def seq_log_density_sum(
-    enc_data: Union[List[Tuple[int, EncodedDataSequence]], "pyspark.rdd.RDD"],
+    enc_data: Union[List[Tuple[int, EncodedDataSequence]], RDD],
     estimate: SequenceEncodableProbabilityDistribution,
 ) -> Tuple[float, float]:
     """Vectorized evaluation of the sum of log_density values for a given SequenceEncodableProbabilityDistribution
@@ -476,7 +476,7 @@ def seq_log_density_sum(
         all encoded data observations in enc_data. This is a fully vectorized evaluation.
 
     Args:
-        enc_data (Union[List[Tuple[int, T]], 'pyspark.rdd.RDD']): Sequence encoded data of format matching output of
+        enc_data (Union[List[Tuple[int, T]], RDD]): Sequence encoded data of format matching output of
             seq_encode() function.
         estimate (SequenceEncodableProbabilityDistribution): Distribution to use for log_density evaluations. Must
             be consistent with enc_data.
@@ -485,7 +485,7 @@ def seq_log_density_sum(
         Tuple[float, float]
 
     """
-    if isinstance(enc_data, pyspark.rdd.RDD):
+    if isinstance(enc_data, RDD):
         sc = enc_data.context
         estimate_broadcast = sc.broadcast(pickle.dumps(estimate, protocol=0))
 
@@ -514,7 +514,7 @@ def seq_log_density_sum(
 
 
 def seq_log_density(
-    enc_data: Union[List[Tuple[int, EncodedDataSequence]], "pyspark.rdd.RDD"],
+    enc_data: Union[List[Tuple[int, EncodedDataSequence]], RDD],
     estimate: Union[
         Sequence[SequenceEncodableProbabilityDistribution],
         SequenceEncodableProbabilityDistribution,
@@ -529,7 +529,7 @@ def seq_log_density(
         If 'estimate' is a single SequenceEncodableProbabilityDistribution instance. The log_density of every observation
         in the 'enc_data' data set is returned as a list.
 
-        E = Union[List[Tuple[int, EncodedDataSequence]], 'pyspark.rdd.RDD']
+        E = Union[List[Tuple[int, EncodedDataSequence]], RDD]
 
     Args:
         enc_data (E): Sequence encoded data of format matching output of seq_encode() function.
@@ -541,7 +541,7 @@ def seq_log_density(
     """
     is_list = issubclass(type(estimate), Sequence)
 
-    if isinstance(enc_data, pyspark.rdd.RDD):
+    if isinstance(enc_data, RDD):
         sc = enc_data.context
         temp_estimate = pickle.dumps(estimate, protocol=0)
         estimate_broadcast = sc.broadcast(temp_estimate)
@@ -570,7 +570,7 @@ def seq_log_density(
 
 
 def seq_estimate(
-    enc_data: Union[List[Tuple[int, EncodedDataSequence]], "pyspark.rdd.RDD"],
+    enc_data: Union[List[Tuple[int, EncodedDataSequence]], RDD],
     estimator: ParameterEstimator,
     prev_estimate: T_D,
 ) -> T_D:
@@ -585,7 +585,7 @@ def seq_estimate(
         Returns the next iteration of EM algorithm with vectorized calls to "seq_update()" of the corresponding
         SequenceEncodableStatsiticAccumulator objects.
 
-        E = Union[List[Tuple[int, EncodedDataSequence]], 'pyspark.rdd.RDD']
+        E = Union[List[Tuple[int, EncodedDataSequence]], RDD]
 
     Args:
         enc_data (E): Sequence encoded data of format matching output of seq_encode() function.
@@ -596,7 +596,7 @@ def seq_estimate(
         SequenceEncodableProbabilityDistribution
 
     """
-    if isinstance(enc_data, pyspark.rdd.RDD):
+    if isinstance(enc_data, RDD):
         sc = enc_data.context
 
         estimator_broadcast = sc.broadcast(estimator)
@@ -666,7 +666,7 @@ def seq_estimate(
 
 
 def seq_initialize(
-    enc_data: Union[List[Tuple[int, T]], "pyspark.rdd.RDD"],
+    enc_data: Union[List[Tuple[int, T]], RDD],
     estimator: ParameterEstimator,
     rng: np.random.RandomState,
     p: float = 0.1,
@@ -686,7 +686,7 @@ def seq_initialize(
 
         This method should produce the same initialized model as a call to initialize() if the data sets are the same.
 
-        E = Union[List[Tuple[int, EncodedDataSequence]], 'pyspark.rdd.RDD']
+        E = Union[List[Tuple[int, EncodedDataSequence]], RDD]
 
     Args:
         enc_data (E): Sequence encoded data of format matching output of seq_encode() function.
@@ -699,7 +699,7 @@ def seq_initialize(
 
     """
 
-    if isinstance(enc_data, pyspark.rdd.RDD):
+    if isinstance(enc_data, RDD):
         sc = enc_data.context
         num_partitions = enc_data.getNumPartitions()
         seeds = rng.randint(2**31, size=num_partitions)
