@@ -759,13 +759,12 @@ class HierarchicalMixtureEstimatorAccumulatorFactory(StatisticAccumulatorFactory
 
 class HierarchicalMixtureEstimator(ParameterEstimator):
     """HierarchicalMixtureEstimator object for estimating hierarchical mixture
-    distribution for aggregated
-        sufficient statistics.
+    distribution for aggregated sufficient statistics.
 
-    Note: If pseudo_count is passed, the mixture weights are re-weighted in estimation.
-        If attribute suff_stat
-    is set, a suff_stat is re-weighted and combined with new sufficient statistics in
-    estimation.
+    Notes:
+        If pseudo_count is passed, the mixture weights are re-weighted in estimation.
+        If attribute suff_stat is set, a suff_stat is re-weighted and combined with new
+        sufficient statistics in estimation.
 
     Attributes:
         num_components (int): Number of topic distributions (inner-mixture).

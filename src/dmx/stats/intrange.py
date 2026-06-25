@@ -184,9 +184,9 @@ class IntegerCategoricalSampler(DistributionSampler):
     def sample(self, size: Optional[int] = None) -> Union[int, List[int]]:
         """Draw iid samples from IntegerCategoricalSampler object.
 
-        Note: If size is None, a single sample is returned as an integer. If size > 0, a
-            List of integers with
-        length equal to size is returned.
+        Notes:
+            If size is None, a single sample is returned as an integer. If size > 0, a
+            List of integers with length equal to size is returned.
 
         Args:
             size (Optional[int]): Number of iid samples to draw.

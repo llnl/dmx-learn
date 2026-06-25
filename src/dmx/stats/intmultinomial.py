@@ -253,9 +253,8 @@ class IntegerMultinomialSampler(DistributionSampler):
             size (Optional[int]): Number of samples to draw.
 
         Returns:
-            List length size containing List[Tuple[int, float]]. If size is None,
-            returns one sample
-                List[Tuple[int, float]].
+            List of samples. If size is None, returns one sample as a
+            List[Tuple[int, float]].
 
         """
         if size is None:

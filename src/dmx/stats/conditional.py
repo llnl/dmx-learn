@@ -84,16 +84,13 @@ class ConditionalDistribution(SequenceEncodableProbabilityDistribution):
         """Initialize ConditionalDistribution.
 
         Args:
-            dmap (Union[Dict[Any, SequenceEncodableProbabilityDistribution],
-                List[SequenceEncodableProbabilityDistribution]]): Used to create
-                dictionary of distributions.
-            default_dist (Optional[SequenceEncodableProbabilityDistribution]):
-                Distribution for case where x[0] is not a key in dmap.
-            given_dist (Optional[SequenceEncodableProbabilityDistribution]):
-                Distribution for the given variable.
-            name (Optional[str], optional): Name assigned to object.
-            keys (Optional[str], optional): All ConditionalDistribution objects with
-                same keys value are the same distribution.
+            dmap: Mapping from conditioning values to distributions, or a list of
+                distributions keyed by their index.
+            default_dist: Distribution for cases where x[0] is not a key in dmap.
+            given_dist: Distribution for the given variable.
+            name: Name assigned to object.
+            keys: All ConditionalDistribution objects with the same keys value are the
+                same distribution.
         """
         super().__init__()
         if isinstance(dmap, list):

@@ -314,8 +314,7 @@ class IntegerBernoulliSetAccumulatorFactory(StatisticAccumulatorFactory):
 
 class IntegerBernoulliSetEstimator(ParameterEstimator):
     """IntegerBernoulliSetEstimator object for estimating integer Bernoulli set
-    distributions from aggregated
-        sufficient statistics.
+    distributions from aggregated sufficient statistics.
 
     Attributes:
         num_vals (int): Number of values in integer range for the set.

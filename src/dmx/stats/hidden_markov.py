@@ -241,7 +241,9 @@ class HiddenMarkovModelDistribution(SequenceEncodableProbabilityDistribution):
             p_mat(x_mat) = p_mat(x_mat(0),x_mat(1),....,x_mat(t))*P_len(N).
 
         where P_len(N) is the length distribution 'len_dist', if assigned.
-        Note: All calculations are done on the log scale with log-sum-exp used to
+
+        Notes:
+            All calculations are done on the log scale with log-sum-exp used to
             prevent numerical underflow.
 
         If 'has_topics' is true, 'weighed_log_sum_exp' and 'log_sum' calls from
