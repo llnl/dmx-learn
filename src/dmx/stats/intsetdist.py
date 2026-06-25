@@ -23,7 +23,7 @@ from typing import Any, Dict, List, Optional, Sequence, Tuple, Union
 import numpy as np
 from numpy.random import RandomState
 
-from dmx.arithmetic import *
+from dmx.arithmetic import exp
 from dmx.stats.pdist import (
     DataSequenceEncoder,
     DistributionSampler,
@@ -80,21 +80,6 @@ class IntegerBernoulliSetDistribution(SequenceEncodableProbabilityDistribution):
         self.keys = keys
 
         if log_nvec is None:
-            """
-            is_one   = log_pvec == 0
-            is_zero  = log_pvec == -np.inf
-            is_good  = np.bitwise_and(~is_one, ~is_zero)
-
-            log_nvec = np.zeros(len(log_pvec), dtype=np.float64)
-            log_dvec = np.zeros(len(log_pvec), dtype=np.float64)
-            log_nvec[is_good] = np.log1p(-np.exp(self.log_pvec[is_good]))
-            log_dvec[is_good] = self.log_pvec[is_good] - log_nvec[is_good]
-            log_dvec[is_zero] = -np.inf
-
-            self.log_nvec = None
-            self.log_dvec = log_dvec
-            self.log_nsum = np.sum(log_nvec)
-            """
             log_nvec = np.log1p(-np.exp(self.log_pvec))
             self.log_nvec = None
             self.log_dvec = self.log_pvec - log_nvec
@@ -180,7 +165,7 @@ class IntegerBernoulliSetSampler(DistributionSampler):
             log_u = np.log(self.rng.rand(self.dist.num_vals))
             return np.flatnonzero(log_u <= self.dist.log_pvec).tolist()
         rv = []
-        for i in range(size):
+        for _ in range(size):
             log_u = np.log(self.rng.rand(self.dist.num_vals))
             rv.append(np.flatnonzero(log_u <= self.dist.log_pvec).tolist())
         return rv
@@ -244,7 +229,7 @@ class IntegerBernoulliSetAccumulator(SequenceEncodableStatisticAccumulator):
         estimate: Optional[IntegerBernoulliSetDistribution],
     ) -> None:
 
-        sz, idx, xs = x.data
+        _sz, idx, xs = x.data
         agg_cnt = np.bincount(xs, weights=weights[idx])
         n = len(agg_cnt)
         self.pcnt[:n] += agg_cnt

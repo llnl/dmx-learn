@@ -15,7 +15,7 @@ from typing import Any, Callable, Dict, List, Optional, Sequence, Tuple, TypeVar
 import numpy as np
 from numpy.random import RandomState
 
-from dmx.arithmetic import *
+from dmx.arithmetic import maxint, maxrandint, zero
 from dmx.stats.pdist import (
     DataSequenceEncoder,
     DistributionSampler,

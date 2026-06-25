@@ -12,9 +12,7 @@ Likelihood evals are equivalent to normal likelihood calls to the base distribut
 from typing import Any, Dict, Optional, Sequence, Tuple, TypeVar
 
 import numpy as np
-from numpy.random import RandomState
 
-from dmx.arithmetic import *
 from dmx.stats.pdist import (
     DataSequenceEncoder,
     DistributionSampler,

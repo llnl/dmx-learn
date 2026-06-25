@@ -16,7 +16,7 @@ from typing import Any, Dict, Optional, Sequence, Tuple, Union
 import numpy as np
 from numpy.random import RandomState
 
-from dmx.arithmetic import *
+from dmx.arithmetic import exp
 from dmx.stats.pdist import (
     DataSequenceEncoder,
     DistributionSampler,

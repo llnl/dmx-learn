@@ -13,7 +13,7 @@ from typing import Any, Callable, Dict, List, Optional, Tuple, Union
 import numpy as np
 from numpy.random import RandomState
 
-from dmx.arithmetic import *
+from dmx.arithmetic import exp, isinf, isnan, log, pi, sqrt
 from dmx.stats.pdist import (
     DataSequenceEncoder,
     DistributionSampler,

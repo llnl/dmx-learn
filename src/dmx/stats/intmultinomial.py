@@ -28,8 +28,7 @@ import numpy as np
 from numpy.random import RandomState
 
 import dmx.utils.vector as vec
-from dmx.arithmetic import *
-from dmx.arithmetic import maxrandint
+from dmx.arithmetic import inf, maxrandint
 from dmx.stats.null_dist import (
     NullAccumulator,
     NullAccumulatorFactory,
@@ -382,7 +381,7 @@ class IntegerMultinomialAccumulator(SequenceEncodableStatisticAccumulator):
         weights: np.ndarray,
         estimate: Optional[IntegerMultinomialDistribution],
     ) -> None:
-        sz, idx, cnt, val, tenc = x.data
+        _sz, idx, cnt, val, tenc = x.data
 
         min_x = val.min()
         max_x = val.max()

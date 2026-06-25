@@ -72,12 +72,7 @@ class SpearmanRankingDistribution(SequenceEncodableProbabilityDistribution):
 
         perms = map(np.asarray, map(list, itertools.permutations(range(self.dim))))
         self.log_const = np.log(
-            sum(
-                map(
-                    lambda u: np.exp(-rho * np.dot(self.sigma - u, self.sigma - u)),
-                    perms,
-                )
-            )
+            sum(np.exp(-rho * np.dot(self.sigma - u, self.sigma - u)) for u in perms)
         )
 
     def __str__(self) -> str:

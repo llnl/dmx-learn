@@ -10,7 +10,7 @@ from typing import Any, Dict, List, Optional, Tuple, Union
 import numpy as np
 from numpy.random import RandomState
 
-from dmx.arithmetic import *
+from dmx.arithmetic import exp, inf, log, one, sqrt, zero
 from dmx.stats.pdist import (
     DataSequenceEncoder,
     DistributionSampler,
@@ -461,7 +461,7 @@ class GammaEstimator(ParameterEstimator):
         s = log(avg_sum) - avg_sum_of_logs
         old_k = inf
         k = (3 - s + sqrt((s - 3) * (s - 3) + 24 * s)) / (12 * s)
-        while abs(old_k - k) > threshold:
+        while np.abs(old_k - k) > threshold:
             old_k = k
             k -= (log(k) - digamma(k) - s) / (one / k - trigamma(k))
         return k

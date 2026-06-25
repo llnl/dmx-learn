@@ -10,7 +10,7 @@ from typing import Any, Dict, List, Optional, Tuple, Union
 import numpy as np
 from numpy.random import RandomState
 
-from dmx.arithmetic import *
+from dmx.arithmetic import inf
 from dmx.stats.pdist import (
     DataSequenceEncoder,
     DistributionSampler,

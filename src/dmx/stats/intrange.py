@@ -21,7 +21,7 @@ import numpy as np
 from numpy.random import RandomState
 
 import dmx.utils.vector as vec
-from dmx.arithmetic import *
+from dmx.arithmetic import inf, zero
 from dmx.stats.pdist import (
     DataSequenceEncoder,
     DistributionSampler,

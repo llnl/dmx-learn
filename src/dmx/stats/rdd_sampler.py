@@ -5,7 +5,6 @@ import numpy as np
 from numpy.random import RandomState
 from pyspark import SparkContext
 
-from dmx.arithmetic import *
 from dmx.arithmetic import maxrandint
 from dmx.stats.pdist import SequenceEncodableProbabilityDistribution
 

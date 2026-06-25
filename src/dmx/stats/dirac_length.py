@@ -1,4 +1,4 @@
-"""Mixture of a Dirac delta at ``v`` and a length distribution.
+r"""Mixture of a Dirac delta at ``v`` and a length distribution.
 
 The DiracMixtureDistribution is defined by the density:
 
@@ -191,7 +191,7 @@ class DiracMixtureDistribution(SequenceEncodableProbabilityDistribution):
                 "DiracMixtureEncodedDataSequence required for `seq_` function calls."
             )
 
-        sz, idx_v, idx_nv, enc_x = x.data
+        sz, _idx_v, idx_nv, enc_x = x.data
         ll_mat = np.zeros((sz, 2), dtype=np.float64)
 
         ll_mat[:, 0] += self.dist.seq_log_density(enc_x)
@@ -521,7 +521,7 @@ class DiracMixtureAccumulator(SequenceEncodableStatisticAccumulator):
             weights (np.ndarray): Weights for each observation.
             rng (np.random.RandomState): Random number generator.
         """
-        sz, xi_v, xi_nv, enc_x = x.data
+        sz, xi_v, _xi_nv, enc_x = x.data
 
         if not self._init_rng:
             self._rng_initialize(rng)

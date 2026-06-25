@@ -31,12 +31,10 @@ from typing import Any, Dict, List, Optional, Sequence, Tuple, TypeVar, Union
 import numpy as np
 from numpy.random import RandomState
 
-from dmx.arithmetic import *
-from dmx.arithmetic import maxrandint
+from dmx.arithmetic import exp, maxrandint
 from dmx.stats.null_dist import (
     NullAccumulator,
     NullAccumulatorFactory,
-    NullDataEncoder,
     NullDistribution,
     NullEstimator,
 )
@@ -166,7 +164,7 @@ class IntegerBernoulliEditDistribution(SequenceEncodableProbabilityDistribution)
                 "IntegerBernoulliEditEncodedDataSequence required for "
                 "seq_log_density()."
             )
-        sz, idx, xs, ys, ym, init_enc = x.data
+        sz, idx, xs, ys, _ym, init_enc = x.data
         rv = np.bincount(idx, weights=self.log_dvec[xs, ys], minlength=sz)
         rv += self.log_nsum
         rv += self.init_dist.seq_log_density(init_enc)
@@ -231,7 +229,7 @@ class IntegerBernoulliEditSampler(DistributionSampler):
 
             return list(prev_ob), list(np.flatnonzero(rv))
         rv = []
-        for i in range(size):
+        for _ in range(size):
             rv.append(self.sample())
         return rv
 
@@ -280,17 +278,6 @@ class IntegerBernoulliEditAccumulator(SequenceEncodableStatisticAccumulator):
         self.init_acc = init_acc if init_acc is not None else NullAccumulator()
         self.tot_sum = 0.0
 
-    """Accumulator for sufficient statistics of the Integer Bernoulli Edit Set
-    Distribution.
-
-    Args:
-        num_vals (int): Number of values in the distribution.
-        init_acc (Optional[SequenceEncodableStatisticAccumulator]): Initial accumulator.
-            Defaults to NullAccumulator().
-        name (Optional[str]): Name for object.
-        keys (Optional[str]): Keys for parameters of distribution.
-    """
-
     def update(
         self, x: T, weight: float, estimate: Optional[IntegerBernoulliEditDistribution]
     ) -> None:
@@ -330,7 +317,7 @@ class IntegerBernoulliEditAccumulator(SequenceEncodableStatisticAccumulator):
         weights: np.ndarray,
         estimate: Optional[IntegerBernoulliEditDistribution],
     ) -> None:
-        sz, idx, xs, ys, ym, init_enc = x.data
+        _sz, idx, xs, _ys, ym, init_enc = x.data
 
         agg_cnt0 = np.bincount(xs[ym[0]], weights=weights[idx[ym[0]]])
         agg_cnt1 = np.bincount(xs[ym[1]], weights=weights[idx[ym[1]]])
@@ -349,7 +336,7 @@ class IntegerBernoulliEditAccumulator(SequenceEncodableStatisticAccumulator):
         weights: np.ndarray,
         rng: np.random.RandomState,
     ) -> None:
-        sz, idx, xs, ys, ym, init_enc = x.data
+        _sz, idx, xs, _ys, ym, init_enc = x.data
 
         agg_cnt0 = np.bincount(xs[ym[0]], weights=weights[idx[ym[0]]])
         agg_cnt1 = np.bincount(xs[ym[1]], weights=weights[idx[ym[1]]])

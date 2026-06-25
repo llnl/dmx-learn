@@ -17,7 +17,7 @@ import scipy.linalg
 from numpy.random import RandomState
 
 import dmx.utils.vector as vec
-from dmx.arithmetic import *
+from dmx.arithmetic import exp, pi
 from dmx.stats.pdist import (
     DataSequenceEncoder,
     DistributionSampler,
