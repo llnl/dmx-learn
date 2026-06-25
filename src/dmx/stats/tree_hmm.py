@@ -87,7 +87,8 @@ def find_level(parents: np.ndarray) -> List[int]:
         parents (np.ndarray): Numpy array of integers with first entry -1.
 
     Returns:
-        Level of each node in the free excluding the first entry which is the root (level = 0).
+        Level of each node in the free excluding the first entry which is the root
+        (level = 0).
 
     """
     n = len(parents)
@@ -103,13 +104,15 @@ class TreeHiddenMarkovModelDistribution(SequenceEncodableProbabilityDistribution
     """TreeHiddenMarkovModelDistribution for specifying an HMM on a rooted tree.
 
     Attributes:
-        topics (Sequence[SequenceEncodableProbabilityDistribution]): Emission distributions having type T.
+        topics (Sequence[SequenceEncodableProbabilityDistribution]): Emission
+            distributions having type T.
         num_states (int): Number of states in HMM.
         w (np.ndarray): Initial state distribution. Sums to 1.
         log_w (np.ndarray): Log of above.
         transitions (np.ndarray): TPM with dimensions num_states by num_states.
         log_transitions (np.ndarray): Log of TPM.
-        len_dist (SequenceEncodableProbabilityDistribution): Distribution for number of children for a node.
+        len_dist (SequenceEncodableProbabilityDistribution): Distribution for number of
+            children for a node.
             Defaults to NullDistribution.
         terminal_level (int): Level in tree to terminate sampling.
         use_numba (bool): If true Numba used for computations.
@@ -131,12 +134,17 @@ class TreeHiddenMarkovModelDistribution(SequenceEncodableProbabilityDistribution
         """TreeHiddenMarkovModelDistribution object.
 
         Args:
-            topics (Sequence[SequenceEncodableProbabilityDistribution]): Emission distributions having type T.
-            w (Union[Sequence[float], np.ndarray]): Initial state weights. Must sum to 1 and have same length as topics.
-            transitions (Union[List[List[float]], np.ndarray]): Define the TPM for HMM. Dim is len(topics) by
+            topics (Sequence[SequenceEncodableProbabilityDistribution]): Emission
+                distributions having type T.
+            w (Union[Sequence[float], np.ndarray]): Initial state weights. Must sum to 1
+                and have same length as topics.
+            transitions (Union[List[List[float]], np.ndarray]): Define the TPM for HMM.
+                Dim is len(topics) by
                 len(topics).
-            len_dist (Optional[SequenceEncodableProbabilityDistribution]): Distribution for the number of children
-                a node in the tree will have. Must have support on non-negative integers.
+            len_dist (Optional[SequenceEncodableProbabilityDistribution]): Distribution
+                for the number of children
+                a node in the tree will have. Must have support on non-negative
+                integers.
             terminal_level (int): Level of tree to terminate sampling. Default to 10.
             name (Optional[str]): Assign a name to object instance.
             use_numba (bool): If true Numba is used for vectorized calculations.
@@ -170,8 +178,8 @@ class TreeHiddenMarkovModelDistribution(SequenceEncodableProbabilityDistribution
         s6 = repr(self.use_numba)
 
         return (
-            "TreeHiddenMarkovModelDistribution(topics=[%s], w=%s, transitions=%s, len_dist=%s, name=%s, "
-            "use_numba=%s)" % (s1, s2, s3, s4, s5, s6)
+            f"TreeHiddenMarkovModelDistribution(topics=[{s1}], w={s2}, "
+            f"transitions={s3}, len_dist={s4}, name={s5}, use_numba={s6})"
         )
 
     def density(self, x: Sequence[Tuple[D, T]]) -> float:
@@ -244,7 +252,8 @@ class TreeHiddenMarkovModelDistribution(SequenceEncodableProbabilityDistribution
 
             # if len_enc is not None:
             #     ret_len = np.zeros(num_trees, dtype=np.float64)
-            #     ll_ret += vec_bincount(len_enc[0], self.len_dist.seq_log_density(len_enc[1]), ret_len)
+            # ll_ret += vec_bincount(len_enc[0],
+            # self.len_dist.seq_log_density(len_enc[1]), ret_len)
 
             return ll_ret
 
@@ -329,7 +338,8 @@ class TreeHiddenMarkovModelDistribution(SequenceEncodableProbabilityDistribution
 
             # if len_enc is not None:
             #     ret_len = np.zeros(num_trees, dtype=np.float64)
-            #     ll_ret += vec_bincount(len_enc[0], self.len_dist.seq_log_density(len_enc[1]), ret_len)
+            # ll_ret += vec_bincount(len_enc[0],
+            # self.len_dist.seq_log_density(len_enc[1]), ret_len)
 
             return ll_ret
 
@@ -570,7 +580,8 @@ class TreeHiddenMarkovModelDistribution(SequenceEncodableProbabilityDistribution
     def sampler(self, seed: Optional[int] = None) -> "TreeHiddenMarkovSampler":
         if isinstance(self.len_dist, NullDistribution):
             raise Exception(
-                "TreeHiddenMarkovSampler requires len_dist with support on non-negative integers"
+                "TreeHiddenMarkovSampler requires len_dist with support on "
+                "non-negative integers"
             )
         return TreeHiddenMarkovSampler(self, seed)
 
@@ -591,7 +602,8 @@ class TreeHiddenMarkovModelDistribution(SequenceEncodableProbabilityDistribution
         )
 
     def dist_to_encoder(self) -> "TreeHiddenMarkovDataEncoder":
-        """Returns TreeHiddenMarkovDataEncoder object for encoding sequences of iid Tree HMM observations."""
+        """Returns TreeHiddenMarkovDataEncoder object for encoding sequences of iid Tree
+        HMM observations."""
         emission_encoder = self.topics[0].dist_to_encoder()
         len_encoder = self.len_dist.dist_to_encoder()
 
@@ -676,7 +688,8 @@ class TreeHiddenMarkovSampler(DistributionSampler):
             return self.sample_tree(size=size)
         else:
             raise RuntimeError(
-                "TreeHiddenMarkovSampler requires either a length distribution for number of children."
+                "TreeHiddenMarkovSampler requires either a length distribution for "
+                "number of children."
             )
 
 
@@ -990,7 +1003,7 @@ class TreeHiddenMarkovAccumulator(SequenceEncodableStatisticAccumulator):
             ## alpha (upward pass) set the root nodes
             alphas[rns, :] += betas[rns, :]
 
-            for level in range(len(level_idx)):
+            for level, _ in enumerate(level_idx):
                 lidx = level_idx[level]
                 idxs, xbis, xps, xcs = idx[lidx], xbi[lidx], xp[lidx], xc[lidx]
                 weights_loc = np.reshape(weights[idxs], (-1, 1, 1))
@@ -1106,7 +1119,7 @@ class TreeHiddenMarkovAccumulator(SequenceEncodableStatisticAccumulator):
         if self.state_key is not None:
             if self.state_key in stats_dict:
                 acc = stats_dict[self.state_key]
-                for i in range(len(acc)):
+                for i, _ in enumerate(acc):
                     acc[i] = acc[i].combine(self.accumulators[i].value())
             else:
                 stats_dict[self.state_key] = self.accumulators
@@ -1288,8 +1301,8 @@ class TreeHiddenMarkovDataEncoder(DataSequenceEncoder):
         s2 = repr(self.len_encoder)
         s3 = repr(self.use_numba)
         return (
-            "TreeHiddenMarkovDataEncoder(emission_encoder=%s, len_encoder=%s, use_numba=%s)"
-            % (s1, s2, s3)
+            f"TreeHiddenMarkovDataEncoder(emission_encoder={s1}, len_encoder={s2}, "
+            f"use_numba={s3})"
         )
 
     def __eq__(self, other: object) -> bool:
@@ -1343,7 +1356,7 @@ class TreeHiddenMarkovDataEncoder(DataSequenceEncoder):
 
             #  beta parent/child combos
             if len(u1) > 0:
-                for j in range(len(u1)):
+                for j, _ in enumerate(u1):
                     xp.extend([u0[j] + cnt] * u1[j])
                     xc.extend(cnt + xc0[np.flatnonzero(xp0[1:] == u0[j])])
 
@@ -1458,7 +1471,7 @@ class TreeHiddenMarkovDataEncoder(DataSequenceEncoder):
 
                 #  beta parent/child combos
                 if len(u1) > 0:
-                    for j in range(len(u1)):
+                    for j, _ in enumerate(u1):
                         xp.extend([u0[j]] * u1[j])
                         xc.extend(xc0[np.flatnonzero(xp0[1:] == u0[j])])
 
@@ -1539,8 +1552,10 @@ class TreeHiddenMarkovEncodedDataSequence(EncodedDataSequence):
 
 
 @numba.njit(
-    "void(int32, int32[:], int32[:], int32[:], int32[:], int32[:], int32[:], int32[:], int32[:], int32[:], int32[:], "
-    "int32[:], float64[:,:], float64[:, :], float64[:, :], float64[:], float64[:,:], float64[:,:], float64[:])",
+    "void(int32, int32[:], int32[:], int32[:], int32[:], int32[:], int32[:], int32[:], "
+    "int32[:], int32[:], int32[:], "
+    "int32[:], float64[:,:], float64[:, :], float64[:, :], float64[:], float64[:,:], "
+    "float64[:,:], float64[:])",
     fastmath=True,
     parallel=True,
 )
@@ -1594,7 +1609,7 @@ def numba_seq_log_density(
         xlns = xln[j0:j1]
         xlnls = xlnl[j0:j1]
 
-        for k in range(len(xlns)):
+        for k, _ in enumerate(xlns):
             leaf_node = xlns[k]
             leaf_level = xlnls[k]
             beta_sum = 0
@@ -1648,8 +1663,10 @@ def numba_seq_log_density(
 
 
 @numba.njit(
-    "void(int32, int32[:], int32[:], int32[:], int32[:], int32[:], int32[:], int32[:], int32[:], int32[:], int32[:], "
-    "int32[:], float64[:,:], float64[:, :], float64[:, :], float64[:], float64[:,:], float64[:,:], float64[:,:], "
+    "void(int32, int32[:], int32[:], int32[:], int32[:], int32[:], int32[:], int32[:], "
+    "int32[:], int32[:], int32[:], "
+    "int32[:], float64[:,:], float64[:, :], float64[:, :], float64[:], float64[:,:], "
+    "float64[:,:], float64[:,:], "
     "float64[:,:, :], float64[:,:])",
     parallel=True,
 )
@@ -1689,7 +1706,8 @@ def numba_baum_welch(
         i0, i1 = txz[n], txz[n + 1]
 
         if i0 == i1:
-            #  Only one node with no children, need to handle this. No transition updates just pi_acc
+            # Only one node with no children, need to handle this. No transition updates
+            # just pi_acc
             alpha_sum = 0
             for i in range(num_states):
                 temp = pr_obs[s0, i] * p_level[0, i]
@@ -1712,7 +1730,7 @@ def numba_baum_welch(
         xlns = xln[j0:j1]
         xlnls = xlnl[j0:j1]
 
-        for k in range(len(xlns)):
+        for k, _ in enumerate(xlns):
             leaf_node = xlns[k]
             leaf_level = xlnls[k]
             beta_sum = 0
@@ -1807,7 +1825,8 @@ def numba_baum_welch(
 
 
 @numba.njit(
-    "void(int32, int32[:], int32[:], int32[:], int32[:], int32[:], int32[:], int32[:], int32[:], int32[:], int32[:], "
+    "void(int32, int32[:], int32[:], int32[:], int32[:], int32[:], int32[:], int32[:], "
+    "int32[:], int32[:], int32[:], "
     "int32[:], float64[:,:], float64[:, :], float64[:,:], float64[:,:], float64[:,:])",
     fastmath=True,
     parallel=True,
@@ -1843,7 +1862,8 @@ def numba_posteriors(
         i0, i1 = txz[n], txz[n + 1]
 
         if i0 == i1:
-            #  Only one node with no children, need to handle this. No transition updates just pi_acc
+            # Only one node with no children, need to handle this. No transition updates
+            # just pi_acc
             beta_sum = 0
             for i in range(num_states):
                 temp = pr_obs[s0, i] * p_level[0, i]
@@ -1863,7 +1883,7 @@ def numba_posteriors(
         xlns = xln[j0:j1]
         xlnls = xlnl[j0:j1]
 
-        for k in range(len(xlns)):
+        for k, _ in enumerate(xlns):
             leaf_node = xlns[k]
             leaf_level = xlnls[k]
             beta_sum = 0
@@ -1911,7 +1931,8 @@ def numba_posteriors(
 
 
 @numba.jit(
-    "void(int32[:], int32[:], int32[:], int32[:], int32[:], int32[:], int64[:], float64[:], float64[:], "
+    "void(int32[:], int32[:], int32[:], int32[:], int32[:], int32[:], int64[:], "
+    "float64[:], float64[:], "
     "float64[:], float64[:,:])",
     parallel=True,
     nopython=True,
@@ -1949,8 +1970,10 @@ def numba_initialize(
 
 
 @numba.njit(
-    "void(int32, int32[:], int32[:], int32[:], int32[:], int32[:], int32[:], int32[:], int32[:], int32[:], "
-    "int32[:], float64[:,:], float64[:], float64[:,:], float64[:,:], float64[:,:], int32[:])",
+    "void(int32, int32[:], int32[:], int32[:], int32[:], int32[:], int32[:], int32[:], "
+    "int32[:], int32[:], "
+    "int32[:], float64[:,:], float64[:], float64[:,:], float64[:,:], float64[:,:], "
+    "int32[:])",
     parallel=True,
 )
 def numba_viterbi(
@@ -1985,7 +2008,8 @@ def numba_viterbi(
         outs = out[s0:s1]
 
         if i0 == i1:
-            #  Only one node with no children, need to handle this. No transition updates just pi_acc
+            # Only one node with no children, need to handle this. No transition updates
+            # just pi_acc
             beta_max = None
             beta_max_i = 0
             for i in range(num_states):
@@ -2008,7 +2032,7 @@ def numba_viterbi(
         j0, j1 = tlnz[n], tlnz[n + 1]
         xlns = xln[j0:j1]
 
-        for k in range(len(xlns)):
+        for k, _ in enumerate(xlns):
             leaf_node = xlns[k]
             temp = log_b[leaf_node, 0]
             beta_mat[leaf_node, 0] += temp

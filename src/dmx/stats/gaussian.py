@@ -1,6 +1,8 @@
-"""Evaluate, estimate, and sample from a Gaussian distribution with mean mu and variance sigma2.
+"""Evaluate, estimate, and sample from a Gaussian distribution with mean mu and variance
+sigma2.
 
-Defines the GaussianDistribution, GaussianSampler, GaussianAccumulatorFactory, GaussianAccumulator,
+Defines the GaussianDistribution, GaussianSampler, GaussianAccumulatorFactory,
+GaussianAccumulator,
 GaussianEstimator, and the GaussianDataEncoder classes for use with dmx-learn.
 
 Data type: float
@@ -101,7 +103,8 @@ class GaussianDistribution(SequenceEncodableProbabilityDistribution):
         """
         if not isinstance(x, GaussianEncodedDataSequence):
             raise Exception(
-                "GaussianDistribution.seq_log_density() requires GaussianEncodedDataSequence."
+                "GaussianDistribution.seq_log_density() requires "
+                "GaussianEncodedDataSequence."
             )
 
         rv = x.data - self.mu
@@ -173,7 +176,8 @@ class GaussianSampler(DistributionSampler):
         """Draw iid samples from the Gaussian distribution.
 
         Args:
-            size (Optional[int], optional): Number of samples to draw. If None, returns a single sample.
+            size (Optional[int], optional): Number of samples to draw. If None, returns
+                a single sample.
 
         Returns:
             Union[float, np.ndarray]: Single sample or array of samples.
@@ -275,7 +279,8 @@ class GaussianAccumulator(SequenceEncodableStatisticAccumulator):
         """Aggregate sufficient statistics with this accumulator.
 
         Args:
-            suff_stat (Tuple[float, float, float, float]): (sum, sum2, count, count2) to combine.
+            suff_stat (Tuple[float, float, float, float]): (sum, sum2, count, count2) to
+                combine.
 
         Returns:
             GaussianAccumulator: Self after combining.
@@ -375,8 +380,10 @@ class GaussianEstimator(ParameterEstimator):
     """Estimator for the Gaussian distribution from aggregated sufficient statistics.
 
     Attributes:
-        pseudo_count (Tuple[Optional[float], Optional[float]]): Weights for sufficient statistics.
-        suff_stat (Tuple[Optional[float], Optional[float]]): Tuple of mean (mu) and variance (sigma2).
+        pseudo_count (Tuple[Optional[float], Optional[float]]): Weights for sufficient
+            statistics.
+        suff_stat (Tuple[Optional[float], Optional[float]]): Tuple of mean (mu) and
+            variance (sigma2).
         name (Optional[str]): Name of the estimator.
         keys (Optional[str]): Key for mean and variance.
     """
@@ -391,8 +398,10 @@ class GaussianEstimator(ParameterEstimator):
         """Initialize GaussianEstimator.
 
         Args:
-            pseudo_count (Tuple[Optional[float], Optional[float]]): Tuple of two positive floats.
-            suff_stat (Tuple[Optional[float], Optional[float]]): Tuple of mean and variance.
+            pseudo_count (Tuple[Optional[float], Optional[float]]): Tuple of two
+                positive floats.
+            suff_stat (Tuple[Optional[float], Optional[float]]): Tuple of mean and
+                variance.
             name (Optional[str], optional): Name for the estimator.
             keys (Optional[str], optional): Key for mean and variance.
 
@@ -424,7 +433,8 @@ class GaussianEstimator(ParameterEstimator):
 
         Args:
             nobs (Optional[float]): Number of observations (not used).
-            suff_stat (Tuple[float, float, float, float]): (sum, sum2, count, count2) sufficient statistics.
+            suff_stat (Tuple[float, float, float, float]): (sum, sum2, count, count2)
+                sufficient statistics.
 
         Returns:
             GaussianDistribution: Estimated distribution.

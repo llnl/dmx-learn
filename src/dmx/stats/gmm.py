@@ -1,10 +1,14 @@
 """Create, estimate, and sample from a univariate Gaussian mixture distribution.
 
-This module defines the GaussianMixtureDistribution, GaussianMixtureSampler, GaussianMixtureAccumulatorFactory,
-GaussianMixtureAccumulator, GaussianMixtureEstimator, and GaussianMixtureDataEncoder classes for use with dmx-learn.
+This module defines the GaussianMixtureDistribution, GaussianMixtureSampler,
+GaussianMixtureAccumulatorFactory,
+GaussianMixtureAccumulator, GaussianMixtureEstimator, and GaussianMixtureDataEncoder
+classes for use with dmx-learn.
 
-The GaussianMixtureDistribution allows users to key the variance parameter across all components. This differs from
-MixtureDistribution([GaussianDistribution()]*K), as you cannot key the variance parameter while allowing for different
+The GaussianMixtureDistribution allows users to key the variance parameter across all
+components. This differs from
+MixtureDistribution([GaussianDistribution()]*K), as you cannot key the variance
+parameter while allowing for different
 means in components.
 """
 
@@ -57,10 +61,12 @@ class GaussianMixtureDistribution(SequenceEncodableProbabilityDistribution):
 
         Args:
             mu (Union[Sequence[float], np.ndarray]): Means of each mixture component.
-            sigma2 (Union[Sequence[float], np.ndarray, float]): Variance for each Gaussian.
+            sigma2 (Union[Sequence[float], np.ndarray, float]): Variance for each
+                Gaussian.
             w (Union[np.ndarray, List[float]]): Weights for each mixture component.
             name (Optional[str], optional): Name for the object.
-            keys (Tuple[Optional[str], Optional[str]], optional): Keys for weights and parameters.
+            keys (Tuple[Optional[str], Optional[str]], optional): Keys for weights and
+                parameters.
         """
         if isinstance(sigma2, float):
             self._tied = True
@@ -94,7 +100,10 @@ class GaussianMixtureDistribution(SequenceEncodableProbabilityDistribution):
         s3 = repr(list(self.w))
         s4 = repr(self.name)
         s5 = repr(self.keys)
-        return f"GaussianMixtureDistribution(mu={s1}, sigma2={s2}, w={s3}, name={s4}, keys={s5})"
+        return (
+            f"GaussianMixtureDistribution(mu={s1}, sigma2={s2}, w={s3}, name={s4}, "
+            f"keys={s5})"
+        )
 
     def density(self, x: float) -> float:
         """Evaluate the density of the mixture at x.
@@ -177,7 +186,8 @@ class GaussianMixtureDistribution(SequenceEncodableProbabilityDistribution):
         """
         if not isinstance(x, GaussianMixtureEncodedDataSequence):
             raise Exception(
-                "GaussianMixtureEncodedDataSequence required for seq_component_log_density()."
+                "GaussianMixtureEncodedDataSequence required for "
+                "seq_component_log_density()."
             )
 
         rv = -0.5 * (x.data[:, None] - self.mu) ** 2 / self.sigma2 + self.log_c
@@ -327,7 +337,8 @@ class GaussianMixtureSampler(DistributionSampler):
         """Draw iid samples from the Gaussian mixture distribution.
 
         Args:
-            size (Optional[int], optional): Number of samples to draw. If None, returns a single sample.
+            size (Optional[int], optional): Number of samples to draw. If None, returns
+                a single sample.
 
         Returns:
             Union[float, List[float]]: Single sample or list of samples.
@@ -378,8 +389,10 @@ class GaussianMixtureAccumulator(SequenceEncodableStatisticAccumulator):
 
         Args:
             num_components (int): Number of mixture components.
-            tied (bool, optional): If variance is the same across all mixture components.
-            keys (Tuple[Optional[str], Optional[str]], optional): Keys for weights and parameters.
+            tied (bool, optional): If variance is the same across all mixture
+                components.
+            keys (Tuple[Optional[str], Optional[str]], optional): Keys for weights and
+                parameters.
             name (Optional[str], optional): Name for the accumulator.
         """
         self.num_components = num_components
@@ -405,7 +418,8 @@ class GaussianMixtureAccumulator(SequenceEncodableStatisticAccumulator):
         Args:
             x (float): Observation.
             weight (float): Weight for the observation.
-            estimate (GaussianMixtureDistribution): Distribution for posterior calculation.
+            estimate (GaussianMixtureDistribution): Distribution for posterior
+                calculation.
         """
         posterior = estimate.posterior(x)
         posterior *= weight
@@ -496,7 +510,8 @@ class GaussianMixtureAccumulator(SequenceEncodableStatisticAccumulator):
         Args:
             x (GaussianMixtureEncodedDataSequence): Encoded data sequence.
             weights (np.ndarray): Weights for each observation.
-            estimate (GaussianMixtureDistribution): Distribution for posterior calculation.
+            estimate (GaussianMixtureDistribution): Distribution for posterior
+                calculation.
         """
         ll_mat = (
             -0.5 * (x.data[:, None] - estimate.mu) ** 2 / estimate.sigma2
@@ -626,9 +641,11 @@ class GaussianMixtureAccumulatorFactory(StatisticAccumulatorFactory):
 
         Args:
             num_components (int): Number of mixture components.
-            keys (Tuple[Optional[str], Optional[str]], optional): Keys for weights and parameters.
+            keys (Tuple[Optional[str], Optional[str]], optional): Keys for weights and
+                parameters.
             name (Optional[str], optional): Name for the factory.
-            tied (bool, optional): If variance is the same across all mixture components.
+            tied (bool, optional): If variance is the same across all mixture
+                components.
         """
         self.keys = keys
         self.num_components = num_components
@@ -657,11 +674,16 @@ class GaussianMixtureEstimator(ParameterEstimator):
 
     Attributes:
         num_components (int): Number of mixture components.
-        pseudo_count (Tuple[Optional[float], Optional[float], Optional[float]]): Pseudo-counts for weights, mean, variance.
-        suff_stat (Tuple[Optional[np.ndarray], Optional[np.ndarray], Optional[np.ndarray]]): Sufficient statistics for weights, mean, and variance.
+        pseudo_count (Tuple[Optional[float], Optional[float], Optional[float]]):
+            Pseudo-counts for weights, mean, variance.
+        suff_stat (Tuple[Optional[np.ndarray], Optional[np.ndarray],
+            Optional[np.ndarray]]): Sufficient statistics for weights, mean, and
+            variance.
         tied (bool): If True, assume each Gaussian mixture has the same variance.
-        keys (Tuple[Optional[str], Optional[str]]): Keys for weights and mixture components.
-        fixed_weights (Optional[np.ndarray]): If not None, weights of the mixture are assumed fixed.
+        keys (Tuple[Optional[str], Optional[str]]): Keys for weights and mixture
+            components.
+        fixed_weights (Optional[np.ndarray]): If not None, weights of the mixture are
+            assumed fixed.
         name (Optional[str]): Name for the estimator.
     """
 
@@ -685,11 +707,17 @@ class GaussianMixtureEstimator(ParameterEstimator):
 
         Args:
             num_components (int): Number of mixture components.
-            fixed_weights (Optional[Union[List[float], np.ndarray]], optional): If not None, weights are fixed.
-            suff_stat (Tuple[Optional[np.ndarray], Optional[np.ndarray], Optional[np.ndarray]], optional): Sufficient statistics for weights, mean, and variance.
-            pseudo_count (Tuple[Optional[float], Optional[float], Optional[float]], optional): Pseudo-counts for weights, mean, variance.
-            tied (bool, optional): If True, assume each Gaussian mixture has the same variance.
-            keys (Tuple[Optional[str], Optional[str]], optional): Keys for weights and mixture components.
+            fixed_weights (Optional[Union[List[float], np.ndarray]], optional): If not
+                None, weights are fixed.
+            suff_stat (Tuple[Optional[np.ndarray], Optional[np.ndarray],
+                Optional[np.ndarray]], optional): Sufficient statistics for weights,
+                mean, and variance.
+            pseudo_count (Tuple[Optional[float], Optional[float], Optional[float]],
+                optional): Pseudo-counts for weights, mean, variance.
+            tied (bool, optional): If True, assume each Gaussian mixture has the same
+                variance.
+            keys (Tuple[Optional[str], Optional[str]], optional): Keys for weights and
+                mixture components.
             name (Optional[str], optional): Name for the estimator.
 
         Raises:
@@ -703,7 +731,8 @@ class GaussianMixtureEstimator(ParameterEstimator):
             self.keys = keys
         else:
             raise TypeError(
-                "GaussianMixtureEstimator requires keys (Tuple[Optional[str], Optional[str]])."
+                "GaussianMixtureEstimator requires keys (Tuple[Optional[str], "
+                "Optional[str]])."
             )
 
         self.num_components = num_components

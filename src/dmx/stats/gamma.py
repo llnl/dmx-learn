@@ -1,6 +1,7 @@
 """Create, estimate, and sample from a gamma distribution with shape k and scale theta.
 
-Defines the GammaDistribution, GammaSampler, GammaAccumulatorFactory, GammaAccumulator, GammaEstimator,
+Defines the GammaDistribution, GammaSampler, GammaAccumulatorFactory, GammaAccumulator,
+GammaEstimator,
 and the GammaDataEncoder classes for use with dmx-learn.
 """
 
@@ -166,10 +167,12 @@ class GammaSampler(DistributionSampler):
         """Draw iid samples from the gamma distribution.
 
         Args:
-            size (Optional[int], optional): Number of iid samples to draw. If None, returns a single sample.
+            size (Optional[int], optional): Number of iid samples to draw. If None,
+                returns a single sample.
 
         Returns:
-            Union[float, List[float]]: Single sample (float) if size is None, else a list of samples.
+            Union[float, List[float]]: Single sample (float) if size is None, else a
+            list of samples.
         """
         if size:
             return self.rng.gamma(
@@ -363,7 +366,8 @@ class GammaEstimator(ParameterEstimator):
     """Estimator for the gamma distribution from aggregated sufficient statistics.
 
     Attributes:
-        pseudo_count (Tuple[float, float]): Values used to re-weight sufficient statistics.
+        pseudo_count (Tuple[float, float]): Values used to re-weight sufficient
+            statistics.
         suff_stat (Tuple[float, float]): Prior shape 'k' and scale 'theta'.
         threshold (float): Threshold for estimating the shape of gamma.
         name (Optional[str]): Name for the estimator.
@@ -381,8 +385,10 @@ class GammaEstimator(ParameterEstimator):
         """Initialize GammaEstimator.
 
         Args:
-            pseudo_count (Tuple[float, float], optional): Values used to re-weight sufficient statistics.
-            suff_stat (Tuple[float, float], optional): Prior shape 'k' and scale 'theta'.
+            pseudo_count (Tuple[float, float], optional): Values used to re-weight
+                sufficient statistics.
+            suff_stat (Tuple[float, float], optional): Prior shape 'k' and scale
+                'theta'.
             threshold (float, optional): Threshold for estimating the shape of gamma.
             name (Optional[str], optional): Name for the estimator.
             keys (Optional[str], optional): Key for combining sufficient statistics.
@@ -416,7 +422,8 @@ class GammaEstimator(ParameterEstimator):
 
         Args:
             nobs (Optional[float]): Number of observations (not used).
-            suff_stat (Tuple[float, float, float]): (nobs, sum, sum_of_logs) sufficient statistics.
+            suff_stat (Tuple[float, float, float]): (nobs, sum, sum_of_logs) sufficient
+                statistics.
 
         Returns:
             GammaDistribution: Estimated distribution.

@@ -8,9 +8,11 @@ The DiracMixtureDistribution is defined by the density:
 
 where:
 
-- :math:`P_1()` is a length distribution with support on non-negative integers (or a subset thereof)
+- :math:`P_1()` is a length distribution with support on non-negative integers (or a
+  subset thereof)
 - :math:`\Delta_{v}(x) = 1` if :math:`x = v`, else :math:`0`
-- :math:`p` is the probability of drawing from the length distribution, with :math:`0 < p \leq 1`
+- :math:`p` is the probability of drawing from the length distribution, with :math:`0 <
+  p \leq 1`
 """
 
 from typing import Any, Dict, List, Optional, Sequence, Tuple, TypeVar, Union
@@ -34,14 +36,18 @@ key_type = Union[Tuple[str, str], Tuple[None, None]]
 
 
 class DiracMixtureDistribution(SequenceEncodableProbabilityDistribution):
-    """DiracMixtureDistribution object defined by a length distribution, choice of Dirac value, and p.
+    """DiracMixtureDistribution object defined by a length distribution, choice of Dirac
+    value, and p.
 
     Attributes:
-        p (float): Probability of being drawn from length distribution. Must be between 0 and 1.
-        dist (SequenceEncodableProbabilityDistribution): Distribution with support on non-negative integers.
+        p (float): Probability of being drawn from length distribution. Must be between
+            0 and 1.
+        dist (SequenceEncodableProbabilityDistribution): Distribution with support on
+            non-negative integers.
         v (int): Dirac spike value.
         name (Optional[str]): Name for object instance.
-        keys (Tuple[Optional[str], Optional[str]]): Keys for weights and components of mixture.
+        keys (Tuple[Optional[str], Optional[str]]): Keys for weights and components of
+            mixture.
     """
 
     def __init__(
@@ -55,11 +61,14 @@ class DiracMixtureDistribution(SequenceEncodableProbabilityDistribution):
         """Initialize DiracMixtureDistribution.
 
         Args:
-            dist (SequenceEncodableProbabilityDistribution): Distribution with support on non-negative integers.
-            p (float): Probability of being drawn from length distribution. Must be between 0 and 1.
+            dist (SequenceEncodableProbabilityDistribution): Distribution with support
+                on non-negative integers.
+            p (float): Probability of being drawn from length distribution. Must be
+                between 0 and 1.
             v (int, optional): Dirac spike value. Defaults to 0.
             name (Optional[str], optional): Name for object instance. Defaults to None.
-            keys (Tuple[Optional[str], Optional[str]], optional): Keys for weights and components of mixture. Defaults to (None, None).
+            keys (Tuple[Optional[str], Optional[str]], optional): Keys for weights and
+                components of mixture. Defaults to (None, None).
 
         Raises:
             Exception: If p is not in (0, 1].
@@ -166,12 +175,14 @@ class DiracMixtureDistribution(SequenceEncodableProbabilityDistribution):
     def seq_component_log_density(
         self, x: "DiracMixtureEncodedDataSequence"
     ) -> np.ndarray:
-        """Vectorized evaluation of the log density for the components of the Dirac mixture.
+        """Vectorized evaluation of the log density for the components of the Dirac
+        mixture.
 
         The components are Dirac spike and `dist`.
 
         Args:
-            x (DiracMixtureEncodedDataSequence): EncodedDataSequence for DiracMixtureDistribution.
+            x (DiracMixtureEncodedDataSequence): EncodedDataSequence for
+                DiracMixtureDistribution.
 
         Returns:
             np.ndarray: Log-densities for each component.
@@ -234,12 +245,14 @@ class DiracMixtureDistribution(SequenceEncodableProbabilityDistribution):
             return rv
 
     def seq_posterior(self, x: "DiracMixtureEncodedDataSequence") -> np.ndarray:
-        """Vectorized evaluation of the posterior for the components of the Dirac mixture.
+        """Vectorized evaluation of the posterior for the components of the Dirac
+        mixture.
 
         The components are Dirac spike and `dist`.
 
         Args:
-            x (DiracMixtureEncodedDataSequence): EncodedDataSequence for DiracMixtureDistribution.
+            x (DiracMixtureEncodedDataSequence): EncodedDataSequence for
+                DiracMixtureDistribution.
 
         Returns:
             np.ndarray: Posterior probabilities for each component.
@@ -331,7 +344,8 @@ class DiracMixtureSampler(DistributionSampler):
         """Initialize DiracMixtureSampler.
 
         Args:
-            dist (DiracMixtureDistribution): DiracMixtureDistribution to draw samples from.
+            dist (DiracMixtureDistribution): DiracMixtureDistribution to draw samples
+                from.
             seed (Optional[int], optional): Seed for random number generator.
         """
         rng_loc = np.random.RandomState(seed)
@@ -371,7 +385,8 @@ class DiracMixtureAccumulator(SequenceEncodableStatisticAccumulator):
     """DiracMixtureAccumulator object for aggregating sufficient statistics.
 
     Attributes:
-        accumulator (SequenceEncodableStatisticAccumulator): Accumulator object for distribution with integer support.
+        accumulator (SequenceEncodableStatisticAccumulator): Accumulator object for
+            distribution with integer support.
         comp_counts (np.ndarray): Sufficient statistics for mixture components.
         weight_key (Optional[str]): Key for weights of mixture.
         comp_key (Optional[str]): Key for components of mixture.
@@ -389,9 +404,11 @@ class DiracMixtureAccumulator(SequenceEncodableStatisticAccumulator):
         """Initialize DiracMixtureAccumulator.
 
         Args:
-            accumulator (SequenceEncodableStatisticAccumulator): Accumulator object for distribution with integer support.
+            accumulator (SequenceEncodableStatisticAccumulator): Accumulator object for
+                distribution with integer support.
             v (int, optional): Dirac spike value. Defaults to 0.
-            keys (Tuple[Optional[str], Optional[str]], optional): Keys for weights and components. Defaults to (None, None).
+            keys (Tuple[Optional[str], Optional[str]], optional): Keys for weights and
+                components. Defaults to (None, None).
             name (Optional[str], optional): Name for object. Defaults to None.
         """
         self.accumulator = accumulator
@@ -609,12 +626,15 @@ class DiracMixtureAccumulator(SequenceEncodableStatisticAccumulator):
 
 
 class DiracMixtureAccumulatorFactory(StatisticAccumulatorFactory):
-    """DiracMixtureAccumulatorFactory object for creating DiracMixtureAccumulator objects.
+    """DiracMixtureAccumulatorFactory object for creating DiracMixtureAccumulator
+    objects.
 
     Attributes:
-        factory (StatisticAccumulatorFactory): StatisticAccumulatorFactory for mixture components.
+        factory (StatisticAccumulatorFactory): StatisticAccumulatorFactory for mixture
+            components.
         v (int): Dirac integer value.
-        keys (Tuple[Optional[str], Optional[str]]): Keys for weights and mixture components.
+        keys (Tuple[Optional[str], Optional[str]]): Keys for weights and mixture
+            components.
         name (Optional[str]): Name for object.
     """
 
@@ -628,9 +648,11 @@ class DiracMixtureAccumulatorFactory(StatisticAccumulatorFactory):
         """Initialize DiracMixtureAccumulatorFactory.
 
         Args:
-            factory (StatisticAccumulatorFactory): StatisticAccumulatorFactory for mixture components.
+            factory (StatisticAccumulatorFactory): StatisticAccumulatorFactory for
+                mixture components.
             v (int, optional): Dirac integer value. Defaults to 0.
-            keys (Tuple[Optional[str], Optional[str]], optional): Keys for weights and mixture components. Defaults to (None, None).
+            keys (Tuple[Optional[str], Optional[str]], optional): Keys for weights and
+                mixture components. Defaults to (None, None).
             name (Optional[str], optional): Name for object. Defaults to None.
         """
         self.factory = factory
@@ -653,11 +675,13 @@ class DiracMixtureEstimator(ParameterEstimator):
     """DiracMixtureEstimator object for estimating DiracMixtureDistribution.
 
     Attributes:
-        estimator (ParameterEstimator): Estimator for components of mixture. Should have support on integers.
+        estimator (ParameterEstimator): Estimator for components of mixture. Should have
+            support on integers.
         v (int): Spiked value.
         pseudo_count (Optional[float]): Regularize sufficient statistics.
         suff_stat (Optional[float]): Regularize estimation on the Dirac probability.
-        keys (Tuple[Optional[str], Optional[str]]): Keys for weights and components of mixture.
+        keys (Tuple[Optional[str], Optional[str]]): Keys for weights and components of
+            mixture.
         name (Optional[str]): Assign a name to the object.
         fixed_p_vec (Optional[np.ndarray]): Fixed Dirac spike probability.
     """
@@ -675,13 +699,19 @@ class DiracMixtureEstimator(ParameterEstimator):
         """Initialize DiracMixtureEstimator.
 
         Args:
-            estimator (ParameterEstimator): Estimator for components of mixture. Should have support on integers.
+            estimator (ParameterEstimator): Estimator for components of mixture. Should
+                have support on integers.
             v (int, optional): Spiked value. Defaults to 0.
-            fixed_p (Optional[int], optional): Fixed Dirac spike probability. Defaults to None.
-            suff_stat (Optional[float], optional): Regularize estimation on the Dirac probability. Defaults to None.
-            pseudo_count (Optional[float], optional): Regularize sufficient statistics. Defaults to None.
-            name (Optional[str], optional): Assign a name to the object. Defaults to None.
-            keys (Tuple[Optional[str], Optional[str]], optional): Keys for weights and components of mixture. Defaults to (None, None).
+            fixed_p (Optional[int], optional): Fixed Dirac spike probability. Defaults
+                to None.
+            suff_stat (Optional[float], optional): Regularize estimation on the Dirac
+                probability. Defaults to None.
+            pseudo_count (Optional[float], optional): Regularize sufficient statistics.
+                Defaults to None.
+            name (Optional[str], optional): Assign a name to the object. Defaults to
+                None.
+            keys (Tuple[Optional[str], Optional[str]], optional): Keys for weights and
+                components of mixture. Defaults to (None, None).
 
         Raises:
             TypeError: If keys is not a tuple of two strings or None.
@@ -694,7 +724,8 @@ class DiracMixtureEstimator(ParameterEstimator):
             self.keys = keys
         else:
             raise TypeError(
-                "DiracMixtureEstimator requires keys (Tuple[Optional[str], Optional[str]])."
+                "DiracMixtureEstimator requires keys (Tuple[Optional[str], "
+                "Optional[str]])."
             )
 
         self.estimator = estimator
@@ -757,10 +788,12 @@ class DiracMixtureEstimator(ParameterEstimator):
 
 
 class DiracMixtureDataEncoder(DataSequenceEncoder):
-    """DiracMixtureDataEncoder object for encoding sequences of Dirac mixture observations.
+    """DiracMixtureDataEncoder object for encoding sequences of Dirac mixture
+    observations.
 
     Attributes:
-        encoder (DataSequenceEncoder): DataSequenceEncoder for distribution with support on the integers.
+        encoder (DataSequenceEncoder): DataSequenceEncoder for distribution with support
+            on the integers.
         v (int): Dirac spike value.
     """
 
@@ -768,7 +801,8 @@ class DiracMixtureDataEncoder(DataSequenceEncoder):
         """Initialize DiracMixtureDataEncoder.
 
         Args:
-            encoder (DataSequenceEncoder): DataSequenceEncoder for distribution with support on the integers.
+            encoder (DataSequenceEncoder): DataSequenceEncoder for distribution with
+                support on the integers.
             v (int, optional): Dirac spike value. Defaults to 0.
         """
         self.encoder = encoder
@@ -818,7 +852,8 @@ class DiracMixtureEncodedDataSequence(EncodedDataSequence):
     """DiracMixtureEncodedDataSequence object for use with vectorized function calls.
 
     Attributes:
-        data (Tuple[int, np.ndarray, np.ndarray, EncodedDataSequence]): Encoded sequence of iid Dirac mixture observations.
+        data (Tuple[int, np.ndarray, np.ndarray, EncodedDataSequence]): Encoded sequence
+            of iid Dirac mixture observations.
     """
 
     def __init__(
@@ -827,7 +862,8 @@ class DiracMixtureEncodedDataSequence(EncodedDataSequence):
         """Initialize DiracMixtureEncodedDataSequence.
 
         Args:
-            data (Tuple[int, np.ndarray, np.ndarray, EncodedDataSequence]): Encoded sequence of iid Dirac mixture observations.
+            data (Tuple[int, np.ndarray, np.ndarray, EncodedDataSequence]): Encoded
+                sequence of iid Dirac mixture observations.
         """
         super().__init__(data=data)
 

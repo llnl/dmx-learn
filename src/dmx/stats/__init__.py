@@ -273,13 +273,17 @@ def initialize(
     rng: np.random.RandomState,
     p: float = 0.1,
 ) -> SequenceEncodableProbabilityDistribution:
-    """Randomly initialize a model corresponding to ParameterEstimator for iid observations data.
+    """Randomly initialize a model corresponding to ParameterEstimator for iid
+    observations data.
 
     Args:
-        data (Union[Sequence[T], RDD]): Set of iid observations compatible with 'estimator'.
-        estimator (ParameterEstimator): ParameterEstimator object for desired model to be estimated from data.
+        data (Union[Sequence[T], RDD]): Set of iid observations compatible with
+            'estimator'.
+        estimator (ParameterEstimator): ParameterEstimator object for desired model to
+            be estimated from data.
         rng (np.random.RandomState): RandomState object for setting seed.
-        p (float, optional): Proportion of data to randomly sample for initializing model. Defaults to 0.1.
+        p (float, optional): Proportion of data to randomly sample for initializing
+            model. Defaults to 0.1.
 
     Returns:
         SequenceEncodableProbabilityDistribution: Initialized model.
@@ -349,10 +353,12 @@ def estimate(
     """Perform E-step in EM algorithm by iterating over all observations in 'data'.
 
     Args:
-        data (Union[Sequence[T], RDD]): Sequence of iid observations of data type consistent with
+        data (Union[Sequence[T], RDD]): Sequence of iid observations of data type
+            consistent with
             'estimator' and/or 'prev_estimate'.
         estimator (ParameterEstimator): Model to be estimated from 'data'.
-        prev_estimate (Optional[SequenceEncodableProbabilityDistribution], optional): Previous estimate of EM algorithm. Must
+        prev_estimate (Optional[SequenceEncodableProbabilityDistribution], optional):
+            Previous estimate of EM algorithm. Must
             be included for distributions that require initialization. Defaults to None.
 
     Returns:
@@ -409,16 +415,23 @@ def seq_encode(
     num_chunks: int = 1,
     chunk_size: Optional[int] = None,
 ) -> Union[RDD, List[Tuple[int, EncodedDataSequence]]]:
-    """Sequence encode a sequence of iid observations from a distribution corresponding to 'encoder'.
+    """Sequence encode a sequence of iid observations from a distribution corresponding
+    to 'encoder'.
 
     Args:
-        data (Union[Sequence[T], RDD]): Sequence of iid observations of data type consistent with
+        data (Union[Sequence[T], RDD]): Sequence of iid observations of data type
+            consistent with
             'encoder'.
-        encoder (Optional[DataSequenceEncoder], optional): A DataSequenceEncoder object for sequence encoding iid sequences.
-        estimator (Optional[ParameterEstimator], optional): An estimator to create DataSequenceEncoder from.
-        model (Optional[SequenceEncodableProbabilityDistribution], optional): A distribution to create DataSequenceEncoder from.
-        num_chunks (int, optional): Number of chunks to split the data into. Defaults to 1.
-        chunk_size (Optional[int], optional): Approximate size of chunks to determine num_chunks above.
+        encoder (Optional[DataSequenceEncoder], optional): A DataSequenceEncoder object
+            for sequence encoding iid sequences.
+        estimator (Optional[ParameterEstimator], optional): An estimator to create
+            DataSequenceEncoder from.
+        model (Optional[SequenceEncodableProbabilityDistribution], optional): A
+            distribution to create DataSequenceEncoder from.
+        num_chunks (int, optional): Number of chunks to split the data into. Defaults to
+            1.
+        chunk_size (Optional[int], optional): Approximate size of chunks to determine
+            num_chunks above.
 
     Returns:
         Union[RDD, List[Tuple[int, EncodedDataSequence]]]: Encoded data.
@@ -468,17 +481,22 @@ def seq_log_density_sum(
     enc_data: Union[List[Tuple[int, EncodedDataSequence]], RDD],
     estimate: SequenceEncodableProbabilityDistribution,
 ) -> Tuple[float, float]:
-    """Vectorized evaluation of the sum of log_density values for a given SequenceEncodableProbabilityDistribution
+    """Vectorized evaluation of the sum of log_density values for a given
+    SequenceEncodableProbabilityDistribution
         over encoded data.
 
     Notes:
-        Returns a Tuple containing the sum of all observations in enc_data, and the sum of the log_density evaluated at
-        all encoded data observations in enc_data. This is a fully vectorized evaluation.
+        Returns a Tuple containing the sum of all observations in enc_data, and the sum
+        of the log_density evaluated at
+        all encoded data observations in enc_data. This is a fully vectorized
+        evaluation.
 
     Args:
-        enc_data (Union[List[Tuple[int, T]], RDD]): Sequence encoded data of format matching output of
+        enc_data (Union[List[Tuple[int, T]], RDD]): Sequence encoded data of format
+            matching output of
             seq_encode() function.
-        estimate (SequenceEncodableProbabilityDistribution): Distribution to use for log_density evaluations. Must
+        estimate (SequenceEncodableProbabilityDistribution): Distribution to use for
+            log_density evaluations. Must
             be consistent with enc_data.
 
     Returns:
@@ -523,17 +541,21 @@ def seq_log_density(
     """Vectorized evaluation of 'estimate' log-density for each observation in enc_data.
 
     Notes:
-        If 'estimate' is input as a List of numpy arrays. Each list entry corresponds to the seq_log_density calls of all
+        If 'estimate' is input as a List of numpy arrays. Each list entry corresponds to
+        the seq_log_density calls of all
         the encoded data for each List entry of estimate.
 
-        If 'estimate' is a single SequenceEncodableProbabilityDistribution instance. The log_density of every observation
+        If 'estimate' is a single SequenceEncodableProbabilityDistribution instance. The
+        log_density of every observation
         in the 'enc_data' data set is returned as a list.
 
         E = Union[List[Tuple[int, EncodedDataSequence]], RDD]
 
     Args:
-        enc_data (E): Sequence encoded data of format matching output of seq_encode() function.
-        estimate (SequenceEncodableProbabilityDistribution): Distribution to use for log_density evaluations.
+        enc_data (E): Sequence encoded data of format matching output of seq_encode()
+            function.
+        estimate (SequenceEncodableProbabilityDistribution): Distribution to use for
+            log_density evaluations.
 
     Returns:
         Union[List[np.ndarray[float]], List[float]]
@@ -574,23 +596,29 @@ def seq_estimate(
     estimator: ParameterEstimator,
     prev_estimate: T_D,
 ) -> T_D:
-    """Perform vectorized E-step in EM algorithm for encoded sequence of observations in 'enc_data'.
+    """Perform vectorized E-step in EM algorithm for encoded sequence of observations in
+    'enc_data'.
 
     Notes:
-        Arg estimator must be consistent with prev_estimate. That is, prev_estimate must be an estimate that could be
+        Arg estimator must be consistent with prev_estimate. That is, prev_estimate must
+        be an estimate that could be
         obtained from estimator.
 
-        Arg enc_data must type consistent with estimator and prev_estimate (result of seq_encode() call).
+        Arg enc_data must type consistent with estimator and prev_estimate (result of
+        seq_encode() call).
 
-        Returns the next iteration of EM algorithm with vectorized calls to "seq_update()" of the corresponding
+        Returns the next iteration of EM algorithm with vectorized calls to
+        "seq_update()" of the corresponding
         SequenceEncodableStatsiticAccumulator objects.
 
         E = Union[List[Tuple[int, EncodedDataSequence]], RDD]
 
     Args:
-        enc_data (E): Sequence encoded data of format matching output of seq_encode() function.
+        enc_data (E): Sequence encoded data of format matching output of seq_encode()
+            function.
         estimator (ParameterEstimator): Model to be estimated from 'enc_data'.
-        prev_estimate (SequenceEncodableProbabilityDistribution): Previous estimate of EM algorithm.
+        prev_estimate (SequenceEncodableProbabilityDistribution): Previous estimate of
+            EM algorithm.
 
     Returns:
         SequenceEncodableProbabilityDistribution
@@ -671,25 +699,31 @@ def seq_initialize(
     rng: np.random.RandomState,
     p: float = 0.1,
 ) -> "SequenceEncodableProbabilityDistribution":
-    """Vectorized initialization of a model corresponding to ParameterEstimator for encoded sequences of iid data
+    """Vectorized initialization of a model corresponding to ParameterEstimator for
+    encoded sequences of iid data
         observations.
 
     Notes:
         Arg enc_data must type consistent with estimator (result of seq_encode() call).
-        Arg estimator must be of data type consistent with encoded sequence data type in 'enc_data'.
+        Arg estimator must be of data type consistent with encoded sequence data type in
+        'enc_data'.
 
-        Vectorized initialization of SequenceEncodableProbabilityDistribution corresponding to 'estimator' from enc_data.
+        Vectorized initialization of SequenceEncodableProbabilityDistribution
+        corresponding to 'estimator' from enc_data.
         Observations in the encoded sequence enc_data are kept with probability p.
 
-        This functions relies on calls to SequenceEncodableStatisticAccumulator.seq_initialize(), which is a vectorized
+        This functions relies on calls to
+        SequenceEncodableStatisticAccumulator.seq_initialize(), which is a vectorized
         initialization of the SequenceEncodableStatisticAccumulator object.
 
-        This method should produce the same initialized model as a call to initialize() if the data sets are the same.
+        This method should produce the same initialized model as a call to initialize()
+        if the data sets are the same.
 
         E = Union[List[Tuple[int, EncodedDataSequence]], RDD]
 
     Args:
-        enc_data (E): Sequence encoded data of format matching output of seq_encode() function.
+        enc_data (E): Sequence encoded data of format matching output of seq_encode()
+            function.
         estimator (ParameterEstimator): Model to be estimated from 'enc_data'.
         rng (RandomState): RandomState object for setting seed.
         p (float): Proportion of data to randomly sample for initializing model.

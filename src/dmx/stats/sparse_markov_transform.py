@@ -1,18 +1,23 @@
 """Create, estimate, and sample from an integer sparse Markov hidden association model.
 
 Defines the SparseMarkovAssociationDistribution, SparseMarkovAssociationSampler,
-SparseMarkovAssociationAccumulatorFactory, SparseMarkovAssociationAccumulator, SparseMarkovAssociationEstimator, and
+SparseMarkovAssociationAccumulatorFactory, SparseMarkovAssociationAccumulator,
+SparseMarkovAssociationEstimator, and
 the SparseMarkovAssociationDataEncoder classes for use with dmx-learn.
 
 Data type:  Tuple[List[Tuple[int, float]], List[Tuple[int, float]]].
 
-The SparseMarkovAssociation model is a generative model for two sets of words S_1 ={w_{1,1},...,w_{1,n}} and
-S_2 ={w_{2,1},...,w_{2,m}} over W possible words. The model assumes a hidden set of assignments
-A_2 = {a_{2,1},...,a_{2,m}} where a_{2,j} takes on values in {1,2,...,m}. The observed likelihood function is
+The SparseMarkovAssociation model is a generative model for two sets of words S_1
+={w_{1,1},...,w_{1,n}} and
+S_2 ={w_{2,1},...,w_{2,m}} over W possible words. The model assumes a hidden set of
+assignments
+A_2 = {a_{2,1},...,a_{2,m}} where a_{2,j} takes on values in {1,2,...,m}. The observed
+likelihood function is
 computed from P(S_1, S_2) = P(S_2 | S_1) P(S_1), where
 
     (1) log(P(S_2|S_1)) = sum_{i=1}^{m} log(P(w_{2,i}|w_{1,1},...,w_{1,n})
-                        = sum_{i=1}^{m} log( (1/m)*sum_{j=1}^{n} (1-alpha)*P(w_{2,i} | w_{1,j}) + alpha/W).
+                        = sum_{i=1}^{m} log( (1/m)*sum_{j=1}^{n} (1-alpha)*P(w_{2,i} |
+                        w_{1,j}) + alpha/W).
     (2) log(P(S_1)) = sum_{j=1}^{n} log( (1-alpha)*P(w_{1,j} + alpha/W ).
 
 This model is great for problems where one set is given like translations.
@@ -64,14 +69,17 @@ E1 = Tuple[
 
 
 class SparseMarkovAssociationDistribution(SequenceEncodableProbabilityDistribution):
-    """SparseMarkovAssociationDistribution object for creating a sparse Markov association model.
+    """SparseMarkovAssociationDistribution object for creating a sparse Markov
+    association model.
 
     Attributes:
         init_prob_vec (np.ndarray): Probabilities for the first set of words S1.
-        cond_prob_mat (csr_matrix): Sparse matrix defining the probabilities for mapping words in S1 to S2. Dim is
+        cond_prob_mat (csr_matrix): Sparse matrix defining the probabilities for mapping
+            words in S1 to S2. Dim is
             (|S2| by |S1|).
         alpha (float): Regularization parameter (should be between 0 and 1).
-        len_dist (SequenceEncodableProbabilityDistribution): Distribution for length of words. Must be
+        len_dist (SequenceEncodableProbabilityDistribution): Distribution for length of
+            words. Must be
             compatible with Tuple[int, int]
         low_memory (bool): If True, uses low_memory function calls.
 
@@ -90,11 +98,14 @@ class SparseMarkovAssociationDistribution(SequenceEncodableProbabilityDistributi
         """SparseMarkovAssociationDistribution object.
 
         Args:
-            init_prob_vec (Union[Sequence[float], np.ndarray]): Probabilities for the first set of words S1.
-            cond_prob_mat (csr_matrix): Sparse matrix defining the probabilities for mapping words in S1 to S2. Dim is
+            init_prob_vec (Union[Sequence[float], np.ndarray]): Probabilities for the
+                first set of words S1.
+            cond_prob_mat (csr_matrix): Sparse matrix defining the probabilities for
+                mapping words in S1 to S2. Dim is
                 (|S2| by |S1|).
             alpha (float): Regularization parameter (should be between 0 and 1).
-            len_dist (Optional[SequenceEncodableProbabilityDistribution]): Distribution for length of words. Must be
+            len_dist (Optional[SequenceEncodableProbabilityDistribution]): Distribution
+                for length of words. Must be
                 compatible with Tuple[int, int].
             low_memory (bool): If True, uses low_memory function calls.
 
@@ -113,12 +124,12 @@ class SparseMarkovAssociationDistribution(SequenceEncodableProbabilityDistributi
         s20 = ",".join(map(str, tt))
         s21 = ",".join(map(str, temp[0]))
         s22 = ",".join(map(str, temp[1]))
-        s2 = "([%s], ([%s],[%s]))" % (s20, s21, s22)
+        s2 = f"([{s20}], ([{s21}],[{s22}]))"
         s3 = str(self.alpha)
         s4 = str(self.len_dist)
         return (
-            "SparseMarkovAssociationDistribution([%s], %s, alpha=%s, len_dist=%s)"
-            % (s1, s2, s3, s4)
+            f"SparseMarkovAssociationDistribution([{s1}], {s2}, alpha={s3}, "
+            f"len_dist={s4})"
         )
 
     def density(
@@ -549,17 +560,20 @@ class SparseMarkovAssociationAccumulatorFactory(StatisticAccumulatorFactory):
 
 
 class SparseMarkovAssociationEstimator(ParameterEstimator):
-    """SparseMarkovAssociationEstimator object for estimating SparseMarkovAssociationModel objects from aggregated
+    """SparseMarkovAssociationEstimator object for estimating
+    SparseMarkovAssociationModel objects from aggregated
         sufficient statistics.
 
     Attributes:
         num_vals (int): Number of values in S1.
         alpha (float): Regularization parameter (should be between 0 and 1).
-        len_estimator (ParameterEstimator): ParameterEstimator object for the length of observations.
+        len_estimator (ParameterEstimator): ParameterEstimator object for the length of
+            observations.
         suff_stat (Optional[Any]): Kept for consistency with estimate function.
         pseudo_count (Optional[float]): Regularize sufficient statistics.
         low_memory (bool): If True, use low_memory options.
-        keys (Tuple[Optional[str], Optional[str]]): Keys for initial distribution and state transition stats.
+        keys (Tuple[Optional[str], Optional[str]]): Keys for initial distribution and
+            state transition stats.
 
     """
 
@@ -578,11 +592,13 @@ class SparseMarkovAssociationEstimator(ParameterEstimator):
         Args:
             num_vals (int): Number of values in S1.
             alpha (float): Regularization parameter (should be between 0 and 1).
-            len_estimator (Optional[ParameterEstimator]): ParameterEstimator object for the length of observations.
+            len_estimator (Optional[ParameterEstimator]): ParameterEstimator object for
+                the length of observations.
             suff_stat (Optional[Any]): Kept for consistency with estimate function.
             pseudo_count (Optional[float]): Regularize sufficient statistics.
             low_memory (bool): If True, use low_memory options.
-            keys (Tuple[Optional[str], Optional[str]]): Keys for initial distribution and state transition stats.
+            keys (Tuple[Optional[str], Optional[str]]): Keys for initial distribution
+                and state transition stats.
 
         """
 

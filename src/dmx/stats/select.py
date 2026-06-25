@@ -1,9 +1,11 @@
 """Create, estimate, and sample from a select distribution.
 
-Defines the SelectDistribution, SelectSampler, SelectAccumulatorFactory, SelectAccumulator,
+Defines the SelectDistribution, SelectSampler, SelectAccumulatorFactory,
+SelectAccumulator,
 SelectEstimator, and the SelectDataEncoder classes for use with dmx-learn.
 
-The SelectDistribution samples from a set of SequenceEncodableProbabilityDistribution objects. The a choice function
+The SelectDistribution samples from a set of SequenceEncodableProbabilityDistribution
+objects. The a choice function
 maps an observation a distribution from the set of distributions.
 
 """
@@ -56,7 +58,7 @@ class SelectDistribution(SequenceEncodableProbabilityDistribution):
 
         xi, idx, enc_tuple = x.data
         rv = np.zeros(len(xi))
-        for i in range(len(idx)):
+        for i, _ in enumerate(idx):
             rv[xi[i]] = self.dists[i].seq_log_density(enc_tuple[i])
         return rv
 
@@ -135,7 +137,7 @@ class SelectEstimatorAccumulator(SequenceEncodableStatisticAccumulator):
         estimate: SelectDistribution,
     ) -> None:
         xi, idx, enc_tuple = x.data
-        for i in range(len(idx)):
+        for i, _ in enumerate(idx):
             w = weights[xi[i]]
             self.accumulators[i].seq_update(enc_tuple[i], w, estimate.dists[i])
             self.weights[i] += np.sum(w)
@@ -147,7 +149,7 @@ class SelectEstimatorAccumulator(SequenceEncodableStatisticAccumulator):
             self._rng_initialize(rng)
 
         xi, idx, enc_tuple = x.data
-        for i in range(len(idx)):
+        for i, _ in enumerate(idx):
             w = weights[xi[i]]
             self.accumulators[i].seq_initialize(enc_tuple[i], w, self._acc_rng[i])
             self.weights[i] += np.sum(w)

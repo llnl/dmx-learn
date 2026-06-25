@@ -1,23 +1,31 @@
-""""Create, estimate, and sample from a MultinomialDistribution.
+""" "Create, estimate, and sample from a MultinomialDistribution.
 
-Defines the MultinomialDistribution, MultinomialSampler, MultinomialAccumulatorFactory, MultinomialAccumulator,
+Defines the MultinomialDistribution, MultinomialSampler, MultinomialAccumulatorFactory,
+MultinomialAccumulator,
 MultinomialEstimator, and the MultinomialDataEncoder classes for use with dmx-learn.
 
-Let P_dist(V_k) be a distribution for a countable set of discrete observations of values V_k of type T. Denote
+Let P_dist(V_k) be a distribution for a countable set of discrete observations of values
+V_k of type T. Denote
 
     p_k = P_dist(V_k),
 
-as the probability of success for value V_k. Then sum_{k=0}^{inf} p_k = 1. Let x = (x_0, x_1,....,x_{n-1}) be a
-multinomial observation for a 'n' trials, where each x_i = (V_j, n_j) for some value V_j in the observation space and
-n_j is the associated number of success for the value. (note: sum n_j = n). Then, denoting p_j = p_mat(V_j), we have
+as the probability of success for value V_k. Then sum_{k=0}^{inf} p_k = 1. Let x = (x_0,
+x_1,....,x_{n-1}) be a
+multinomial observation for a 'n' trials, where each x_i = (V_j, n_j) for some value V_j
+in the observation space and
+n_j is the associated number of success for the value. (note: sum n_j = n). Then,
+denoting p_j = p_mat(V_j), we have
 log-density:
 
-    log(p_mat(x)) = log(n!) - sum_{j=0}^{n-1} n_j * log(p_j) - log(n_j!) + log(P_len(n)),
+    log(p_mat(x)) = log(n!) - sum_{j=0}^{n-1} n_j * log(p_j) - log(n_j!) +
+    log(P_len(n)),
 
-where P_len(n) is a distribution for the number of trials in the multinomial having support on the non-negative
+where P_len(n) is a distribution for the number of trials in the multinomial having
+support on the non-negative
 integers.
 
-The multinomial is assumed to have data type: Sequence[Tuple[T, float]], where T is the data type of the 'categories'.
+The multinomial is assumed to have data type: Sequence[Tuple[T, float]], where T is the
+data type of the 'categories'.
 
 """
 
@@ -52,18 +60,25 @@ SS2 = TypeVar("SS2")  ## suff stat type for len_dist
 
 
 class MultinomialDistribution(SequenceEncodableProbabilityDistribution):
-    """Multinomial distribution over a countable support with optional distribution for number of trials.
+    """Multinomial distribution over a countable support with optional distribution for
+    number of trials.
 
     Args:
-        dist (SequenceEncodableProbabilityDistribution): Distribution with at most a countable support.
-        len_dist (Optional[SequenceEncodableProbabilityDistribution], optional): Distribution for the number of trials. Defaults to NullDistribution().
-        len_normalized (bool, optional): Take geometric mean of the density of observation. Defaults to False.
+        dist (SequenceEncodableProbabilityDistribution): Distribution with at most a
+            countable support.
+        len_dist (Optional[SequenceEncodableProbabilityDistribution], optional):
+            Distribution for the number of trials. Defaults to NullDistribution().
+        len_normalized (bool, optional): Take geometric mean of the density of
+            observation. Defaults to False.
         name (Optional[str], optional): Name for the object instance. Defaults to None.
-        keys (Optional[str], optional): Keys for merging sufficient statistics. Defaults to None.
+        keys (Optional[str], optional): Keys for merging sufficient statistics. Defaults
+            to None.
 
     Attributes:
-        dist (SequenceEncodableProbabilityDistribution): Distribution with at most a countable support.
-        len_dist (Optional[SequenceEncodableProbabilityDistribution]): Distribution for the number of trials.
+        dist (SequenceEncodableProbabilityDistribution): Distribution with at most a
+            countable support.
+        len_dist (Optional[SequenceEncodableProbabilityDistribution]): Distribution for
+            the number of trials.
         len_normalized (bool): Take geometric mean of the density of observation.
         name (Optional[str]): Name for the object instance.
         keys (Optional[str]): Keys for merging sufficient statistics.
@@ -80,11 +95,16 @@ class MultinomialDistribution(SequenceEncodableProbabilityDistribution):
         """Initializes a MultinomialDistribution object.
 
         Args:
-            dist (SequenceEncodableProbabilityDistribution): Distribution with at most a countable support.
-            len_dist (Optional[SequenceEncodableProbabilityDistribution], optional): Distribution for the number of trials. Defaults to NullDistribution().
-            len_normalized (bool, optional): Take geometric mean of the density of observation. Defaults to False.
-            name (Optional[str], optional): Name for the object instance. Defaults to None.
-            keys (Optional[str], optional): Keys for merging sufficient statistics. Defaults to None.
+            dist (SequenceEncodableProbabilityDistribution): Distribution with at most a
+                countable support.
+            len_dist (Optional[SequenceEncodableProbabilityDistribution], optional):
+                Distribution for the number of trials. Defaults to NullDistribution().
+            len_normalized (bool, optional): Take geometric mean of the density of
+                observation. Defaults to False.
+            name (Optional[str], optional): Name for the object instance. Defaults to
+                None.
+            keys (Optional[str], optional): Keys for merging sufficient statistics.
+                Defaults to None.
         """
         self.dist = dist
         self.len_dist = len_dist if len_dist is not None else NullDistribution()
@@ -112,7 +132,8 @@ class MultinomialDistribution(SequenceEncodableProbabilityDistribution):
         """Returns the density of multinomial evaluated at observation x.
 
         Args:
-            x (Sequence[Tuple[T, float]]): Tuples of observed multinomial values and successes such that the successes sum to the number of trials.
+            x (Sequence[Tuple[T, float]]): Tuples of observed multinomial values and
+                successes such that the successes sum to the number of trials.
 
         Returns:
             float: Density evaluated at x.
@@ -123,14 +144,15 @@ class MultinomialDistribution(SequenceEncodableProbabilityDistribution):
         """Returns the log-density of multinomial evaluated at observation x.
 
         Args:
-            x (Sequence[Tuple[T, float]]): Tuples of observed multinomial values and successes such that the successes sum to the number of trials.
+            x (Sequence[Tuple[T, float]]): Tuples of observed multinomial values and
+                successes such that the successes sum to the number of trials.
 
         Returns:
             float: Log-density evaluated at x.
         """
         rv = 0.0
         cc = 0.0
-        for i in range(len(x)):
+        for i, _ in enumerate(x):
             rv += self.dist.log_density(x[i][0]) * x[i][1]
             cc += x[i][1]
 
@@ -155,7 +177,8 @@ class MultinomialDistribution(SequenceEncodableProbabilityDistribution):
         """
         if not isinstance(x, MultinomialEncodedDataSequence):
             raise Exception(
-                "MultinomialDistribution.seq_log_density() requires MultinomialEncodedDataSequence."
+                "MultinomialDistribution.seq_log_density() requires "
+                "MultinomialEncodedDataSequence."
             )
 
         idx, icnt, inz, enc_seq, enc_nseq, enc_w, enc_ww = x.data
@@ -186,7 +209,8 @@ class MultinomialDistribution(SequenceEncodableProbabilityDistribution):
         """
         if isinstance(self.len_dist, NullDistribution):
             raise Exception(
-                "len_dist must not be a SequenceEncodableProbabilityDistribution with support of non-negative integers."
+                "len_dist must not be a SequenceEncodableProbabilityDistribution with "
+                "support of non-negative integers."
             )
         return MultinomialSampler(self, seed)
 
@@ -194,7 +218,8 @@ class MultinomialDistribution(SequenceEncodableProbabilityDistribution):
         """Create a MultinomialEstimator object from this distribution.
 
         Args:
-            pseudo_count (Optional[float], optional): Re-weight member sufficient statistics when estimating from aggregated data.
+            pseudo_count (Optional[float], optional): Re-weight member sufficient
+                statistics when estimating from aggregated data.
 
         Returns:
             MultinomialEstimator: Estimator for this distribution.
@@ -227,10 +252,13 @@ class MultinomialSampler(DistributionSampler):
     """MultinomialSampler object for sampling from multinomial distribution.
 
     Attributes:
-         dist (MultinomialDistribution): An instance of a MultinomialDistribution object.
+         dist (MultinomialDistribution): An instance of a MultinomialDistribution
+             object.
          rng (RandomState): RandomState with seed set if passed.
-         dist_sampler (DistributionSampler): DistributionSampler object for sampling category values.
-         len_sampler (DistributionSampler): DistributionSampler object for sampling number of trials in multinomial.
+         dist_sampler (DistributionSampler): DistributionSampler object for sampling
+             category values.
+         len_sampler (DistributionSampler): DistributionSampler object for sampling
+             number of trials in multinomial.
 
     """
 
@@ -240,7 +268,8 @@ class MultinomialSampler(DistributionSampler):
         """MultinomialSampler object.
 
         Args:
-            dist (MultinomialDistribution): An instance of a MultinomialDistribution object.
+            dist (MultinomialDistribution): An instance of a MultinomialDistribution
+                object.
             seed (Optional[int]): Set the seed for sampling.
 
         """
@@ -262,7 +291,8 @@ class MultinomialSampler(DistributionSampler):
             size (Optional[int]): Number of iid samples to draw from multinomial.
 
         Returns:
-            Union[Sequence[Sequence[Tuple[Any, float]]], Sequence[Tuple[Any, float]]]: Sequence of 'size' iid
+            Union[Sequence[Sequence[Tuple[Any, float]]], Sequence[Tuple[Any, float]]]:
+            Sequence of 'size' iid
             observations if size is not None, else a single multinomial sample.
 
         """
@@ -285,16 +315,21 @@ class MultinomialAccumulator(SequenceEncodableStatisticAccumulator):
     """MultinomialAccumulator object.
 
     Attributes:
-        accumulator (SequenceEncodableStatisticAccumulator): Accumulator object for category values.
+        accumulator (SequenceEncodableStatisticAccumulator): Accumulator object for
+            category values.
         len_normalized (bool): Take geometric mean of density.
-        len_accumulator (SequenceEncodableStatisticAccumulator): Accumulator object for the number of trials in
+        len_accumulator (SequenceEncodableStatisticAccumulator): Accumulator object for
+            the number of trials in
             each observation, defaults to the NullAccumulator.
         name (Optional[str]): Name for object.
-        keys (Optional[str]): Set keys for merging sufficient statistics with objects containing matching keys.
+        keys (Optional[str]): Set keys for merging sufficient statistics with objects
+            containing matching keys.
 
         _init_rng (bool): True if RandomState objects have been initialized
-        _len_rng (Optional[RandomState]): RandomState for initializing length accumulator.
-        _acc_rng (Optional[RandomState]): List of RandomState objects for initializing category accumulator.
+        _len_rng (Optional[RandomState]): RandomState for initializing length
+            accumulator.
+        _acc_rng (Optional[RandomState]): List of RandomState objects for initializing
+            category accumulator.
 
     """
 
@@ -311,12 +346,15 @@ class MultinomialAccumulator(SequenceEncodableStatisticAccumulator):
         """MultinomialAccumulator object.
 
         Args:
-            accumulator (SequenceEncodableStatisticAccumulator): Accumulator object for category values.
+            accumulator (SequenceEncodableStatisticAccumulator): Accumulator object for
+                category values.
             len_normalized (bool): Take geometric mean of density.
-            len_accumulator (Optional[SequenceEncodableStatisticAccumulator]): Optional accumulator object for the
+            len_accumulator (Optional[SequenceEncodableStatisticAccumulator]): Optional
+                accumulator object for the
                 number of trials in each observation.
             name (Optional[str]): Name for object.
-            keys (Optional[str]): Set keys for merging sufficient statistics with objects containing matching keys.
+            keys (Optional[str]): Set keys for merging sufficient statistics with
+                objects containing matching keys.
 
         """
         self.accumulator = accumulator
@@ -341,29 +379,33 @@ class MultinomialAccumulator(SequenceEncodableStatisticAccumulator):
         """Update the accumulator with a new observation.
 
         Args:
-            x (Sequence[Tuple[T, float]]): Observation as a sequence of (category, count) tuples.
+            x (Sequence[Tuple[T, float]]): Observation as a sequence of (category,
+                count) tuples.
             weight (float): Weight for the observation.
-            estimate (Optional[MultinomialDistribution]): Current estimate of the distribution, or None.
+            estimate (Optional[MultinomialDistribution]): Current estimate of the
+                distribution, or None.
         """
         cc = [u[1] for u in x]
         ss = sum(cc)
 
         if estimate is None:
             w = weight / ss if (self.len_normalized and ss > 0) else weight
-            for i in range(len(x)):
+            for i, _ in enumerate(x):
                 self.accumulator.update(x[i][0], w * x[i][1], None)
             self.len_accumulator.update(ss, weight, None)
         else:
             w = weight / ss if (self.len_normalized and ss > 0) else weight
-            for i in range(len(x)):
+            for i, _ in enumerate(x):
                 self.accumulator.update(x[i][0], w * x[i][1], estimate.dist)
             self.len_accumulator.update(ss, weight, estimate.len_dist)
 
     def _rng_initialize(self, rng: RandomState) -> None:
-        """Set RandomState member variables for initialize and seq_initialize consistency.
+        """Set RandomState member variables for initialize and seq_initialize
+        consistency.
 
         Args:
-            rng (RandomState): RandomState object used to set member RandomState objects.
+            rng (RandomState): RandomState object used to set member RandomState
+                objects.
 
         Returns:
             None
@@ -380,7 +422,8 @@ class MultinomialAccumulator(SequenceEncodableStatisticAccumulator):
         """Initialize the accumulator with a new observation and random state.
 
         Args:
-            x (Sequence[Tuple[T, float]]): Observation as a sequence of (category, count) tuples.
+            x (Sequence[Tuple[T, float]]): Observation as a sequence of (category,
+                count) tuples.
             weight (float): Weight for the observation.
             rng (RandomState): Random state for initialization.
         """
@@ -391,7 +434,7 @@ class MultinomialAccumulator(SequenceEncodableStatisticAccumulator):
         ss = sum(cc)
         w = weight / ss if self.len_normalized and ss > 0 else weight
 
-        for i in range(len(x)):
+        for i, _ in enumerate(x):
             self.accumulator.initialize(x[i][0], w * x[i][1], self._acc_rng)
 
         self.len_accumulator.initialize(ss, weight, self._len_rng)
@@ -407,7 +450,8 @@ class MultinomialAccumulator(SequenceEncodableStatisticAccumulator):
         Args:
             x (MultinomialEncodedDataSequence): Encoded sequence of observations.
             weights (np.ndarray): Array of weights for each observation.
-            estimate (Optional[MultinomialDistribution]): Current estimate of the distribution, or None.
+            estimate (Optional[MultinomialDistribution]): Current estimate of the
+                distribution, or None.
         """
         idx, icnt, inz, enc_seq, enc_nseq, enc_w, enc_ww = x.data
 
@@ -426,7 +470,8 @@ class MultinomialAccumulator(SequenceEncodableStatisticAccumulator):
     def seq_initialize(
         self, x: "MultinomialEncodedDataSequence", weights: np.ndarray, rng: RandomState
     ) -> None:
-        """Initialize the accumulator with a sequence of encoded observations and random state.
+        """Initialize the accumulator with a sequence of encoded observations and random
+        state.
 
         Args:
             x (MultinomialEncodedDataSequence): Encoded sequence of observations.
@@ -522,11 +567,14 @@ class MultinomialAccumulatorFactory(StatisticAccumulatorFactory):
     """MultinomialAccumulatorFactory object for creating MultinomialAccumulator objects.
 
     Attributes:
-        est_factory (StatisticAccumulatorFactory): StatisticAccumulatorFactory for the value distribution.
+        est_factory (StatisticAccumulatorFactory): StatisticAccumulatorFactory for the
+            value distribution.
         len_normalized (bool): If true, geometric mean of density is taken.
-        len_factory (StatisticAccumulatorFactory): StatisticAccumulatorFactory for number of trials.
+        len_factory (StatisticAccumulatorFactory): StatisticAccumulatorFactory for
+            number of trials.
         name (Optional[str]): Name for object.
-        keys (Optional[str]): Set keys for merging sufficient statistics with objects containing matching keys.
+        keys (Optional[str]): Set keys for merging sufficient statistics with objects
+            containing matching keys.
 
     """
 
@@ -538,14 +586,18 @@ class MultinomialAccumulatorFactory(StatisticAccumulatorFactory):
         name: Optional[str] = None,
         keys: Optional[str] = None,
     ) -> None:
-        """MultinomialAccumulatorFactory object for creating MultinomialAccumulator objects.
+        """MultinomialAccumulatorFactory object for creating MultinomialAccumulator
+        objects.
 
         Args:
-            est_factory (StatisticAccumulatorFactory): StatisticAccumulatorFactory for the value distribution.
+            est_factory (StatisticAccumulatorFactory): StatisticAccumulatorFactory for
+                the value distribution.
             len_normalized (bool): If true, geometric mean of density is taken.
-            len_factory (StatisticAccumulatorFactory): StatisticAccumulatorFactory for number of trials.
+            len_factory (StatisticAccumulatorFactory): StatisticAccumulatorFactory for
+                number of trials.
             name (Optional[str]): Name for object.
-            keys (Optional[str]): Set keys for merging sufficient statistics with objects containing matching keys.
+            keys (Optional[str]): Set keys for merging sufficient statistics with
+                objects containing matching keys.
 
         """
         self.est_factory = est_factory
@@ -566,14 +618,17 @@ class MultinomialAccumulatorFactory(StatisticAccumulatorFactory):
 
 
 class MultinomialEstimator(ParameterEstimator):
-    """MultinomialEstimator object for estimating MultinomialDistribution objects from aggregated data.
+    """MultinomialEstimator object for estimating MultinomialDistribution objects from
+    aggregated data.
 
     Attributes:
         estimator (ParameterEstimator): ParameterEstimator for distribution of values.
-        len_estimator (ParameterEstimator): ParameterEstimator for the number of trials, defaults to
+        len_estimator (ParameterEstimator): ParameterEstimator for the number of trials,
+            defaults to
             the NullEstimator if None is passed.
         pseudo_count (Optional[float]): Regularizer estimator and len_estimator.
-        len_dist (Optional[SequenceEncodableProbabilityDistribution]): If None, distribution for number of trials
+        len_dist (Optional[SequenceEncodableProbabilityDistribution]): If None,
+            distribution for number of trials
             will be estimated from 'len_estimator'.
         len_normalized (Optional[bool]): Take geometric mean of density.
         name (Optional[str]): Name of object instance.
@@ -594,13 +649,17 @@ class MultinomialEstimator(ParameterEstimator):
         """MultinomialEstimator object.
 
         Args:
-            estimator (ParameterEstimator): ParameterEstimator for distribution of values.
-            len_estimator (Optional[ParameterEstimator]): Optional ParameterEstimator for the number of trials.
+            estimator (ParameterEstimator): ParameterEstimator for distribution of
+                values.
+            len_estimator (Optional[ParameterEstimator]): Optional ParameterEstimator
+                for the number of trials.
             pseudo_count (Optional[float]): Regularizer estimator and len_estimator.
-            len_dist (Optional[SequenceEncodableProbabilityDistribution]): Set distribution for the number of trials.
+            len_dist (Optional[SequenceEncodableProbabilityDistribution]): Set
+                distribution for the number of trials.
             len_normalized (Optional[bool]): Take geometric mean of density.
             name (Optional[str]): Set name to object instance.
-            keys (Optional[str]): Set keys to object instance for merging sufficient statistics.
+            keys (Optional[str]): Set keys to object instance for merging sufficient
+                statistics.
 
         """
         if isinstance(keys, str) or keys is None:
@@ -633,11 +692,14 @@ class MultinomialEstimator(ParameterEstimator):
     def estimate(
         self, nobs: Optional[float], suff_stat: Tuple[SS1, Optional[SS2]]
     ) -> "MultinomialDistribution":
-        """Estimate a MultinomialDistribution object from aggregated data contained in arg 'suff_stat'.
+        """Estimate a MultinomialDistribution object from aggregated data contained in
+        arg 'suff_stat'.
 
         Args:
-            nobs (Optional[float]): Number of observations used in aggregation of 'suff_stat'.
-            suff_stat (Tuple[SS1, Optional[SS2]]): Tuple of sufficient statistics for distribution of values and
+            nobs (Optional[float]): Number of observations used in aggregation of
+                'suff_stat'.
+            suff_stat (Tuple[SS1, Optional[SS2]]): Tuple of sufficient statistics for
+                distribution of values and
                 trial distribution.
 
         Returns:
@@ -660,15 +722,18 @@ class MultinomialEstimator(ParameterEstimator):
 
 
 class MultinomialDataEncoder(DataSequenceEncoder):
-    """MultinomialDataEncoder object for encoding sequences of iid multinomial observations.
+    """MultinomialDataEncoder object for encoding sequences of iid multinomial
+    observations.
 
-    Note: Arg encoders[0] must encoder data type T of multinomial, and encoders[1] must have support on the
+    Note: Arg encoders[0] must encoder data type T of multinomial, and encoders[1] must
+        have support on the
     positive integers.
 
     Attributes:
          encoder (DataSequenceEncoder): DataSequenceEncoder corresponding to the
             multinomial value encoder. Must be data type T.
-        len_encoder (DataSequenceEncoder): DataSequenceEncoder corresponding to the trial size of the multinomial.
+        len_encoder (DataSequenceEncoder): DataSequenceEncoder corresponding to the
+            trial size of the multinomial.
 
     """
 
@@ -680,7 +745,8 @@ class MultinomialDataEncoder(DataSequenceEncoder):
         Args:
             encoder (DataSequenceEncoder): DataSequenceEncoder corresponding to the
                 multinomial value encoder. Must be data type T.
-            len_encoder (DataSequenceEncoder): DataSequenceEncoder corresponding to the trial size of the multinomial.
+            len_encoder (DataSequenceEncoder): DataSequenceEncoder corresponding to the
+                trial size of the multinomial.
 
         """
         self.encoder = encoder
@@ -698,19 +764,22 @@ class MultinomialDataEncoder(DataSequenceEncoder):
     def seq_encode(
         self, x: Sequence[Sequence[Tuple[T, float]]]
     ) -> "MultinomialEncodedDataSequence":
-        """Encode a sequence of iid observations of multinomial distribution for use with vectorized functions.
+        """Encode a sequence of iid observations of multinomial distribution for use
+        with vectorized functions.
 
         Returns a tuple of size 7 containing:
             rv1 (ndarray[int]): Observation index of sequence values.
             rv2 (ndarray[float]): Trial size for each observation.
             rv3 (ndarray[float]): Non-zero trial size indices.
             rv4 (EncodedDataSequence): Sequence encoded flattened list of values from x.
-            rv5 (Optional[EncodedDataSequence]): Sequence encoded flatted list of trial sizes.
+            rv5 (Optional[EncodedDataSequence]): Sequence encoded flatted list of trial
+                sizes.
             rv6 (np.ndarray[float]): Flattened array of counts for values.
             rv7 (ndarray[float]): Flattened array of trial sizes.
 
         Args:
-            x (Sequence[Sequence[Tuple[T, float]]]): Sequence of iid observations of multinomial distributions.
+            x (Sequence[Sequence[Tuple[T, float]]]): Sequence of iid observations of
+                multinomial distributions.
 
         Returns:
             MultinomialEncodedDataSequence: See above.
@@ -722,10 +791,10 @@ class MultinomialDataEncoder(DataSequenceEncoder):
         cc = []
         ccc = []
 
-        for i in range(len(x)):
+        for i, _ in enumerate(x):
             nx.append(len(x[i]))
             aa = 0
-            for j in range(len(x[i])):
+            for j, _ in enumerate(x[i]):
                 tidx.append(i)
                 tx.append(x[i][j][0])
                 cc.append(x[i][j][1])
@@ -758,13 +827,16 @@ class MultinomialEncodedDataSequence(EncodedDataSequence):
             x[0] (ndarray[int]): Observation index of sequence values.
             x[1] (ndarray[float]): Trial size for each observation.
             x[2] (ndarray[float]): Non-zero trial size indices.
-            x[3] (EncodedDataSequence): Sequence encoded flattened list of values from x.
-            x[4] (Optional[EncodedDataSequence]): Sequence encoded flatted list of trial sizes.
+            x[3] (EncodedDataSequence): Sequence encoded flattened list of values from
+            x.
+            x[4] (Optional[EncodedDataSequence]): Sequence encoded flatted list of trial
+            sizes.
             x[5] (np.ndarray[float]): Flattened array of counts for values.
             x[6] (ndarray[float]): Flattened array of trial sizes.
 
     Attributes:
-        data (Tuple[np.ndarray, np.ndarray, np.ndarray, EncodedDataSequence, Optional[EncodedDataSequence], np.ndarray, np.ndarray]): See above.
+        data (Tuple[np.ndarray, np.ndarray, np.ndarray, EncodedDataSequence,
+            Optional[EncodedDataSequence], np.ndarray, np.ndarray]): See above.
 
     """
 
@@ -783,7 +855,8 @@ class MultinomialEncodedDataSequence(EncodedDataSequence):
         """MultinomialEncodedDataSequence object.
 
         Args:
-            data (Tuple[np.ndarray, np.ndarray, np.ndarray, EncodedDataSequence, Optional[EncodedDataSequence], np.ndarray, np.ndarray]): See above.
+            data (Tuple[np.ndarray, np.ndarray, np.ndarray, EncodedDataSequence,
+                Optional[EncodedDataSequence], np.ndarray, np.ndarray]): See above.
 
         """
         super().__init__(data=data)

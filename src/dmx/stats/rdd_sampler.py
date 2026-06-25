@@ -51,7 +51,8 @@ def sample_seq_as_rdd(
 
     Args:
         sc (SparkContext): The Spark context.
-        dist (SequenceEncodableProbabilityDistribution): The distribution object providing the sampler.
+        dist (SequenceEncodableProbabilityDistribution): The distribution object
+            providing the sampler.
         seq_len (int): Length of each sequence to sample.
         count_per_split (int): Number of samples per split.
         num_splits (int): Number of splits in the RDD.
@@ -85,7 +86,8 @@ def sample_rdd(
 
     Args:
         sc (SparkContext): The Spark context.
-        dist (SequenceEncodableProbabilityDistribution): The distribution object providing the sampler.
+        dist (SequenceEncodableProbabilityDistribution): The distribution object
+            providing the sampler.
         count_per_split (int): Number of samples per split.
         num_splits (int): Number of splits in the RDD.
         seed (Optional[int]): Seed for random number generation. Defaults to None.

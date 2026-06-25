@@ -1,16 +1,19 @@
 """Create, estimate, and sample from a Joint mixture distribution.
 
-Defines the JointMixtureDistribution, JointMixtureSampler, JointMixtureAccumulatorFactory, JointMixtureAccumulator,
+Defines the JointMixtureDistribution, JointMixtureSampler,
+JointMixtureAccumulatorFactory, JointMixtureAccumulator,
 JointMixtureEstimator, and the JointMixtureDataEncoder classes for use with dmx-learn.
 
 Data type: Tuple[T0, T1].
 
-Consider a random variable X = (X_1, X_2). A joint mixture with N components for X_1, and M components for X_2 is
+Consider a random variable X = (X_1, X_2). A joint mixture with N components for X_1,
+and M components for X_2 is
 given by
 
     P(X) = sum_{i=1}^{N} w_i * f_i(X_1) * sum_{j=1}^{M} tau_{ij}*g_j(X_2),
 
-where w_i is the probability of sampling X_1 from distribution f_i() (data type T0), tau_{ij} is the probability of
+where w_i is the probability of sampling X_1 from distribution f_i() (data type T0),
+tau_{ij} is the probability of
 sampling X_2 from g_j() (data type T1) given X_1 was sampled from f_i().
 
 
@@ -46,27 +49,35 @@ class JointMixtureDistribution(SequenceEncodableProbabilityDistribution):
     """JointMixtureDistribution object for defining a joint mixture distribution.
 
     Notes:
-        Data type is Tuple[T0, T1] where all components1 entries and component2 entries are compatible with
+        Data type is Tuple[T0, T1] where all components1 entries and component2 entries
+        are compatible with
         T0 and T1 respectively.
 
     Attributes:
-        components1(Sequence[SequenceEncodableProbabilityDistribution]): Mixture components for mixture of X1.
-        components2 (Sequence[SequenceEncodableProbabilityDistribution]): Mixture components for mixture X2.
+        components1(Sequence[SequenceEncodableProbabilityDistribution]): Mixture
+            components for mixture of X1.
+        components2 (Sequence[SequenceEncodableProbabilityDistribution]): Mixture
+            components for mixture X2.
         w1 (np.ndarray): Probability of drawing X1 from component i.
         w2 (np.ndarray): Probability of drawing X2 from component j.
         num_components1 (int): Number of mixture components for X1.
         num_components2 (int): Number of mixture components for X2.
-        taus12 (np.ndarray): 2-d Numpy array with probabilities of drawing X2 from comp j given X1 was drawn from
+        taus12 (np.ndarray): 2-d Numpy array with probabilities of drawing X2 from comp
+            j given X1 was drawn from
             comp i. Rows are component X1 state.
-        taus21 (np.ndarray): 2-d Numpy array with probabilities of drawing X1 from comp i given X2 was drawn from
+        taus21 (np.ndarray): 2-d Numpy array with probabilities of drawing X1 from comp
+            i given X2 was drawn from
             comp j. Rows are component X1 state.
         log_w1 (np.ndarray): Log-probability of drawing X1 from component i.
         log_w2 (np.ndarray): Log-probability of drawing X2 from component j.
-        log_taus12 (np.ndarray): 2-d Numpy array with log-probabilities of drawing X2 from comp j given X1 was
+        log_taus12 (np.ndarray): 2-d Numpy array with log-probabilities of drawing X2
+            from comp j given X1 was
             drawn from comp i. Rows are component X1 state.
-        log_taus21 (np.ndarray): 2-d Numpy array with log-probabilities of drawing X1 from comp i given X2 was
+        log_taus21 (np.ndarray): 2-d Numpy array with log-probabilities of drawing X1
+            from comp i given X2 was
             drawn from comp j. Rows are component X1 state.
-        keys (Optional[Tuple[Optional[str], Optional[str], Optional[str]]]): Set keys for weights, mixture
+        keys (Optional[Tuple[Optional[str], Optional[str], Optional[str]]]): Set keys
+            for weights, mixture
             components of X1, mixture components of X2.
         name (Optional[str]): Set name to object.
 
@@ -90,15 +101,20 @@ class JointMixtureDistribution(SequenceEncodableProbabilityDistribution):
         """JointMixtureDistribution object.
 
         Args:
-            components1(Sequence[SequenceEncodableProbabilityDistribution]): Mixture components for mixture of X1.
-            components2 (Sequence[SequenceEncodableProbabilityDistribution]): Mixture components for mixture X2.
+            components1(Sequence[SequenceEncodableProbabilityDistribution]): Mixture
+                components for mixture of X1.
+            components2 (Sequence[SequenceEncodableProbabilityDistribution]): Mixture
+                components for mixture X2.
             w1 (np.ndarray): Probability of drawing X1 from component i.
             w2 (np.ndarray): Probability of drawing X2 from component j.
-            taus12 (np.ndarray): 2-d Numpy array with probabilities of drawing X2 from comp j given X1 was drawn from
+            taus12 (np.ndarray): 2-d Numpy array with probabilities of drawing X2 from
+                comp j given X1 was drawn from
                 comp i. Rows are component X1 state.
-            taus21 (np.ndarray): 2-d Numpy array with probabilities of drawing X1 from comp i given X2 was drawn from
+            taus21 (np.ndarray): 2-d Numpy array with probabilities of drawing X1 from
+                comp i given X2 was drawn from
                 comp j. Rows are component X1 state.
-            keys (Optional[Tuple[Optional[str], Optional[str], Optional[str]]]): Set keys for weights, mixture
+            keys (Optional[Tuple[Optional[str], Optional[str], Optional[str]]]): Set
+                keys for weights, mixture
                 components of X1, mixture components of X2.
             name (Optional[str]): Set name to object.
 
@@ -134,8 +150,8 @@ class JointMixtureDistribution(SequenceEncodableProbabilityDistribution):
         s8 = repr(self.keys)
 
         return (
-            "JointMixtureDistribution([%s], [%s], [%s], [%s], [%s], [%s], name=%s, keys=%s)"
-            % (s1, s2, s3, s4, s5, s6, s7, s8)
+            f"JointMixtureDistribution([{s1}], [{s2}], [{s3}], [{s4}], [{s5}], [{s6}], "
+            f"name={s7}, keys={s8})"
         )
 
     def density(self, x: Tuple[T0, T1]) -> float:
@@ -280,26 +296,36 @@ class JointMixtureEstimatorAccumulator(SequenceEncodableStatisticAccumulator):
     """JointMixtureEstimatorAccumulator object for aggregating sufficient statistics.
 
     Attributes:
-        accumulators1 (Sequence[SequenceEncodableStatisticAccumulator]): Accumulators for the mixture components
+        accumulators1 (Sequence[SequenceEncodableStatisticAccumulator]): Accumulators
+            for the mixture components
             of X1.
-        accumulators2 (Sequence[SequenceEncodableStatisticAccumulator]): Accumulators for the mixture components
+        accumulators2 (Sequence[SequenceEncodableStatisticAccumulator]): Accumulators
+            for the mixture components
             of X2.
-        keys (Optional[Tuple[Optional[str], Optional[str], Optional[str]]]): Set keys for weights, mixture
+        keys (Optional[Tuple[Optional[str], Optional[str], Optional[str]]]): Set keys
+            for weights, mixture
             components of X1, mixture components of X2.
         num_components1 (int): Number of X1 mixture components.
         num_components2 (int): Number of X2 mixture components.
-        comp_counts1 (np.ndarray): Weighted observation counts for states of mixture on X1.
-        comp_counts2 (np.ndarray): Weighted observation counts for states of mixture on X2.
-        joint_counts (np.ndarray): 2-d Numpy array for counts of state-given-state weights. Row indexed by states
+        comp_counts1 (np.ndarray): Weighted observation counts for states of mixture on
+            X1.
+        comp_counts2 (np.ndarray): Weighted observation counts for states of mixture on
+            X2.
+        joint_counts (np.ndarray): 2-d Numpy array for counts of state-given-state
+            weights. Row indexed by states
             of X1, cols indexed by states of X2.
         name (Optional[str]): Set name to object.
 
         _rng_init (bool): Set to True once _rng_ members have been set.
-        _idx1_rng (Optional[RandomState]): RandomState for generating states for X1 in initializer.
-        _idx2_rng (Optional[RandomState]): RandomState for generating states for X2 in initializer.
-        _acc1_rng (Optional[List[RandomState]]): List of RandomStates for initializing each accumulator for
+        _idx1_rng (Optional[RandomState]): RandomState for generating states for X1 in
+            initializer.
+        _idx2_rng (Optional[RandomState]): RandomState for generating states for X2 in
+            initializer.
+        _acc1_rng (Optional[List[RandomState]]): List of RandomStates for initializing
+            each accumulator for
             mixture components of X1.
-        _acc2_rng (Optional[List[RandomState]]): List of RandomStates for initializing each accumulator for
+        _acc2_rng (Optional[List[RandomState]]): List of RandomStates for initializing
+            each accumulator for
             mixture components of X2.
 
 
@@ -319,11 +345,14 @@ class JointMixtureEstimatorAccumulator(SequenceEncodableStatisticAccumulator):
         """JointMixtureEstimatorAccumulator object.
 
         Args:
-            accumulators1 (Sequence[SequenceEncodableStatisticAccumulator]): Accumulators for the mixture components
+            accumulators1 (Sequence[SequenceEncodableStatisticAccumulator]):
+                Accumulators for the mixture components
                 of X1.
-            accumulators2 (Sequence[SequenceEncodableStatisticAccumulator]): Accumulators for the mixture components
+            accumulators2 (Sequence[SequenceEncodableStatisticAccumulator]):
+                Accumulators for the mixture components
                 of X2.
-            keys (Optional[Tuple[Optional[str], Optional[str], Optional[str]]]): Set keys for weights, mixture
+            keys (Optional[Tuple[Optional[str], Optional[str], Optional[str]]]): Set
+                keys for weights, mixture
                 components of X1, mixture components of X2.
             name (Optional[str]): Set name to object.
 
@@ -394,7 +423,8 @@ class JointMixtureEstimatorAccumulator(SequenceEncodableStatisticAccumulator):
 
         # idx1 = self._idx1_rng.choice(self.num_components1, size=sz)
         # idx2 = self._idx2_rng.choice(self.num_components2, size=sz)
-        # temp = np.bincount(idx1*self.num_components1 + idx2, minlength=self.num_components1*self.num_components2)
+        # temp = np.bincount(idx1*self.num_components1 + idx2,
+        # minlength=self.num_components1*self.num_components2)
 
         idx = self._idx1_rng.choice(
             self.num_components1 * self.num_components2, size=sz
@@ -572,12 +602,16 @@ class JointMixtureEstimatorAccumulator(SequenceEncodableStatisticAccumulator):
 
 
 class JointMixtureEstimatorAccumulatorFactory(StatisticAccumulatorFactory):
-    """JointMixtureEstimatorAccumulatorFactory object for creating JointMixtureEstimatorAccumulator objects.
+    """JointMixtureEstimatorAccumulatorFactory object for creating
+    JointMixtureEstimatorAccumulator objects.
 
     Attributes:
-        factories1 (Sequence[StatisticAccumulatorFactory]): List of mixture component factories for X1.
-        factories2 (Sequence[StatisticAccumulatorFactory]): List of mixture component factories for X2.
-        keys (Optional[Tuple[Optional[str], Optional[str], Optional[str]]]): Set keys for weights, mixture
+        factories1 (Sequence[StatisticAccumulatorFactory]): List of mixture component
+            factories for X1.
+        factories2 (Sequence[StatisticAccumulatorFactory]): List of mixture component
+            factories for X2.
+        keys (Optional[Tuple[Optional[str], Optional[str], Optional[str]]]): Set keys
+            for weights, mixture
             components of X1, mixture components of X2.
         name (Optional[str]): Set name to object.
 
@@ -597,9 +631,12 @@ class JointMixtureEstimatorAccumulatorFactory(StatisticAccumulatorFactory):
         """JointMixtureEstimatorAccumulatorFactory object.
 
         Args:
-            factories1 (Sequence[StatisticAccumulatorFactory]): List of mixture component factories for X1.
-            factories2 (Sequence[StatisticAccumulatorFactory]): List of mixture component factories for X2.
-            keys (Optional[Tuple[Optional[str], Optional[str], Optional[str]]]): Set keys for weights, mixture
+            factories1 (Sequence[StatisticAccumulatorFactory]): List of mixture
+                component factories for X1.
+            factories2 (Sequence[StatisticAccumulatorFactory]): List of mixture
+                component factories for X2.
+            keys (Optional[Tuple[Optional[str], Optional[str], Optional[str]]]): Set
+                keys for weights, mixture
                 components of X1, mixture components of X2.
             name (Optional[str]): Set name to object.
 
@@ -616,14 +653,19 @@ class JointMixtureEstimatorAccumulatorFactory(StatisticAccumulatorFactory):
 
 
 class JointMixtureEstimator(ParameterEstimator):
-    """JointMixtureEstimator object for estimating joint mixture distribution from aggregated sufficient stats.
+    """JointMixtureEstimator object for estimating joint mixture distribution from
+    aggregated sufficient stats.
 
     Attributes:
-        estimators1 (Sequence[ParameterEstimator]): Estimators for mixture component of X1.
-        estimators2 (Sequence[ParameterEstimator]): Estimators for mixture component of X2.
+        estimators1 (Sequence[ParameterEstimator]): Estimators for mixture component of
+            X1.
+        estimators2 (Sequence[ParameterEstimator]): Estimators for mixture component of
+            X2.
         suff_stat:
-        pseudo_count (Optional[Tuple[float, float, float]]): Used to re-weight the state counts in estimation.
-        keys (Optional[Tuple[Optional[str], Optional[str], Optional[str]]]): Set keys for weights, mixture
+        pseudo_count (Optional[Tuple[float, float, float]]): Used to re-weight the state
+            counts in estimation.
+        keys (Optional[Tuple[Optional[str], Optional[str], Optional[str]]]): Set keys
+            for weights, mixture
             components of X1, mixture components of X2.
         name (Optional[str]): Set name to object.
 
@@ -647,11 +689,15 @@ class JointMixtureEstimator(ParameterEstimator):
         """JointMixtureEstimator object.
 
         Args:
-            estimators1 (Sequence[ParameterEstimator]): Estimators for mixture component of X1.
-            estimators2 (Sequence[ParameterEstimator]): Estimators for mixture component of X2.
+            estimators1 (Sequence[ParameterEstimator]): Estimators for mixture component
+                of X1.
+            estimators2 (Sequence[ParameterEstimator]): Estimators for mixture component
+                of X2.
             suff_stat:
-            pseudo_count (Optional[Tuple[float, float, float]]): Used to re-weight the state counts in estimation.
-            keys (Optional[Tuple[Optional[str], Optional[str], Optional[str]]]): Set keys for weights, mixture
+            pseudo_count (Optional[Tuple[float, float, float]]): Used to re-weight the
+                state counts in estimation.
+            keys (Optional[Tuple[Optional[str], Optional[str], Optional[str]]]): Set
+                keys for weights, mixture
                 components of X1, mixture components of X2.
             name (Optional[str]): Set name to object.
 
@@ -730,7 +776,8 @@ class JointMixtureEstimator(ParameterEstimator):
 
 
 class JointMixtureDataEncoder(DataSequenceEncoder):
-    """JointMixtureDataEncoder object for encoding sequences of iid joint mixture observations.
+    """JointMixtureDataEncoder object for encoding sequences of iid joint mixture
+    observations.
 
     Attributes:
         encoder1 (DataSequenceEncoder): DataSequenceEncoder for the components of X1.
@@ -744,8 +791,10 @@ class JointMixtureDataEncoder(DataSequenceEncoder):
         """JointMixtureDataEncoder object.
 
         Args:
-            encoder1 (DataSequenceEncoder): DataSequenceEncoder for the components of X1.
-            encoder2 (DataSequenceEncoder): DataSequenceEncoder for the components of X2.
+            encoder1 (DataSequenceEncoder): DataSequenceEncoder for the components of
+                X1.
+            encoder2 (DataSequenceEncoder): DataSequenceEncoder for the components of
+                X2.
 
         """
         self.encoder1 = encoder1

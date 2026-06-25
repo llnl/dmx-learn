@@ -1,16 +1,20 @@
 """Create, estimate, and sample from a Markov chain.
 
-Defines the MarkovChainDistribution, MarkovChainDistributionSampler, MarkovChainDistributionAccumulatorFactory,
-MarkovChainDistributionAccumulator, MarkovChainDistributionEstimator, and the MarkovChainDistributionDataEncoder
+Defines the MarkovChainDistribution, MarkovChainDistributionSampler,
+MarkovChainDistributionAccumulatorFactory,
+MarkovChainDistributionAccumulator, MarkovChainDistributionEstimator, and the
+MarkovChainDistributionDataEncoder
 classes for use with dmx-learn.
 
 The assumed data type for the stats-space is T.
 
-The density of Markov chain is given by for sequence of length n, x=[x[0],x[1],...,x[n-1]]
+The density of Markov chain is given by for sequence of length n,
+x=[x[0],x[1],...,x[n-1]]
 
     p_mat(x) = p_mat(x[0])*p_mat(x[1]|x[0])*...*p_mat(x[n-1]|x[n-2])*P_len(n)
 
-where p_mat(x[i+1]|x[i]) is the transition probability, p_mat(x[0]) is the init-probability, and P_len(n) is given
+where p_mat(x[i+1]|x[i]) is the transition probability, p_mat(x[0]) is the
+init-probability, and P_len(n) is given
 by the length distribution density.
 
 Note if len(x) = 0, only log(P_len(0)) is returned.
@@ -51,27 +55,35 @@ enc_data_type = Tuple[
 
 
 class MarkovChainDistribution(SequenceEncodableProbabilityDistribution):
-    """MarkovChainDistribution object defining a Markov chain compatible with data type T.
+    """MarkovChainDistribution object defining a Markov chain compatible with data type
+    T.
 
     Attributes:
-        init_prob_map (Dict[T, float]): Probability of each initial values of data type T.
+        init_prob_map (Dict[T, float]): Probability of each initial values of data type
+            T.
         transition_map (Dict[T, Dict[T, float]]): Transition probability map.
-        len_dist (Optional[SequenceEncodableProbabilityDistribution]): Length distribution for length of
+        len_dist (Optional[SequenceEncodableProbabilityDistribution]): Length
+            distribution for length of
             observation sequence.
         default_value (float): Default probability for value outside support.
         name (Optional[str]): Set name to MarkovChainDistribution object.
         all_vals (Set[T]): Set of all values in state-space.
-        loginit_prob_map (Dict[T, float]): Dictionary mapping initial state value to log probability.
-        log_transition_map (Dict[T, Dict[T, float]]): Dictionary mapping state to state transition
+        loginit_prob_map (Dict[T, float]): Dictionary mapping initial state value to log
+            probability.
+        log_transition_map (Dict[T, Dict[T, float]]): Dictionary mapping state to state
+            transition
             log-probabilities.
         log_dv (float): Log default value.
         log_dtv (float): Log of default value scaled by number of state-values + 1.
         log1p_dv (float): Log of 1 plus default_value.
-        key_map (Dict[T, int]): Maps each state-value in all_vals to integer [1, len(all_vals)+1]
+        key_map (Dict[T, int]): Maps each state-value in all_vals to integer [1,
+            len(all_vals)+1]
         inv_key_map (List[T]): List of all state-values (keys).
         num_keys (int): Number of state-values (len(keys)).
-        init_log_pvec (ndarray): Log-probabilities of each initial value. Entry 0, is  log_dv. (len == num_keys+1).
-        trans_log_pvec (dok_matrix): Dictionary of keys for sparse log transition probabilities.
+        init_log_pvec (ndarray): Log-probabilities of each initial value. Entry 0, is
+            log_dv. (len == num_keys+1).
+        trans_log_pvec (dok_matrix): Dictionary of keys for sparse log transition
+            probabilities.
         keys (Optional[str] = None): Set keys for distribution parameters
 
     """
@@ -90,9 +102,11 @@ class MarkovChainDistribution(SequenceEncodableProbabilityDistribution):
         """MarkovChainDistribution object.
 
         Args:
-            init_prob_map (Dict[T, float]): Probability of each initial values of data type T.
+            init_prob_map (Dict[T, float]): Probability of each initial values of data
+                type T.
             transition_map (Dict[T, Dict[T, float]]): Transition probability map.
-            len_dist (Optional[SequenceEncodableProbabilityDistribution]): Length distribution for length of
+            len_dist (Optional[SequenceEncodableProbabilityDistribution]): Length
+                distribution for length of
                 observation sequence.
             default_value (float): Default probability for value outside support.
             name (Optional[str]): Set name to MarkovChainDistribution object.
@@ -193,8 +207,8 @@ class MarkovChainDistribution(SequenceEncodableProbabilityDistribution):
         s6 = repr(self.keys)
 
         return (
-            "MarkovChainDistribution(%s, %s, len_dist=%s, default_value=%s, name=%s, keys=%s)"
-            % (s1, s2, s3, s4, s5, s6)
+            f"MarkovChainDistribution({s1}, {s2}, len_dist={s3}, default_value={s4}, "
+            f"name={s5}, keys={s6})"
         )
 
     def density(self, x: List[T]) -> float:
@@ -286,10 +300,13 @@ class MarkovChainSampler(DistributionSampler):
 
     Attributes:
         rng (RandomState): RandomState obejct for setting seed of random sampler.
-        init_prob (Tuple[List[T], List[float]): Tuple of initial state-values and probabilities.
-        trans_prob (Dict[T, Tuple[List[T], List[float]]]): Dictionary mapping transition probabilties from state i
+        init_prob (Tuple[List[T], List[float]): Tuple of initial state-values and
+            probabilities.
+        trans_prob (Dict[T, Tuple[List[T], List[float]]]): Dictionary mapping transition
+            probabilties from state i
             to state j.
-        len_sampler (DistributionSampler): Sample length of Markov chain sequence. Must be a DistributionSampler
+        len_sampler (DistributionSampler): Sample length of Markov chain sequence. Must
+            be a DistributionSampler
             with support on non-negative integers.
 
     """
@@ -300,8 +317,10 @@ class MarkovChainSampler(DistributionSampler):
         """MarkovChainSampler object.
 
         Args:
-            dist (MarkovChainDistribution): Instance of MarkovChainDistribution object to sample from.
-            seed (Optional[int]): Set seed of random number generator for sampling from Markov chain.
+            dist (MarkovChainDistribution): Instance of MarkovChainDistribution object
+                to sample from.
+            seed (Optional[int]): Set seed of random number generator for sampling from
+                Markov chain.
 
         """
         self.rng = RandomState(seed)
@@ -324,8 +343,10 @@ class MarkovChainSampler(DistributionSampler):
     def sample(self, size: Optional[int] = None) -> Union[List[Any], List[List[Any]]]:
         """Draw iid samples from Markov chain distribution.
 
-        If size is None, sample N from len_sampler() and return a List[T] of length N, where T is the data type of
-        the Markov chain. If size > 0, return a list of length size, containing List[T] data types.
+        If size is None, sample N from len_sampler() and return a List[T] of length N,
+        where T is the data type of
+        the Markov chain. If size > 0, return a list of length size, containing List[T]
+        data types.
 
         Args:
             size (Optional[int]): Number of samples to draw. Draws 1 sample if None.
@@ -353,7 +374,8 @@ class MarkovChainSampler(DistributionSampler):
     def sample_seq(
         self, size: Optional[int] = None, v0: Optional[T] = None
     ) -> Union[T, List[T]]:
-        """Sample a Markov chain sequence of length 'size' conditioned on initial state 'v0'.
+        """Sample a Markov chain sequence of length 'size' conditioned on initial state
+        'v0'.
 
         If size is None, draw a sequence of length 1, returning as type T.
 
@@ -403,17 +425,23 @@ class MarkovChainSampler(DistributionSampler):
 
 
 class MarkovChainAccumulator(SequenceEncodableStatisticAccumulator):
-    """MarkovChainAccumulator object for accumulating sufficient statistics from observed data.
+    """MarkovChainAccumulator object for accumulating sufficient statistics from
+    observed data.
 
     Attributes:
-        init_count_map (Dict[T, float]): Dictionary for accumulating weighted counts of initial states.
-        trans_count_map (Dict[T, Dict[T, float]]): Dictionary for accumulating weighted counts of state to state
+        init_count_map (Dict[T, float]): Dictionary for accumulating weighted counts of
+            initial states.
+        trans_count_map (Dict[T, Dict[T, float]]): Dictionary for accumulating weighted
+            counts of state to state
             transitions
-        len_accumulator (SequenceEncodableStatisticAccumulator): SequenceEncodableStatisticAccumulator
-            object for accumulating sufficient statistics of length distribution for length of Markov sequences.
+        len_accumulator (SequenceEncodableStatisticAccumulator):
+            SequenceEncodableStatisticAccumulator
+            object for accumulating sufficient statistics of length distribution for
+            length of Markov sequences.
             Set to NullAccumulator() if no length distribution is to be estimated.
         name (Optional[str]): Name for object.
-        keys (Optional[str]): Keys for merging sufficient statistics of MarkovChainAccumulator.
+        keys (Optional[str]): Keys for merging sufficient statistics of
+            MarkovChainAccumulator.
 
     """
 
@@ -428,10 +456,13 @@ class MarkovChainAccumulator(SequenceEncodableStatisticAccumulator):
         """MarkovChainAccumulator object.
 
         Args:
-            len_accumulator (Optional[SequenceEncodableStatisticAccumulator]): SequenceEncodableStatisticAccumulator
-                object for accumulating sufficient statistics of length distribution for length of Markov sequences.
+            len_accumulator (Optional[SequenceEncodableStatisticAccumulator]):
+                SequenceEncodableStatisticAccumulator
+                object for accumulating sufficient statistics of length distribution for
+                length of Markov sequences.
             name (Optional[str]): Name for object.
-            keys (Optional[str]): Set keys for merging sufficient statistics of MarkovChainAccumulator.
+            keys (Optional[str]): Set keys for merging sufficient statistics of
+                MarkovChainAccumulator.
 
         """
         self.init_count_map = dict()
@@ -488,7 +519,7 @@ class MarkovChainAccumulator(SequenceEncodableStatisticAccumulator):
 
         init_count = np.bincount(init_x, weights=weights[idx0])
 
-        for i in range(len(init_count)):
+        for i, _ in enumerate(init_count):
             v = init_count[i]
             if v != 0:
                 self.init_count_map[inv_key_map[i]] = (
@@ -496,11 +527,12 @@ class MarkovChainAccumulator(SequenceEncodableStatisticAccumulator):
                 )
 
         """
-        trans_count = np.bincount(prev_x*key_sz + next_x, weights=weights[idx1], minlength=key_sz*key_sz)
+        trans_count = np.bincount(prev_x*key_sz + next_x, weights=weights[idx1],
+        minlength=key_sz*key_sz)
         trans_count = np.reshape(trans_count, (key_sz, key_sz))
         trans_count_nz1, trans_count_nz2 = np.nonzero(trans_count)
 
-        for i in range(len(trans_count_nz1)):
+        for i, _ in enumerate(trans_count_nz1):
             j1 = trans_count_nz1[i]
             j2 = trans_count_nz2[i]
             k1 = inv_key_map[j1]
@@ -515,7 +547,7 @@ class MarkovChainAccumulator(SequenceEncodableStatisticAccumulator):
 
         # ------------- slow and sparse...
 
-        for i in range(len(prev_x)):
+        for i, _ in enumerate(prev_x):
             k1 = inv_key_map[prev_x[i]]
             k2 = inv_key_map[next_x[i]]
             ww = weights[idx1[i]]
@@ -541,7 +573,7 @@ class MarkovChainAccumulator(SequenceEncodableStatisticAccumulator):
 
         init_count = np.bincount(init_x, weights=weights[idx0])
 
-        for i in range(len(init_count)):
+        for i, _ in enumerate(init_count):
             v = init_count[i]
             if v != 0:
                 self.init_count_map[inv_key_map[i]] = (
@@ -549,11 +581,12 @@ class MarkovChainAccumulator(SequenceEncodableStatisticAccumulator):
                 )
 
         """
-        trans_count = np.bincount(prev_x*key_sz + next_x, weights=weights[idx1], minlength=key_sz*key_sz)
+        trans_count = np.bincount(prev_x*key_sz + next_x, weights=weights[idx1],
+        minlength=key_sz*key_sz)
         trans_count = np.reshape(trans_count, (key_sz, key_sz))
         trans_count_nz1, trans_count_nz2 = np.nonzero(trans_count)
 
-        for i in range(len(trans_count_nz1)):
+        for i, _ in enumerate(trans_count_nz1):
             j1 = trans_count_nz1[i]
             j2 = trans_count_nz2[i]
             k1 = inv_key_map[j1]
@@ -568,7 +601,7 @@ class MarkovChainAccumulator(SequenceEncodableStatisticAccumulator):
 
         # ------------- slow and sparse...
 
-        for i in range(len(prev_x)):
+        for i, _ in enumerate(prev_x):
             k1 = inv_key_map[prev_x[i]]
             k2 = inv_key_map[next_x[i]]
             ww = weights[idx1[i]]
@@ -637,10 +670,13 @@ class MarkovChainAccumulatorFactory(StatisticAccumulatorFactory):
     """MarkovChainAccumulatorFactory object for creating MarkovChainAccumulator objects.
 
     Attributes:
-        len_factory (StatisticAccumulatorFactory): StatisticAccumulatorFactory object for the length distribution
-            of Markov chain sequences. Set to NullAccumulatorFactory if no length distribution is to be estimated.
+        len_factory (StatisticAccumulatorFactory): StatisticAccumulatorFactory object
+            for the length distribution
+            of Markov chain sequences. Set to NullAccumulatorFactory if no length
+            distribution is to be estimated.
         name (Optional[str]): Name for object.
-        keys (Optional[str]): Keys for merging sufficient statistics of MarkovChainAccumulator.
+        keys (Optional[str]): Keys for merging sufficient statistics of
+            MarkovChainAccumulator.
 
     """
 
@@ -653,10 +689,12 @@ class MarkovChainAccumulatorFactory(StatisticAccumulatorFactory):
         """MarkovChainAccumulatorFactory object.
 
         Args:
-            len_factory (StatisticAccumulatorFactory): StatisticAccumulatorFactory object for the length distribution
+            len_factory (StatisticAccumulatorFactory): StatisticAccumulatorFactory
+                object for the length distribution
                 of Markov chain sequences.
             name (Optional[str]): Name for object.
-            keys (Optional[str]): Set keys for merging sufficient statistics of MarkovChainAccumulator.
+            keys (Optional[str]): Set keys for merging sufficient statistics of
+                MarkovChainAccumulator.
 
         """
         self.len_factory = len_factory
@@ -671,14 +709,18 @@ class MarkovChainAccumulatorFactory(StatisticAccumulatorFactory):
 
 
 class MarkovChainEstimator(ParameterEstimator):
-    """MarkovChainEstimator object for estimating MarkovChainDistribution object from aggregated data.
+    """MarkovChainEstimator object for estimating MarkovChainDistribution object from
+    aggregated data.
 
     Attributes:
-        pseudo_count (Optional[float]): Used to re-weight sufficient statistics when merged with aggregated data.
+        pseudo_count (Optional[float]): Used to re-weight sufficient statistics when
+            merged with aggregated data.
         levels (Optional[Iterable[T]]): State state values previously encountered.
-        len_estimator (ParameterEstimator): NullEstimator if no length distribution is to be estimated.
+        len_estimator (ParameterEstimator): NullEstimator if no length distribution is
+            to be estimated.
         name (Optional[str]): Name for instance of MarkovChainEstimator.
-        keys (Optional[str]): Keys for merging sufficient statistics of MarkovChainAccumulator objects.
+        keys (Optional[str]): Keys for merging sufficient statistics of
+            MarkovChainAccumulator objects.
 
     """
 
@@ -693,11 +735,14 @@ class MarkovChainEstimator(ParameterEstimator):
         """MarkovChainEstimator object.
 
         Args:
-            pseudo_count (Optional[float]): Used to re-weight sufficient statistics when merged with aggregated data.
+            pseudo_count (Optional[float]): Used to re-weight sufficient statistics when
+                merged with aggregated data.
             levels (Optional[Iterable[T]]): Set of state values.
-            len_estimator (Optional[ParameterEstimator]): ParameterEstimator for length of Markov sequences.
+            len_estimator (Optional[ParameterEstimator]): ParameterEstimator for length
+                of Markov sequences.
             name (Optional[str]): Set a name for instance of MarkovChainEstimator.
-            keys (Optional[str]): Set keys for merging sufficient statistics of MarkovChainAccumulator objects.
+            keys (Optional[str]): Set keys for merging sufficient statistics of
+                MarkovChainAccumulator objects.
 
         """
         self.name = name
@@ -726,18 +771,24 @@ class MarkovChainEstimator(ParameterEstimator):
     def estimate0(
         self, nobs: Optional[float], suff_stat: suff_stat_type
     ) -> "MarkovChainDistribution":
-        """Estimate MarkovChainDistribution from aggregated sufficient statistics from observed data.
+        """Estimate MarkovChainDistribution from aggregated sufficient statistics from
+        observed data.
 
-        Maximum likelihood estimates for initial state probabilities, transition probabilities, and the length
+        Maximum likelihood estimates for initial state probabilities, transition
+        probabilities, and the length
         distribution are obtained directly from aggregated data in 'suff_stat'.
 
         Arg suff_stat is a Tuple of length three containing,
-            suff_stat[0] (Dict[T, float]): Maps initial state values to their aggregated counts.
-            suff_stat[1] (Dict[T, Dict[T, List[float]]]): Maps state to state transition counts.
-            suff_stat[2] (T1): Sufficient statistic value of length accumulator. (Assumed type T1).
+            suff_stat[0] (Dict[T, float]): Maps initial state values to their aggregated
+            counts.
+            suff_stat[1] (Dict[T, Dict[T, List[float]]]): Maps state to state transition
+            counts.
+            suff_stat[2] (T1): Sufficient statistic value of length accumulator.
+            (Assumed type T1).
 
         Args:
-            nobs (Optional[float]): Number of observations. Passed to estimate1() or estimate2().
+            nobs (Optional[float]): Number of observations. Passed to estimate1() or
+                estimate2().
             suff_stat: Seed above for details.
 
         Returns:
@@ -763,19 +814,26 @@ class MarkovChainEstimator(ParameterEstimator):
     def estimate1(
         self, nobs: Optional[float], suff_stat: suff_stat_type
     ) -> "MarkovChainDistribution":
-        """Estimate MarkovChainDistribution from aggregated sufficient statistics from observed data.
+        """Estimate MarkovChainDistribution from aggregated sufficient statistics from
+        observed data.
 
-        Maximum likelihood estimates for initial state probabilities, transition probabilities, and the length
-        distribution are obtained by a weighted aggregation of sufficient statistics in 'suff_stat', and member
+        Maximum likelihood estimates for initial state probabilities, transition
+        probabilities, and the length
+        distribution are obtained by a weighted aggregation of sufficient statistics in
+        'suff_stat', and member
         variables of MarkovChainEstimator object.
 
         Arg suff_stat is a Tuple of length three containing,
-            suff_stat[0] (Dict[T, float]): Maps initial state values to their aggregated counts.
-            suff_stat[1] (Dict[T, Dict[T, List[float]]]): Maps state to state transition counts.
-            suff_stat[2] (T1): Sufficient statistic value of length accumulator. (Assumed type T1).
+            suff_stat[0] (Dict[T, float]): Maps initial state values to their aggregated
+            counts.
+            suff_stat[1] (Dict[T, Dict[T, List[float]]]): Maps state to state transition
+            counts.
+            suff_stat[2] (T1): Sufficient statistic value of length accumulator.
+            (Assumed type T1).
 
         Args:
-            nobs (Optional[float]): Number of observations. Passed to estimate1() or estimate2().
+            nobs (Optional[float]): Number of observations. Passed to estimate1() or
+                estimate2().
             suff_stat: Seed above for details.
 
         Returns:
@@ -827,10 +885,12 @@ class MarkovChainEstimator(ParameterEstimator):
 
 
 class MarkovChainDataEncoder(DataSequenceEncoder):
-    """MarkovChainDataEncoder used for sequence encoding data for use with vectorized 'seq_' functions.
+    """MarkovChainDataEncoder used for sequence encoding data for use with vectorized
+    'seq_' functions.
 
     Attributes:
-          len_encoder (DataSequenceEncoder): DataSequenceEncoder object that has support on non-negative integers.
+          len_encoder (DataSequenceEncoder): DataSequenceEncoder object that has support
+              on non-negative integers.
             Is set to NullDataEncoder() if no length distribution is to be estimated.
     """
 
@@ -853,18 +913,24 @@ class MarkovChainDataEncoder(DataSequenceEncoder):
             return False
 
     def seq_encode(self, x: List[List[T]]) -> "MarkovChainEncodedDataSequence":
-        """Sequence encoding a sequence of iid Markov chain observations with data type T.
+        """Sequence encoding a sequence of iid Markov chain observations with data type
+        T.
 
         The returned value is (rv) is a Tuple of length 8 with entries:
 
             rv[0] (int): Number of total observations (number of Markov sequences).
             rv[1] (ndarray[int]): Sequence index for initial state observations.
-            rv[2] (ndarray[int]): Sequence index for non-initial state observations in a sequence greater than len 1.
-            rv[3] (ndarray[int]): Numpy array of observations index in inv_key_map for initial states.
-            rv[4] (ndarray[int]): State-to-state index value of inv_key_map for initial state value.
-            rv[5] (ndarray[int]): State-to-state index value of inv_key_map for transition.
+            rv[2] (ndarray[int]): Sequence index for non-initial state observations in a
+            sequence greater than len 1.
+            rv[3] (ndarray[int]): Numpy array of observations index in inv_key_map for
+            initial states.
+            rv[4] (ndarray[int]): State-to-state index value of inv_key_map for initial
+            state value.
+            rv[5] (ndarray[int]): State-to-state index value of inv_key_map for
+            transition.
             rv[6] (ndarray[T]): Maps integer index value to value in state-space (T).
-            rv[7] (Optional[T1]): Encoded sequence of lengths from len_encoder. None if no length distributon to be
+            rv[7] (Optional[T1]): Encoded sequence of lengths from len_encoder. None if
+            no length distributon to be
                 estimated.
 
         Args:
@@ -882,7 +948,7 @@ class MarkovChainDataEncoder(DataSequenceEncoder):
         obs_cnt = []
         key_map = dict()
 
-        for i in range(len(x)):
+        for i, _ in enumerate(x):
             entry = x[i]
             obs_cnt.append(len(entry))
 
@@ -937,7 +1003,8 @@ class MarkovChainEncodedDataSequence(EncodedDataSequence):
     """MarkovChainEncodedDataSequence object for vectorized function calls.
 
     Notes:
-        E = Tuple[int, np.ndarray, np.ndarray, np.ndarray, np.ndarray, np.ndarray, np.ndarray, EncodedDataSequence]
+        E = Tuple[int, np.ndarray, np.ndarray, np.ndarray, np.ndarray, np.ndarray,
+        np.ndarray, EncodedDataSequence]
 
     Attributes:
         data (E): Encoded sequence of markov chain iid observations.

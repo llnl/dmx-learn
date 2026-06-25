@@ -1,13 +1,16 @@
 """Create, estimate, and sample from a Conditional distribution.
 
-Defines the ConditionalDistribution, ConditionalDistributionSampler, ConditionalDistributionAccumulatorFactory,
-ConditionalDistributionAccumulator, ConditionalDistributionEstimator, and the ConditionalDistributionDataEncoder
+Defines the ConditionalDistribution, ConditionalDistributionSampler,
+ConditionalDistributionAccumulatorFactory,
+ConditionalDistributionAccumulator, ConditionalDistributionEstimator, and the
+ConditionalDistributionDataEncoder
 classes for use with dmx-learn.
 
 Data type: (Tuple[T0, T1]): The ConditionalDistribution is given by density,
     P(X0,X1) = P_cond(X1|X0)*P_given(X0).
 
-The ConditionalDistribution allows for user-defined conditional distributions P_cond(X1|X0), and given distributions
+The ConditionalDistribution allows for user-defined conditional distributions
+P_cond(X1|X0), and given distributions
 P_given(X0).
 """
 
@@ -50,13 +53,17 @@ class ConditionalDistribution(SequenceEncodableProbabilityDistribution):
     """ConditionalDistribution object for data types x=Tuple[T0, T1].
 
     Attributes:
-        dmap (Dict[T0, SequenceEncodableProbabilityDistribution]): Mapping from T0 to distributions.
-        default_dist (SequenceEncodableProbabilityDistribution): Default distribution if key not in dmap.
-        given_dist (SequenceEncodableProbabilityDistribution): Distribution for given variable.
+        dmap (Dict[T0, SequenceEncodableProbabilityDistribution]): Mapping from T0 to
+            distributions.
+        default_dist (SequenceEncodableProbabilityDistribution): Default distribution if
+            key not in dmap.
+        given_dist (SequenceEncodableProbabilityDistribution): Distribution for given
+            variable.
         has_default (bool): True if default_dist is not NullDistribution.
         has_given (bool): True if given_dist is not NullDistribution.
         name (Optional[str]): Name assigned to object.
-        keys (Optional[str]): All ConditionalDistribution objects with same keys value are the same distribution.
+        keys (Optional[str]): All ConditionalDistribution objects with same keys value
+            are the same distribution.
     """
 
     def __init__(
@@ -77,11 +84,16 @@ class ConditionalDistribution(SequenceEncodableProbabilityDistribution):
         """Initialize ConditionalDistribution.
 
         Args:
-            dmap (Union[Dict[Any, SequenceEncodableProbabilityDistribution], List[SequenceEncodableProbabilityDistribution]]): Used to create dictionary of distributions.
-            default_dist (Optional[SequenceEncodableProbabilityDistribution]): Distribution for case where x[0] is not a key in dmap.
-            given_dist (Optional[SequenceEncodableProbabilityDistribution]): Distribution for the given variable.
+            dmap (Union[Dict[Any, SequenceEncodableProbabilityDistribution],
+                List[SequenceEncodableProbabilityDistribution]]): Used to create
+                dictionary of distributions.
+            default_dist (Optional[SequenceEncodableProbabilityDistribution]):
+                Distribution for case where x[0] is not a key in dmap.
+            given_dist (Optional[SequenceEncodableProbabilityDistribution]):
+                Distribution for the given variable.
             name (Optional[str], optional): Name assigned to object.
-            keys (Optional[str], optional): All ConditionalDistribution objects with same keys value are the same distribution.
+            keys (Optional[str], optional): All ConditionalDistribution objects with
+                same keys value are the same distribution.
         """
         if isinstance(dmap, list):
             dmap = dict(zip(range(len(dmap)), dmap))
@@ -103,13 +115,17 @@ class ConditionalDistribution(SequenceEncodableProbabilityDistribution):
         s3 = repr(self.given_dist)
         s4 = repr(self.name)
         s5 = repr(self.keys)
-        return f"ConditionalDistribution({s1}, default_dist={s2}, given_dist={s3}, name={s4}, keys={s5})"
+        return (
+            f"ConditionalDistribution({s1}, default_dist={s2}, given_dist={s3}, "
+            f"name={s4}, keys={s5})"
+        )
 
     def density(self, x: Tuple[T0, T1]) -> float:
         """Evaluate density of ConditionalDistribution at Tuple x.
 
         Args:
-            x (Tuple[T0, T1]): T0 data type must match keys of dmap, T1 must match value of dmap distribution for key value.
+            x (Tuple[T0, T1]): T0 data type must match keys of dmap, T1 must match value
+                of dmap distribution for key value.
 
         Returns:
             float: Density of ConditionalDistribution at Tuple x.
@@ -120,7 +136,8 @@ class ConditionalDistribution(SequenceEncodableProbabilityDistribution):
         """Evaluate log-density of ConditionalDistribution at Tuple x.
 
         Args:
-            x (Tuple[T0, T1]): T0 data type must match keys of dmap, T1 must match value of dmap distribution for key value.
+            x (Tuple[T0, T1]): T0 data type must match keys of dmap, T1 must match value
+                of dmap distribution for key value.
 
         Returns:
             float: Log-density of ConditionalDistribution at Tuple x.
@@ -150,12 +167,13 @@ class ConditionalDistribution(SequenceEncodableProbabilityDistribution):
         """
         if not isinstance(x, ConditionalEncodedDataSequence):
             raise Exception(
-                "Requires ConditionalEncodedDataSequence for ConditionalDistribution.seq_log_density()"
+                "Requires ConditionalEncodedDataSequence for "
+                "ConditionalDistribution.seq_log_density()"
             )
         sz, cond_vals, eobs_vals, idx_vals, given_enc = x.data
         rv = np.zeros(sz, dtype=float)
 
-        for i in range(len(cond_vals)):
+        for i, _ in enumerate(cond_vals):
             if self.has_default:
                 rv[idx_vals[i]] = self.dmap.get(
                     cond_vals[i], self.default_dist
@@ -188,7 +206,8 @@ class ConditionalDistribution(SequenceEncodableProbabilityDistribution):
         """Create ConditionalDistributionEstimator from sufficient statistics.
 
         Args:
-            pseudo_count (Optional[float], optional): Used to inflate the sufficient statistics.
+            pseudo_count (Optional[float], optional): Used to inflate the sufficient
+                statistics.
 
         Returns:
             ConditionalDistributionEstimator: Estimator object.
@@ -234,7 +253,8 @@ class ConditionalDistributionSampler(ConditionalSampler, DistributionSampler):
     """Sampler for ConditionalDistribution.
 
     Attributes:
-        dist (ConditionalDistribution): ConditionalDistribution object to draw samples from.
+        dist (ConditionalDistribution): ConditionalDistribution object to draw samples
+            from.
         default_sampler (DistributionSampler): Sampler for default_dist.
         has_default_sampler (bool): True if default sampler is not NullDistribution.
         given_sampler (DistributionSampler): Sampler for given_dist.
@@ -248,7 +268,8 @@ class ConditionalDistributionSampler(ConditionalSampler, DistributionSampler):
         """Initialize ConditionalDistributionSampler.
 
         Args:
-            dist (ConditionalDistribution): ConditionalDistribution object to draw samples from.
+            dist (ConditionalDistribution): ConditionalDistribution object to draw
+                samples from.
             seed (Optional[int], optional): Seed for random number generator.
         """
         self.dist = dist
@@ -270,7 +291,8 @@ class ConditionalDistributionSampler(ConditionalSampler, DistributionSampler):
         """Generate a single sample from the ConditionalDistribution.
 
         Returns:
-            Tuple[Any, Any]: (T0, T1) as defined from dmap and given_distribution types in dist.
+            Tuple[Any, Any]: (T0, T1) as defined from dmap and given_distribution types
+            in dist.
         """
         x0 = self.given_sampler.sample()
         if x0 in self.samplers:
@@ -285,10 +307,12 @@ class ConditionalDistributionSampler(ConditionalSampler, DistributionSampler):
         """Sample independent samples from ConditionalDistribution.
 
         Args:
-            size (Optional[int], optional): Number of samples to draw. If None, returns a single sample.
+            size (Optional[int], optional): Number of samples to draw. If None, returns
+                a single sample.
 
         Returns:
-            Union[Tuple[Any, Any], List[Tuple[Any, Any]]]: A tuple or list of tuples of (T0, T1).
+            Union[Tuple[Any, Any], List[Tuple[Any, Any]]]: A tuple or list of tuples of
+            (T0, T1).
         """
         if size is None:
             return self.single_sample()
@@ -316,17 +340,25 @@ class ConditionalDistributionAccumulator(SequenceEncodableStatisticAccumulator):
     """Accumulator for sufficient statistics of ConditionalDistribution.
 
     Attributes:
-        accumulator_map (Dict[T0, SequenceEncodableStatisticAccumulator]): Sufficient statistics for each conditional distribution.
-        default_accumulator (Optional[SequenceEncodableStatisticAccumulator]): Sufficient statistics for default distribution.
-        given_accumulator (Optional[SequenceEncodableStatisticAccumulator]): Sufficient statistics for given distribution.
+        accumulator_map (Dict[T0, SequenceEncodableStatisticAccumulator]): Sufficient
+            statistics for each conditional distribution.
+        default_accumulator (Optional[SequenceEncodableStatisticAccumulator]):
+            Sufficient statistics for default distribution.
+        given_accumulator (Optional[SequenceEncodableStatisticAccumulator]): Sufficient
+            statistics for given distribution.
         has_default (bool): True if default_accumulator is not NullAccumulator.
         has_given (bool): True if given_accumulator is not NullAccumulator.
-        key (Optional[str]): All ConditionalAccumulator objects with same keys value will merge suff stats.
+        key (Optional[str]): All ConditionalAccumulator objects with same keys value
+            will merge suff stats.
         name (Optional[str]): Name for object.
-        _init_rng (bool): False unless a single call to initialize or seq_initialize has been made.
-        _acc_rng (Optional[Dict[T0, RandomState]]): Used to seed RandomState calls of accumulator_map.
-        _default_rng (Optional[RandomState]): Used to seed RandomState calls of default_accumulator initialize.
-        _given_rng (Optional[RandomState]): Used to seed RandomState calls of given_accumulator initialize.
+        _init_rng (bool): False unless a single call to initialize or seq_initialize has
+            been made.
+        _acc_rng (Optional[Dict[T0, RandomState]]): Used to seed RandomState calls of
+            accumulator_map.
+        _default_rng (Optional[RandomState]): Used to seed RandomState calls of
+            default_accumulator initialize.
+        _given_rng (Optional[RandomState]): Used to seed RandomState calls of
+            given_accumulator initialize.
     """
 
     def __init__(
@@ -344,11 +376,15 @@ class ConditionalDistributionAccumulator(SequenceEncodableStatisticAccumulator):
         """Initialize ConditionalDistributionAccumulator.
 
         Args:
-            accumulator_map (Dict[T0, SequenceEncodableStatisticAccumulator]): Sufficient statistics for each conditional distribution.
-            default_accumulator (Optional[SequenceEncodableStatisticAccumulator]): Sufficient statistics for default distribution.
-            given_accumulator (Optional[SequenceEncodableStatisticAccumulator]): Sufficient statistics for given distribution.
+            accumulator_map (Dict[T0, SequenceEncodableStatisticAccumulator]):
+                Sufficient statistics for each conditional distribution.
+            default_accumulator (Optional[SequenceEncodableStatisticAccumulator]):
+                Sufficient statistics for default distribution.
+            given_accumulator (Optional[SequenceEncodableStatisticAccumulator]):
+                Sufficient statistics for given distribution.
             name (Optional[str], optional): Name for object.
-            keys (Optional[str], optional): All ConditionalAccumulator objects with same keys value will merge suff stats.
+            keys (Optional[str], optional): All ConditionalAccumulator objects with same
+                keys value will merge suff stats.
         """
         self.accumulator_map = accumulator_map
         self.default_accumulator = (
@@ -379,7 +415,8 @@ class ConditionalDistributionAccumulator(SequenceEncodableStatisticAccumulator):
         Args:
             x (Tuple[T0, T1]): Observation.
             weight (float): Weight for the observation.
-            estimate (Optional[ConditionalDistribution]): Distribution estimate for update.
+            estimate (Optional[ConditionalDistribution]): Distribution estimate for
+                update.
         """
         if x[0] in self.accumulator_map:
             if estimate is None:
@@ -446,7 +483,7 @@ class ConditionalDistributionAccumulator(SequenceEncodableStatisticAccumulator):
         if not self._init_rng:
             self._rng_initialize(rng)
 
-        for i in range(len(cond_vals)):
+        for i, _ in enumerate(cond_vals):
             if cond_vals[i] in self.accumulator_map:
                 self.accumulator_map[cond_vals[i]].seq_initialize(
                     eobs_vals[i], weights[idx_vals[i]], self._acc_rng[cond_vals[i]]
@@ -475,7 +512,7 @@ class ConditionalDistributionAccumulator(SequenceEncodableStatisticAccumulator):
         """
         sz, cond_vals, eobs_vals, idx_vals, given_enc = x.data
 
-        for i in range(len(cond_vals)):
+        for i, _ in enumerate(cond_vals):
             if cond_vals[i] in self.accumulator_map:
                 self.accumulator_map[cond_vals[i]].seq_update(
                     eobs_vals[i], weights[idx_vals[i]], estimate.dmap[cond_vals[i]]
@@ -505,7 +542,8 @@ class ConditionalDistributionAccumulator(SequenceEncodableStatisticAccumulator):
         """Combine another accumulator's sufficient statistics into this one.
 
         Args:
-            suff_stat (Tuple[Dict[T0, SS0], Optional[SS1], Optional[SS2]]): Sufficient statistics to combine.
+            suff_stat (Tuple[Dict[T0, SS0], Optional[SS1], Optional[SS2]]): Sufficient
+                statistics to combine.
 
         Returns:
             ConditionalDistributionAccumulator: Self after combining.
@@ -541,7 +579,8 @@ class ConditionalDistributionAccumulator(SequenceEncodableStatisticAccumulator):
         """Set the sufficient statistics from a tuple.
 
         Args:
-            x (Tuple[Dict[T0, SS0], Optional[SS1], Optional[SS1]]): Sufficient statistics.
+            x (Tuple[Dict[T0, SS0], Optional[SS1], Optional[SS1]]): Sufficient
+                statistics.
 
         Returns:
             ConditionalDistributionAccumulator: Self after setting values.
@@ -608,11 +647,13 @@ class ConditionalDistributionAccumulatorFactory(StatisticAccumulatorFactory):
     """Factory for ConditionalDistributionAccumulator.
 
     Attributes:
-        factory_map (Dict[T0, StatisticAccumulatorFactory]): Factories for each conditional distribution.
+        factory_map (Dict[T0, StatisticAccumulatorFactory]): Factories for each
+            conditional distribution.
         default_factory (StatisticAccumulatorFactory): Factory for default_accumulator.
         given_factory (StatisticAccumulatorFactory): Factory for given_accumulator.
         name (Optional[str]): Name for object.
-        keys (Optional[str]): All ConditionalAccumulator objects with same keys value will merge suff stats.
+        keys (Optional[str]): All ConditionalAccumulator objects with same keys value
+            will merge suff stats.
     """
 
     def __init__(
@@ -626,11 +667,14 @@ class ConditionalDistributionAccumulatorFactory(StatisticAccumulatorFactory):
         """Initialize ConditionalDistributionAccumulatorFactory.
 
         Args:
-            factory_map (Dict[T0, StatisticAccumulatorFactory]): Factories for each conditional distribution.
-            default_factory (StatisticAccumulatorFactory): Factory for default_accumulator.
+            factory_map (Dict[T0, StatisticAccumulatorFactory]): Factories for each
+                conditional distribution.
+            default_factory (StatisticAccumulatorFactory): Factory for
+                default_accumulator.
             given_factory (StatisticAccumulatorFactory): Factory for given_accumulator.
             name (Optional[str], optional): Name for object.
-            keys (Optional[str], optional): All ConditionalAccumulator objects with same keys value will merge suff stats.
+            keys (Optional[str], optional): All ConditionalAccumulator objects with same
+                keys value will merge suff stats.
         """
         self.factory_map = factory_map
         self.default_factory = default_factory
@@ -661,11 +705,13 @@ class ConditionalDistributionEstimator(ParameterEstimator):
     """Estimator for ConditionalDistribution.
 
     Attributes:
-        estimator_map (Dict[T0, ParameterEstimator]): Estimators for each conditional distribution.
+        estimator_map (Dict[T0, ParameterEstimator]): Estimators for each conditional
+            distribution.
         default_estimator (ParameterEstimator): Estimator for default_distribution.
         given_estimator (ParameterEstimator): Estimator for given_distribution.
         name (Optional[str]): Name for object.
-        keys (Optional[str]): ConditionalDistributionEstimator with matching 'keys' will be aggregated.
+        keys (Optional[str]): ConditionalDistributionEstimator with matching 'keys' will
+            be aggregated.
     """
 
     def __init__(
@@ -679,11 +725,15 @@ class ConditionalDistributionEstimator(ParameterEstimator):
         """Initialize ConditionalDistributionEstimator.
 
         Args:
-            estimator_map (Dict[T0, ParameterEstimator]): Estimators for each conditional distribution.
-            default_estimator (Optional[ParameterEstimator]): Estimator for default_distribution.
-            given_estimator (Optional[ParameterEstimator]): Estimator for given_distribution.
+            estimator_map (Dict[T0, ParameterEstimator]): Estimators for each
+                conditional distribution.
+            default_estimator (Optional[ParameterEstimator]): Estimator for
+                default_distribution.
+            given_estimator (Optional[ParameterEstimator]): Estimator for
+                given_distribution.
             name (Optional[str], optional): Name for object.
-            keys (Optional[str], optional): ConditionalDistributionEstimator with matching 'keys' will be aggregated.
+            keys (Optional[str], optional): ConditionalDistributionEstimator with
+                matching 'keys' will be aggregated.
 
         Raises:
             TypeError: If keys is not a string or None.
@@ -731,7 +781,8 @@ class ConditionalDistributionEstimator(ParameterEstimator):
 
         Args:
             nobs (Optional[float]): Not used. Kept for consistency.
-            suff_stat (Tuple[Dict[T0, SS0], Optional[SS1], Optional[SS2]]): Sufficient statistics.
+            suff_stat (Tuple[Dict[T0, SS0], Optional[SS1], Optional[SS2]]): Sufficient
+                statistics.
 
         Returns:
             ConditionalDistribution: Estimated distribution.
@@ -755,7 +806,8 @@ class ConditionalDistributionDataEncoder(DataSequenceEncoder):
     """Encoder for ConditionalDistribution data.
 
     Attributes:
-        encoder_map (Dict[T0, DataSequenceEncoder]): Encoders for each conditional value.
+        encoder_map (Dict[T0, DataSequenceEncoder]): Encoders for each conditional
+            value.
         default_encoder (DataSequenceEncoder): Encoder for default distribution.
         given_encoder (DataSequenceEncoder): Encoder for given distribution.
         null_default_encoder (bool): True if default_encoder is NullDataEncoder.
@@ -771,7 +823,8 @@ class ConditionalDistributionDataEncoder(DataSequenceEncoder):
         """Initialize ConditionalDistributionDataEncoder.
 
         Args:
-            encoder_map (Dict[T0, DataSequenceEncoder]): Encoders for each conditional value.
+            encoder_map (Dict[T0, DataSequenceEncoder]): Encoders for each conditional
+                value.
             default_encoder (DataSequenceEncoder): Encoder for default distribution.
             given_encoder (DataSequenceEncoder): Encoder for given distribution.
         """
@@ -832,7 +885,7 @@ class ConditionalDistributionDataEncoder(DataSequenceEncoder):
         cond_enc = dict()
         given_vals = []
 
-        for i in range(len(x)):
+        for i, _ in enumerate(x):
             xx = x[i]
             given_vals.append(xx[0])
             if xx[0] not in cond_enc:
@@ -870,7 +923,8 @@ class ConditionalEncodedDataSequence(EncodedDataSequence):
     """Encoded data sequence for ConditionalDistribution.
 
     Attributes:
-        data (Tuple[int, Tuple[T0, ...], Tuple[EncodedDataSequence], Tuple[np.ndarray], Optional[EncodedDataSequence]]): Encoded data.
+        data (Tuple[int, Tuple[T0, ...], Tuple[EncodedDataSequence], Tuple[np.ndarray],
+            Optional[EncodedDataSequence]]): Encoded data.
     """
 
     def __init__(
@@ -886,7 +940,8 @@ class ConditionalEncodedDataSequence(EncodedDataSequence):
         """Initialize ConditionalEncodedDataSequence.
 
         Args:
-            data (Tuple[int, Tuple[T0, ...], Tuple[EncodedDataSequence], Tuple[np.ndarray], Optional[EncodedDataSequence]]): Encoded data.
+            data (Tuple[int, Tuple[T0, ...], Tuple[EncodedDataSequence],
+                Tuple[np.ndarray], Optional[EncodedDataSequence]]): Encoded data.
         """
         super().__init__(data=data)
 

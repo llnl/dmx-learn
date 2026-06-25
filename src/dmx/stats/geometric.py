@@ -1,6 +1,8 @@
-"""Create, estimate, and sample from a geometric distribution with probability of success p.
+"""Create, estimate, and sample from a geometric distribution with probability of
+success p.
 
-Defines the GeometricDistribution, GeometricSampler, GeometricAccumulatorFactory, GeometricAccumulator,
+Defines the GeometricDistribution, GeometricSampler, GeometricAccumulatorFactory,
+GeometricAccumulator,
 GeometricEstimator, and the GeometricDataEncoder classes for use with dmx-learn.
 
 Data type (int): The geometric distribution with probability of success p, has density
@@ -55,7 +57,10 @@ class GeometricDistribution(SequenceEncodableProbabilityDistribution):
 
     def __str__(self) -> str:
         """Return string representation."""
-        return f"GeometricDistribution({repr(self.p)}, name={repr(self.name)}, keys={repr(self.keys)})"
+        return (
+            f"GeometricDistribution({repr(self.p)}, name={repr(self.name)}, "
+            f"keys={repr(self.keys)})"
+        )
 
     def density(self, x: int) -> float:
         """Evaluate the density of the geometric distribution at x.
@@ -163,7 +168,8 @@ class GeometricSampler(DistributionSampler):
         """Generate iid samples from geometric distribution.
 
         Args:
-            size (Optional[int], optional): Number of iid samples to draw. If None, returns a single sample.
+            size (Optional[int], optional): Number of iid samples to draw. If None,
+                returns a single sample.
 
         Returns:
             Union[int, np.ndarray]: Single sample (int) or numpy array of ints.
@@ -363,7 +369,8 @@ class GeometricEstimator(ParameterEstimator):
 
         Args:
             pseudo_count (Optional[float], optional): Pseudo-count for regularization.
-            suff_stat (Optional[float], optional): Probability of success (value between (0,1)).
+            suff_stat (Optional[float], optional): Probability of success (value between
+                (0,1)).
             name (Optional[str], optional): Name for the estimator.
             keys (Optional[str], optional): Key for merging sufficient statistics.
 
@@ -438,7 +445,8 @@ class GeometricDataEncoder(DataSequenceEncoder):
         """Encode a sequence of geometric observations.
 
         Args:
-            x (Union[Sequence[int], np.ndarray]): Sequence of iid geometric observations.
+            x (Union[Sequence[int], np.ndarray]): Sequence of iid geometric
+                observations.
 
         Returns:
             GeometricEncodedDataSequence: Encoded data sequence.

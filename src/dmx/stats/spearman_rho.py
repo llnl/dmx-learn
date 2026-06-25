@@ -1,6 +1,7 @@
 """Create, estimate, and sample from a Spearman ranking distribution.
 
-Defines the SpearmanRankingDistribution, SpearmanRankingSampler, SpearmanRankingAccumulatorFactory,
+Defines the SpearmanRankingDistribution, SpearmanRankingSampler,
+SpearmanRankingAccumulatorFactory,
 SpearmanRankingAccumulator, SpearmanRankingEstimator, and the SpearmanRankingDataEncoder
 classes for use with dmx-learn.
 
@@ -8,10 +9,13 @@ Data type: List[int] (Component-wise rank of K dimensional observation vector)
 
 The Spearman ranking distribution with dimension K, has probability function
 
-    p_mat(x_k;rho, sigma) = exp(-rho * ||x_k-sigma||^2 ) / sum_{k=0}^{K-1} exp(-rho * ||x_k-sigma||^2 ), for k = 0,1,..,K-1
+    p_mat(x_k;rho, sigma) = exp(-rho * ||x_k-sigma||^2 ) / sum_{k=0}^{K-1} exp(-rho *
+    ||x_k-sigma||^2 ), for k = 0,1,..,K-1
 
-where x_k list of integers containing a permutation of the integers 0,1,2,...K-1. Note sigma is a list of floats with
-dimension equal to K representing the mean of the rank variables, and rho is a correlation coefficient.
+where x_k list of integers containing a permutation of the integers 0,1,2,...K-1. Note
+sigma is a list of floats with
+dimension equal to K representing the mean of the rank variables, and rho is a
+correlation coefficient.
 
 """
 
@@ -77,11 +81,9 @@ class SpearmanRankingDistribution(SequenceEncodableProbabilityDistribution):
         )
 
     def __str__(self) -> str:
-        return "SpearmanRankingDistribution(sigma=%s, rho=%s, name=%s, keys=%s)" % (
-            repr(self.sigma.tolist()),
-            repr(self.rho),
-            repr(self.name),
-            repr(self.keys),
+        return (
+            f"SpearmanRankingDistribution(sigma={repr(self.sigma.tolist())}, "
+            f"rho={repr(self.rho)}, name={repr(self.name)}, keys={repr(self.keys)})"
         )
 
     def density(self, x: List[int]) -> float:
@@ -158,7 +160,8 @@ class SpearmanRankingSampler(DistributionSampler):
 
 
 class SpearmanRankingAccumulator(SequenceEncodableStatisticAccumulator):
-    """SpearmanRankingAccumulatorFactory object for creating SpearmanRankingAccumulator objects.
+    """SpearmanRankingAccumulatorFactory object for creating SpearmanRankingAccumulator
+    objects.
 
     Attributes:
         sum (np.ndarray): Suff stat counts
@@ -251,7 +254,8 @@ class SpearmanRankingAccumulator(SequenceEncodableStatisticAccumulator):
 
 
 class SpearmanRankingAccumulatorFactory(StatisticAccumulatorFactory):
-    """SpearmanRankingAccumulatorFactory object for creating SpearmanRankingAccumulator objects.
+    """SpearmanRankingAccumulatorFactory object for creating SpearmanRankingAccumulator
+    objects.
 
     Attributes:
         dim (int): Dimension of rankings.
@@ -304,7 +308,8 @@ class SpearmanRankingEstimator(ParameterEstimator):
         Args:
             dim (int): Dimension of rankings.
             pseudo_count (Optional[float]): Regularize suff stat for estimates.
-            suff_stat (Optional[Tuple[float, np.ndarray]]): Suff stat for regularization.
+            suff_stat (Optional[Tuple[float, np.ndarray]]): Suff stat for
+                regularization.
             name (Optional[str]): Name for object.
             keys (Optional[str]): Key for distribution.
 
@@ -342,7 +347,7 @@ class SpearmanRankingEstimator(ParameterEstimator):
 
 
 class SpearmanRankingDataEncoder(DataSequenceEncoder):
-    """SpearmanRankingDataEncoder for encoding sequences of spearman rho observations."""
+    """Encoder for sequences of Spearman rho observations."""
 
     def __str__(self) -> str:
         return "SpearmanRankingDataEncoder"

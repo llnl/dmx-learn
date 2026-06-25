@@ -1,15 +1,21 @@
 """Create, estimate, and sample from a semi-supervised mixture distribution.
 
-Defines the SemiSupervisedMixtureDistribution, SemiSupervisedMixtureSampler, SemiSupervisedMixtureAccumulatorFactory,
-SemiSupervisedMixtureEstimatorAccumulator, SemiSupervisedMixtureEstimator, and the SemiSupervisedMixtureDataEncoder
+Defines the SemiSupervisedMixtureDistribution, SemiSupervisedMixtureSampler,
+SemiSupervisedMixtureAccumulatorFactory,
+SemiSupervisedMixtureEstimatorAccumulator, SemiSupervisedMixtureEstimator, and the
+SemiSupervisedMixtureDataEncoder
 classes for use with dmx-learn.
 
-Data type (Tuple[T, Optional[Sequence[Tuple[int, float]]]): T is the data type of the mixture components. The optional
-Sequence of tuples contain labels for the observations coming from the component (0,1,2,...num_components-1) and an
+Data type (Tuple[T, Optional[Sequence[Tuple[int, float]]]): T is the data type of the
+mixture components. The optional
+Sequence of tuples contain labels for the observations coming from the component
+(0,1,2,...num_components-1) and an
 associated probability for the label.
 
-The likelihood for an observation x = (y, prior) is simply a mixture distribution with the weights of the mixture
-re-weighted to account for the prior knowledge that x was observaed from components in prior with probs in prior as well.
+The likelihood for an observation x = (y, prior) is simply a mixture distribution with
+the weights of the mixture
+re-weighted to account for the prior knowledge that x was observaed from components in
+prior with probs in prior as well.
 
 If no prior is provided, the likelihood is simply a mixture.
 
@@ -57,7 +63,8 @@ class SemiSupervisedMixtureDistribution(SequenceEncodableProbabilityDistribution
     """Create SemiSupervisedMixtureDistribution object.
 
     Attributes:
-        components (Sequence[SequenceEncodableProbabilityDistribution]): Mixture components.
+        components (Sequence[SequenceEncodableProbabilityDistribution]): Mixture
+            components.
         num_components (int): Number of mixture components.
         zw (np.ndarray): Bool numpy array, True where weights are 0.0.
         log_w (np.ndarray): Log of weights. Set to -np.inf where weights are 0.
@@ -75,7 +82,8 @@ class SemiSupervisedMixtureDistribution(SequenceEncodableProbabilityDistribution
         """Create SemiSupervisedMixtureDistribution object.
 
         Args:
-            components (Sequence[SequenceEncodableProbabilityDistribution]): Mixture components.
+            components (Sequence[SequenceEncodableProbabilityDistribution]): Mixture
+                components.
             w ( Union[List[float], np.ndarray]): Mixture weights. Should sum to 1.0
             name (Optional[str]): Set name for object.
 
@@ -89,10 +97,12 @@ class SemiSupervisedMixtureDistribution(SequenceEncodableProbabilityDistribution
         self.name = name
 
     def __str__(self) -> str:
-        return "SemiSupervisedMixtureDistribution([%s], [%s], name=%s)" % (
-            ",".join([str(u) for u in self.components]),
-            ",".join(map(str, self.w)),
-            ",".join(repr(self.name)),
+        components = ",".join([str(u) for u in self.components])
+        weights = ",".join(map(str, self.w))
+        name = ",".join(repr(self.name))
+        return (
+            f"SemiSupervisedMixtureDistribution([{components}], "
+            f"[{weights}], name={name})"
         )
 
     def density(self, x: Tuple[T0, Optional[Sequence[Tuple[int, T1]]]]) -> float:
@@ -380,7 +390,7 @@ class SemiSupervisedMixtureEstimatorAccumulator(SequenceEncodableStatisticAccumu
         rng: RandomState,
     ) -> None:
         sz, enc_data, (enc_prior, enc_prior_sum, enc_prior_flag), xx = x.data
-        for i in range(len(xx)):
+        for i, _ in enumerate(xx):
             self.initialize(xx[i], weights[i], rng=rng)
 
     def seq_update(
@@ -457,7 +467,7 @@ class SemiSupervisedMixtureEstimatorAccumulator(SequenceEncodableStatisticAccumu
         if self.comp_key is not None:
             if self.comp_key in stats_dict:
                 acc = stats_dict[self.comp_key]
-                for i in range(len(acc)):
+                for i, _ in enumerate(acc):
                     acc[i] = acc[i].combine(self.accumulators[i].value())
             else:
                 stats_dict[self.comp_key] = self.accumulators
@@ -505,16 +515,21 @@ class SemiSupervisedMixtureEstimatorAccumulatorFactory(StatisticAccumulatorFacto
 
 
 class SemiSupervisedMixtureEstimator(ParameterEstimator):
-    """SemiSupervisedMixtureEstimator object for estimating SemiSupervisedMixtureDistribution from aggregated
+    """SemiSupervisedMixtureEstimator object for estimating
+    SemiSupervisedMixtureDistribution from aggregated
         sufficient statistics.
 
     Attributes:
-        estimators (Sequence[ParameterEstimator]): Sequence of ParameterEstimators objects for the components of
+        estimators (Sequence[ParameterEstimator]): Sequence of ParameterEstimators
+            objects for the components of
             the mixture. All must be of the same class compatible with data type T.
-        suff_stat (Optional[np.ndarray]): Mixture weights for components obtained from prev estimation or for
+        suff_stat (Optional[np.ndarray]): Mixture weights for components obtained from
+            prev estimation or for
             regularization.
-        pseudo_count (Optional[float]): Re-weight sufficient statistics, i.e. penalize sufficient statistics.
-        keys (Optional[Tuple[Optional[str], Optional[str]]]): Set keys for the weights and components.
+        pseudo_count (Optional[float]): Re-weight sufficient statistics, i.e. penalize
+            sufficient statistics.
+        keys (Optional[Tuple[Optional[str], Optional[str]]]): Set keys for the weights
+            and components.
         name (Optional[str]): Set name for object.
 
     """
@@ -530,12 +545,16 @@ class SemiSupervisedMixtureEstimator(ParameterEstimator):
         """SemiSupervisedMixtureEstimator object.
 
         Args:
-            estimators (Sequence[ParameterEstimator]): Sequence of ParameterEstimators objects for the components of
+            estimators (Sequence[ParameterEstimator]): Sequence of ParameterEstimators
+                objects for the components of
                 the mixture. All must be of the same class compatible with data type T.
-            suff_stat (Optional[np.ndarray]): Mixture weights for components obtained from prev estimation or for
+            suff_stat (Optional[np.ndarray]): Mixture weights for components obtained
+                from prev estimation or for
                 regularization.
-            pseudo_count (Optional[float]): Re-weight sufficient statistics, i.e. penalize sufficient statistics.
-            keys (Optional[Tuple[Optional[str], Optional[str]]]): Set keys for the weights and components.
+            pseudo_count (Optional[float]): Re-weight sufficient statistics, i.e.
+                penalize sufficient statistics.
+            keys (Optional[Tuple[Optional[str], Optional[str]]]): Set keys for the
+                weights and components.
             name (Optional[str]): Set name for object.
 
         """

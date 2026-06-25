@@ -1,6 +1,7 @@
 """Create, estimate, and sample from an exponential distribution with scale beta.
 
-Defines the ExponentialDistribution, ExponentialSampler, ExponentialAccumulatorFactory, ExponentialAccumulator,
+Defines the ExponentialDistribution, ExponentialSampler, ExponentialAccumulatorFactory,
+ExponentialAccumulator,
 ExponentialEstimator, and the ExponentialDataEncoder classes for use with dmx-learn.
 """
 
@@ -25,7 +26,8 @@ class ExponentialDistribution(SequenceEncodableProbabilityDistribution):
     """Exponential distribution with scale parameter beta.
 
     Attributes:
-        beta (float): Positive real number defining the scale of the exponential distribution.
+        beta (float): Positive real number defining the scale of the exponential
+            distribution.
         log_beta (float): Logarithm of the beta parameter.
         name (Optional[str]): Name for the ExponentialDistribution object.
         keys (Optional[str]): Key for parameters.
@@ -37,7 +39,8 @@ class ExponentialDistribution(SequenceEncodableProbabilityDistribution):
         """Initialize ExponentialDistribution.
 
         Args:
-            beta (float): Positive real number defining the scale of the exponential distribution.
+            beta (float): Positive real number defining the scale of the exponential
+                distribution.
             name (Optional[str], optional): Name for the ExponentialDistribution object.
             keys (Optional[str], optional): Key for parameters.
         """
@@ -48,7 +51,10 @@ class ExponentialDistribution(SequenceEncodableProbabilityDistribution):
 
     def __str__(self) -> str:
         """Return string representation."""
-        return f"ExponentialDistribution({repr(self.beta)}, name={repr(self.name)}, keys={repr(self.keys)})"
+        return (
+            f"ExponentialDistribution({repr(self.beta)}, name={repr(self.name)}, "
+            f"keys={repr(self.keys)})"
+        )
 
     def density(self, x: float) -> float:
         """Evaluate the density of the exponential distribution at x.
@@ -146,7 +152,8 @@ class ExponentialSampler(DistributionSampler):
         """Initialize ExponentialSampler.
 
         Args:
-            dist (ExponentialDistribution): ExponentialDistribution instance to sample from.
+            dist (ExponentialDistribution): ExponentialDistribution instance to sample
+                from.
             seed (Optional[int], optional): Seed for random number generator.
         """
         self.rng = RandomState(seed)
@@ -156,7 +163,8 @@ class ExponentialSampler(DistributionSampler):
         """Draw iid samples from the exponential distribution.
 
         Args:
-            size (Optional[int], optional): Number of samples to draw. If None, returns a single sample.
+            size (Optional[int], optional): Number of samples to draw. If None, returns
+                a single sample.
 
         Returns:
             Union[float, np.ndarray]: Single sample or array of samples.
@@ -343,7 +351,8 @@ class ExponentialEstimator(ParameterEstimator):
 
     Attributes:
         pseudo_count (Optional[float]): Used to weight sufficient statistics.
-        suff_stat (Optional[float]): Positive float value for scale of exponential distribution.
+        suff_stat (Optional[float]): Positive float value for scale of exponential
+            distribution.
         name (Optional[str]): Name for the estimator.
         keys (Optional[str]): Key for combining sufficient statistics.
     """
@@ -358,8 +367,10 @@ class ExponentialEstimator(ParameterEstimator):
         """Initialize ExponentialEstimator.
 
         Args:
-            pseudo_count (Optional[float], optional): Used to weight sufficient statistics.
-            suff_stat (Optional[float], optional): Positive float value for scale of exponential distribution.
+            pseudo_count (Optional[float], optional): Used to weight sufficient
+                statistics.
+            suff_stat (Optional[float], optional): Positive float value for scale of
+                exponential distribution.
             name (Optional[str], optional): Name for the estimator.
             keys (Optional[str], optional): Key for combining sufficient statistics.
 
@@ -435,7 +446,8 @@ class ExponentialDataEncoder(DataSequenceEncoder):
         """Encode a sequence of exponential observations.
 
         Args:
-            x (Union[List[float], np.ndarray]): Sequence of iid exponential observations.
+            x (Union[List[float], np.ndarray]): Sequence of iid exponential
+                observations.
 
         Returns:
             ExponentialEncodedDataSequence: Encoded data sequence.

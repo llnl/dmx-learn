@@ -1,9 +1,11 @@
 """Create, estimate, and sample from an IgnoredDistribution.
 
-Defines the IgnoredDistribution, IgnoredSampler, IgnoredAccumulatorFactory, IgnoredAccumulator, IgnoredEstimator,
+Defines the IgnoredDistribution, IgnoredSampler, IgnoredAccumulatorFactory,
+IgnoredAccumulator, IgnoredEstimator,
 and the IgnoredDataEncoder classes for use with dmx-learn.
 
-Ignored distribution is simply a distribution that is ignored in estimation and treated as fixed.
+Ignored distribution is simply a distribution that is ignored in estimation and treated
+as fixed.
 
 """
 
@@ -46,7 +48,8 @@ class IgnoredDistribution(SequenceEncodableProbabilityDistribution):
         """IgnoredDistribution object.
 
         Args:
-            dist (Optional[SequenceEncodableProbabilityDistribution]): Distribution to be ignored.
+            dist (Optional[SequenceEncodableProbabilityDistribution]): Distribution to
+                be ignored.
             name (Optional[str]): Set name for object instance.
             keys (Optional[str]): Keys for distribution (just a place holder).
 
@@ -57,10 +60,9 @@ class IgnoredDistribution(SequenceEncodableProbabilityDistribution):
 
     def __str__(self) -> str:
 
-        return "IgnoredDistribution(%s, name=%s, keys=%s)" % (
-            repr(self.dist),
-            repr(self.name),
-            repr(self.keys),
+        return (
+            f"IgnoredDistribution({repr(self.dist)}, name={repr(self.name)}, "
+            f"keys={repr(self.keys)})"
         )
 
     def density(self, x: T) -> float:
@@ -114,7 +116,8 @@ class IgnoredSampler(DistributionSampler):
     """IgnoredSampler object for generating samples from Ignored distribution.
 
     Attributes:
-        dist_sampler (DistributionSampler): DistributionSampler for ignored distribution.
+        dist_sampler (DistributionSampler): DistributionSampler for ignored
+            distribution.
         null_sampler (bool): True if IgnoredDistribution is the NullDistribution.
 
     """
@@ -159,7 +162,8 @@ class IgnoredAccumulator(SequenceEncodableStatisticAccumulator):
         """IgnoredAccumulator object.
 
         Args:
-            encoder (Optional[DataSequenceEncoder]): DataSequenceEncoder for the ignored distribution.
+            encoder (Optional[DataSequenceEncoder]): DataSequenceEncoder for the ignored
+                distribution.
             name (Optional[str]): Name for distribution.
             keys (Optional[str]): Name for param dists (place holder only).
 
@@ -230,7 +234,8 @@ class IgnoredAccumulatorFactory(StatisticAccumulatorFactory):
         """IgnoredAccumulatorFactory object.
 
         Args:
-            encoder (Optional[DataSequenceEncoder]): DataSequenceEncoder for base distribution.
+            encoder (Optional[DataSequenceEncoder]): DataSequenceEncoder for base
+                distribution.
             name (Optional[str]): Name for distribution.
             keys (Optional[str]): Keys for distribution (just a place holder).
 
@@ -266,7 +271,8 @@ class IgnoredEstimator(ParameterEstimator):
         """IgnoredEstimator object.
 
         Args:
-            dist (Optional[SequenceEncodableProbabilityDistribution]): Distribution to be ignored.
+            dist (Optional[SequenceEncodableProbabilityDistribution]): Distribution to
+                be ignored.
             pseudo_count (Optional[float]): Place holder for consistency.
             suff_stat (Optional[Any]): Place holder for consistency.
             keys (Optional[str]): Place holder for consistency.
@@ -308,7 +314,8 @@ class IgnoredDataEncoder(DataSequenceEncoder):
         """IgnoredDataEncoder object.
 
         Attributes:
-            encoder (Optional[DataSequenceEncoder]): DataSequenceEncoder for ignored distribution.
+            encoder (Optional[DataSequenceEncoder]): DataSequenceEncoder for ignored
+                distribution.
 
         """
         self.encoder = encoder if encoder is not None else NullDataEncoder()
@@ -339,7 +346,8 @@ class IgnoredEncodedDataSequence(EncodedDataSequence):
         """IgnoredEncodedDataSequence object.
 
         Args:
-            data (EncodedDataSequence): EncodedDataSequence object for ignored distribution.
+            data (EncodedDataSequence): EncodedDataSequence object for ignored
+                distribution.
 
         """
         super().__init__(data=data)

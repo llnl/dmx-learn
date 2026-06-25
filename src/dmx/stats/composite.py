@@ -1,10 +1,13 @@
 """Create, estimate, and sample from a Composite distribution.
 
-Defines the CompositeDistribution, CompositeSampler, CompositeAccumulatorFactory, CompositeAccumulator,
+Defines the CompositeDistribution, CompositeSampler, CompositeAccumulatorFactory,
+CompositeAccumulator,
 CompositeEstimator, and the CompositeDataEncoder classes for use with dmx-learn.
 
-Data type: Tuple[T_0, ... T_{n-1}]: The CompositeDistribution of size 'n' is a joint distribution for
-independent observations of 'n'-tupled data. Each component 'k' of the CompositeDistribution has data type T_k that
+Data type: Tuple[T_0, ... T_{n-1}]: The CompositeDistribution of size 'n' is a joint
+distribution for
+independent observations of 'n'-tupled data. Each component 'k' of the
+CompositeDistribution has data type T_k that
 must be compatible with data type T_k.
 """
 
@@ -29,7 +32,8 @@ class CompositeDistribution(SequenceEncodableProbabilityDistribution):
     """CompositeDistribution for modeling tuples of heterogeneous data.
 
     Attributes:
-        dists (Tuple[SequenceEncodableProbabilityDistribution, ...]): Distributions for each component.
+        dists (Tuple[SequenceEncodableProbabilityDistribution, ...]): Distributions for
+            each component.
         count (int): Number of components (i.e. len(dists)).
         name (Optional[str]): Name of object.
         keys (Optional[str]): Key for marking shared parameters.
@@ -44,9 +48,11 @@ class CompositeDistribution(SequenceEncodableProbabilityDistribution):
         """Create an instance of CompositeDistribution.
 
         Args:
-            dists (Sequence[SequenceEncodableProbabilityDistribution]): Component distributions.
+            dists (Sequence[SequenceEncodableProbabilityDistribution]): Component
+                distributions.
             name (Optional[str], optional): Name of object. Defaults to None.
-            keys (Optional[str], optional): Key for marking shared parameters. Defaults to None.
+            keys (Optional[str], optional): Key for marking shared parameters. Defaults
+                to None.
         """
         self.dists: Tuple[SequenceEncodableProbabilityDistribution, ...] = tuple(dists)
         self.count: int = len(dists)
@@ -68,7 +74,8 @@ class CompositeDistribution(SequenceEncodableProbabilityDistribution):
         """Evaluate density of CompositeDistribution for a single observation tuple x.
 
         Args:
-            x (Tuple[Any, ...]): Tuple of length = len(dists), the k-th data type must be consistent with dists[k].
+            x (Tuple[Any, ...]): Tuple of length = len(dists), the k-th data type must
+                be consistent with dists[k].
 
         Returns:
             float: Density value.
@@ -79,10 +86,12 @@ class CompositeDistribution(SequenceEncodableProbabilityDistribution):
         return rv
 
     def log_density(self, x: Tuple[Any, ...]) -> float:
-        """Evaluate log-density of CompositeDistribution for a single observation tuple x.
+        """Evaluate log-density of CompositeDistribution for a single observation tuple
+        x.
 
         Args:
-            x (Tuple[Any, ...]): Tuple of length = len(dists), the k-th data type must be consistent with dists[k].
+            x (Tuple[Any, ...]): Tuple of length = len(dists), the k-th data type must
+                be consistent with dists[k].
 
         Returns:
             float: Log-density value.
@@ -96,7 +105,8 @@ class CompositeDistribution(SequenceEncodableProbabilityDistribution):
         """Vectorized evaluation of log density for CompositeEncodedDataSequence.
 
         Args:
-            x (CompositeEncodedDataSequence): EncodedDataSequence for Composite Distribution.
+            x (CompositeEncodedDataSequence): EncodedDataSequence for Composite
+                Distribution.
 
         Returns:
             np.ndarray: Log-density evaluated at all encoded data points.
@@ -106,7 +116,8 @@ class CompositeDistribution(SequenceEncodableProbabilityDistribution):
         """
         if not isinstance(x, CompositeEncodedDataSequence):
             raise Exception(
-                "CompositeDistribution.seq_log_density() requires CompositeEncodedDataSequence."
+                "CompositeDistribution.seq_log_density() requires "
+                "CompositeEncodedDataSequence."
             )
         rv = self.dists[0].seq_log_density(x.data[0])
         for i in range(1, self.count):
@@ -117,7 +128,8 @@ class CompositeDistribution(SequenceEncodableProbabilityDistribution):
         """Create CompositeSampler for sampling from CompositeDistribution instance.
 
         Args:
-            seed (Optional[int], optional): Seed to set for sampling with RandomState. Defaults to None.
+            seed (Optional[int], optional): Seed to set for sampling with RandomState.
+                Defaults to None.
 
         Returns:
             CompositeSampler: Sampler object.
@@ -128,7 +140,8 @@ class CompositeDistribution(SequenceEncodableProbabilityDistribution):
         """Create CompositeEstimator for estimating CompositeDistribution.
 
         Args:
-            pseudo_count (Optional[float], optional): Used to inflate sufficient statistics in estimation.
+            pseudo_count (Optional[float], optional): Used to inflate sufficient
+                statistics in estimation.
 
         Returns:
             CompositeEstimator: Estimator object.
@@ -155,7 +168,8 @@ class CompositeSampler(DistributionSampler):
     Attributes:
         dist (CompositeDistribution): CompositeDistribution to draw samples from.
         rng (RandomState): RandomState with seed set if provided.
-        dist_samplers (List[DistributionSampler]): List of DistributionSamplers for each component.
+        dist_samplers (List[DistributionSampler]): List of DistributionSamplers for each
+            component.
     """
 
     def __init__(
@@ -165,7 +179,8 @@ class CompositeSampler(DistributionSampler):
 
         Args:
             dist (CompositeDistribution): CompositeDistribution to draw samples from.
-            seed (Optional[int], optional): Seed to set for sampling with RandomState. Defaults to None.
+            seed (Optional[int], optional): Seed to set for sampling with RandomState.
+                Defaults to None.
         """
         self.dist: CompositeDistribution = dist
         self.rng: RandomState = RandomState(seed)
@@ -178,14 +193,19 @@ class CompositeSampler(DistributionSampler):
     ) -> Union[List[Tuple[Any, ...]], Tuple[Any, ...]]:
         """Generate independent samples from a CompositeDistribution.
 
-        If size is None, draw one sample and return as Tuple of length = len(dists). If size > 0,
-        draw size samples and return a list of length size containing tuples of len(dists).
+        If size is None, draw one sample and return as Tuple of length = len(dists). If
+        size > 0,
+        draw size samples and return a list of length size containing tuples of
+        len(dists).
 
         Args:
-            size (Optional[int], optional): If None, draw 1 sample. Else, draw size number of iid samples.
+            size (Optional[int], optional): If None, draw 1 sample. Else, draw size
+                number of iid samples.
 
         Returns:
-            Union[List[Tuple[Any, ...]], Tuple[Any, ...]]: A tuple of length = len(dists) or a list of length size containing tuples of length = len(dists).
+            Union[List[Tuple[Any, ...]], Tuple[Any, ...]]: A tuple of length =
+            len(dists) or a list of length size containing tuples of length =
+            len(dists).
         """
         if size is None:
             return tuple([d.sample(size=size) for d in self.dist_samplers])
@@ -194,15 +214,20 @@ class CompositeSampler(DistributionSampler):
 
 
 class CompositeAccumulator(SequenceEncodableStatisticAccumulator):
-    """CompositeAccumulator for aggregating sufficient statistics of each component of the CompositeDistribution.
+    """CompositeAccumulator for aggregating sufficient statistics of each component of
+    the CompositeDistribution.
 
     Attributes:
-        accumulators (List[SequenceEncodableStatisticAccumulator]): List of accumulators for each component.
+        accumulators (List[SequenceEncodableStatisticAccumulator]): List of accumulators
+            for each component.
         count (int): Number of accumulators.
-        key (Optional[str]): All CompositeAccumulators with same key will have suff-stats merged.
+        key (Optional[str]): All CompositeAccumulators with same key will have
+            suff-stats merged.
         name (Optional[str]): Name of the object.
-        _init_rng (bool): True if _acc_rng has been set by a single function call to initialize.
-        _acc_rng (Optional[List[RandomState]]): List of RandomState objects generated from seeds set by rng in initialize.
+        _init_rng (bool): True if _acc_rng has been set by a single function call to
+            initialize.
+        _acc_rng (Optional[List[RandomState]]): List of RandomState objects generated
+            from seeds set by rng in initialize.
     """
 
     def __init__(
@@ -214,8 +239,10 @@ class CompositeAccumulator(SequenceEncodableStatisticAccumulator):
         """Initialize CompositeAccumulator.
 
         Args:
-            accumulators (Sequence[SequenceEncodableStatisticAccumulator]): Accumulators for each component.
-            keys (Optional[str], optional): All CompositeAccumulators with same key will have suff-stats merged. Defaults to None.
+            accumulators (Sequence[SequenceEncodableStatisticAccumulator]): Accumulators
+                for each component.
+            keys (Optional[str], optional): All CompositeAccumulators with same key will
+                have suff-stats merged. Defaults to None.
             name (Optional[str], optional): Name of the object. Defaults to None.
         """
         self.accumulators: List[SequenceEncodableStatisticAccumulator] = list(
@@ -238,7 +265,8 @@ class CompositeAccumulator(SequenceEncodableStatisticAccumulator):
         Args:
             x (Tuple[Any, ...]): Observation tuple.
             weight (float): Weight for the observation.
-            estimate (Optional[CompositeDistribution]): Distribution estimate for update.
+            estimate (Optional[CompositeDistribution]): Distribution estimate for
+                update.
         """
         if estimate is not None:
             for i in range(self.count):
@@ -307,7 +335,8 @@ class CompositeAccumulator(SequenceEncodableStatisticAccumulator):
         Args:
             x (CompositeEncodedDataSequence): Encoded data sequence.
             weights (np.ndarray): Weights for each observation.
-            estimate (Optional[CompositeDistribution]): Distribution estimate for update.
+            estimate (Optional[CompositeDistribution]): Distribution estimate for
+                update.
         """
         for i in range(self.count):
             self.accumulators[i].seq_update(
@@ -391,7 +420,8 @@ class CompositeAccumulatorFactory(StatisticAccumulatorFactory):
 
     Attributes:
         factories (Sequence[StatisticAccumulatorFactory]): Factories for each component.
-        keys (Optional[str]): Declare keys for merging sufficient statistics of CompositeAccumulator objects.
+        keys (Optional[str]): Declare keys for merging sufficient statistics of
+            CompositeAccumulator objects.
         name (Optional[str]): Name of the object.
     """
 
@@ -404,8 +434,10 @@ class CompositeAccumulatorFactory(StatisticAccumulatorFactory):
         """Initialize CompositeAccumulatorFactory.
 
         Args:
-            factories (Sequence[StatisticAccumulatorFactory]): Factories for each component.
-            keys (Optional[str], optional): Declare keys for merging sufficient statistics. Defaults to None.
+            factories (Sequence[StatisticAccumulatorFactory]): Factories for each
+                component.
+            keys (Optional[str], optional): Declare keys for merging sufficient
+                statistics. Defaults to None.
             name (Optional[str], optional): Name of the object. Defaults to None.
         """
         self.factories: Sequence[StatisticAccumulatorFactory] = factories
@@ -443,7 +475,8 @@ class CompositeEstimator(ParameterEstimator):
 
         Args:
             estimators (Sequence[ParameterEstimator]): Estimators for each component.
-            keys (Optional[str], optional): Keys used for merging sufficient statistics. Defaults to None.
+            keys (Optional[str], optional): Keys used for merging sufficient statistics.
+                Defaults to None.
             name (Optional[str], optional): Name of the object. Defaults to None.
 
         Raises:
@@ -475,8 +508,10 @@ class CompositeEstimator(ParameterEstimator):
         """Estimate a CompositeDistribution from aggregated sufficient statistics.
 
         Args:
-            nobs (Optional[float]): Weighted number of observations used to form suff_stat.
-            suff_stat (Tuple[Any, ...]): Tuple of sufficient statistics for each estimator.
+            nobs (Optional[float]): Weighted number of observations used to form
+                suff_stat.
+            suff_stat (Tuple[Any, ...]): Tuple of sufficient statistics for each
+                estimator.
 
         Returns:
             CompositeDistribution: Estimated distribution.
@@ -491,18 +526,21 @@ class CompositeEstimator(ParameterEstimator):
 class CompositeDataEncoder(DataSequenceEncoder):
     """Encoder for CompositeDistribution data.
 
-    Data must be of form Sequence[Tuple[Any, ...]]. Each encoder component must be compatible with each data
+    Data must be of form Sequence[Tuple[Any, ...]]. Each encoder component must be
+    compatible with each data
     component of the data.
 
     Attributes:
-        encoders (Tuple[DataSequenceEncoder, ...]): DataSequenceEncoders for each component.
+        encoders (Tuple[DataSequenceEncoder, ...]): DataSequenceEncoders for each
+            component.
     """
 
     def __init__(self, encoders: Sequence[DataSequenceEncoder]) -> None:
         """Initialize CompositeDataEncoder.
 
         Args:
-            encoders (Sequence[DataSequenceEncoder]): DataSequenceEncoders for each component.
+            encoders (Sequence[DataSequenceEncoder]): DataSequenceEncoders for each
+                component.
         """
         self.encoders: Tuple[DataSequenceEncoder, ...] = tuple(encoders)
 
@@ -539,11 +577,13 @@ class CompositeDataEncoder(DataSequenceEncoder):
     ) -> "CompositeEncodedDataSequence":
         """Encode sequence of tuples of data for use with vectorized "seq_" functions.
 
-        The input x must be a Sequence of Tuples of length equal to the length of encoders. Each component tuple
+        The input x must be a Sequence of Tuples of length equal to the length of
+        encoders. Each component tuple
         observation of x, say x[i], must be component-wise compatible with encoders.
 
         Args:
-            x (Sequence[Tuple[Any, ...]]): Sequence of tuples of length equal to len(encoders).
+            x (Sequence[Tuple[Any, ...]]): Sequence of tuples of length equal to
+                len(encoders).
 
         Returns:
             CompositeEncodedDataSequence: Encoded data sequence.
@@ -557,7 +597,8 @@ class CompositeDataEncoder(DataSequenceEncoder):
 class CompositeEncodedDataSequence(EncodedDataSequence):
     """Encoded data sequence for CompositeDistribution.
 
-    Data must be of form Sequence[Tuple[Any, ...]]. Each encoder component must be compatible with each data
+    Data must be of form Sequence[Tuple[Any, ...]]. Each encoder component must be
+    compatible with each data
     component of the data.
 
     Attributes:

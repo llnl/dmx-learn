@@ -1,26 +1,36 @@
 """Create, estimate, and sample from an integer PLSI model.
 
-Defines the IntegerPLSIDistribution, IntegerPLSISampler, IntegerPLSIAccumulatorFactory, IntegerPLSIAccumulator,
+Defines the IntegerPLSIDistribution, IntegerPLSISampler, IntegerPLSIAccumulatorFactory,
+IntegerPLSIAccumulator,
 IntegerPLSIEstimator, and the IntegerPLSIDataEncoder classes for use with dmx-learn.
 
-Consider an Integer PLSI model for a corpus of documents with S states, V word values, and D authors (doc_ids).
+Consider an Integer PLSI model for a corpus of documents with S states, V word values,
+and D authors (doc_ids).
 
-Let x (Tuple[int, Sequence[Tuple[int, float]]]) be an observation from a PLSI model, consisting of
+Let x (Tuple[int, Sequence[Tuple[int, float]]]) be an observation from a PLSI model,
+consisting of
 
     x = (d, [(v_0, c_0), (v_1, c_1), ..., (v_{k-1}, c_{k-1})]),
 
-where the 'd' is some author (doc_id) in the corpus and each tuple (v_i, c_i) corresponds to a value-count couple
-for some value 'v_i' in dictionary of words used in the corpus. Let w denote the distinct words {v_i} in the document
+where the 'd' is some author (doc_id) in the corpus and each tuple (v_i, c_i)
+corresponds to a value-count couple
+for some value 'v_i' in dictionary of words used in the corpus. Let w denote the
+distinct words {v_i} in the document
 represented by x. The density for the PLSI model is given by
 
-    p_mat(w, d) = P_len(nn)*p_mat(d) sum_{j=0}^{k-1} sum_{s=0}^{S-1} ( p_mat(v_j | s )p_mat(s | d) )^(c_j),
+    p_mat(w, d) = P_len(nn)*p_mat(d) sum_{j=0}^{k-1} sum_{s=0}^{S-1} ( p_mat(v_j | s
+    )p_mat(s | d) )^(c_j),
 
-where P_len(nn) is the density of the length distribution for 'nn' representing the total number of words in
-the document (i.e. nn = sum_i c_i), p_mat(d) is the probability of observing a document from author 'd', p_mat(v_j|s) is the
-probability of observing word (integer-valued) given word-topic 's', and p_mat(s|d) are the weights for the word-topic for
+where P_len(nn) is the density of the length distribution for 'nn' representing the
+total number of words in
+the document (i.e. nn = sum_i c_i), p_mat(d) is the probability of observing a document
+from author 'd', p_mat(v_j|s) is the
+probability of observing word (integer-valued) given word-topic 's', and p_mat(s|d) are
+the weights for the word-topic for
 author 'd'.
 
-Note: To use this distribution, convert your words and authors of the corpus to unique integer keys.
+Note: To use this distribution, convert your words and authors of the corpus to unique
+    integer keys.
 
 """
 
@@ -57,20 +67,27 @@ class IntegerPLSIDistribution(SequenceEncodableProbabilityDistribution):
     """IntegerPLSIDistribution object defining an Integer PLSI distribution.
 
     Attributes:
-       prob_mat (np.ndarray): 2-d numpy array of floats containing p_mat(word | states) in each row. Dimension is
+       prob_mat (np.ndarray): 2-d numpy array of floats containing p_mat(word | states)
+           in each row. Dimension is
            given by number of words times number of states.
-       state_mat (np.ndarray): 2-d numpy array of floats containing p_mat(doc | states) in each row. Dimension is
+       state_mat (np.ndarray): 2-d numpy array of floats containing p_mat(doc | states)
+           in each row. Dimension is
            given by number of documents times number of states.
-       doc_vec (np.ndarray): 1-d numpy array of floats containing p_mat(doc=d) for each entry. Length is equal to
+       doc_vec (np.ndarray): 1-d numpy array of floats containing p_mat(doc=d) for each
+           entry. Length is equal to
            number of document ids.
        log_doc_vec (np.ndarray): 1-d numpy array of the log(p_mat(doc=d)).
        num_vals (int): Number of total words in corpus. (Number of rows in prob_mat).
-       num_states (int): Number of word topics (mixture components). (Number of columns in prob_mat/state_mat).
-       num_docs (int): Total number of document ids in corpus. (Number of rows in state_mat).
+       num_states (int): Number of word topics (mixture components). (Number of columns
+           in prob_mat/state_mat).
+       num_docs (int): Total number of document ids in corpus. (Number of rows in
+           state_mat).
        name (Optional[str]): Optional name for object instance.
-       len_dist (SequenceEncodableProbabilityDistribution): Distribution object for the number of words per
+       len_dist (SequenceEncodableProbabilityDistribution): Distribution object for the
+           number of words per
            document. Defaults to the NullDistribution if None is passed.
-       keys (Tuple[Optional[str], Optional[str], Optional[str]]): Keys for word_probs, state_probs, and doc_probs.
+       keys (Tuple[Optional[str], Optional[str], Optional[str]]): Keys for word_probs,
+           state_probs, and doc_probs.
 
     """
 
@@ -88,16 +105,23 @@ class IntegerPLSIDistribution(SequenceEncodableProbabilityDistribution):
         """IntegerPLSIDistribution object.
 
         Args:
-            state_word_mat (Union[List[List[float]], np.ndarray]): Array-like of floats that contains a
-                p_mat(word | states) for each word in corpus of documents. Cols should sum to 1.0
-            doc_state_mat (Union[List[List[float]], np.ndarray]): Array-like of floats that contains a p_mat(doc | states)
+            state_word_mat (Union[List[List[float]], np.ndarray]): Array-like of floats
+                that contains a
+                p_mat(word | states) for each word in corpus of documents. Cols should
+                sum to 1.0
+            doc_state_mat (Union[List[List[float]], np.ndarray]): Array-like of floats
+                that contains a p_mat(doc | states)
                 for each document id in corpus of documents. Rows should sum to 1.0
-            doc_vec (Union[List[float], np.ndarray]): Array-like containing prior for documents p_mat(d) for each
+            doc_vec (Union[List[float], np.ndarray]): Array-like containing prior for
+                documents p_mat(d) for each
                 document id in corpus of documents. Should sum to 1.0
-            len_dist (Optional[SequenceEncodableProbabilityDistribution]): Optional distribution for the length of
-                each document (i.e. word count in an observed document). Should have support on positive integers.
+            len_dist (Optional[SequenceEncodableProbabilityDistribution]): Optional
+                distribution for the length of
+                each document (i.e. word count in an observed document). Should have
+                support on positive integers.
             name (Optional[str]): Set name to object instance.
-            keys (Tuple[Optional[str], Optional[str], Optional[str]]): Keys for word_probs, state_probs, and doc_probs.
+            keys (Tuple[Optional[str], Optional[str], Optional[str]]): Keys for
+                word_probs, state_probs, and doc_probs.
 
         """
         self.prob_mat = np.asarray(state_word_mat, dtype=np.float64)
@@ -129,8 +153,8 @@ class IntegerPLSIDistribution(SequenceEncodableProbabilityDistribution):
         s5 = str(self.len_dist)
         s6 = repr(self.keys)
         return (
-            "IntegerPLSIDistribution([%s], [%s], [%s], name=%s, len_dist=%s, keys=%s)"
-            % (s1, s2, s3, s4, s5, s6)
+            f"IntegerPLSIDistribution([{s1}], [{s2}], [{s3}], "
+            f"name={s4}, len_dist={s5}, keys={s6})"
         )
 
     def density(self, x: Tuple[int, Sequence[Tuple[int, float]]]) -> float:
@@ -139,7 +163,8 @@ class IntegerPLSIDistribution(SequenceEncodableProbabilityDistribution):
         See log_density() for details on the density evaluation.
 
         Args:
-            x (Tuple[int, Sequence[Tuple[int, float]]]): Single observation of integer PLSI.
+            x (Tuple[int, Sequence[Tuple[int, float]]]): Single observation of integer
+                PLSI.
 
         Returns:
             float: Density evaluated at observed value x.
@@ -150,20 +175,27 @@ class IntegerPLSIDistribution(SequenceEncodableProbabilityDistribution):
     def log_density(self, x: Tuple[int, Sequence[Tuple[int, float]]]) -> float:
         """Evaluate the log-density of PLSI model for an observation of x.
 
-        Consider an Integer PLSI model for a corpus of documents with S states, V word values, and D documents ids
+        Consider an Integer PLSI model for a corpus of documents with S states, V word
+        values, and D documents ids
         (authors).
 
-        Let x (Tuple[int, Sequence[Tuple[int, float]]]) be an observation from a PLSI model, consisting of
-        x = (d, [(v_0, c_0), (v_1, c_1), ..., (v_{k-1}, c_{k-1})]), where the 'd' is some document d_id in the corpus and
-        each tuple (v_i, c_i) corresponds to a value-count couple in the corpus. The log-likelihood is given by
+        Let x (Tuple[int, Sequence[Tuple[int, float]]]) be an observation from a PLSI
+        model, consisting of
+        x = (d, [(v_0, c_0), (v_1, c_1), ..., (v_{k-1}, c_{k-1})]), where the 'd' is
+        some document d_id in the corpus and
+        each tuple (v_i, c_i) corresponds to a value-count couple in the corpus. The
+        log-likelihood is given by
 
-        log(p_mat(x)) = log(p_mat(d)) + sum_{j=0}^{k-1} c_k*log( sum_{s=0}^{S-1} p_mat(d|s)p_mat(s|v_k) ) + log(P_len(nn)),
+        log(p_mat(x)) = log(p_mat(d)) + sum_{j=0}^{k-1} c_k*log( sum_{s=0}^{S-1}
+        p_mat(d|s)p_mat(s|v_k) ) + log(P_len(nn)),
 
-        where P_len(nn) is the density of the length distribution for 'nn' representing the total number of words in
+        where P_len(nn) is the density of the length distribution for 'nn' representing
+        the total number of words in
         the document.
 
         Args:
-            x (Tuple[int, Sequence[Tuple[int, float]]]): (doc_id, [(value_id, count_for_value)]). See above for details.
+            x (Tuple[int, Sequence[Tuple[int, float]]]): (doc_id, [(value_id,
+                count_for_value)]). See above for details.
 
         Returns:
             float: Log-density evaluated at a single observation x.
@@ -188,7 +220,8 @@ class IntegerPLSIDistribution(SequenceEncodableProbabilityDistribution):
     ) -> np.ndarray:
         """Evaluate the log-density for each state in the PLSI.
 
-        Returns count*log(p_mat(W|S)) for each word-count pair in the document. Returned value is S by 1 where S is the
+        Returns count*log(p_mat(W|S)) for each word-count pair in the document. Returned
+        value is S by 1 where S is the
         number of components in the model.
 
         Args:
@@ -231,13 +264,16 @@ class IntegerPLSIDistribution(SequenceEncodableProbabilityDistribution):
     def seq_component_log_density(
         self, x: "IntegerPLSIEncodedDataSequence"
     ) -> np.ndarray:
-        """Vectorized evaluation of the component log-density for each observation in an encoded sequence of iid PLSI
+        """Vectorized evaluation of the component log-density for each observation in an
+        encoded sequence of iid PLSI
             observations.
 
-        See component_log_density() function for details on component log-likelihood evaluation.
+        See component_log_density() function for details on component log-likelihood
+        evaluation.
 
         Args:
-            x (IntegerPLSIEncodedDataSequence): EncodedDataSequence of PLSI observations.
+            x (IntegerPLSIEncodedDataSequence): EncodedDataSequence of PLSI
+                observations.
 
         Returns:
             np.ndarray: 2-d numpy array containing N rows of num_state sized arrays.
@@ -246,7 +282,8 @@ class IntegerPLSIDistribution(SequenceEncodableProbabilityDistribution):
 
         if not isinstance(x, IntegerPLSIEncodedDataSequence):
             raise Exception(
-                "IntegerPLSIEncodedDataSequence required for seq_component_log_density()."
+                "IntegerPLSIEncodedDataSequence required for "
+                "seq_component_log_density()."
             )
 
         nn, (xv, xc, xd, xi, xn, xm) = x.data
@@ -291,7 +328,8 @@ class IntegerPLSISampler(DistributionSampler):
 
     Attributes:
         rng (RandomState): RandomState object with seed set if passed.
-        dist (IntegerPLSIDistribution): IntegerPLSIDistribution instance to sampler from.
+        dist (IntegerPLSIDistribution): IntegerPLSIDistribution instance to sampler
+            from.
         size_rng (RandomState): RandomState object for sampling the length of documents.
 
     """
@@ -302,7 +340,8 @@ class IntegerPLSISampler(DistributionSampler):
         """IntegerPLSISampler object.
 
         Args:
-            dist (IntegerPLSIDistribution): IntegerPLSIDistribution instance to sampler from.
+            dist (IntegerPLSIDistribution): IntegerPLSIDistribution instance to sampler
+                from.
             seed (Optional[int]): Set seed for random number generator used in sampling.
 
         """
@@ -317,10 +356,12 @@ class IntegerPLSISampler(DistributionSampler):
         """Generate iid samples from PLSI model.
 
         Args:
-            size (Optional[int]): Number of samples to generate. Defaults to 0 if size is None.
+            size (Optional[int]): Number of samples to generate. Defaults to 0 if size
+                is None.
 
         Returns:
-            Sequence of iid PLSI samples if size is not None, else a single sample from PLSI model.
+            Sequence of iid PLSI samples if size is not None, else a single sample from
+            PLSI model.
 
         """
         if size is None:
@@ -346,7 +387,8 @@ class IntegerPLSISampler(DistributionSampler):
 
 
 class IntegerPLSIAccumulator(SequenceEncodableStatisticAccumulator):
-    """IntegerPLSIAccumulator object for aggregating sufficient statistics from observed data.
+    """IntegerPLSIAccumulator object for aggregating sufficient statistics from observed
+    data.
 
     Note: Keys in order, words/values, states, documents.
 
@@ -354,19 +396,29 @@ class IntegerPLSIAccumulator(SequenceEncodableStatisticAccumulator):
         num_vals (int): Number of words in the corpus.
         num_states (int): Number of word-topics or mixture components.
         num_docs (int): Number of authors (doc_ids) in the corpus.
-        word_count (ndarray): Numpy array of shape num_states by num_vals for aggregating state/word counts.
-        comp_count (ndarray): Numpy array (num_docs by num_states) for aggregating doc/state counts.
-        doc_count (ndarray): Numpy array for aggregating counts of authors (prior on doc_ids).
+        word_count (ndarray): Numpy array of shape num_states by num_vals for
+            aggregating state/word counts.
+        comp_count (ndarray): Numpy array (num_docs by num_states) for aggregating
+            doc/state counts.
+        doc_count (ndarray): Numpy array for aggregating counts of authors (prior on
+            doc_ids).
         name (Optional[str]): Name of object instance.
-        wc_key (Optional[str]): Key for merging 'word_count' with objects containing matching keys.
-        sc_key (Optional[str]): Key for merging 'comp_count' with objects containing matching keys.
-        dc_key (Optional[str]): Key for merging 'doc_count' with objects containing matching keys.
-        len_acc (SequenceEncodableStatisticAccumulator): Accumulator object for the lengths of documents (total
+        wc_key (Optional[str]): Key for merging 'word_count' with objects containing
+            matching keys.
+        sc_key (Optional[str]): Key for merging 'comp_count' with objects containing
+            matching keys.
+        dc_key (Optional[str]): Key for merging 'doc_count' with objects containing
+            matching keys.
+        len_acc (SequenceEncodableStatisticAccumulator): Accumulator object for the
+            lengths of documents (total
             word counts). Defaults to the NullAccumulator if None is passed.
 
-        _init_rng (bool): True if RandomState objects for accumulator have been initialized.
-        _acc_rng (Optional[RandomState]): RandomState object for initializing the PLSI model.
-        _len_rng (Optional[RandomState]): RandomState object for initializing the length accumulator.
+        _init_rng (bool): True if RandomState objects for accumulator have been
+            initialized.
+        _acc_rng (Optional[RandomState]): RandomState object for initializing the PLSI
+            model.
+        _len_rng (Optional[RandomState]): RandomState object for initializing the length
+            accumulator.
 
     """
 
@@ -391,10 +443,12 @@ class IntegerPLSIAccumulator(SequenceEncodableStatisticAccumulator):
             num_vals (int): Number of words in the corpus.
             num_states (int): Number of word-topics.
             num_docs (int): Number of authors (doc_ids) in the corpus.
-            len_acc (Optional[SequenceEncodableStatisticAccumulator]): Optional accumulator for the length of documents.
+            len_acc (Optional[SequenceEncodableStatisticAccumulator]): Optional
+                accumulator for the length of documents.
                 Should have support on non-negative integer values.
             name (Optional[str]): Optional name for object instance.
-            keys (Optional[Tuple[Optional[str], Optional[str], Optional[str]]]): Optional keys for words, states, and
+            keys (Optional[Tuple[Optional[str], Optional[str], Optional[str]]]):
+                Optional keys for words, states, and
                 authors (doc_ids).
 
         """
@@ -520,8 +574,10 @@ class IntegerPLSIAccumulator(SequenceEncodableStatisticAccumulator):
         #bincount(xm, weights, self.num_docs)
 
         for i in range(self.num_states):
-            self.word_count[i,:] += np.bincount(xv, weights=update[:,i], minlength=self.num_vals)
-            self.comp_count[:,i] += np.bincount(xd, weights=update[:,i], minlength=self.num_docs)
+            self.word_count[i,:] += np.bincount(xv, weights=update[:,i],
+            minlength=self.num_vals)
+            self.comp_count[:,i] += np.bincount(xd, weights=update[:,i],
+            minlength=self.num_docs)
         self.doc_count += np.bincount(xm, weights=weights, minlength=self.num_docs)
         """
         self.len_acc.seq_update(nn, weights, estimate.len_dist)
@@ -600,9 +656,12 @@ class IntegerPLSIAccumulatorFactory(StatisticAccumulatorFactory):
         num_vals (int): Number of words/values in PLSI.
         num_states (int): Number of states in PLSI.
         num_docs (int): Number of doc_ids (authors) in PLSI.
-        len_factory (StatisticsAccumulatorFactory): Accumulator factory object for length distribution. Defaults
-            to the NullAccumulatorFactory(). Should have support on non-negative integers.
-        keys (Tuple[Optional[str], Optional[str], Optional[str]]): Set keys for merging word, state, and doc
+        len_factory (StatisticsAccumulatorFactory): Accumulator factory object for
+            length distribution. Defaults
+            to the NullAccumulatorFactory(). Should have support on non-negative
+            integers.
+        keys (Tuple[Optional[str], Optional[str], Optional[str]]): Set keys for merging
+            word, state, and doc
             sufficient statistics with matching keys.
         name (Optional[str]): Set name for object.
 
@@ -627,8 +686,10 @@ class IntegerPLSIAccumulatorFactory(StatisticAccumulatorFactory):
             num_vals (int): Number of words/values in PLSI.
             num_states (int): Number of states in PLSI.
             num_docs (int): Number of doc_ids (authors) in PLSI.
-            len_factory (Optional[StatisticsAccumulatorFactory]): Accumulator factory object for length distribution.
-            keys (Optional[Tuple[Optional[str], Optional[str], Optional[str]]]): Set keys for merging
+            len_factory (Optional[StatisticsAccumulatorFactory]): Accumulator factory
+                object for length distribution.
+            keys (Optional[Tuple[Optional[str], Optional[str], Optional[str]]]): Set
+                keys for merging
                 word, state, and doc sufficient statistics with matching keys.
             name (Optional[str]): Set name for object.
 
@@ -654,21 +715,30 @@ class IntegerPLSIAccumulatorFactory(StatisticAccumulatorFactory):
 
 
 class IntegerPLSIEstimator(ParameterEstimator):
-    """IntegerPLSIEstimator for estimating integer PLSI distributions from aggregated sufficient statistics.
+    """IntegerPLSIEstimator for estimating integer PLSI distributions from aggregated
+    sufficient statistics.
 
     Attributes:
         num_vals (int): Number of words/values in PLSI.
         num_states (int): Number of states in PLSI.
         num_docs (int): Number of doc_ids (authors) in PLSI.
-        len_estimator (ParameterEstimator): Optional ParameterEstimator object for the length of documents. Should
-            have support on non-negative integers. Defaults to NullEstimator() if None is passed.
-        pseudo_count (Tuple[Optional[float], Optional[float], Optional[float]]): Optional re-weight sufficient
-            statistics in 'estimate()' function. Defaults to (None, None, None) if None is passed.
-        suff_stat (Tuple[Optional[np.ndarray], Optional[np.ndarray], Optional[np.ndarray]]): Optional
-            Tuple of numpy arrays containing 'word_counts' (num_states by num_vals), 'state_counts' (num_docs by
-            num_states), and doc_counts (length num_docs). Defaults to (None, None, None) if None is passed.
+        len_estimator (ParameterEstimator): Optional ParameterEstimator object for the
+            length of documents. Should
+            have support on non-negative integers. Defaults to NullEstimator() if None
+            is passed.
+        pseudo_count (Tuple[Optional[float], Optional[float], Optional[float]]):
+            Optional re-weight sufficient
+            statistics in 'estimate()' function. Defaults to (None, None, None) if None
+            is passed.
+        suff_stat (Tuple[Optional[np.ndarray], Optional[np.ndarray],
+            Optional[np.ndarray]]): Optional
+            Tuple of numpy arrays containing 'word_counts' (num_states by num_vals),
+            'state_counts' (num_docs by
+            num_states), and doc_counts (length num_docs). Defaults to (None, None,
+            None) if None is passed.
         name (Optional[str]): Name of object instance.
-        keys (Tuple[Optional[str], Optional[str], Optional[str]]): Keys for merging word, state, and doc
+        keys (Tuple[Optional[str], Optional[str], Optional[str]]): Keys for merging
+            word, state, and doc
             sufficient statistics with matching keys.
     """
 
@@ -697,15 +767,20 @@ class IntegerPLSIEstimator(ParameterEstimator):
             num_vals (int): Number of words/values in PLSI.
             num_states (int): Number of states in PLSI.
             num_docs (int): Number of doc_ids (authors) in PLSI.
-            len_estimator (Optional[ParameterEstimator]): Optional ParameterEstimator object for the length of
+            len_estimator (Optional[ParameterEstimator]): Optional ParameterEstimator
+                object for the length of
                 documents. Should have support on non-negative integers if not None.
-            pseudo_count (Optional[Tuple[Optional[float], Optional[float], Optional[float]]]): Optional re-weight
+            pseudo_count (Optional[Tuple[Optional[float], Optional[float],
+                Optional[float]]]): Optional re-weight
                 sufficient statistics in 'estimate()' function.
-            suff_stat (Optional[Tuple[Optional[np.ndarray], Optional[np.ndarray], Optional[np.ndarray]]]): Optional
-                Tuple of numpy arrays containing 'word_counts' (num_states by num_vals), 'state_counts' (num_docs by
+            suff_stat (Optional[Tuple[Optional[np.ndarray], Optional[np.ndarray],
+                Optional[np.ndarray]]]): Optional
+                Tuple of numpy arrays containing 'word_counts' (num_states by num_vals),
+                'state_counts' (num_docs by
                 num_states), and doc_counts (length num_docs).
             name (Optional[str]): Set name to object instance.
-            keys (Tuple[Optional[str], Optional[str], Optional[str]]): Set keys for merging word, state, and doc
+            keys (Tuple[Optional[str], Optional[str], Optional[str]]): Set keys for
+                merging word, state, and doc
                 sufficient statistics with matching keys.
 
         """
@@ -792,10 +867,12 @@ class IntegerPLSIEstimator(ParameterEstimator):
 
 
 class IntegerPLSIDataEncoder(DataSequenceEncoder):
-    """IntegerPLSIDataEncoder object for encoding sequences of iid observations from a PLSI model.
+    """IntegerPLSIDataEncoder object for encoding sequences of iid observations from a
+    PLSI model.
 
     Attributes:
-        len_encoder (DataSequenceEncoder): DataSequenceEncoder for the total number of words in each document,
+        len_encoder (DataSequenceEncoder): DataSequenceEncoder for the total number of
+            words in each document,
             defaulting to NullDataEncoder if None is passed.
 
     """
@@ -806,7 +883,8 @@ class IntegerPLSIDataEncoder(DataSequenceEncoder):
         """IntegerPLSIDataEncoder object.
 
         Args:
-            len_encoder (Optional[DataSequenceEncoder]): Optional DataSequenceEncoder for the total number of words
+            len_encoder (Optional[DataSequenceEncoder]): Optional DataSequenceEncoder
+                for the total number of words
                 in each document.
 
         """
@@ -830,17 +908,24 @@ class IntegerPLSIDataEncoder(DataSequenceEncoder):
 
         x = [ (doc_id, [(value, count),...]),... ].
 
-        The return value is a Tuple length 2. The first component contains data type Optional[T1] corresponding to the
-        sequence encoding of the lengths. The second component is a Tuple of length 6 containing
+        The return value is a Tuple length 2. The first component contains data type
+        Optional[T1] corresponding to the
+        sequence encoding of the lengths. The second component is a Tuple of length 6
+        containing
             xv (ndarray[int]): Numpy array of flattened word values.
             xc (ndarray[float]): Numpy array of flattened counts for word values above.
-            xd (ndarray[int]): Document d_id for each word-count pair in the arrays above.
-            xi (ndarray[int]): Observed sequence index for each word-count pair in the arrays above.
-            xn (ndarray[float]): Numpy array of the total number of words in each document.
-            xm (ndarray[float]): Flattened array of document d_id's for the lengths above (len = len(x)).
+            xd (ndarray[int]): Document d_id for each word-count pair in the arrays
+                above.
+            xi (ndarray[int]): Observed sequence index for each word-count pair in the
+                arrays above.
+            xn (ndarray[float]): Numpy array of the total number of words in each
+                document.
+            xm (ndarray[float]): Flattened array of document d_id's for the lengths
+                above (len = len(x)).
 
         Args:
-            x (Sequence[Tuple[int, Sequence[Tuple[int, float]]]]): See above for details.
+            x (Sequence[Tuple[int, Sequence[Tuple[int, float]]]]): See above for
+                details.
 
         Returns:
             IntegerPLSIEncodedDataSequence
@@ -881,7 +966,8 @@ class IntegerPLSIEncodedDataSequence(EncodedDataSequence):
     """IntegerPLSIEncodedDataSequence object for vectorized function calls.
 
     Notes:
-        E = Tuple[EncodedDataSequence, Tuple[np.ndarray, np.ndarray, np.ndarray, np.ndarray, np.ndarray, np.ndarray]]
+        E = Tuple[EncodedDataSequence, Tuple[np.ndarray, np.ndarray, np.ndarray,
+        np.ndarray, np.ndarray, np.ndarray]]
 
     Attributes:
         data (E): Encoded sequence of PLSI observations.
@@ -910,7 +996,8 @@ class IntegerPLSIEncodedDataSequence(EncodedDataSequence):
 
 
 @numba.njit(
-    "void(int32[:], float64[:], int32[:], int32[:], int32[:], float64[:,:], float64[:,:], float64[:], "
+    "void(int32[:], float64[:], int32[:], int32[:], int32[:], float64[:,:], "
+    "float64[:,:], float64[:], "
     "float64[:])",
     fastmath=True,
 )
@@ -932,7 +1019,8 @@ def fast_seq_log_density(xv, xc, xd, xi, xm, wmat, smat, dvec, out):
 
 
 @numba.njit(
-    "void(int32[:], float64[:], int32[:], int32[:], int32[:], float64[:,:], float64[:,:])",
+    "void(int32[:], float64[:], int32[:], int32[:], int32[:], float64[:,:], "
+    "float64[:,:])",
     fastmath=True,
 )
 def fast_seq_component_log_density(xv, xc, xd, xi, xm, wmat, out):
@@ -947,7 +1035,9 @@ def fast_seq_component_log_density(xv, xc, xd, xi, xm, wmat, out):
 
 
 @numba.njit(
-    "void(int32[:], float64[:], int32[:], int32[:], int32[:], float64[:], float64[:,:], float64[:,:], "
+    "void(int32[:], float64[:], int32[:], int32[:], int32[:], float64[:], "
+    "float64[:,:], "
+    "float64[:,:], "
     "float64[:,:], float64[:,:], float64[:])",
     fastmath=True,
 )
@@ -978,7 +1068,7 @@ def fast_seq_update(xv, xc, xd, xi, xm, weights, wmat, smat, wcnt, scnt, dcnt):
 @numba.njit("float64[:](float64[:,:], int32[:], float64[:,:], int32[:], float64[:])")
 def index_dot(x, xi, y, yi, out):
     n = x.shape[1]
-    for i in range(len(xi)):
+    for i, _ in enumerate(xi):
         i1 = xi[i]
         i2 = yi[i]
         for j in range(n):
@@ -988,7 +1078,7 @@ def index_dot(x, xi, y, yi, out):
 
 @numba.njit("float64[:](int32[:], float64[:], float64[:])")
 def bincount(x, w, out):
-    for i in range(len(x)):
+    for i, _ in enumerate(x):
         out[x[i]] += w[i]
     return out
 
@@ -996,7 +1086,7 @@ def bincount(x, w, out):
 @numba.njit("float64[:,:](int32[:], float64[:,:], float64[:,:])")
 def vec_bincount1(x, w, out):
     n = w.shape[1]
-    for i in range(len(x)):
+    for i, _ in enumerate(x):
         for j in range(n):
             out[x[i], j] += w[i, j]
     return out
@@ -1004,7 +1094,7 @@ def vec_bincount1(x, w, out):
 
 @numba.njit("float64[:,:](int32[:], float64[:,:], int32[:], float64[:,:])")
 def vec_bincount2(x, w, y, out):
-    for i in range(len(x)):
+    for i, _ in enumerate(x):
         out[x[i], :] += w[y[i], :]
     return out
 
@@ -1028,7 +1118,7 @@ def vec_bincount3(x, w, out):
         Numpy 2-d array.
 
     """
-    for j in range(len(x)):
+    for j, _ in enumerate(x):
         out[:, x[j]] += w[:, j]
     return out
 
@@ -1052,6 +1142,6 @@ def vec_bincount4(x, w, out):
         Numpy 2-d array.
 
     """
-    for j in range(len(x)):
+    for j, _ in enumerate(x):
         out[x[j], :] += w[:, j]
     return out

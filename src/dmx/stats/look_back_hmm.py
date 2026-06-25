@@ -71,8 +71,8 @@ class LookbackHiddenMarkovDistribution(SequenceEncodableProbabilityDistribution)
         s7 = repr(self.name)
 
         return (
-            "LookbackHiddenMarkovDistribution([%s], %s, %s, lag=%s, init_dist=[%s], len_dist=%s, name=%s)"
-            % (s1, s2, s3, s4, s5, s6, s7)
+            f"LookbackHiddenMarkovDistribution([{s1}], {s2}, {s3}, lag={s4}, "
+            f"init_dist=[{s5}], len_dist={s6}, name={s7})"
         )
 
     def density(self, x: Sequence[T]) -> float:
@@ -522,7 +522,7 @@ class LookbackHiddenMarkovEstimatorAccumulator(SequenceEncodableStatisticAccumul
         if self.state_key is not None:
             if self.state_key in stats_dict:
                 acc = stats_dict[self.state_key]
-                for i in range(len(acc)):
+                for i, _ in enumerate(acc):
                     acc[i] = acc[i].combine(self.seq_accumulators[i].value())
             else:
                 stats_dict[self.state_key] = self.seq_accumulators
@@ -749,7 +749,7 @@ class LookbackHiddenMarkovDataEncoder(DataSequenceEncoder):
 
         lag = self.lag
         cnt = 0
-        for i in range(len(x)):
+        for i, _ in enumerate(x):
             xxi = x[i][:lag]
             xxs = [x[i][(j - lag) : (j + 1)] for j in range(lag, len(x[i]))]
             xsi.append(xxi)
@@ -802,7 +802,8 @@ class LookBackHMMEncodedDataSequence(EncodedDataSequence):
 
 
 @numba.njit(
-    "void(int32, int32[:], float64[:,:], float64[:], float64[:,:], float64[:], float64[:,:], float64[:,:], float64[:])",
+    "void(int32, int32[:], float64[:,:], float64[:], float64[:,:], float64[:], "
+    "float64[:,:], float64[:,:], float64[:])",
     parallel=True,
     fastmath=True,
 )
@@ -860,7 +861,8 @@ def numba_seq_log_density(
 
 
 @numba.njit(
-    "void(int32, int32[:], float64[:,:], float64[:], float64[:,:], float64[:], float64[:,:], float64[:,:], float64[:], float64[:], float64[:,:])"
+    "void(int32, int32[:], float64[:,:], float64[:], float64[:,:], float64[:], "
+    "float64[:,:], float64[:,:], float64[:], float64[:], float64[:,:])"
 )
 def numba_baum_welch(
     num_states,
@@ -959,7 +961,8 @@ def numba_baum_welch(
 
 
 @numba.njit(
-    "void(int64, int32[:], float64[:,:], float64[:], float64[:,:], float64[:], float64[:,:], float64[:,:,:], float64[:,:])",
+    "void(int64, int32[:], float64[:,:], float64[:], float64[:,:], float64[:], "
+    "float64[:,:], float64[:,:,:], float64[:,:])",
     parallel=True,
     fastmath=True,
 )
@@ -1053,7 +1056,8 @@ def numba_baum_welch2(
 
 
 @numba.njit(
-    "void(int64, int32[:], float64[:,:], float64[:], float64[:,:], float64[:], float64[:,:], float64[:,:,:], float64[:,:])",
+    "void(int64, int32[:], float64[:,:], float64[:], float64[:,:], float64[:], "
+    "float64[:,:], float64[:,:,:], float64[:,:])",
     parallel=True,
     fastmath=True,
 )

@@ -73,8 +73,8 @@ class IntegerStepBernoulliEditDistribution(SequenceEncodableProbabilityDistribut
         s4 = repr(self.keys)
 
         return (
-            "IntegerStepBernoulliEditDistribution(%s, init_dist=%s, name=%s, keys=%s)"
-            % (s1, s2, s3, s4)
+            f"IntegerStepBernoulliEditDistribution({s1}, init_dist={s2}, name={s3}, "
+            f"keys={s4})"
         )
 
     def density(self, x: T) -> float:
@@ -111,7 +111,8 @@ class IntegerStepBernoulliEditDistribution(SequenceEncodableProbabilityDistribut
     ) -> np.ndarray:
         if not isinstance(x, IntegerStepBernoulliEncodedDataSequence):
             raise Exception(
-                "IntegerStepBernoulliEditEncodedDataSequence required for seq_log_density()."
+                "IntegerStepBernoulliEditEncodedDataSequence required for "
+                "seq_log_density()."
             )
 
         sz, idx, xs, ys, ym, init_enc = x.data

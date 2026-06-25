@@ -1,15 +1,22 @@
-"""Evaluate, estimate, and sample from a integer multinomial distribution on range [min_val, max_val].
+"""Evaluate, estimate, and sample from a integer multinomial distribution on range
+[min_val, max_val].
 
-Defines the IntegerMultinomialDistribution, IntegerMultinomialSampler, IntegerMultinomialAccumulatorFactory,
-IntegerMultinomialAccumulator, IntegerMultinomialEstimator, and the IntegerMultinomialDataEncoder classes for use with
+Defines the IntegerMultinomialDistribution, IntegerMultinomialSampler,
+IntegerMultinomialAccumulatorFactory,
+IntegerMultinomialAccumulator, IntegerMultinomialEstimator, and the
+IntegerMultinomialDataEncoder classes for use with
 dmx-learn.
 
-Data type: Sequence[Tuple[int, float]]: Consider an observation of a multinomial consisting of integer-category
-counts of the form x = (x_0,..,x_K), where K is the number of integers in the range [min_val, max_val]. The
-IntegerMultinomialDistribution with support [min_val, max_value], number of trials 'N', and probability of success for
+Data type: Sequence[Tuple[int, float]]: Consider an observation of a multinomial
+consisting of integer-category
+counts of the form x = (x_0,..,x_K), where K is the number of integers in the range
+[min_val, max_val]. The
+IntegerMultinomialDistribution with support [min_val, max_value], number of trials 'N',
+and probability of success for
 the integer-categories given by p = (p_0, ..., p_k), is given by
 
-    log(P(x,N|p)) = -log(n!) - sum_{k=1}^{K} (x_k * log(p_k) + log(x_k!)) + log(P_len(N))
+    log(P(x,N|p)) = -log(n!) - sum_{k=1}^{K} (x_k * log(p_k) + log(x_k!)) +
+    log(P_len(N))
 
 where P_len(N) is a distribution for the number of trials in the multinomial.
 
@@ -55,9 +62,11 @@ class IntegerMultinomialDistribution(SequenceEncodableProbabilityDistribution):
         max_val (int): Largest value of category range. Set by min_val + len(p_vec) - 1.
         log_p_vec (ndarray): Log of p_vec member instance.
         num_vals (int): Total number of integer valued categories.
-        len_dist (SequenceEncodableProbabilityDistribution): Distribution for number of trials. Set to
+        len_dist (SequenceEncodableProbabilityDistribution): Distribution for number of
+            trials. Set to
             NullDistribution if None.
-        keys (Optional[str]): Keys for distribution passed when ParameterEstimator is created.
+        keys (Optional[str]): Keys for distribution passed when ParameterEstimator is
+            created.
         name (Optional[str]): Name for object instance.
 
     """
@@ -76,8 +85,10 @@ class IntegerMultinomialDistribution(SequenceEncodableProbabilityDistribution):
 
         Args:
             min_val (int): Set the minimum value on range of values.
-            p_vec (Union[List[float],np.ndarray): Probabilities for values. Length determines number of categories.
-            len_dist (Optional[SequenceEncodableProbabilityDistribution]): Optional length distributions serving as
+            p_vec (Union[List[float],np.ndarray): Probabilities for values. Length
+                determines number of categories.
+            len_dist (Optional[SequenceEncodableProbabilityDistribution]): Optional
+                length distributions serving as
                 for the number of trials.
             name (Optional[str]): Set name for object instance.
             keys (Optional[str]): Set key for distribution.
@@ -103,15 +114,16 @@ class IntegerMultinomialDistribution(SequenceEncodableProbabilityDistribution):
         s4 = repr(self.name)
         s5 = repr(self.keys)
         return (
-            "IntegerMultinomialDistribution(%s, %s, len_dist=%s, name=%s, keys=%s)"
-            % (s1, s2, s3, s4, s5)
+            f"IntegerMultinomialDistribution({s1}, {s2}, len_dist={s3}, name={s4}, "
+            f"keys={s5})"
         )
 
     def density(self, x: Sequence[Tuple[int, float]]) -> float:
         """Evaluate the density of IntegerMultinomialDistribution at observed value x.
 
         Args:
-            x (Sequence[Tuple[int, float]]): Sequence of Tuple(s) containing the integer category value and number of
+            x (Sequence[Tuple[int, float]]): Sequence of Tuple(s) containing the integer
+                category value and number of
                 successes.
 
         Returns:
@@ -121,10 +133,12 @@ class IntegerMultinomialDistribution(SequenceEncodableProbabilityDistribution):
         return np.exp(self.log_density(x))
 
     def log_density(self, x: Sequence[Tuple[int, float]]) -> float:
-        """Evaluate the log-density of IntegerMultinomialDistribution at observed value x.
+        """Evaluate the log-density of IntegerMultinomialDistribution at observed value
+        x.
 
         Args:
-            x (Sequence[Tuple[int, float]]): Sequence of Tuple(s) containing the integer category value and number of
+            x (Sequence[Tuple[int, float]]): Sequence of Tuple(s) containing the integer
+                category value and number of
                 successes.
 
         Returns:
@@ -167,7 +181,8 @@ class IntegerMultinomialDistribution(SequenceEncodableProbabilityDistribution):
 
         if isinstance(self.len_dist, NullDistribution):
             raise Exception(
-                "IntegerMultinomialDistribution must have len_dist set to distribution with support on "
+                "IntegerMultinomialDistribution must have len_dist set to distribution "
+                "with support on "
                 "non-negative integers."
             )
         return IntegerMultinomialSampler(self, seed)
@@ -203,12 +218,15 @@ class IntegerMultinomialDistribution(SequenceEncodableProbabilityDistribution):
 
 
 class IntegerMultinomialSampler(DistributionSampler):
-    """Create IntegerMultinomialSampler object for sampling from IntegerMultinomialDistribution object instance.
+    """Create IntegerMultinomialSampler object for sampling from
+    IntegerMultinomialDistribution object instance.
 
     Attributes:
-        dist (IntegerMultinomialDistribution): IntegerMultinomialDistribution object instance to sample from.
+        dist (IntegerMultinomialDistribution): IntegerMultinomialDistribution object
+            instance to sample from.
         rng (RandomState): RandomState set with seed if passed.
-        len_sampler (DistributionSampler): DistributionSampler object for number of trials.
+        len_sampler (DistributionSampler): DistributionSampler object for number of
+            trials.
 
     """
 
@@ -218,7 +236,8 @@ class IntegerMultinomialSampler(DistributionSampler):
         """Create IntegerMultinomialSampler object.
 
         Args:
-            dist (IntegerMultinomialDistribution): IntegerMultinomialDistribution object instance to sample from.
+            dist (IntegerMultinomialDistribution): IntegerMultinomialDistribution object
+                instance to sample from.
             seed (Optional[int]): Optional seed for random number generator.
 
         """
@@ -237,7 +256,8 @@ class IntegerMultinomialSampler(DistributionSampler):
             size (Optional[int]): Number of samples to draw.
 
         Returns:
-            List length size containing List[Tuple[int, float]]. If size is None, returns one sample
+            List length size containing List[Tuple[int, float]]. If size is None,
+            returns one sample
                 List[Tuple[int, float]].
 
         """
@@ -263,17 +283,21 @@ class IntegerMultinomialSampler(DistributionSampler):
 
 
 class IntegerMultinomialAccumulator(SequenceEncodableStatisticAccumulator):
-    """IntegerMultinomialAccumulator object for accumulating sufficient statistics from observed data.
+    """IntegerMultinomialAccumulator object for accumulating sufficient statistics from
+    observed data.
 
     Attributes:
         min_val (Optional[int]): Minimum value for integer multinomial.
         max_val (Optional[int]): Maximum value for integer multinomial.
         name (Optional[str]): Name for object instance.
-        len_accumulator (Optional[SequenceEncodableStatisticAccumulator]): Optional accumulator for number of
+        len_accumulator (Optional[SequenceEncodableStatisticAccumulator]): Optional
+            accumulator for number of
             integer multinomial trial counts. Set to NullAccumulator() if None.
-        count_vec (Optional[ndarray]): Set counter for the number of values in integer multinomial range to zero
+        count_vec (Optional[ndarray]): Set counter for the number of values in integer
+            multinomial range to zero
             ndarray if min_val and max_val are passed. Else, set to none.
-        key (Optional[str]): Keys for merging sufficient stats with other objects containing matching key.
+        key (Optional[str]): Keys for merging sufficient stats with other objects
+            containing matching key.
 
     """
 
@@ -293,8 +317,10 @@ class IntegerMultinomialAccumulator(SequenceEncodableStatisticAccumulator):
             min_val (Optional[int]): Set minimum value for integer multinomial.
             max_val (Optional[int]): Set maximum value for integer multinomial.
             name (Optional[str]): Set name for object instance.
-            keys (Optional[str]): Set keys for merging sufficient stats with other objects containing matching keys.
-            len_accumulator (Optional[SequenceEncodableStatisticAccumulator]): Optional accumulator for number of
+            keys (Optional[str]): Set keys for merging sufficient stats with other
+                objects containing matching keys.
+            len_accumulator (Optional[SequenceEncodableStatisticAccumulator]): Optional
+                accumulator for number of
                 integer multinomial trial counts.
 
         """
@@ -471,15 +497,21 @@ class IntegerMultinomialAccumulator(SequenceEncodableStatisticAccumulator):
 
 
 class IntegerMultinomialAccumulatorFactory(StatisticAccumulatorFactory):
-    """IntegerMultinomialAccumulatorFactory object for creating IntegerMultinomialAccumulator objects.
+    """IntegerMultinomialAccumulatorFactory object for creating
+    IntegerMultinomialAccumulator objects.
 
     Attributes:
-        min_val (Optional[int]): Optional minimum value for IntegerMultinomialAccumulator.
-        max_val (Optional[int]): Optional maximum value for IntegerMultinomialAccumulator.
+        min_val (Optional[int]): Optional minimum value for
+            IntegerMultinomialAccumulator.
+        max_val (Optional[int]): Optional maximum value for
+            IntegerMultinomialAccumulator.
         name (Optional[str]): Optional name for object instance.
-        keys (Optional[str]): Optional keys for merging sufficient statistics of object instance.
-        len_factory (Optional[StatisticAccumulatorFactory]): Optional StatisticAccumulatorFactory object for
-            creating StatisticAccumulator object for number of trials. Default to NullAccumulatorFactory()
+        keys (Optional[str]): Optional keys for merging sufficient statistics of object
+            instance.
+        len_factory (Optional[StatisticAccumulatorFactory]): Optional
+            StatisticAccumulatorFactory object for
+            creating StatisticAccumulator object for number of trials. Default to
+            NullAccumulatorFactory()
 
     """
 
@@ -494,11 +526,15 @@ class IntegerMultinomialAccumulatorFactory(StatisticAccumulatorFactory):
         """IntegerMultinomialAccumulatorFactory object.
 
         Args:
-            min_val (Optional[int]): Optional minimum value for IntegerMultinomialAccumulator.
-            max_val (Optional[int]): Optional maximum value for IntegerMultinomialAccumulator.
+            min_val (Optional[int]): Optional minimum value for
+                IntegerMultinomialAccumulator.
+            max_val (Optional[int]): Optional maximum value for
+                IntegerMultinomialAccumulator.
             name (Optional[str]): Optional name for object instance.
-            keys (Optional[str]): Optional keys for merging sufficient statistics of object instance.
-            len_factory (Optional[StatisticAccumulatorFactory]): Optional StatisticAccumulatorFactory object for
+            keys (Optional[str]): Optional keys for merging sufficient statistics of
+                object instance.
+            len_factory (Optional[StatisticAccumulatorFactory]): Optional
+                StatisticAccumulatorFactory object for
                 creating StatisticAccumulator object for number of trials.
 
         """
@@ -522,20 +558,26 @@ class IntegerMultinomialAccumulatorFactory(StatisticAccumulatorFactory):
 
 
 class IntegerMultinomialEstimator(ParameterEstimator):
-    """IntegerMultinomialEstimator object for estimating integer multinomial distributions from aggregated data.
+    """IntegerMultinomialEstimator object for estimating integer multinomial
+    distributions from aggregated data.
 
     Attributes:
         min_val (Optional[int]): Set minimum value integer multinomial.
         max_val (Optional[int]): Set maximum value for integer multinomial.
-        len_estimator (ParameterEstimator): ParameterEstimator for number of trials, set to NullEstimator() if None
+        len_estimator (ParameterEstimator): ParameterEstimator for number of trials, set
+            to NullEstimator() if None
             is passed as arg.
         len_dist (Optional[SequenceEncodableProbabilityDistribution]): Optional
-            SequenceEncodableProbabilityDistribution for fixing distribution on number of trials.
+            SequenceEncodableProbabilityDistribution for fixing distribution on number
+            of trials.
         name (Optional[str]): Set name for object instance.
-        pseudo_count (Optional[float]): Used to re-weight sufficient statistics if suff_stat is passed.
-        suff_stat (Optional[Tuple[int, np.ndarray]]): Set minimum value and counts for categories. If 'min_val'
+        pseudo_count (Optional[float]): Used to re-weight sufficient statistics if
+            suff_stat is passed.
+        suff_stat (Optional[Tuple[int, np.ndarray]]): Set minimum value and counts for
+            categories. If 'min_val'
             and 'max_val' are both not None, this is ignored in estimation.
-        keys (Optional[str]): Set key for merging sufficient statistics of objects with matching keys.
+        keys (Optional[str]): Set key for merging sufficient statistics of objects with
+            matching keys.
 
     """
 
@@ -555,13 +597,18 @@ class IntegerMultinomialEstimator(ParameterEstimator):
         Args:
             min_val (Optional[int]): Set minimum value integer multinomial.
             max_val (Optional[int]): Set maximum value for integer multinomial.
-            len_estimator (Optional[ParameterEstimator]): Optional ParameterEstimator for number of trials.
+            len_estimator (Optional[ParameterEstimator]): Optional ParameterEstimator
+                for number of trials.
             len_dist (Optional[SequenceEncodableProbabilityDistribution]): Optional
-                SequenceEncodableProbabilityDistribution for fixing distribution on number of trials.
+                SequenceEncodableProbabilityDistribution for fixing distribution on
+                number of trials.
             name (Optional[str]): Set name for object instance.
-            pseudo_count (Optional[float]): Used to re-weight sufficient statistics if suff_stat is passed.
-            suff_stat (Optional[Tuple[int, np.ndarray]]): Set minimum value and counts for categories.
-            keys (Optional[str]): Set key for merging sufficient statistics of objects with matching keys.
+            pseudo_count (Optional[float]): Used to re-weight sufficient statistics if
+                suff_stat is passed.
+            suff_stat (Optional[Tuple[int, np.ndarray]]): Set minimum value and counts
+                for categories.
+            keys (Optional[str]): Set key for merging sufficient statistics of objects
+                with matching keys.
 
         """
         if isinstance(keys, str) or keys is None:
@@ -684,11 +731,14 @@ class IntegerMultinomialEstimator(ParameterEstimator):
 
 
 class IntegerMultinomialDataEncoder(DataSequenceEncoder):
-    """IntegerMultinomialDataEncoder object for encoding sequence of iid integer multinomial observations.
+    """IntegerMultinomialDataEncoder object for encoding sequence of iid integer
+    multinomial observations.
 
     Attributes:
-        len_encoder (DataSequenceEncoder): DataSequenceEncoder for encoding number of trials in each iid
-            observation of integer multinomial. Defaults to NullDataEncoder() if None is passed.
+        len_encoder (DataSequenceEncoder): DataSequenceEncoder for encoding number of
+            trials in each iid
+            observation of integer multinomial. Defaults to NullDataEncoder() if None is
+            passed.
 
     """
 
@@ -698,7 +748,8 @@ class IntegerMultinomialDataEncoder(DataSequenceEncoder):
         """IntegerMultinomialDataEncoder object.
 
         Args:
-            len_encoder (Optional[DataSequenceEncoder]): Optional DataSequenceEncoder for encoding the number of trials
+            len_encoder (Optional[DataSequenceEncoder]): Optional DataSequenceEncoder
+                for encoding the number of trials
                 in each iid observation of integer multinomial.
 
         """
@@ -720,15 +771,20 @@ class IntegerMultinomialDataEncoder(DataSequenceEncoder):
 
         Returns a Tuple of length 5 containing:
             sz (int): Total number of observed integermultinomial samples.
-            idx (ndarray): Numpy index array for each Tuple[value, count] in flattened x.
+            idx (ndarray): Numpy index array for each Tuple[value, count] in flattened
+                x.
             cnt (ndarray): Number of successes for each value in flattened x.
             val (ndarray): Integer-category value array in flattened x.
-            tcnt (Optional[E0]): Sequence encoded number of trials for each sequence (length sz), with type E0 if
-                length DataSequenceEncoder is not NullDataEncoder and returns type E0. Else None.
+            tcnt (Optional[E0]): Sequence encoded number of trials for each sequence
+                (length sz), with type E0 if
+                length DataSequenceEncoder is not NullDataEncoder and returns type E0.
+                Else None.
 
         Args:
-            x (Sequence[Sequence[Tuple[int, float]]]): A sequence of iid integer multinomial observations in the form
-                of Sequence of Tuple(s) containing integer-category and float valued number of successes.
+            x (Sequence[Sequence[Tuple[int, float]]]): A sequence of iid integer
+                multinomial observations in the form
+                of Sequence of Tuple(s) containing integer-category and float valued
+                number of successes.
 
         Returns:
             IntegerMultinomialEncodedDataSequence
@@ -760,7 +816,8 @@ class IntegerMultinomialDataEncoder(DataSequenceEncoder):
 
 
 class IntegerMultinomialEncodedDataSequence(EncodedDataSequence):
-    """IntegerMultinomialEncodedDataSequence object for use with vectorized function calls.
+    """IntegerMultinomialEncodedDataSequence object for use with vectorized function
+    calls.
 
     Notes:
         E = Tuple[int, np.ndarray, np.ndarray, np.ndarray, EncodedDataSequence]

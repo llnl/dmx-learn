@@ -1,4 +1,5 @@
-""""Create, estimate, and sample from a hidden markov model with integer emission distributions"""
+""" "Create, estimate, and sample from a hidden markov model with integer emission
+distributions"""
 
 import math
 from typing import Any, Dict, List, Optional, Sequence, Set, Tuple, TypeVar, Union
@@ -52,15 +53,18 @@ E = Tuple[np.ndarray, np.ndarray, EncodedDataSequence]
 class IntegerHiddenMarkovModelDistribution(SequenceEncodableProbabilityDistribution):
     """Hidden Markov Model distribution with integer emission distributions.
 
-    A hidden Markov model (HMM) with integer emission distributions. This class implements
+    A hidden Markov model (HMM) with integer emission distributions. This class
+    implements
     a probability distribution over sequences of integers, where the probability of each
     integer in the sequence depends on a hidden state that follows a Markov process.
 
-    If a length distribution for the HMM sequence is included, it must have data type int
+    If a length distribution for the HMM sequence is included, it must have data type
+    int
     with support of non-negative integers.
 
     Attributes:
-        pmat (np.ndarray): Emission probability matrix where pmat[i,j] is the probability
+        pmat (np.ndarray): Emission probability matrix where pmat[i,j] is the
+            probability
             of emitting integer i from state j.
         log_pmat (np.ndarray): Log of emission probability matrix.
         n_words (int): Number of possible integer emissions (vocabulary size).
@@ -70,12 +74,14 @@ class IntegerHiddenMarkovModelDistribution(SequenceEncodableProbabilityDistribut
         transitions (np.ndarray): 2-d array of hidden state transition probabilities
             with shape (n_states, n_states).
         log_transitions (np.ndarray): Log of transition probabilities.
-        terminal_values (Optional[Set[T]]): Set of values that terminate the HMM sequence
+        terminal_values (Optional[Set[T]]): Set of values that terminate the HMM
+            sequence
             when sampling.
         name (Optional[str]): Name of the distribution instance.
         len_dist (SequenceEncodableProbabilityDistribution): Distribution for sequence
             lengths. Defaults to NullDistribution.
-        keys (Tuple[Optional[str], Optional[str], Optional[str]]): Keys for initial states,
+        keys (Tuple[Optional[str], Optional[str], Optional[str]]): Keys for initial
+            states,
             transitions counts, and emission distributions.
     """
 
@@ -105,9 +111,11 @@ class IntegerHiddenMarkovModelDistribution(SequenceEncodableProbabilityDistribut
                 (n_states, n_states).
             len_dist: Distribution for sequence lengths. Defaults to NullDistribution.
             name: Name of the distribution instance. Defaults to None.
-            keys: Keys for initial states, transitions counts, and emission distributions.
+            keys: Keys for initial states, transitions counts, and emission
+                distributions.
                 Defaults to (None, None, None).
-            terminal_values: Set of values that terminate the HMM sequence when sampling.
+            terminal_values: Set of values that terminate the HMM sequence when
+                sampling.
                 Defaults to None.
         """
 
@@ -144,8 +152,9 @@ class IntegerHiddenMarkovModelDistribution(SequenceEncodableProbabilityDistribut
         s7 = repr(self.keys)
 
         return (
-            "IntegerHiddenMarkovModelDistribution(pmat=pmat, w=%s, transitions=%s, taus=%s, len_dist=%s, name=%s, terminal_values=%s, "
-            "keys=%s)" % (s1, s2, s3, s4, s5, s6, s7)
+            f"IntegerHiddenMarkovModelDistribution(pmat=pmat, w={s1}, "
+            f"transitions={s2}, taus={s3}, len_dist={s4}, name={s5}, "
+            f"terminal_values={s6}, keys={s7})"
         )
 
     def density(self, x: Sequence[int]) -> float:
@@ -230,10 +239,12 @@ class IntegerHiddenMarkovModelDistribution(SequenceEncodableProbabilityDistribut
         """Compute posterior distribution for each latent state of a sequence.
 
         Args:
-            x (IntegerHiddenMarkovEncodedDataSequence): Numba encoded sequence of HMM observations.
+            x (IntegerHiddenMarkovEncodedDataSequence): Numba encoded sequence of HMM
+                observations.
 
         Returns:
-            List[np.ndarray]: A list of posterior probabilities for each latent state for each observation sequence.
+            List[np.ndarray]: A list of posterior probabilities for each latent state
+            for each observation sequence.
 
         """
 
@@ -314,7 +325,8 @@ class IntegerHiddenMarkovModelDistribution(SequenceEncodableProbabilityDistribut
     def sampler(self, seed: Optional[int] = None) -> "IntegerHiddenMarkovSampler":
         if isinstance(self.len_dist, NullDistribution) and self.terminal_values is None:
             raise Exception(
-                "IntegerHiddenMarkovSampler requires len_dist with support on non-negative integers, or terminal_"
+                "IntegerHiddenMarkovSampler requires len_dist with support on "
+                "non-negative integers, or terminal_"
                 "values to be set."
             )
 
@@ -350,20 +362,28 @@ class IntegerHiddenMarkovModelDistribution(SequenceEncodableProbabilityDistribut
 class IntegerHiddenMarkovSampler(DistributionSampler):
     """HiddenMarkovSampler object for sampling from HMM.
 
-    If 'dist.len_dist' is set, samples HMM sequences with sequence lengths generated from 'len_dist'. If
-    'dist.len_dist' is NullDistribution, 'dist.terminal_values' is must be set. Samples are generated until
+    If 'dist.len_dist' is set, samples HMM sequences with sequence lengths generated
+    from 'len_dist'. If
+    'dist.len_dist' is NullDistribution, 'dist.terminal_values' is must be set. Samples
+    are generated until
     a terminal value is reached.
 
     Attributes:
         num_states (int): Number of hidden states in 'dist' object.
-        dist (HiddenMarkovModelDistribution): HiddenMarkovModelDistribution object instance to sample from.
+        dist (HiddenMarkovModelDistribution): HiddenMarkovModelDistribution object
+            instance to sample from.
         rng (RandomState): RandomState object with seed set for sampling.
-        obs_samplers (List[DistributionSampler]): List of DistributionSampler objects corresponding to the emission
-            distributions of 'dist'. Taken to be MixtureSampler objects if 'dist.has_topics' is True.
-        len_sampler (Optional[DistributionSampler]): DistributionSampler object with data type int and support on
+        obs_samplers (List[DistributionSampler]): List of DistributionSampler objects
+            corresponding to the emission
+            distributions of 'dist'. Taken to be MixtureSampler objects if
+            'dist.has_topics' is True.
+        len_sampler (Optional[DistributionSampler]): DistributionSampler object with
+            data type int and support on
             non-negative integers for sampling HMM observation sequence lengths.
-        terminal_set (Optional[Set[T]]): Set of values to terminate HMM sampling when calling 'sample_seq()'.
-        state_sampler (MarkovChainSampler): MarkovChainSampler for sampling states of HMM.
+        terminal_set (Optional[Set[T]]): Set of values to terminate HMM sampling when
+            calling 'sample_seq()'.
+        state_sampler (MarkovChainSampler): MarkovChainSampler for sampling states of
+            HMM.
 
     """
 
@@ -420,7 +440,8 @@ class IntegerHiddenMarkovSampler(DistributionSampler):
     ) -> Union[list[int], list[list[int]]]:
         """Sample iid HMM sequences.
 
-        If size is None, 1 sample is drawn and a List[T] is returned. If size > 0, 'size' samples are drawn and a List
+        If size is None, 1 sample is drawn and a List[T] is returned. If size > 0,
+        'size' samples are drawn and a List
         of length 'size' with HMM sequences (List[T]) is returned.
 
         Args:
@@ -445,13 +466,15 @@ class IntegerHiddenMarkovSampler(DistributionSampler):
             return obs_seq
 
     def sample_terminal(self, terminal_set: Set[T]) -> List[int]:
-        """Sample an HMM sequence, until a terminal value is samples from the emission distribution.
+        """Sample an HMM sequence, until a terminal value is samples from the emission
+        distribution.
 
         Args:
             terminal_set (Set[int]): Set values to terminate the HMM sequence.
 
         Returns:
-            List[int] with length determined by samples to reach the first terminating value.
+            List[int] with length determined by samples to reach the first terminating
+            value.
 
         """
         z = self.state_sampler.sample_seq()
@@ -466,8 +489,10 @@ class IntegerHiddenMarkovSampler(DistributionSampler):
     def sample(self, size: Optional[int] = None) -> Union[list[int], list[list[int]]]:
         """Draw iid samples from HMM.
 
-        If a 'len_sampler' is set, call 'sample_seq()' (See HiddenMarkovSampler.sample_seq() for details).
-        If 'len_sampler' is the NullDistributionSampler(), 'sample_terminal()' is called. (See
+        If a 'len_sampler' is set, call 'sample_seq()' (See
+        HiddenMarkovSampler.sample_seq() for details).
+        If 'len_sampler' is the NullDistributionSampler(), 'sample_terminal()' is
+        called. (See
         HiddenMarkovSampler.sample_terminal() for details).
 
         Args:
@@ -488,31 +513,39 @@ class IntegerHiddenMarkovSampler(DistributionSampler):
 
         else:
             raise RuntimeError(
-                "IntegerHiddenMarkovSampler requires either a length distribution or terminal value set."
+                "IntegerHiddenMarkovSampler requires either a length distribution or "
+                "terminal value set."
             )
 
 
 class IntegerHiddenMarkovAccumulator(SequenceEncodableStatisticAccumulator):
-    """IntegerHiddenMarkovAccumulator object for aggregating sufficient statistics from HMM observations.
+    """IntegerHiddenMarkovAccumulator object for aggregating sufficient statistics from
+    HMM observations.
 
     Attributes:
         num_words (int): Number of words / max val of vocab.
         wcnts (np.ndarray): Suff-stat for the topic distributions
         num_states (int): Total number of hidden states.
-        init_counts (ndarray): Track gamma_i(0), or first time point gamma for each component in Baum-Welch.
+        init_counts (ndarray): Track gamma_i(0), or first time point gamma for each
+            component in Baum-Welch.
         trans_counts (ndarray): 2-d matrix tracking transition updates from Baum-Welch
             (sum_t psi_ij(t) / sum_t gamma_i(t)).
-        state_counts (ndarray): Expected number of times state is observed in sequence from t=0 to t=T-2.
-        len_accumulator (SequenceEncodableStatisticAccumulator): SequenceEncodableStatisticAccumulator
-            object for the length distribution. Set to NullAccumulator is None is passed.
+        state_counts (ndarray): Expected number of times state is observed in sequence
+            from t=0 to t=T-2.
+        len_accumulator (SequenceEncodableStatisticAccumulator):
+            SequenceEncodableStatisticAccumulator
+            object for the length distribution. Set to NullAccumulator is None is
+            passed.
         init_key (Optional[str]): Key for initial states.
         trans_key (Optional[str]): Key for state transitions.
         state_key (Optional[str]): Key for emission accumulators..
         name (Optional[str]): Name for object.
 
         _init_rng (bool): True if RandomState objects have been initialized
-        _len_rng (Optional[RandomState]): RandomState for initializing length accumulator.
-        _idx_rng (Optional[RandomState]): RandomState for initializing initial state draws.
+        _len_rng (Optional[RandomState]): RandomState for initializing length
+            accumulator.
+        _idx_rng (Optional[RandomState]): RandomState for initializing initial state
+            draws.
 
     """
 
@@ -531,7 +564,8 @@ class IntegerHiddenMarkovAccumulator(SequenceEncodableStatisticAccumulator):
         Args:
             num_words: Number of words / max val of vocabulary.
             num_states: Number of latent states.
-            len_accumulator: Accumulator for the length distribution. Defaults to NullAccumulator.
+            len_accumulator: Accumulator for the length distribution. Defaults to
+                NullAccumulator.
             use_numba: Whether to use numba for sequence encodings. Defaults to False.
             keys: Keys for initial states, transition counts, and emission accumulators.
                 Defaults to (None, None, None).
@@ -707,7 +741,8 @@ class IntegerHiddenMarkovAccumulator(SequenceEncodableStatisticAccumulator):
         """Aggregate sufficient statistics with this accumulator.
 
         Args:
-            suff_stat (Tuple[np.ndarray, np.ndarray, np.ndarray, np.ndarray, Optional[T2]]): Sufficient statistics to combine.
+            suff_stat (Tuple[np.ndarray, np.ndarray, np.ndarray, np.ndarray,
+                Optional[T2]]): Sufficient statistics to combine.
 
         Returns:
             IntegerHiddenMarkovAccumulator: Self after combining.
@@ -728,7 +763,8 @@ class IntegerHiddenMarkovAccumulator(SequenceEncodableStatisticAccumulator):
         """Return the sufficient statistics as a tuple.
 
         Returns:
-            Tuple[np.ndarray, np.ndarray, np.ndarray, Optional[Any]]: Sufficient statistics.
+            Tuple[np.ndarray, np.ndarray, np.ndarray, Optional[Any]]: Sufficient
+            statistics.
         """
         len_val = self.len_accumulator.value()
 
@@ -746,7 +782,8 @@ class IntegerHiddenMarkovAccumulator(SequenceEncodableStatisticAccumulator):
         """Set the sufficient statistics from a tuple.
 
         Args:
-            x (Tuple[np.ndarray, np.ndarray, np.ndarray, np.ndarray, Optional[T2]]): Sufficient statistics.
+            x (Tuple[np.ndarray, np.ndarray, np.ndarray, np.ndarray, Optional[T2]]):
+                Sufficient statistics.
 
         Returns:
             IntegerHiddenMarkovAccumulator: Self after setting values.
@@ -835,7 +872,8 @@ class IntegerHiddenMarkovAccumulatorFactory(StatisticAccumulatorFactory):
         num_words: Number of words / max val of vocabulary.
         num_states: Number of latent states.
         len_factory (StatisticAccumulatorFactory): Factory for the length distribution.
-        keys (Tuple[Optional[str], Optional[str], Optional[str]]): Keys for initial states, transitions, and emissions.
+        keys (Tuple[Optional[str], Optional[str], Optional[str]]): Keys for initial
+            states, transitions, and emissions.
         name (Optional[str]): Name for the object.
     """
 
@@ -857,7 +895,8 @@ class IntegerHiddenMarkovAccumulatorFactory(StatisticAccumulatorFactory):
             num_words: Number of words / max val of vocabulary.
             num_states: Number of latent states.
             factories: Factories for emission distributions.
-            len_factory: Factory for the length distribution. Defaults to NullAccumulatorFactory().
+            len_factory: Factory for the length distribution. Defaults to
+                NullAccumulatorFactory().
             use_numba: Whether to use Numba for 'seq_' calls.
             keys: Keys for initial states, transitions, and emissions.
             name: Name for the object.
@@ -885,16 +924,19 @@ class IntegerHiddenMarkovAccumulatorFactory(StatisticAccumulatorFactory):
 
 
 class IntegerHiddenMarkovEstimator(ParameterEstimator):
-    """Estimator for IntegerHiddenMarkovDistribution from aggregated sufficient statistics.
+    """Estimator for IntegerHiddenMarkovDistribution from aggregated sufficient
+    statistics.
 
     Attributes:
         num_words (int): Size of vocabulary
         num_states (int): Number of latent states.
         estimators (List[ParameterEstimator]): Estimators for emission distributions.
         len_estimator (ParameterEstimator): Estimator for length distribution.
-        pseudo_count (Tuple[Optional[float], Optional[float]]): Pseudo counts for initial states, transitions, and emissions.
+        pseudo_count (Tuple[Optional[float], Optional[float]]): Pseudo counts for
+            initial states, transitions, and emissions.
         name (Optional[str]): Name for the object instance.
-        keys (Tuple[Optional[str], Optional[str], Optional[str]]): Keys for initial states, transitions, and emissions.
+        keys (Tuple[Optional[str], Optional[str], Optional[str]]): Keys for initial
+            states, transitions, and emissions.
     """
 
     def __init__(
@@ -933,7 +975,8 @@ class IntegerHiddenMarkovEstimator(ParameterEstimator):
             self.keys = keys
         else:
             raise TypeError(
-                "IntegerHiddenMarkovEstimator requires keys (Tuple[Optional[str], Optional[str], Optional[str]])."
+                "IntegerHiddenMarkovEstimator requires keys (Tuple[Optional[str], "
+                "Optional[str], Optional[str]])."
             )
 
         self.num_states = num_states
@@ -1028,11 +1071,14 @@ class IntegerHiddenMarkovEstimator(ParameterEstimator):
 
 
 class IntegerHiddenMarkovDataEncoder(DataSequenceEncoder):
-    """IntegerHiddenMarkovDataEncoder object for encoding sequences of iid HMM observations.
+    """IntegerHiddenMarkovDataEncoder object for encoding sequences of iid HMM
+    observations.
 
     Attributes:
-        len_encoder (DataSequenceEncoder): DataSequenceEncoder object for the length of sequences.
-            Should have support of non-negative integers. Set to NullDataEncoder if None.
+        len_encoder (DataSequenceEncoder): DataSequenceEncoder object for the length of
+            sequences.
+            Should have support of non-negative integers. Set to NullDataEncoder if
+            None.
 
     """
 
@@ -1042,8 +1088,10 @@ class IntegerHiddenMarkovDataEncoder(DataSequenceEncoder):
         """IntegerHiddenMarkovDataEncoder object.
 
         Attributes:
-            len_encoder (DataSequenceEncoder): DataSequenceEncoder object for the length of sequences.
-                Should have support of non-negative integers. Set to NullDataEncoder if None.
+            len_encoder (DataSequenceEncoder): DataSequenceEncoder object for the length
+                of sequences.
+                Should have support of non-negative integers. Set to NullDataEncoder if
+                None.
 
         """
         self.len_encoder = len_encoder if len_encoder is not None else NullDataEncoder()
@@ -1064,13 +1112,16 @@ class IntegerHiddenMarkovDataEncoder(DataSequenceEncoder):
     ) -> "IntegerHiddenMarkovEncodedDataSequence":
         """Sequence encode sequences of iid HMM observations.
 
-        If use_numba is False, calls IntegerHiddenMarkovDataEncoder._seq_encode(x). (See '_seq_encode' for details).
+        If use_numba is False, calls IntegerHiddenMarkovDataEncoder._seq_encode(x). (See
+        '_seq_encode' for details).
 
         Args:
-            x (Sequence[Sequence[int]]): A sequence of iid observations from an HMM distribution of type T.
+            x (Sequence[Sequence[int]]): A sequence of iid observations from an HMM
+                distribution of type T.
 
         Returns:
-            IntegerHiddenMarkovEncodedDataSequence: with numba_enc=True if use_numba=True.
+            IntegerHiddenMarkovEncodedDataSequence: with numba_enc=True if
+                use_numba=True.
 
         """
 
@@ -1178,7 +1229,8 @@ def forward_backward(xs_seq, init_pvec, tran_mat, pmat, log_alpha, log_beta):
 
 
 @numba.njit(
-    "void(int64[:], int64[:], float64[:], float64[:], float64[:,:], float64[:,:], float64[:], float64[:,:], float64[:,:])",
+    "void(int64[:], int64[:], float64[:], float64[:], float64[:,:], float64[:,:], "
+    "float64[:], float64[:,:], float64[:,:])",
     parallel=True,
     fastmath=True,
 )
@@ -1306,7 +1358,8 @@ def numba_baum_welch(
 
 
 @numba.njit(
-    "void(int64, int64[:], float64[:,:], float64[:], float64[:,:], float64[:], float64[:,:], float64[:,:,:], "
+    "void(int64, int64[:], float64[:,:], float64[:], float64[:,:], float64[:], "
+    "float64[:,:], float64[:,:,:], "
     "float64[:,:])",
     parallel=True,
     fastmath=True,
@@ -1418,7 +1471,8 @@ def numba_baum_welch_alphas(
 
 
 @numba.njit(
-    "void(int64[:], int64[:], float64[:], int64[:], float64[:], float64[:], float64[:,:], float64[:,:])",
+    "void(int64[:], int64[:], float64[:], int64[:], float64[:], float64[:], "
+    "float64[:,:], float64[:,:])",
     fastmath=True,
 )
 def fast_seq_initialize(

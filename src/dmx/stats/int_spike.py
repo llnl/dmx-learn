@@ -1,8 +1,11 @@
-"""Evaluate, estimate, and sample from a uniform distribution over integers in range [min_val, max_val] with a spike
+"""Evaluate, estimate, and sample from a uniform distribution over integers in range
+[min_val, max_val] with a spike
   placed on the integer value k.
 
-Defines the SpikeAndSlabDistribution, SpikeAndSlabSampler, SpikeAndSlabAccumulatorFactory,
-SpikeAndSlabAccumulator, SpikeAndSlabEstimator, and the SpikeAndSlabDataEncoder classes for use
+Defines the SpikeAndSlabDistribution, SpikeAndSlabSampler,
+SpikeAndSlabAccumulatorFactory,
+SpikeAndSlabAccumulator, SpikeAndSlabEstimator, and the SpikeAndSlabDataEncoder classes
+for use
 with dmx-learn.
 
 """
@@ -26,7 +29,8 @@ from dmx.stats.pdist import (
 
 
 class SpikeAndSlabDistribution(SequenceEncodableProbabilityDistribution):
-    """SpikeAndSlabDistribution object for creating a uniform integer distribution with a spike on k.
+    """SpikeAndSlabDistribution object for creating a uniform integer distribution with
+    a spike on k.
 
     Attributes:
         p (float): Probability of drawing from k.
@@ -53,9 +57,11 @@ class SpikeAndSlabDistribution(SequenceEncodableProbabilityDistribution):
         """SpikeAndSlabDistribution object.
 
         Args:
-            k (int): Integer value to place spike on. Must be within [min_val,min_val+num_vals)
+            k (int): Integer value to place spike on. Must be within
+                [min_val,min_val+num_vals)
             num_vals (int): Number of integers in the range.
-            p (float): Probability of drawing k. (1-p)/(num_vals-1) to draw any other integer in range.
+            p (float): Probability of drawing k. (1-p)/(num_vals-1) to draw any other
+                integer in range.
             min_val (Optional[int]): Defaults to 0. Set bottom of integer range.
             name (Optional[str]): Set name for object.
             keys (Optional[str]): Key for parameters.
@@ -67,8 +73,8 @@ class SpikeAndSlabDistribution(SequenceEncodableProbabilityDistribution):
 
         if not self.min_val <= k <= self.max_val:
             raise Exception(
-                "Spike value k must be between [%s, %s]."
-                % (repr(self.min_val), repr(self.max_val))
+                f"Spike value k must be between [{repr(self.min_val)}, "
+                f"{repr(self.max_val)}]."
             )
         else:
             self.k = k
@@ -88,8 +94,8 @@ class SpikeAndSlabDistribution(SequenceEncodableProbabilityDistribution):
         s6 = repr(self.keys)
 
         return (
-            "SpikeAndSlabDistribution(p=%s, min_val=%s, num_vals=%s,k=%s, name=%s, keys=%s)"
-            % (s3, s1, s2, s4, s5, s6)
+            f"SpikeAndSlabDistribution(p={s3}, min_val={s1}, num_vals={s2},k={s4}, "
+            f"name={s5}, keys={s6})"
         )
 
     def density(self, x: int) -> float:
@@ -149,7 +155,8 @@ class SpikeAndSlabDistribution(SequenceEncodableProbabilityDistribution):
 
 
 class SpikeAndSlabSampler(DistributionSampler):
-    """SpikeAndSlabSampler object for sampling from spike and slab distribution on integers.
+    """SpikeAndSlabSampler object for sampling from spike and slab distribution on
+    integers.
 
     Attributes:
         rng (RandomState): RandomState for seeding samples.
@@ -400,13 +407,15 @@ class SpikeAndSlabAccumulatorFactory(StatisticAccumulatorFactory):
 
 
 class SpikeAndSlabEstimator(ParameterEstimator):
-    """SpikeAndSlabEstimator object instance for estimating SpikeAndSlabDistribution objects.
+    """SpikeAndSlabEstimator object instance for estimating SpikeAndSlabDistribution
+    objects.
 
     Attributes:
         pseudo_count (Optional[float]): Regularize value k.
         min_val (int): Smallest integer value in the range. Defaults to 0.
         max_val (int): Set to the min val plus number of values - 1.
-        suff_stat (Optional[Tuple[int, Optional[float]]]): Tuple of k to regularize and optional value of p for k.
+        suff_stat (Optional[Tuple[int, Optional[float]]]): Tuple of k to regularize and
+            optional value of p for k.
         name (Optional[str]): Set name for object instance.
         keys (Optional[str]): Set keys for object instance.
 
@@ -426,7 +435,8 @@ class SpikeAndSlabEstimator(ParameterEstimator):
         Args:
             min_val (Optional[int]): Smallest integer value in the range.
             pseudo_count (Optional[float]): Regularize value k.
-            suff_stat (Optional[Tuple[int, Optional[float]]]): Tuple of k to regularize and optional value of p for k.
+            suff_stat (Optional[Tuple[int, Optional[float]]]): Tuple of k to regularize
+                and optional value of p for k.
             name (Optional[str]): Set name for object instance.
             keys (Optional[str]): Set keys for object instance.
 
@@ -540,7 +550,8 @@ class SpikeAndSlabEstimator(ParameterEstimator):
 
 
 class SpikeAndSlabDataEncoder(DataSequenceEncoder):
-    """IntegerCategoricalDataEncoder object for encoding sequences of iid integer categorical observations."""
+    """IntegerCategoricalDataEncoder object for encoding sequences of iid integer
+    categorical observations."""
 
     def __str__(self) -> str:
         return "IntegerCategoricalDataEncoder"
