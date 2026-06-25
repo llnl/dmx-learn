@@ -17,10 +17,9 @@ else.
 """
 
 from math import log
-from typing import Any, Dict, List, Optional, Sequence, Tuple, Union
+from typing import Any, Dict, Optional, Sequence, Tuple, Union
 
 import numpy as np
-from numpy.random import RandomState
 
 from dmx.stats.pdist import (
     DataSequenceEncoder,
@@ -56,6 +55,7 @@ class PoissonDistribution(SequenceEncodableProbabilityDistribution):
             keys (Optional[str]): Key for lambda.
 
         """
+        super().__init__()
         self.lam = lam
         self.log_lambda = log(lam)
         self.name = name
@@ -103,7 +103,7 @@ class PoissonDistribution(SequenceEncodableProbabilityDistribution):
     def seq_log_density(self, x: "PoissonEncodedDataSequence") -> np.ndarray:
 
         if not isinstance(x, PoissonEncodedDataSequence):
-            raise Exception(
+            raise TypeError(
                 "PoissonEncodedDataSequence required for seq_log_density()."
             )
 
@@ -147,8 +147,7 @@ class PoissonSampler(DistributionSampler):
                 sampling.
 
         """
-        self.rng = RandomState(seed)
-        self.dist = dist
+        super().__init__(dist, seed)
 
     def sample(self, size: Optional[int] = None) -> Union[int, Sequence[int]]:
         """Generate iid samples from Poisson distribution.
@@ -191,6 +190,7 @@ class PoissonAccumulator(SequenceEncodableStatisticAccumulator):
             keys (Optional[str]): Assign a string valued to key to object instance.
 
         """
+        del name
         self.sum = 0.0
         self.count = 0.0
         self.keys = keys
@@ -198,6 +198,7 @@ class PoissonAccumulator(SequenceEncodableStatisticAccumulator):
     def initialize(
         self, x: int, weight: float, rng: Optional[np.random.RandomState] = None
     ) -> None:
+        del rng
         self.update(x, weight, None)
 
     def update(
@@ -359,7 +360,7 @@ class PoissonDataEncoder(DataSequenceEncoder):
         rv1 = np.asarray(x)
 
         if np.any(rv1 < 0) or np.any(np.isnan(rv1)):
-            raise Exception("Poisson requires non-negative integer values of x.")
+            raise ValueError("Poisson requires non-negative integer values of x.")
         rv2 = gammaln(rv1 + 1.0)
 
         return PoissonEncodedDataSequence(data=(rv1, rv2))

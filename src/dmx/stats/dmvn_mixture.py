@@ -8,13 +8,12 @@ DiagonalGaussianEstimator(tied=True) sets the covariance of each mixture compone
 the same for each mixture component.
 """
 
-from typing import Any, Dict, List, Optional, Sequence, Tuple, TypeVar, Union
+from typing import Any, Dict, List, Optional, Sequence, Tuple, Union
 
 import numba
 import numpy as np
 from numpy.random import RandomState
 
-import dmx.utils.vector as vec
 from dmx.arithmetic import maxrandint
 from dmx.stats.pdist import (
     DataSequenceEncoder,
@@ -71,6 +70,7 @@ class DiagonalGaussianMixtureDistribution(SequenceEncodableProbabilityDistributi
             keys (Tuple[Optional[str], Optional[str]], optional): Set keys for weights
                 and parameters. Defaults to (None, None).
         """
+        super().__init__()
         self.mu = np.asarray(mu, dtype=np.float64)
         self.covar = np.asarray(covar, dtype=np.float64)
         self.dim = self.mu.shape[1]
@@ -178,7 +178,7 @@ class DiagonalGaussianMixtureDistribution(SequenceEncodableProbabilityDistributi
             np.ndarray: Log density values for each mixture component.
         """
         if not isinstance(x, DiagonalGaussianMixtureEncodedDataSequence):
-            raise Exception(
+            raise TypeError(
                 "DiagonalGaussianMixtureEncodedDataSequence required for "
                 "seq_component_log_density()."
             )
@@ -199,7 +199,7 @@ class DiagonalGaussianMixtureDistribution(SequenceEncodableProbabilityDistributi
             np.ndarray: Log density values for the sequence.
         """
         if not isinstance(x, DiagonalGaussianMixtureEncodedDataSequence):
-            raise Exception(
+            raise TypeError(
                 "DiagonalGaussianMixtureEncodedDataSequence required for "
                 "seq_log_density()."
             )
@@ -246,7 +246,7 @@ class DiagonalGaussianMixtureDistribution(SequenceEncodableProbabilityDistributi
             of samples and K is the number of mixture components.
         """
         if not isinstance(x, DiagonalGaussianMixtureEncodedDataSequence):
-            raise Exception(
+            raise TypeError(
                 "DiagonalGaussianMixtureEncodedDataSequence required for "
                 "seq_posterior()."
             )
@@ -284,7 +284,7 @@ class DiagonalGaussianMixtureDistribution(SequenceEncodableProbabilityDistributi
             of samples and K is the number of mixture components.
         """
         if not isinstance(x, DiagonalGaussianMixtureEncodedDataSequence):
-            raise Exception(
+            raise TypeError(
                 "Requires DiagonalGaussianMixtureEncodedDataSequence for `seq_` calls."
             )
 
@@ -361,6 +361,7 @@ class DiagonalGaussianMixtureSampler(DistributionSampler):
             dist (DiagonalGaussianMixtureDistribution): The distribution to sample from.
             seed (Optional[int], optional): Seed for random number generation.
         """
+        super().__init__(dist, seed)
         rng_loc = np.random.RandomState(seed)
         self.rng = np.random.RandomState(rng_loc.randint(0, maxrandint))
         self.dist = dist
@@ -433,6 +434,7 @@ class DiagonalGaussianMixtureAccumulator(SequenceEncodableStatisticAccumulator):
         # Initializer seeds
         self._init_rng: bool = False
         self._acc_rng: Optional[List[RandomState]] = None
+        self._w_rng: Optional[RandomState] = None
 
     def update(
         self,

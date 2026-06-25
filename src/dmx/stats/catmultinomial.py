@@ -106,6 +106,7 @@ class MultinomialDistribution(SequenceEncodableProbabilityDistribution):
             keys (Optional[str], optional): Keys for merging sufficient statistics.
                 Defaults to None.
         """
+        super().__init__()
         self.dist = dist
         self.len_dist = len_dist if len_dist is not None else NullDistribution()
         self.len_normalized = len_normalized
@@ -152,7 +153,7 @@ class MultinomialDistribution(SequenceEncodableProbabilityDistribution):
         """
         rv = 0.0
         cc = 0.0
-        for i, x_i in enumerate(x):
+        for _i, x_i in enumerate(x):
             rv += self.dist.log_density(x_i[0]) * x_i[1]
             cc += x_i[1]
 
@@ -176,12 +177,12 @@ class MultinomialDistribution(SequenceEncodableProbabilityDistribution):
             Exception: If input is not a MultinomialEncodedDataSequence.
         """
         if not isinstance(x, MultinomialEncodedDataSequence):
-            raise Exception(
+            raise TypeError(
                 "MultinomialDistribution.seq_log_density() requires "
                 "MultinomialEncodedDataSequence."
             )
 
-        idx, icnt, inz, enc_seq, enc_nseq, enc_w, enc_ww = x.data
+        idx, icnt, _inz, enc_seq, enc_nseq, enc_w, _enc_ww = x.data
 
         ll = self.dist.seq_log_density(enc_seq)
         ll_sum = np.bincount(idx, weights=ll * enc_w, minlength=len(icnt))
@@ -208,7 +209,7 @@ class MultinomialDistribution(SequenceEncodableProbabilityDistribution):
             Exception: If len_dist is a NullDistribution.
         """
         if isinstance(self.len_dist, NullDistribution):
-            raise Exception(
+            raise RuntimeError(
                 "len_dist must not be a SequenceEncodableProbabilityDistribution with "
                 "support of non-negative integers."
             )
@@ -273,8 +274,7 @@ class MultinomialSampler(DistributionSampler):
             seed (Optional[int]): Set the seed for sampling.
 
         """
-        self.dist = dist
-        self.rng = RandomState(seed)
+        super().__init__(dist, seed)
         self.dist_sampler = self.dist.dist.sampler(seed=self.rng.randint(0, maxrandint))
         self.len_sampler = self.dist.len_dist.sampler(
             seed=self.rng.randint(0, maxrandint)
@@ -389,12 +389,12 @@ class MultinomialAccumulator(SequenceEncodableStatisticAccumulator):
 
         if estimate is None:
             w = weight / ss if (self.len_normalized and ss > 0) else weight
-            for i, x_i in enumerate(x):
+            for _i, x_i in enumerate(x):
                 self.accumulator.update(x_i[0], w * x_i[1], None)
             self.len_accumulator.update(ss, weight, None)
         else:
             w = weight / ss if (self.len_normalized and ss > 0) else weight
-            for i, x_i in enumerate(x):
+            for _i, x_i in enumerate(x):
                 self.accumulator.update(x_i[0], w * x_i[1], estimate.dist)
             self.len_accumulator.update(ss, weight, estimate.len_dist)
 
@@ -433,7 +433,7 @@ class MultinomialAccumulator(SequenceEncodableStatisticAccumulator):
         ss = sum(cc)
         w = weight / ss if self.len_normalized and ss > 0 else weight
 
-        for i, x_i in enumerate(x):
+        for _i, x_i in enumerate(x):
             self.accumulator.initialize(x_i[0], w * x_i[1], self._acc_rng)
 
         self.len_accumulator.initialize(ss, weight, self._len_rng)
@@ -452,7 +452,7 @@ class MultinomialAccumulator(SequenceEncodableStatisticAccumulator):
             estimate (Optional[MultinomialDistribution]): Current estimate of the
                 distribution, or None.
         """
-        idx, icnt, inz, enc_seq, enc_nseq, enc_w, enc_ww = x.data
+        idx, icnt, _inz, enc_seq, enc_nseq, enc_w, enc_ww = x.data
 
         w = weights[idx] * icnt[idx] if self.len_normalized else weights[idx]
         w *= enc_w
@@ -480,7 +480,7 @@ class MultinomialAccumulator(SequenceEncodableStatisticAccumulator):
         if not self._init_rng:
             self._rng_initialize(rng)
 
-        idx, icnt, inz, enc_seq, enc_nseq, enc_w, enc_ww = x.data
+        idx, icnt, _inz, enc_seq, enc_nseq, enc_w, enc_ww = x.data
 
         w = weights[idx] * icnt[idx] if self.len_normalized else weights[idx]
         w = w * enc_w
@@ -792,7 +792,7 @@ class MultinomialDataEncoder(DataSequenceEncoder):
         for i, x_i in enumerate(x):
             nx.append(len(x_i))
             aa = 0
-            for j, x_i_j in enumerate(x_i):
+            for _j, x_i_j in enumerate(x_i):
                 tidx.append(i)
                 tx.append(x_i_j[0])
                 cc.append(x_i_j[1])

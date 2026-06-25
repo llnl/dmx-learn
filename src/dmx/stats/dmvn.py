@@ -26,7 +26,6 @@ import numpy as np
 from numpy.random import RandomState
 
 import dmx.utils.vector as vec
-from dmx.arithmetic import *
 from dmx.stats.pdist import (
     DataSequenceEncoder,
     DistributionSampler,
@@ -70,6 +69,7 @@ class DiagonalGaussianDistribution(SequenceEncodableProbabilityDistribution):
             keys (Tuple[Optional[str], Optional[str]], optional): Key for mean and
                 covariance.
         """
+        super().__init__()
         self.dim = len(mu)
         self.mu = np.asarray(mu, dtype=float)
         self.covar = np.asarray(covar, dtype=float)
@@ -123,7 +123,7 @@ class DiagonalGaussianDistribution(SequenceEncodableProbabilityDistribution):
             np.ndarray: Log-density values.
         """
         if not isinstance(x, DiagonalGaussianEncodedDataSequence):
-            raise Exception(
+            raise TypeError(
                 "DiagonalGaussianDistribution.seq_log_density() requires "
                 "DiagonalGaussianEncodedDataSequence."
             )
@@ -192,8 +192,7 @@ class DiagonalGaussianSampler(DistributionSampler):
             dist (DiagonalGaussianDistribution): Object instance to sample from.
             seed (Optional[int], optional): Seed for random number generator.
         """
-        self.rng = RandomState(seed)
-        self.dist = dist
+        super().__init__(dist, seed)
 
     def sample(self, size: Optional[int] = None) -> Union[np.ndarray, List[np.ndarray]]:
         """Generate samples from Diagonal Gaussian distribution.
@@ -281,6 +280,7 @@ class DiagonalGaussianAccumulator(SequenceEncodableStatisticAccumulator):
             weight (float): Weight for the observation.
             rng (RandomState): Random number generator (not used).
         """
+        del rng
         self.update(x, weight, None)
 
     def seq_update(

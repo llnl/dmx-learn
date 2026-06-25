@@ -77,6 +77,7 @@ class ICLTreeDistribution(SequenceEncodableProbabilityDistribution):
 
         """
 
+        super().__init__()
         self.feature_order = (
             range(len(dependency_list)) if feature_order is None else feature_order
         )
@@ -118,7 +119,7 @@ class ICLTreeDistribution(SequenceEncodableProbabilityDistribution):
 
     def seq_log_density(self, x: "ICLTreeEncodedDataSequence") -> np.ndarray:
         if not isinstance(x, ICLTreeEncodedDataSequence):
-            raise Exception("Requires ICLTreeEncodedDataSequence.")
+            raise TypeError("Requires ICLTreeEncodedDataSequence.")
 
         rv = np.zeros(x.data.shape[0])
         for i, (j, k) in enumerate(self.dependency_list):
@@ -156,8 +157,7 @@ class ICLTreeSampler(DistributionSampler):
               seed (Optional[int]): Seed passed to random number generator.
 
         """
-        self.rng = RandomState(seed)
-        self.dist = dist
+        super().__init__(dist, seed)
 
     def sample(
         self, size: Optional[int] = None
@@ -277,6 +277,7 @@ class ICLTreeAccumulator(SequenceEncodableStatisticAccumulator):
         weight: float,
         rng: Optional[RandomState],
     ) -> None:
+        del rng
         self.update(x, weight, None)
 
     def seq_initialize(

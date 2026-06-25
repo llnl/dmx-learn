@@ -61,12 +61,13 @@ class BinomialDistribution(SequenceEncodableProbabilityDistribution):
         Raises:
             Exception: If p is not in (0, 1) or n is not positive.
         """
+        super().__init__()
         if p <= 0.0 or p >= 1.0 or np.isnan(p):
-            raise Exception("Binomial distribution requires p in [0,1]")
+            raise ValueError("Binomial distribution requires p in [0,1]")
         self.p = p
 
         if n < 0 or np.isinf(n) or np.isnan(n):
-            raise Exception("Binomial distribution requires n > 0.")
+            raise ValueError("Binomial distribution requires n > 0.")
         self.n = n
 
         self.log_p = np.log(p)
@@ -127,7 +128,7 @@ class BinomialDistribution(SequenceEncodableProbabilityDistribution):
             np.ndarray: Log-density values.
         """
         if not isinstance(x, BinomialEncodedDataSequence):
-            raise Exception(
+            raise TypeError(
                 "BinomialDistribution.seq_log_density() requires "
                 "BinomialEncodedDataSequence."
             )
@@ -202,8 +203,7 @@ class BinomialSampler(DistributionSampler):
             dist (BinomialDistribution): Distribution to sample from.
             seed (Optional[int], optional): Seed for RNG. Defaults to None.
         """
-        self.rng = RandomState(seed)
-        self.dist = dist
+        super().__init__(dist, seed)
 
     def sample(self, size: Optional[int] = None) -> Union[int, List[int]]:
         """Draw samples from the distribution.
@@ -293,6 +293,7 @@ class BinomialAccumulator(SequenceEncodableStatisticAccumulator):
             weight (float): Weight for the observation.
             rng (Optional[RandomState]): Not used.
         """
+        del rng
         self.update(x, weight, None)
 
     def seq_update(
@@ -599,7 +600,7 @@ class BinomialDataEncoder(DataSequenceEncoder):
         xx = np.array(x)
 
         if np.any(xx < 0) or np.any(np.isnan(xx)):
-            raise Exception(
+            raise ValueError(
                 "BinomialDistribution requires non-negative integer values for x."
             )
 

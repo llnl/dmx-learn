@@ -95,6 +95,7 @@ class SequenceDistribution(SequenceEncodableProbabilityDistribution):
             keys (Optional[str]): Key for parameters of sequence distribution.
 
         """
+        super().__init__()
         self.dist = dist
         self.len_dist = len_dist if len_dist is not None else NullDistribution()
         self.len_normalized = len_normalized
@@ -129,7 +130,7 @@ class SequenceDistribution(SequenceEncodableProbabilityDistribution):
         """
         rv = 1.0
 
-        for i, x_i in enumerate(x):
+        for _i, x_i in enumerate(x):
             rv *= self.dist.density(x_i)
 
         if self.len_normalized and len(x) > 0:
@@ -153,7 +154,7 @@ class SequenceDistribution(SequenceEncodableProbabilityDistribution):
         """
         rv = 0.0
 
-        for i, x_i in enumerate(x):
+        for _i, x_i in enumerate(x):
             rv += self.dist.log_density(x_i)
 
         if self.len_normalized and len(x) > 0:
@@ -175,11 +176,11 @@ class SequenceDistribution(SequenceEncodableProbabilityDistribution):
     def seq_log_density(self, x: "SequenceEncodedDataSequence") -> np.ndarray:
 
         if not isinstance(x, SequenceEncodedDataSequence):
-            raise Exception(
+            raise TypeError(
                 "SequenceEncodedDataSequence required for seq_log_density()."
             )
 
-        idx, icnt, inz, enc_seq, enc_nseq = x.data
+        idx, icnt, _inz, enc_seq, enc_nseq = x.data
 
         if np.all(icnt == 0):
             ll_sum = np.zeros(len(icnt), dtype=float)
@@ -199,7 +200,7 @@ class SequenceDistribution(SequenceEncodableProbabilityDistribution):
 
     def sampler(self, seed: Optional[int] = None) -> "SequenceSampler":
         if self.null_len_dist:
-            raise Exception(
+            raise RuntimeError(
                 "Error: len_dist cannot be none for "
                 "SequenceDistribution.sampler(seed:Optional[int]=None)."
             )
@@ -257,9 +258,8 @@ class SequenceSampler(DistributionSampler):
             seed (Optional[int]): Set seed of random number generator for sampling.
 
         """
-        self.dist = dist
+        super().__init__(dist, seed)
         self.len_dist = len_dist
-        self.rng = RandomState(seed)
         self.dist_sampler = self.dist.sampler(seed=self.rng.randint(0, maxrandint))
         self.len_sampler = self.len_dist.sampler(seed=self.rng.randint(0, maxrandint))
 
@@ -358,7 +358,7 @@ class SequenceAccumulator(SequenceEncodableStatisticAccumulator):
         if estimate is None:
             w = weight / len(x) if (self.len_normalized and len(x) > 0) else weight
 
-            for i, x_i in enumerate(x):
+            for _i, x_i in enumerate(x):
                 self.accumulator.update(x_i, w, None)
 
             if not self.null_len_accumulator:
@@ -367,7 +367,7 @@ class SequenceAccumulator(SequenceEncodableStatisticAccumulator):
         else:
             w = weight / len(x) if (self.len_normalized and len(x) > 0) else weight
 
-            for i, x_i in enumerate(x):
+            for _i, x_i in enumerate(x):
                 self.accumulator.update(x_i, w, estimate.dist)
 
             if not self.null_len_accumulator:
@@ -392,7 +392,7 @@ class SequenceAccumulator(SequenceEncodableStatisticAccumulator):
     def seq_initialize(
         self, x: "SequenceEncodedDataSequence", weights: np.ndarray, rng: RandomState
     ) -> None:
-        idx, icnt, inz, enc_seq, enc_nseq = x.data
+        idx, icnt, _inz, enc_seq, enc_nseq = x.data
 
         if not self._init_rng:
             self._rng_initialize(rng)
@@ -410,7 +410,7 @@ class SequenceAccumulator(SequenceEncodableStatisticAccumulator):
         weights: np.ndarray,
         estimate: Optional["SequenceDistribution"],
     ) -> None:
-        idx, icnt, inz, enc_seq, enc_nseq = x.data
+        idx, icnt, _inz, enc_seq, enc_nseq = x.data
 
         w = weights[idx] * icnt[idx] if self.len_normalized else weights[idx]
 
@@ -703,7 +703,7 @@ class SequenceDataEncoder(DataSequenceEncoder):
         for i, x_i in enumerate(x):
             nx.append(len(x_i))
 
-            for j, x_i_j in enumerate(x_i):
+            for _j, x_i_j in enumerate(x_i):
                 tidx.append(i)
                 tx.append(x_i_j)
 

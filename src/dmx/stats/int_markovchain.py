@@ -115,6 +115,7 @@ class IntegerMarkovChainDistribution(SequenceEncodableProbabilityDistribution):
                 init_dist and len_dist.
 
         """
+        super().__init__()
         self.num_values = num_values
         self.cond_dist = np.asarray(cond_dist)
         self.lag = lag
@@ -261,7 +262,8 @@ class IntegerMarkovChainSampler(DistributionSampler):
             seed (Optional[int]): Set the seed for random sampling.
 
         """
-        rng = np.random.RandomState(seed)
+        super().__init__(dist, seed)
+        rng = self.rng
         seeds = rng.randint(0, maxrandint, size=3)
 
         self.dist = dist
@@ -269,14 +271,14 @@ class IntegerMarkovChainSampler(DistributionSampler):
         self.trans_sampler = np.random.RandomState(seeds[0])
 
         if isinstance(self.dist.init_dist, NullDistribution):
-            raise Exception(
+            raise RuntimeError(
                 "IntegerMarkovChainSampler requires init_dist for "
                 "IntegerMarkovDistribution."
             )
         self.init_sampler = dist.init_dist.sampler(seeds[1])
 
         if isinstance(dist.len_dist, NullDistribution):
-            raise Exception(
+            raise RuntimeError(
                 "IntegerMarkovChainSampler requires len_dist for "
                 "IntegerMarkovDistribution."
             )
@@ -291,7 +293,7 @@ class IntegerMarkovChainSampler(DistributionSampler):
 
         if cnt >= lag:
             rv = self.init_sampler.sample()  ## must return a list
-            for i in range(lag, cnt):
+            for _ in range(lag, cnt):
                 idx = np.ravel_multi_index(rv[-lag:], m_shape)
                 rv.append(
                     self.trans_sampler.choice(n_val, p=self.dist.cond_dist[idx, :])
@@ -402,6 +404,7 @@ class IntegerMarkovChainAccumulator(SequenceEncodableStatisticAccumulator):
             init_accumulator if init_accumulator is not None else NullAccumulator()
         )
         self.max_value = -1
+        del name
         self.keys = keys
 
         self._acc_rng = None
@@ -460,7 +463,7 @@ class IntegerMarkovChainAccumulator(SequenceEncodableStatisticAccumulator):
         estimate: Optional[IntegerMarkovChainDistribution],
     ) -> None:
 
-        seq_len, init_idx, seq_idx, u_seq_idx, u_seq_values, init_enc, len_enc = x.data
+        _seq_len, init_idx, seq_idx, u_seq_idx, u_seq_values, init_enc, len_enc = x.data
 
         seq_cnt = np.bincount(u_seq_idx, weights=weights[seq_idx])
 
@@ -490,7 +493,7 @@ class IntegerMarkovChainAccumulator(SequenceEncodableStatisticAccumulator):
         if not self._init_rng:
             self._rng_initialize(rng)
 
-        seq_len, init_idx, seq_idx, u_seq_idx, u_seq_values, init_enc, len_enc = x.data
+        _seq_len, init_idx, seq_idx, u_seq_idx, u_seq_values, init_enc, len_enc = x.data
 
         seq_cnt = np.bincount(u_seq_idx, weights=weights[seq_idx])
 
@@ -738,7 +741,7 @@ class IntegerMarkovChainEstimator(ParameterEstimator):
             else self.init_estimator.estimate(None, init_ss)
         )
 
-        num_values = 1 + max(max(max(u[0]), u[1]) for u in trans_count_map.keys())
+        num_values = 1 + max(max(u[0], u[1]) for u in trans_count_map.keys())
 
         cond_mat = np.zeros((num_values**lag, num_values), dtype=np.float32)
 
@@ -845,7 +848,7 @@ class IntegerMarkovChainDataEncoder(DataSequenceEncoder):
         """
         lag = self.lag
 
-        cnt = len(x)
+        _cnt = len(x)
         lens = np.asarray([len(u) for u in x])
         lag_cnt = (lens >= lag).sum()
         step_cnt = np.maximum(lens - lag, 0).sum()

@@ -29,13 +29,7 @@ from numpy.random import RandomState
 
 from dmx.arithmetic import maxrandint
 from dmx.stats.dirichlet import DirichletDistribution
-from dmx.stats.null_dist import (
-    NullAccumulator,
-    NullAccumulatorFactory,
-    NullDataEncoder,
-    NullDistribution,
-    NullEstimator,
-)
+from dmx.stats.null_dist import NullDistribution
 from dmx.stats.pdist import (
     DataSequenceEncoder,
     DistributionSampler,
@@ -45,7 +39,6 @@ from dmx.stats.pdist import (
     SequenceEncodableStatisticAccumulator,
     StatisticAccumulatorFactory,
 )
-from dmx.utils.optsutil import count_by_value
 from dmx.utils.special import digamma, digammainv, gammaln
 from dmx.utils.vector import row_choice
 
@@ -94,6 +87,7 @@ class LDADistribution(SequenceEncodableProbabilityDistribution):
             gamma_threshold (float): For numerical stability in estimation.
 
         """
+        super().__init__()
         self.topics = topics
         self.n_topics = len(topics)
         self.alpha = np.asarray(alpha)
@@ -127,11 +121,11 @@ class LDADistribution(SequenceEncodableProbabilityDistribution):
     def seq_log_density(self, x: "LDAEncodedDataSequence") -> np.ndarray:
 
         if not isinstance(x, LDAEncodedDataSequence):
-            raise Exception("Requires LDAEncodedDataSequence for `seq` function calls.")
+            raise TypeError("Requires LDAEncodedDataSequence for `seq` function calls.")
 
         num_topics = self.n_topics
         alpha = self.alpha
-        num_documents, idx, counts, _, enc_data = x.data
+        _num_documents, idx, _counts, _, _enc_data = x.data
 
         idx_full = np.repeat(np.reshape(idx, (-1, 1)), num_topics, axis=1)
         idx_full *= num_topics
@@ -172,10 +166,9 @@ class LDADistribution(SequenceEncodableProbabilityDistribution):
     def seq_component_log_density(self, x: "LDAEncodedDataSequence") -> np.ndarray:
 
         if not isinstance(x, LDAEncodedDataSequence):
-            raise Exception("Requires LDAEncodedDataSequence for `seq` function calls.")
+            raise TypeError("Requires LDAEncodedDataSequence for `seq` function calls.")
 
         num_topics = self.n_topics
-        alpha = self.alpha
         num_documents, idx, counts, _, enc_data = x.data
 
         ll_mat = np.zeros((len(idx), self.n_topics))
@@ -194,13 +187,9 @@ class LDADistribution(SequenceEncodableProbabilityDistribution):
 
     def seq_posterior(self, x: "LDAEncodedDataSequence") -> np.ndarray:
         if not isinstance(x, LDAEncodedDataSequence):
-            raise Exception("Requires LDAEncodedDataSequence for `seq` function calls.")
+            raise TypeError("Requires LDAEncodedDataSequence for `seq` function calls.")
 
-        num_topics = self.n_topics
-        alpha = self.alpha
-        num_documents, idx, counts, _, enc_data = x.data
-
-        log_density_gamma, document_gammas, per_topic_log_densities = seq_posterior(
+        _log_density_gamma, document_gammas, _per_topic_log_densities = seq_posterior(
             self, x.data
         )
 
@@ -232,8 +221,7 @@ class LDADistribution(SequenceEncodableProbabilityDistribution):
 class LDASampler(DistributionSampler):
 
     def __init__(self, dist: LDADistribution, seed: Optional[int] = None) -> None:
-        self.rng = RandomState(seed)
-        self.dist = dist
+        super().__init__(dist, seed)
         self.n_topics = dist.n_topics
         self.comp_samplers = [
             self.dist.topics[i].sampler(seed=self.rng.randint(0, maxrandint))
@@ -282,6 +270,7 @@ class LDAEstimatorAccumulator(SequenceEncodableStatisticAccumulator):
         self._init_rng = False
         self._rng_theta = None
         self._rng_idx = None
+        self._rng_w = None
         self._rng_topics = None
 
         self.name = name
@@ -307,7 +296,7 @@ class LDAEstimatorAccumulator(SequenceEncodableStatisticAccumulator):
         rng: np.random.RandomState,
     ) -> None:
 
-        num_documents, idx, counts, old_gammas, enc_data = x.data
+        num_documents, idx, counts, _old_gammas, enc_data = x.data
 
         if not self._init_rng:
             self._rng_initialize(rng)
@@ -379,8 +368,8 @@ class LDAEstimatorAccumulator(SequenceEncodableStatisticAccumulator):
         estimate: LDADistribution,
     ) -> None:
 
-        num_documents, idx, counts, old_gammas, enc_data = x.data
-        log_density_gamma, final_gammas, per_topic_log_densities = seq_posterior(
+        _num_documents, idx, counts, _old_gammas, enc_data = x.data
+        log_density_gamma, final_gammas, _per_topic_log_densities = seq_posterior(
             estimate, x.data
         )
 
@@ -578,11 +567,6 @@ class LDAEstimator(ParameterEstimator):
 
         if self.fixed_alpha is None:
 
-            if self.pseudo_count is not None:
-                mean_of_logs = (sum_of_logs + np.log(self.pseudo_count[1])) / (
-                    doc_counts + self.pseudo_count[0]
-                )
-
             # new_alpha, _ = find_alpha(prev_alpha, sum_of_logs/doc_counts,
             # gamma_threshold*np.sqrt(float(doc_counts)))
             new_alpha, _ = update_alpha(
@@ -635,7 +619,7 @@ class LDADataEncoder(DataSequenceEncoder):
         tidx = []
         for i, x_i in enumerate(x):
             nx.append(len(x_i))
-            for j, x_i_j in enumerate(x_i):
+            for _j, x_i_j in enumerate(x_i):
                 tidx.append(i)
                 tx.append(x_i_j[0])
                 ctx.append(x_i_j[1])
@@ -821,8 +805,6 @@ def seq_posterior(
     np.sum(log_density_gamma_loc, axis=1, keepdims=True, out=posterior_sum_ll_loc)
     log_density_gamma_loc /= posterior_sum_ll_loc
 
-    old_stuff = None
-
     while ndoc > 0:
 
         itr_cnt += 1
@@ -921,8 +903,6 @@ def seq_posterior(
     posterior_sum_ll /= np.reshape(counts, (-1, 1))
     log_density_gamma /= posterior_sum_ll
 
-    effNs = log_density_gamma.sum(axis=0)
-
     idx_full = np.repeat(np.reshape(idx, (-1, 1)), num_topics, axis=1)
     idx_full *= num_topics
     idx_full += np.reshape(np.arange(num_topics), (1, num_topics))
@@ -931,7 +911,5 @@ def seq_posterior(
     gamma_updates = np.reshape(gamma_updates, (-1, num_topics))
     gamma_updates += alpha_loc
     final_gammas = gamma_updates
-
-    mlpf = digamma(final_gammas) - digamma(np.sum(final_gammas, axis=1, keepdims=True))
 
     return log_density_gamma, final_gammas, per_topic_log_densities

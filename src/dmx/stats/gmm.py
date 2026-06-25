@@ -12,7 +12,7 @@ parameter while allowing for different
 means in components.
 """
 
-from typing import Any, Dict, List, Optional, Sequence, Tuple, TypeVar, Union
+from typing import Any, Dict, List, Optional, Sequence, Tuple, Union
 
 import numpy as np
 from numpy.random import RandomState
@@ -68,6 +68,7 @@ class GaussianMixtureDistribution(SequenceEncodableProbabilityDistribution):
             keys (Tuple[Optional[str], Optional[str]], optional): Keys for weights and
                 parameters.
         """
+        super().__init__()
         if isinstance(sigma2, float):
             self._tied = True
             self.sigma2 = sigma2
@@ -184,7 +185,7 @@ class GaussianMixtureDistribution(SequenceEncodableProbabilityDistribution):
             np.ndarray: Log-density matrix (n_samples, n_components).
         """
         if not isinstance(x, GaussianMixtureEncodedDataSequence):
-            raise Exception(
+            raise TypeError(
                 "GaussianMixtureEncodedDataSequence required for "
                 "seq_component_log_density()."
             )
@@ -203,7 +204,7 @@ class GaussianMixtureDistribution(SequenceEncodableProbabilityDistribution):
             np.ndarray: Log-density values for each observation.
         """
         if not isinstance(x, GaussianMixtureEncodedDataSequence):
-            raise Exception(
+            raise TypeError(
                 "GaussianMixtureEncodedDataSequence required for seq_log_density()."
             )
 
@@ -247,7 +248,7 @@ class GaussianMixtureDistribution(SequenceEncodableProbabilityDistribution):
             np.ndarray: Posterior probabilities (n_samples, n_components).
         """
         if not isinstance(x, GaussianMixtureEncodedDataSequence):
-            raise Exception(
+            raise TypeError(
                 "GaussianMixtureEncodedDataSequence required for seq_posterior()."
             )
 
@@ -326,6 +327,7 @@ class GaussianMixtureSampler(DistributionSampler):
             dist (GaussianMixtureDistribution): Distribution to sample from.
             seed (Optional[int], optional): Seed for random number generator.
         """
+        super().__init__(dist, seed)
         rng_loc = np.random.RandomState(seed)
         self.rng = np.random.RandomState(rng_loc.randint(0, maxrandint))
         self.dist = dist
@@ -406,6 +408,7 @@ class GaussianMixtureAccumulator(SequenceEncodableStatisticAccumulator):
 
         self._init_rng: bool = False
         self._acc_rng: Optional[List[RandomState]] = None
+        self._w_rng: Optional[RandomState] = None
         self.name = name
 
     def update(
@@ -482,7 +485,6 @@ class GaussianMixtureAccumulator(SequenceEncodableStatisticAccumulator):
         keep_len = np.count_nonzero(keep_idx)
         ww = np.zeros((sz, self.num_components))
 
-        c = 20**2 if self.num_components > 20 else self.num_components**2
         if keep_len > 0:
             ww[keep_idx, :] = self._w_rng.dirichlet(
                 alpha=np.ones(self.num_components), size=keep_len

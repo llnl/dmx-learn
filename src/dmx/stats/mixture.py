@@ -81,6 +81,7 @@ class MixtureDistribution(SequenceEncodableProbabilityDistribution):
         self.zw = self.w == 0.0
         self.log_w = np.log(w + self.zw)
         self.log_w[self.zw] = -np.inf
+        super().__init__()
         self.components = components
         self.num_components = len(components)
         self.name = name
@@ -188,7 +189,7 @@ class MixtureDistribution(SequenceEncodableProbabilityDistribution):
         """
 
         if not isinstance(x, MixtureEncodedDataSequence):
-            raise Exception(
+            raise TypeError(
                 "MixtureEncodedDataSequence required for seq_component_log_density()."
             )
 
@@ -209,7 +210,7 @@ class MixtureDistribution(SequenceEncodableProbabilityDistribution):
     def seq_log_density(self, x: "MixtureEncodedDataSequence") -> np.ndarray:
 
         if not isinstance(x, MixtureEncodedDataSequence):
-            raise Exception(
+            raise TypeError(
                 "MixtureEncodedDataSequence required for seq_log_density()."
             )
 
@@ -265,7 +266,7 @@ class MixtureDistribution(SequenceEncodableProbabilityDistribution):
         """
 
         if not isinstance(x, MixtureEncodedDataSequence):
-            raise Exception("MixtureEncodedDataSequence required for seq_posterior().")
+            raise TypeError("MixtureEncodedDataSequence required for seq_posterior().")
 
         enc_data = x.data
         ll_mat_init = False
@@ -336,6 +337,7 @@ class MixtureSampler(DistributionSampler):
             seed (Optional[int]): Seed to set for sampling with RandomState.
 
         """
+        super().__init__(dist, seed)
         rng_loc = np.random.RandomState(seed)
         self.rng = np.random.RandomState(rng_loc.randint(0, maxrandint))
         self.dist = dist
@@ -417,6 +419,7 @@ class MixtureAccumulator(SequenceEncodableStatisticAccumulator):
         # Initializer seeds
         self._init_rng: bool = False
         self._acc_rng: Optional[Sequence[RandomState]] = None
+        self._w_rng: Optional[RandomState] = None
 
     def seq_update(
         self,

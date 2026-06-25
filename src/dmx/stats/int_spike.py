@@ -16,7 +16,6 @@ import numpy as np
 from numpy.random import RandomState
 
 import dmx.utils.vector as vec
-from dmx.arithmetic import *
 from dmx.stats.pdist import (
     DataSequenceEncoder,
     DistributionSampler,
@@ -67,12 +66,13 @@ class SpikeAndSlabDistribution(SequenceEncodableProbabilityDistribution):
             keys (Optional[str]): Key for parameters.
 
         """
+        super().__init__()
         self.p = p
         self.min_val = min_val
         self.max_val = min_val + num_vals
 
         if not self.min_val <= k <= self.max_val:
-            raise Exception(
+            raise ValueError(
                 f"Spike value k must be between [{repr(self.min_val)}, "
                 f"{repr(self.max_val)}]."
             )
@@ -108,7 +108,7 @@ class SpikeAndSlabDistribution(SequenceEncodableProbabilityDistribution):
     def seq_log_density(self, x: "SpikeAndSlabEncodedDataSequence") -> np.ndarray:
 
         if not isinstance(x, SpikeAndSlabEncodedDataSequence):
-            raise Exception(
+            raise TypeError(
                 "SpikeAndSlabEncodedDataSequence required for seq_log_density()."
             )
 
@@ -171,8 +171,7 @@ class SpikeAndSlabSampler(DistributionSampler):
             seed (Optional[int]): Seed for generating samples.
 
         """
-        self.rng = RandomState(seed)
-        self.dist = dist
+        super().__init__(dist, seed)
         self.non_k = np.delete(
             np.arange(self.dist.min_val, self.dist.max_val), self.dist.k
         )
@@ -266,6 +265,7 @@ class SpikeAndSlabAccumulator(SequenceEncodableStatisticAccumulator):
             self.count_vec[x - self.min_val] += weight
 
     def initialize(self, x: int, weight: float, rng: RandomState) -> None:
+        del rng
         return self.update(x, weight, None)
 
     def seq_initialize(

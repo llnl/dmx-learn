@@ -34,7 +34,6 @@ from math import exp
 from typing import Any, Dict, List, Optional, Sequence, Tuple, TypeVar, Union
 
 import numpy as np
-from numpy import ndarray
 from numpy.random import RandomState
 
 import dmx.utils.vector as vec
@@ -93,6 +92,7 @@ class HeterogeneousMixtureDistribution(SequenceEncodableProbabilityDistribution)
         self.log_w = np.log(self.w + self.zw)
         self.log_w[self.zw] = -np.inf
 
+        super().__init__()
         self.components = components
         self.num_components = len(components)
         self.name = name
@@ -271,7 +271,7 @@ class HeterogeneousMixtureDistribution(SequenceEncodableProbabilityDistribution)
             sequence.
         """
         if not isinstance(x, HeterogeneousMixtureEncodedDataSequence):
-            raise Exception("Input must be HeterogeneousMixtureEncodedDataSequence.")
+            raise TypeError("Input must be HeterogeneousMixtureEncodedDataSequence.")
 
         tag_list, enc_data = x.data
         ll_mat_init = False
@@ -365,6 +365,7 @@ class HeterogeneousMixtureSampler(DistributionSampler):
             dist (HeterogeneousMixtureDistribution): Distribution to draw samples from.
             seed (Optional[int], optional): Seed for sampling with RandomState.
         """
+        super().__init__(dist, seed)
         rng_loc = np.random.RandomState(seed)
         self.rng = np.random.RandomState(rng_loc.randint(0, maxrandint))
         self.dist = dist

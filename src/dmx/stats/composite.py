@@ -54,6 +54,7 @@ class CompositeDistribution(SequenceEncodableProbabilityDistribution):
             keys (Optional[str], optional): Key for marking shared parameters. Defaults
                 to None.
         """
+        super().__init__()
         self.dists: Tuple[SequenceEncodableProbabilityDistribution, ...] = tuple(dists)
         self.count: int = len(dists)
         self.name: Optional[str] = name
@@ -115,7 +116,7 @@ class CompositeDistribution(SequenceEncodableProbabilityDistribution):
             Exception: If input is not a CompositeEncodedDataSequence.
         """
         if not isinstance(x, CompositeEncodedDataSequence):
-            raise Exception(
+            raise TypeError(
                 "CompositeDistribution.seq_log_density() requires "
                 "CompositeEncodedDataSequence."
             )
@@ -182,8 +183,7 @@ class CompositeSampler(DistributionSampler):
             seed (Optional[int], optional): Seed to set for sampling with RandomState.
                 Defaults to None.
         """
-        self.dist: CompositeDistribution = dist
-        self.rng: RandomState = RandomState(seed)
+        super().__init__(dist, seed)
         self.dist_samplers: List[DistributionSampler] = [
             d.sampler(seed=self.rng.randint(maxrandint)) for d in dist.dists
         ]

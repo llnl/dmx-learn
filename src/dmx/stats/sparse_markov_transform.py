@@ -25,18 +25,15 @@ This model is great for problems where one set is given like translations.
 """
 
 import itertools
-import random
 from typing import Any, Dict, List, Optional, Sequence, Tuple, TypeVar, Union
 
 import numpy as np
 from scipy.sparse import csr_matrix, lil_matrix
 
-from dmx.arithmetic import *
-from dmx.arithmetic import maxrandint
+from dmx.arithmetic import exp, maxrandint
 from dmx.stats.null_dist import (
     NullAccumulator,
     NullAccumulatorFactory,
-    NullDataEncoder,
     NullDistribution,
     NullEstimator,
 )
@@ -110,6 +107,7 @@ class SparseMarkovAssociationDistribution(SequenceEncodableProbabilityDistributi
             low_memory (bool): If True, uses low_memory function calls.
 
         """
+        super().__init__()
         self.init_prob_vec = np.asarray(init_prob_vec, dtype=np.float64)
         self.cond_prob_mat = csr_matrix(cond_prob_mat, dtype=np.float64)
         self.len_dist = len_dist if len_dist is not None else NullDistribution()
@@ -155,7 +153,6 @@ class SparseMarkovAssociationDistribution(SequenceEncodableProbabilityDistributi
 
         temp = self.cond_prob_mat[vx[:, None], vy].toarray()
         ll2 = np.dot(np.log(np.dot((temp * b + a).T, cx / nx)), cy)
-        ll1 = np.dot(np.log(self.init_prob_vec[vx] * b + a), cx)
         rv = ll2  # + ll2
         rv += self.len_dist.log_density([nx, ny])
 
@@ -166,7 +163,7 @@ class SparseMarkovAssociationDistribution(SequenceEncodableProbabilityDistributi
     ) -> np.ndarray:
 
         if not isinstance(x, SparseMarkovAssociationEncodedDataSequence):
-            raise Exception(
+            raise TypeError(
                 "Requires SparseMarkovAssociationEncodedDataSequence for `seq_` calls."
             )
 
@@ -179,14 +176,14 @@ class SparseMarkovAssociationDistribution(SequenceEncodableProbabilityDistributi
         if x.data[3] is not None:
 
             (
-                obsidx,
+                _obsidx,
                 seqidx,
                 pairidx,
                 cxvec,
-                cyvec,
-                fsqxvec,
-                fvxvec,
-                fcxvec,
+                _cyvec,
+                _fsqxvec,
+                _fvxvec,
+                _fcxvec,
                 fsqyvec,
                 fcyvec,
             ) = x.data[3]
@@ -209,8 +206,6 @@ class SparseMarkovAssociationDistribution(SequenceEncodableProbabilityDistributi
 
                 temp = self.cond_prob_mat[xx[:, None], yy].toarray()
                 ll2 = np.dot(np.log(np.dot((temp * b + a).T, cx / nx)), cy)
-                ll1 = np.dot(np.log(self.init_prob_vec[xx] * b + a), cx)
-
                 rv[i] = ll2  # + ll2
 
         if not isinstance(self.len_dist, NullDistribution):
@@ -243,8 +238,7 @@ class SparseMarkovAssociationSampler(DistributionSampler):
     def __init__(
         self, dist: SparseMarkovAssociationDistribution, seed: Optional[int] = None
     ) -> None:
-        self.rng = np.random.RandomState(seed)
-        self.dist = dist
+        super().__init__(dist, seed)
         self.size_sampler = self.dist.len_dist.sampler(
             seed=self.rng.randint(0, maxrandint)
         )
@@ -368,12 +362,12 @@ class SparseMarkovAssociationAccumulator(SequenceEncodableStatisticAccumulator):
         if x.data[3] is not None:
 
             (
-                obsidx,
+                _obsidx,
                 seqidx,
                 pairidx,
                 cxvec,
-                cyvec,
-                fsqxvec,
+                _cyvec,
+                _fsqxvec,
                 fvxvec,
                 fcxvec,
                 fsqyvec,
@@ -396,7 +390,7 @@ class SparseMarkovAssociationAccumulator(SequenceEncodableStatisticAccumulator):
 
         else:
 
-            for i, (entry, weight) in enumerate(zip(x.data[0], weights)):
+            for _i, (entry, weight) in enumerate(zip(x.data[0], weights)):
 
                 vx, cx, vy, cy = entry
 
@@ -423,12 +417,12 @@ class SparseMarkovAssociationAccumulator(SequenceEncodableStatisticAccumulator):
         if x.data[3] is not None:
 
             (
-                obsidx,
+                _obsidx,
                 seqidx,
                 pairidx,
                 cxvec,
-                cyvec,
-                fsqxvec,
+                _cyvec,
+                _fsqxvec,
                 fvxvec,
                 fcxvec,
                 fsqyvec,
@@ -456,7 +450,7 @@ class SparseMarkovAssociationAccumulator(SequenceEncodableStatisticAccumulator):
                 (np.zeros(nzv.shape[0]), (nzv[:, 0], nzv[:, 1])), shape=(nw, nw)
             )
 
-            for i, (entry, weight) in enumerate(zip(x.data[0], weights)):
+            for _i, (entry, weight) in enumerate(zip(x.data[0], weights)):
 
                 vx, cx, vy, cy = entry
 

@@ -15,7 +15,7 @@ P_given(X0).
 """
 
 import math
-from typing import Any, Dict, List, Optional, Sequence, Tuple, TypeVar, Union
+from typing import Any, Dict, List, Optional, Tuple, TypeVar, Union
 
 import numpy as np
 from numpy.random import RandomState
@@ -95,6 +95,7 @@ class ConditionalDistribution(SequenceEncodableProbabilityDistribution):
             keys (Optional[str], optional): All ConditionalDistribution objects with
                 same keys value are the same distribution.
         """
+        super().__init__()
         if isinstance(dmap, list):
             dmap = dict(zip(range(len(dmap)), dmap))
 
@@ -166,7 +167,7 @@ class ConditionalDistribution(SequenceEncodableProbabilityDistribution):
             Exception: If input is not a ConditionalEncodedDataSequence.
         """
         if not isinstance(x, ConditionalEncodedDataSequence):
-            raise Exception(
+            raise TypeError(
                 "Requires ConditionalEncodedDataSequence for "
                 "ConditionalDistribution.seq_log_density()"
             )
@@ -272,8 +273,8 @@ class ConditionalDistributionSampler(ConditionalSampler, DistributionSampler):
                 samples from.
             seed (Optional[int], optional): Seed for random number generator.
         """
-        self.dist = dist
-        rng = np.random.RandomState(seed)
+        super().__init__(dist, seed)
+        rng = self.rng
 
         loc_seed = rng.randint(0, maxrandint)
         self.has_default_sampler = dist.has_default
@@ -331,7 +332,7 @@ class ConditionalDistributionSampler(ConditionalSampler, DistributionSampler):
             return self.samplers[x].sample()
         if self.has_default_sampler:
             return self.default_sampler.sample()
-        raise Exception("Conditional default distribution unspecified.")
+        raise RuntimeError("Conditional default distribution unspecified.")
 
 
 class ConditionalDistributionAccumulator(SequenceEncodableStatisticAccumulator):
@@ -476,7 +477,7 @@ class ConditionalDistributionAccumulator(SequenceEncodableStatisticAccumulator):
             weights (np.ndarray): Weights for each observation.
             rng (RandomState): Random number generator.
         """
-        sz, cond_vals, eobs_vals, idx_vals, given_enc = x.data
+        _sz, cond_vals, eobs_vals, idx_vals, given_enc = x.data
 
         if not self._init_rng:
             self._rng_initialize(rng)
@@ -508,7 +509,7 @@ class ConditionalDistributionAccumulator(SequenceEncodableStatisticAccumulator):
             weights (np.ndarray): Weights for each observation.
             estimate (ConditionalDistribution): Distribution estimate for update.
         """
-        sz, cond_vals, eobs_vals, idx_vals, given_enc = x.data
+        _sz, cond_vals, eobs_vals, idx_vals, given_enc = x.data
 
         for i, cond_vals_i in enumerate(cond_vals):
             if cond_vals_i in self.accumulator_map:
@@ -600,7 +601,7 @@ class ConditionalDistributionAccumulator(SequenceEncodableStatisticAccumulator):
         Args:
             stats_dict (Dict[str, Any]): Dictionary of accumulators.
         """
-        for k, v in self.accumulator_map.items():
+        for _k, v in self.accumulator_map.items():
             v.key_merge(stats_dict)
 
         if self.has_default:
@@ -615,7 +616,7 @@ class ConditionalDistributionAccumulator(SequenceEncodableStatisticAccumulator):
         Args:
             stats_dict (Dict[str, Any]): Dictionary of accumulators.
         """
-        for k, v in self.accumulator_map.items():
+        for _k, v in self.accumulator_map.items():
             v.key_replace(stats_dict)
 
         if self.has_default:

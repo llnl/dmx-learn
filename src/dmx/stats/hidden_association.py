@@ -45,8 +45,7 @@ from typing import Any, Dict, List, Optional, Sequence, Tuple, TypeVar, Union
 
 import numpy as np
 
-from dmx.arithmetic import *
-from dmx.arithmetic import maxrandint
+from dmx.arithmetic import exp, maxrandint
 from dmx.stats.conditional import (
     ConditionalDistribution,
     ConditionalDistributionAccumulator,
@@ -56,7 +55,6 @@ from dmx.stats.conditional import (
 from dmx.stats.null_dist import (
     NullAccumulator,
     NullAccumulatorFactory,
-    NullDataEncoder,
     NullDistribution,
     NullEstimator,
 )
@@ -123,6 +121,7 @@ class HiddenAssociationDistribution(SequenceEncodableProbabilityDistribution):
                 transitions.
 
         """
+        super().__init__()
         self.cond_dist = cond_dist
         self.len_dist = len_dist if len_dist is not None else NullDistribution()
         self.given_dist = given_dist if given_dist is not None else NullDistribution()
@@ -175,7 +174,7 @@ class HiddenAssociationDistribution(SequenceEncodableProbabilityDistribution):
 
     def seq_log_density(self, x: "HiddenAssociationEncodedDataSequence") -> np.ndarray:
         if not isinstance(x, HiddenAssociationEncodedDataSequence):
-            raise Exception("Requires HiddenAssociationEncodedDataSequence.")
+            raise TypeError("Requires HiddenAssociationEncodedDataSequence.")
 
         return np.asarray([self.log_density(xx) for xx in x.data])
 
@@ -203,16 +202,15 @@ class HiddenAssociationSampler(DistributionSampler):
         self, dist: HiddenAssociationDistribution, seed: Optional[int] = None
     ) -> None:
         if isinstance(dist.given_dist, NullDistribution):
-            raise Exception(
+            raise RuntimeError(
                 "HiddenAssociationSampler requires attribute dist.given_dist."
             )
         if isinstance(dist.len_dist, NullDistribution):
-            raise Exception(
+            raise RuntimeError(
                 "HiddenAssociationSampler requires attribute dist.len_dist."
             )
 
-        self.rng = np.random.RandomState(seed)
-        self.dist = dist
+        super().__init__(dist, seed)
 
         self.cond_sampler = dist.cond_dist.sampler(seed=self.rng.randint(0, maxrandint))
         self.idx_sampler = np.random.RandomState(seed=self.rng.randint(0, maxrandint))
@@ -332,7 +330,7 @@ class HiddenAssociationAccumulator(SequenceEncodableStatisticAccumulator):
         nn = 0
         for j, (x1, c1) in enumerate(x[1]):
             nn += c1
-            for i, (x0, c0) in enumerate(x[0]):
+            for i, (x0, _c0) in enumerate(x[0]):
                 self.cond_accumulator.initialize((x0, x1), w[j, i] * weight, rng)
 
         if self.given_accumulator is not None:

@@ -29,15 +29,7 @@ import numpy as np
 from numpy.random import RandomState
 
 import dmx.utils.vector as vec
-from dmx.arithmetic import *
-from dmx.arithmetic import maxrandint
-from dmx.stats.null_dist import (
-    NullAccumulator,
-    NullAccumulatorFactory,
-    NullDataEncoder,
-    NullDistribution,
-    NullEstimator,
-)
+from dmx.arithmetic import exp, maxrandint
 from dmx.stats.pdist import (
     DataSequenceEncoder,
     DistributionSampler,
@@ -88,6 +80,7 @@ class SemiSupervisedMixtureDistribution(SequenceEncodableProbabilityDistribution
             name (Optional[str]): Set name for object.
 
         """
+        super().__init__()
         self.components = components
         self.num_components = len(components)
         self.w = np.asarray(w)
@@ -164,11 +157,11 @@ class SemiSupervisedMixtureDistribution(SequenceEncodableProbabilityDistribution
     ) -> np.ndarray:
 
         if not isinstance(x, SemiSupervisedMixtureEncodedDataSequence):
-            raise Exception(
+            raise TypeError(
                 "Requires SemiSupervisedMixtureEncodedDataSequence for `seq_` calls."
             )
 
-        sz, enc_data, (enc_prior, enc_prior_sum, enc_prior_flag), _ = x.data
+        sz, enc_data, (enc_prior, _enc_prior_sum, enc_prior_flag), _ = x.data
         ll_mat = np.zeros((sz, self.num_components))
         ll_mat.fill(-np.inf)
 
@@ -217,11 +210,11 @@ class SemiSupervisedMixtureDistribution(SequenceEncodableProbabilityDistribution
     ) -> np.ndarray:
 
         if not isinstance(x, SemiSupervisedMixtureEncodedDataSequence):
-            raise Exception(
+            raise TypeError(
                 "Requires SemiSupervisedMixtureEncodedDataSequence for `seq_` calls."
             )
 
-        sz, enc_data, (enc_prior, enc_prior_sum, enc_prior_flag), _ = x.data
+        sz, enc_data, (enc_prior, _enc_prior_sum, enc_prior_flag), _ = x.data
         ll_mat = np.zeros((sz, self.num_components))
         ll_mat.fill(-np.inf)
 
@@ -283,6 +276,7 @@ class SemiSupervisedMixtureSampler(DistributionSampler):
     def __init__(
         self, dist: SemiSupervisedMixtureDistribution, seed: Optional[int] = None
     ) -> None:
+        super().__init__(dist, seed)
         rng_loc = RandomState(seed)
         self.rng = RandomState(rng_loc.randint(0, maxrandint))
         self.dist = dist
@@ -317,6 +311,7 @@ class SemiSupervisedMixtureEstimatorAccumulator(SequenceEncodableStatisticAccumu
         self._init_rng = False
         self._acc_rng = None
         self._w_rng = None
+        self._prior_rng = None
 
     def update(
         self,
@@ -326,7 +321,7 @@ class SemiSupervisedMixtureEstimatorAccumulator(SequenceEncodableStatisticAccumu
     ) -> None:
 
         likelihood = estimate.posterior(x)
-        datum, prior = x
+        datum, _prior = x
 
         self.comp_counts += likelihood * weight
 
@@ -382,7 +377,7 @@ class SemiSupervisedMixtureEstimatorAccumulator(SequenceEncodableStatisticAccumu
         weights: np.ndarray,
         rng: RandomState,
     ) -> None:
-        sz, enc_data, (enc_prior, enc_prior_sum, enc_prior_flag), xx = x.data
+        _sz, _enc_data, (_enc_prior, _enc_prior_sum, _enc_prior_flag), xx = x.data
         for i, xx_i in enumerate(xx):
             self.initialize(xx_i, weights[i], rng=rng)
 
@@ -393,7 +388,7 @@ class SemiSupervisedMixtureEstimatorAccumulator(SequenceEncodableStatisticAccumu
         estimate: SemiSupervisedMixtureDistribution,
     ) -> None:
 
-        sz, enc_data, (enc_prior, enc_prior_sum, enc_prior_flag), _ = x.data
+        sz, enc_data, (enc_prior, _enc_prior_sum, enc_prior_flag), _ = x.data
         ll_mat = np.zeros((sz, estimate.num_components))
         ll_mat.fill(-np.inf)
 

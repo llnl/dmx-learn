@@ -9,7 +9,7 @@ as fixed.
 
 """
 
-from typing import Any, Dict, Optional, Sequence, TypeVar, Union
+from typing import Any, Dict, Optional, Sequence, TypeVar
 
 import numpy as np
 from numpy.random import RandomState
@@ -54,6 +54,7 @@ class IgnoredDistribution(SequenceEncodableProbabilityDistribution):
             keys (Optional[str]): Keys for distribution (just a place holder).
 
         """
+        super().__init__()
         self.dist = dist if dist is not None else NullDistribution()
         self.name = name
         self.keys = keys
@@ -98,7 +99,7 @@ class IgnoredDistribution(SequenceEncodableProbabilityDistribution):
         ):
             rv = self.dist.seq_log_density(x)
         else:
-            raise Exception("Wrong EncodedDataSequence passed to seq_log_density().")
+            raise TypeError("Wrong EncodedDataSequence passed to seq_log_density().")
 
         return rv
 
@@ -130,6 +131,7 @@ class IgnoredSampler(DistributionSampler):
             seed (Optional[int]): Set seed for generating random samples.
 
         """
+        super().__init__(dist, seed)
         self.dist_sampler = dist.dist.sampler(seed)
         self.null_sampler = isinstance(self.dist_sampler, NullSampler)
 
@@ -189,7 +191,7 @@ class IgnoredAccumulator(SequenceEncodableStatisticAccumulator):
     def seq_initialize(
         self,
         x: "IgnoredEncodedDataSequence",
-        weight: np.ndarray,
+        weights: np.ndarray,
         rng: Optional[RandomState],
     ) -> None:
         pass

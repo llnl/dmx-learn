@@ -177,6 +177,7 @@ class DirichletDistribution(SequenceEncodableProbabilityDistribution):
             name (Optional[str], optional): Name for distribution.
             keys (Optional[str], optional): Key for merging sufficient statistics.
         """
+        super().__init__()
         temp_alpha = np.asarray(alpha)
         temp_mask = temp_alpha <= 0
 
@@ -250,7 +251,7 @@ class DirichletDistribution(SequenceEncodableProbabilityDistribution):
             np.ndarray: Log-density values.
         """
         if not isinstance(x, DirichletEncodedDataSequence):
-            raise Exception(
+            raise TypeError(
                 "DirichletEncodedDataSequence required for "
                 "DirichletDistribution.seq_log_density()."
             )
@@ -315,8 +316,7 @@ class DirichletSampler(DistributionSampler):
                 from.
             seed (Optional[int], optional): Optional seed for sampler.
         """
-        self.rng = RandomState(seed)
-        self.dist = dist
+        super().__init__(dist, seed)
 
     def sample(self, size: Optional[int] = None) -> np.ndarray:
         """Draw samples from Dirichlet distribution.
@@ -412,6 +412,7 @@ class DirichletAccumulator(SequenceEncodableStatisticAccumulator):
             weight (float): Weight for the observation.
             rng (Optional[RandomState]): Not used.
         """
+        del rng
         self.update(x, weight, None)
 
     def get_seq_lambda(self) -> List[Callable]:
@@ -660,11 +661,11 @@ class DirichletEstimator(ParameterEstimator):
         if nobs == 1.0:
             return DirichletDistribution(initial_estimate, name=self.name)
         if self.use_mpe:
-            alpha, its_cnt = find_alpha(
+            alpha, _its_cnt = find_alpha(
                 np.asarray(initial_estimate), mean_log_p, self.delta
             )
         else:
-            alpha, its_cnt = dirichlet_param_solve(
+            alpha, _its_cnt = dirichlet_param_solve(
                 np.asarray(initial_estimate), mean_log_p, self.delta
             )
         return DirichletDistribution(alpha, name=self.name)

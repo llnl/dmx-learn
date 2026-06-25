@@ -61,6 +61,7 @@ class CategoricalDistribution(SequenceEncodableProbabilityDistribution):
                 CategoricalDistribution object. Defaults to None.
             keys (Optional[str], optional): Key for distribution. Defaults to None.
         """
+        super().__init__()
         self.name = name
         self.pmap = pmap
         self.no_default = default_value != 0.0
@@ -124,7 +125,7 @@ class CategoricalDistribution(SequenceEncodableProbabilityDistribution):
             np.ndarray: Array of log-density values for the sequence.
         """
         if not isinstance(x, CategoricalEncodedDataSequence):
-            raise Exception(
+            raise TypeError(
                 "CategoricalDistribution.seq_log_density() requires "
                 "CategoricalEncodedDataSequence."
             )
@@ -207,7 +208,7 @@ class CategoricalSampler(DistributionSampler):
             seed (Optional[int], optional): Seed for setting random number generator
                 used to sample. Defaults to None.
         """
-        self.rng = RandomState(seed)
+        super().__init__(dist, seed)
         temp = list(dist.pmap.items())
         self.levels = [u[0] for u in temp]
         self.probs = [u[1] for u in temp]
@@ -278,6 +279,7 @@ class CategoricalAccumulator(SequenceEncodableStatisticAccumulator):
             weight (float): Weight of the observation.
             rng (RandomState): Random number generator.
         """
+        del rng
         self.update(x, weight, None)
 
     def get_seq_lambda(self) -> List:

@@ -21,8 +21,8 @@ state-space in estimation.
 
 """
 
-from collections import OrderedDict, defaultdict
-from typing import Any, Dict, List, Optional, Sequence, Tuple, TypeVar, Union
+from collections import defaultdict
+from typing import Any, Dict, List, Optional, Sequence, Tuple, Union
 
 import numpy as np
 from numpy.random import RandomState
@@ -73,6 +73,7 @@ class BernoulliSetDistribution(SequenceEncodableProbabilityDistribution):
             keys (Optional[str]): Set keys for object instance.
 
         """
+        super().__init__()
         self.keys = keys
         self.name = name
         self.pmap = pmap
@@ -138,7 +139,7 @@ class BernoulliSetDistribution(SequenceEncodableProbabilityDistribution):
     def seq_log_density(self, x: "BernoulliSetEncodedDataSequence") -> np.ndarray:
 
         if not isinstance(x, BernoulliSetEncodedDataSequence):
-            raise Exception(
+            raise TypeError(
                 "BernoulliSetEncodedDataSequence required for seq_log_density()."
             )
 
@@ -199,8 +200,7 @@ class BernoulliSetSampler(DistributionSampler):
             seed (Optional[int]): Set seed for random number generator.
 
         """
-        self.rng = RandomState(seed)
-        self.dist = dist
+        super().__init__(dist, seed)
 
     def sample(
         self, size: Optional[int] = None
@@ -259,6 +259,7 @@ class BernoulliSetAccumulator(SequenceEncodableStatisticAccumulator):
     def initialize(
         self, x: Sequence[Any], weight: float, rng: Optional[RandomState]
     ) -> None:
+        del rng
         self.update(x, weight, None)
 
     def seq_update(
@@ -268,7 +269,7 @@ class BernoulliSetAccumulator(SequenceEncodableStatisticAccumulator):
         estimate: Optional[BernoulliSetDistribution],
     ) -> None:
 
-        sz, idx, val_map_inv, xs = x.data
+        _sz, idx, val_map_inv, xs = x.data
         agg_cnt = np.bincount(xs, weights[idx])
 
         for i, v in enumerate(agg_cnt):

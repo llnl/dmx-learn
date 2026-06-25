@@ -68,6 +68,7 @@ class OptionalDistribution(SequenceEncodableProbabilityDistribution):
             keys (Optional[str]): Keys for parameters.
 
         """
+        super().__init__()
         self.dist = dist
         self.p = p if p is not None else 0.0
         self.has_p = p is not None
@@ -150,7 +151,7 @@ class OptionalDistribution(SequenceEncodableProbabilityDistribution):
     def seq_log_density(self, x: "OptionalEncodedDataSequence") -> np.ndarray:
 
         if not isinstance(x, OptionalEncodedDataSequence):
-            raise Exception(
+            raise TypeError(
                 "OptionalEncodedDataSequence required for seq_log_density()."
             )
 
@@ -332,7 +333,7 @@ class OptionalEstimatorAccumulator(SequenceEncodableStatisticAccumulator):
         weights: np.ndarray,
         estimate: OptionalDistribution,
     ) -> None:
-        sz, z_idx, nz_idx, enc_data = x.data
+        _sz, z_idx, nz_idx, enc_data = x.data
         nz_weights = weights[nz_idx]
         z_weights = weights[z_idx]
 
@@ -345,7 +346,7 @@ class OptionalEstimatorAccumulator(SequenceEncodableStatisticAccumulator):
     def seq_initialize(
         self, x: "OptionalEncodedDataSequence", weights: np.ndarray, rng: RandomState
     ) -> None:
-        sz, z_idx, nz_idx, enc_data = x.data
+        _sz, z_idx, nz_idx, enc_data = x.data
         nz_weights = weights[nz_idx]
         z_weights = weights[z_idx]
 
