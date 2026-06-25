@@ -42,8 +42,7 @@ import numpy as np
 from numpy.random import RandomState
 
 import dmx.utils.vector as vec
-from dmx.arithmetic import *
-from dmx.arithmetic import maxrandint
+from dmx.arithmetic import exp, log, maxrandint
 from dmx.stats.markovchain import MarkovChainDistribution
 from dmx.stats.mixture import MixtureDistribution
 from dmx.stats.null_dist import (
@@ -159,6 +158,7 @@ class HiddenMarkovModelDistribution(SequenceEncodableProbabilityDistribution):
                 operations.
 
         """
+        super().__init__()
         self.use_numba = use_numba
 
         with np.errstate(divide="ignore"):
@@ -339,13 +339,13 @@ class HiddenMarkovModelDistribution(SequenceEncodableProbabilityDistribution):
     def seq_log_density(self, x: "HiddenMarkovEncodedDataSequence") -> "np.ndarray":
 
         if not isinstance(x, HiddenMarkovEncodedDataSequence):
-            raise Exception("Requires HiddenMarkovEncodedDataSequence.")
+            raise TypeError("Requires HiddenMarkovEncodedDataSequence.")
 
         if not x.numba_enc:
 
             num_states = self.n_states
             (
-                (tot_cnt, idx_bands, has_next, len_vec, idx_mat, idx_vec, enc_data),
+                (tot_cnt, idx_bands, has_next, _len_vec, idx_mat, _idx_vec, enc_data),
                 _,
                 len_enc,
             ) = x.data
@@ -460,26 +460,25 @@ class HiddenMarkovModelDistribution(SequenceEncodableProbabilityDistribution):
         """
 
         if not isinstance(x, HiddenMarkovEncodedDataSequence):
-            raise Exception(
+            raise TypeError(
                 "Requires HiddenMarkovEncodedDataSequence for numba. Set "
                 "model.use_numba=True and re-encode"
                 " data."
             )
         if not x.numba_enc:
-            raise Exception(
+            raise ValueError(
                 "Requires HiddenMarkovEncodedDataSequence for numba. Set "
                 "model.use_numba=True and "
                 "re-encode data."
             )
 
-        (idx, sz, enc_data), len_enc = x.data
+        (idx, sz, enc_data), _len_enc = x.data
 
         tot_cnt = len(idx)
         seq_cnt = len(sz)
         num_states = self.n_states
         pr_obs = np.zeros((tot_cnt, num_states), dtype=np.float64)
         weights = np.ones(seq_cnt, dtype=np.float64)
-        max_len = sz.max()
         tz = np.concatenate([[0], sz]).cumsum().astype(dtype=np.int32)
 
         init_pvec = self.w
@@ -548,13 +547,13 @@ class HiddenMarkovModelDistribution(SequenceEncodableProbabilityDistribution):
         """
 
         if not isinstance(x, HiddenMarkovEncodedDataSequence):
-            raise Exception(
+            raise TypeError(
                 "Requires HiddenMarkovEncodedDataSequence for numba. Set "
                 "model.use_numba=True and re-encode"
                 " data."
             )
         if not x.numba_enc:
-            raise Exception(
+            raise ValueError(
                 "Requires HiddenMarkovEncodedDataSequence for numba. Set "
                 "model.use_numba=True and "
                 "re-encode data."
@@ -562,18 +561,14 @@ class HiddenMarkovModelDistribution(SequenceEncodableProbabilityDistribution):
 
         num_states = self.n_states
         (
-            (tot_cnt, idx_bands, has_next, len_vec, idx_mat, idx_vec, enc_data),
+            (tot_cnt, idx_bands, has_next, _len_vec, _idx_mat, _idx_vec, enc_data),
             _,
-            len_enc,
+            _len_enc,
         ) = x.data
         log_w = self.log_w
         log_a_mat = self.log_transitions
 
         max_len = len(idx_bands)
-        num_seq = idx_mat.shape[0]
-
-        good = idx_mat >= 0
-
         pr_obs = np.zeros((tot_cnt, num_states))
         v = np.zeros((tot_cnt, num_states), dtype=np.float64)
         ptr = np.zeros(tot_cnt, dtype=np.int32)
@@ -611,7 +606,7 @@ class HiddenMarkovModelDistribution(SequenceEncodableProbabilityDistribution):
 
     def sampler(self, seed: Optional[int] = None) -> "HiddenMarkovSampler":
         if isinstance(self.len_dist, NullDistribution) and self.terminal_values is None:
-            raise Exception(
+            raise RuntimeError(
                 "HiddenMarkovSampler requires len_dist with support on non-negative "
                 "integers, or terminal_"
                 "values to be set."
@@ -689,9 +684,8 @@ class HiddenMarkovSampler(DistributionSampler):
             seed (Optional[int]): Set seed on random number generator for sampling.
 
         """
+        super().__init__(dist, seed)
         self.num_states = dist.n_states
-        self.dist = dist
-        self.rng = RandomState(seed)
 
         if dist.has_topics:
             self.obs_samplers = [
@@ -968,7 +962,7 @@ class HiddenMarkovAccumulator(SequenceEncodableStatisticAccumulator):
 
         if not x.numba_enc:
             (
-                (tot_cnt, idx_bands, has_next, len_vec, idx_mat, idx_vec, enc_data),
+                (tot_cnt, _idx_bands, _has_next, len_vec, _idx_mat, idx_vec, _enc_data),
                 xs_enc,
                 len_enc,
             ) = x.data
@@ -989,7 +983,7 @@ class HiddenMarkovAccumulator(SequenceEncodableStatisticAccumulator):
 
             seq_i = np.asarray(seq_i, dtype=int)
 
-            x_idx_i, x_group_i, x_len_i = np.unique(
+            x_idx_i, x_group_i, _x_len_i = np.unique(
                 seq_i, return_index=True, return_counts=True
             )
 
@@ -1083,7 +1077,7 @@ class HiddenMarkovAccumulator(SequenceEncodableStatisticAccumulator):
 
             num_states = self.num_states
             (
-                (tot_cnt, idx_bands, has_next, len_vec, idx_mat, idx_vec, enc_data),
+                (tot_cnt, idx_bands, has_next, _len_vec, idx_mat, idx_vec, enc_data),
                 _,
                 len_enc,
             ) = x.data
@@ -1091,7 +1085,6 @@ class HiddenMarkovAccumulator(SequenceEncodableStatisticAccumulator):
             a_mat = estimate.transitions
 
             max_len = len(idx_bands)
-            num_seq = idx_mat.shape[0]
 
             good = idx_mat >= 0
 
@@ -1163,7 +1156,6 @@ class HiddenMarkovAccumulator(SequenceEncodableStatisticAccumulator):
                 xi_loc_sum = xi_loc.sum(axis=1, keepdims=True).sum(
                     axis=2, keepdims=True
                 )
-                len_vec_loc = np.reshape(len_vec[good[:, i + 1]], (-1, 1, 1)) - 1
                 weights_loc = np.reshape(weights[good[:, i + 1]], (-1, 1, 1))
                 # xi_loc *= weights_loc/(len_vec_loc*xi_loc_sum)
 
@@ -1270,7 +1262,7 @@ class HiddenMarkovAccumulator(SequenceEncodableStatisticAccumulator):
         """
 
         (
-            num_states,
+            _num_states,
             init_counts,
             state_counts,
             trans_counts,
@@ -2162,7 +2154,7 @@ def numba_baum_welch2(
     parallel=True,
     fastmath=True,
 )
-def numba_baum_welch_alphas(
+def numba_baum_welch_alphas(  # pylint: disable=unused-argument
     num_states: int,
     tz: np.ndarray,
     prob_mat: np.ndarray,
@@ -2194,10 +2186,6 @@ def numba_baum_welch_alphas(
         if s0 == s1:
             continue
 
-        beta_buff = np.zeros(num_states, dtype=np.float64)
-        xi_buff = np.zeros((num_states, num_states), dtype=np.float64)
-
-        weight_loc = weights[n]
         alpha_sum = 0
         for i in range(num_states):
             temp = init_pvec[i] * prob_mat[s0, i]

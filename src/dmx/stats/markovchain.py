@@ -27,8 +27,7 @@ import numpy as np
 from numpy.random import RandomState
 from scipy.sparse import dok_matrix
 
-from dmx.arithmetic import *
-from dmx.arithmetic import maxrandint
+from dmx.arithmetic import log, maxrandint, one, zero
 from dmx.stats.null_dist import (
     NullAccumulator,
     NullAccumulatorFactory,
@@ -116,6 +115,7 @@ class MarkovChainDistribution(  # pylint: disable=too-many-instance-attributes
 
         """
         self.name = name
+        super().__init__()
         self.init_prob_map = init_prob_map
         self.transition_map = transition_map
         self.len_dist = len_dist if len_dist is not None else NullDistribution()
@@ -189,7 +189,7 @@ class MarkovChainDistribution(  # pylint: disable=too-many-instance-attributes
             try:
                 v0 = getattr(other, x)
                 v1 = getattr(self, x)
-            except AttributeError as e:
+            except AttributeError:
                 return False
 
             if not np.all(v0 == v1):
@@ -255,7 +255,7 @@ class MarkovChainDistribution(  # pylint: disable=too-many-instance-attributes
 
     def seq_log_density(self, x: "MarkovChainEncodedDataSequence") -> np.ndarray:
         if not isinstance(x, MarkovChainEncodedDataSequence):
-            raise Exception(
+            raise TypeError(
                 "MarkovChainEncodedDataSequence required for seq_log_density()."
             )
 
@@ -323,7 +323,7 @@ class MarkovChainSampler(DistributionSampler):
                 Markov chain.
 
         """
-        self.rng = RandomState(seed)
+        super().__init__(dist, seed)
 
         loc_trans = list(dist.init_prob_map.items())
         loc_probs = [v[1] for v in loc_trans]
@@ -510,10 +510,8 @@ class MarkovChainAccumulator(SequenceEncodableStatisticAccumulator):
     def seq_initialize(
         self, x: "MarkovChainEncodedDataSequence", weights: np.ndarray, rng: RandomState
     ) -> None:
-        sz, idx0, idx1, init_x, prev_x, next_x, inv_key_map, len_enc = x.data
+        _sz, idx0, idx1, init_x, prev_x, next_x, inv_key_map, len_enc = x.data
         self.len_accumulator.seq_initialize(len_enc, weights, rng)
-
-        key_sz = len(inv_key_map)
 
         init_count = np.bincount(init_x, weights=weights[idx0])
 
@@ -523,26 +521,6 @@ class MarkovChainAccumulator(SequenceEncodableStatisticAccumulator):
                 self.init_count_map[inv_key_map[i]] = (
                     self.init_count_map.get(inv_key_map[i], 0.0) + v
                 )
-
-        """
-        trans_count = np.bincount(prev_x*key_sz + next_x, weights=weights[idx1],
-        minlength=key_sz*key_sz)
-        trans_count = np.reshape(trans_count, (key_sz, key_sz))
-        trans_count_nz1, trans_count_nz2 = np.nonzero(trans_count)
-
-        for i, trans_count_nz1_i in enumerate(trans_count_nz1):
-            j1 = trans_count_nz1_i
-            j2 = trans_count_nz2[i]
-            k1 = inv_key_map[j1]
-            k2 = inv_key_map[j2]
-
-            if k1 not in self.trans_count_map:
-                self.trans_count_map[k1] = {k2 : trans_count[j1,j2]}
-            else:
-                m = self.trans_count_map[k1]
-                m[k2] = m.get(k2,0.0) + trans_count[j1,j2]
-        """
-
         # ------------- slow and sparse...
 
         for i, prev_x_i in enumerate(prev_x):
@@ -565,9 +543,7 @@ class MarkovChainAccumulator(SequenceEncodableStatisticAccumulator):
         estimate: MarkovChainDistribution,
     ) -> None:
 
-        sz, idx0, idx1, init_x, prev_x, next_x, inv_key_map, len_enc = x.data
-
-        key_sz = len(inv_key_map)
+        _sz, idx0, idx1, init_x, prev_x, next_x, inv_key_map, len_enc = x.data
 
         init_count = np.bincount(init_x, weights=weights[idx0])
 
@@ -577,26 +553,6 @@ class MarkovChainAccumulator(SequenceEncodableStatisticAccumulator):
                 self.init_count_map[inv_key_map[i]] = (
                     self.init_count_map.get(inv_key_map[i], 0.0) + v
                 )
-
-        """
-        trans_count = np.bincount(prev_x*key_sz + next_x, weights=weights[idx1],
-        minlength=key_sz*key_sz)
-        trans_count = np.reshape(trans_count, (key_sz, key_sz))
-        trans_count_nz1, trans_count_nz2 = np.nonzero(trans_count)
-
-        for i, trans_count_nz1_i in enumerate(trans_count_nz1):
-            j1 = trans_count_nz1_i
-            j2 = trans_count_nz2[i]
-            k1 = inv_key_map[j1]
-            k2 = inv_key_map[j2]
-
-            if k1 not in self.trans_count_map:
-                self.trans_count_map[k1] = {k2 : trans_count[j1,j2]}
-            else:
-                m = self.trans_count_map[k1]
-                m[k2] = m.get(k2,0.0) + trans_count[j1,j2]
-        """
-
         # ------------- slow and sparse...
 
         for i, prev_x_i in enumerate(prev_x):

@@ -38,12 +38,10 @@ from typing import Any, Dict, List, Optional, Sequence, Tuple, TypeVar, Union
 import numba
 import numpy as np
 
-from dmx.arithmetic import *
-from dmx.arithmetic import maxrandint
+from dmx.arithmetic import exp, maxrandint
 from dmx.stats.null_dist import (
     NullAccumulator,
     NullAccumulatorFactory,
-    NullDataEncoder,
     NullDistribution,
     NullEstimator,
 )
@@ -137,6 +135,7 @@ class IntegerHiddenAssociationDistribution(SequenceEncodableProbabilityDistribut
 
         """
         self.cond_weights = np.asarray(cond_weights, dtype=np.float64)
+        super().__init__()
         self.state_prob_mat = np.asarray(state_prob_mat, dtype=np.float64)
         self.len_dist = len_dist if len_dist is not None else NullDistribution()
         self.prev_dist = prev_dist if prev_dist is not None else NullDistribution()
@@ -192,7 +191,6 @@ class IntegerHiddenAssociationDistribution(SequenceEncodableProbabilityDistribut
         cy = np.asarray([u[1] for u in x[1]])
         vy = np.asarray([u[0] for u in x[1]])
 
-        n1 = np.sum(cx)
         n2 = np.sum(cy)
 
         ll = self.cond_weights[vx, :].T * (cx / np.sum(cx))
@@ -210,7 +208,7 @@ class IntegerHiddenAssociationDistribution(SequenceEncodableProbabilityDistribut
         self, x: "IntegerHiddenAssociationEncodedDataSequence"
     ) -> np.ndarray:
         if not isinstance(x, IntegerHiddenAssociationEncodedDataSequence):
-            raise Exception("Requires IntegerHiddenAssociationEncodedDataSequence.")
+            raise TypeError("Requires IntegerHiddenAssociationEncodedDataSequence.")
 
         nw = self.num_vals2
         a = self.alpha / nw
@@ -264,11 +262,11 @@ class IntegerHiddenAssociationDistribution(SequenceEncodableProbabilityDistribut
 
     def sampler(self, seed: Optional[int] = None) -> "IntegerHiddenAssociationSampler":
         if isinstance(self.prev_dist, NullDistribution):
-            raise Exception(
+            raise RuntimeError(
                 "HiddenAssociationSampler requires attribute dist.prev_dist."
             )
         if isinstance(self.len_dist, NullDistribution):
-            raise Exception(
+            raise RuntimeError(
                 "HiddenAssociationSampler requires attribute dist.size_dist."
             )
         return IntegerHiddenAssociationSampler(self, seed)
@@ -304,11 +302,10 @@ class IntegerHiddenAssociationSampler(DistributionSampler):
     def __init__(
         self, dist: IntegerHiddenAssociationDistribution, seed: Optional[int] = None
     ) -> None:
-        self.rng = np.random.RandomState(seed)
-        self.dist = dist
+        super().__init__(dist, seed)
 
         if isinstance(self.dist.prev_dist, NullDistribution):
-            raise Exception(
+            raise RuntimeError(
                 "HiddenAssociationSampler requires attribute dist.prev_dist."
             )
         self.prev_sampler = self.dist.prev_dist.sampler(
@@ -316,7 +313,7 @@ class IntegerHiddenAssociationSampler(DistributionSampler):
         )
 
         if isinstance(self.dist.len_dist, NullDistribution):
-            raise Exception(
+            raise RuntimeError(
                 "HiddenAssociationSampler requires attribute dist.size_dist."
             )
         self.size_sampler = self.dist.len_dist.sampler(
@@ -491,7 +488,7 @@ class IntegerHiddenAssociationAccumulator(SequenceEncodableStatisticAccumulator)
 
         else:
 
-            (s0, s1, x0, x1, c0, c1, w0), xv, nn = x.data
+            (s0, s1, x0, x1, c0, c1, _w0), xv, nn = x.data
             weights_0 = []
             weights_1 = []
 
@@ -539,7 +536,7 @@ class IntegerHiddenAssociationAccumulator(SequenceEncodableStatisticAccumulator)
         if not x.numba_enc:
             xx = x.data
 
-            for i, (entry, weight) in enumerate(zip(xx[0], weights)):
+            for _i, (entry, weight) in enumerate(zip(xx[0], weights)):
                 vx, cx, vy, cy = entry
                 nx = np.sum(cx)
                 x_mat = (estimate.cond_weights[vx, :].T * (cx / nx)).T
@@ -970,7 +967,7 @@ class IntegerHiddenAssociationDataEncoder(DataSequenceEncoder):
         w0 = []
         nn = []
 
-        for i, xx in enumerate(x):
+        for _i, xx in enumerate(x):
             xx0 = [v for v, c in xx[0]]
             cc0 = [c for v, c in xx[0]]
             xx1 = [v for v, c in xx[1]]
@@ -1041,7 +1038,7 @@ class IntegerHiddenAssociationEncodedDataSequence(EncodedDataSequence):
     "float64[:], float64[:,:], "
     "float64[:,:], float64[:], float64, float64, float64[:])"
 )
-def numba_seq_log_density(  # pylint: disable=too-many-positional-arguments
+def numba_seq_log_density(  # pylint: disable=too-many-positional-arguments,unused-argument
     num_states,
     max_len1,
     t0,
@@ -1092,7 +1089,7 @@ def numba_seq_log_density(  # pylint: disable=too-many-positional-arguments
     "float64[:], float64[:,:], "
     "float64[:,:], float64[:,:], float64[:,:], float64[:], float64[:])"
 )
-def numba_seq_update(  # pylint: disable=too-many-positional-arguments
+def numba_seq_update(  # pylint: disable=too-many-positional-arguments,unused-argument
     num_states,
     max_len1,
     t0,

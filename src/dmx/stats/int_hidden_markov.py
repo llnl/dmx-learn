@@ -1,7 +1,6 @@
 """ "Create, estimate, and sample from a hidden markov model with integer emission
 distributions"""
 
-import math
 from typing import Any, Dict, List, Optional, Sequence, Set, Tuple, TypeVar, Union
 
 import numba
@@ -9,10 +8,8 @@ import numpy as np
 from numpy.random import RandomState
 
 import dmx.utils.vector as vec
-from dmx.arithmetic import *
-from dmx.arithmetic import maxrandint
+from dmx.arithmetic import exp, maxrandint
 from dmx.stats.markovchain import MarkovChainDistribution
-from dmx.stats.mixture import MixtureDistribution
 from dmx.stats.null_dist import (
     NullAccumulator,
     NullAccumulatorFactory,
@@ -119,6 +116,7 @@ class IntegerHiddenMarkovModelDistribution(SequenceEncodableProbabilityDistribut
                 Defaults to None.
         """
 
+        super().__init__()
         with np.errstate(divide="ignore"):
 
             if not isinstance(pmat, np.ndarray):
@@ -213,7 +211,7 @@ class IntegerHiddenMarkovModelDistribution(SequenceEncodableProbabilityDistribut
         # enc_data is just numpy array of integers
 
         if not isinstance(x, IntegerHiddenMarkovEncodedDataSequence):
-            raise Exception("Requires IntegerHiddenMarkovEncodedDataSequence.")
+            raise TypeError("Requires IntegerHiddenMarkovEncodedDataSequence.")
 
         enc_data, tz, len_enc = x.data
 
@@ -249,11 +247,11 @@ class IntegerHiddenMarkovModelDistribution(SequenceEncodableProbabilityDistribut
         """
 
         if not isinstance(x, IntegerHiddenMarkovEncodedDataSequence):
-            raise Exception(
+            raise TypeError(
                 "Requires IntegerHiddenMarkovEncodedDataSequence for seq_posterior"
             )
 
-        enc_data, tz, len_enc = x.data
+        enc_data, tz, _len_enc = x.data
 
         tot_cnt = len(enc_data)
         seq_cnt = len(tz) - 1
@@ -324,7 +322,7 @@ class IntegerHiddenMarkovModelDistribution(SequenceEncodableProbabilityDistribut
 
     def sampler(self, seed: Optional[int] = None) -> "IntegerHiddenMarkovSampler":
         if isinstance(self.len_dist, NullDistribution) and self.terminal_values is None:
-            raise Exception(
+            raise RuntimeError(
                 "IntegerHiddenMarkovSampler requires len_dist with support on "
                 "non-negative integers, or terminal_"
                 "values to be set."
@@ -396,12 +394,10 @@ class IntegerHiddenMarkovSampler(DistributionSampler):
             dist: IntegerHiddenMarkovModelDistribution object instance to sample from.
             seed: Seed for the random number generator. Defaults to None.
         """
+        super().__init__(dist, seed)
         self.pmat = dist.pmat
         self.range = range(dist.n_words)
         self.num_states = dist.n_states
-        self.dist = dist
-        self.rng = RandomState(seed)
-
         if dist.len_dist is not None:
             self.len_sampler = dist.len_dist.sampler(
                 seed=self.rng.randint(0, maxrandint)
@@ -693,7 +689,7 @@ class IntegerHiddenMarkovAccumulator(SequenceEncodableStatisticAccumulator):
         self.init_counts += icnts_buff
         self.state_counts += scnts_buff
 
-    # TODO: Update from here down
+    # Remaining vectorized update paths are kept for compatibility.
     def seq_update(
         self,
         x: "IntegerHiddenMarkovEncodedDataSequence",
@@ -1012,7 +1008,7 @@ class IntegerHiddenMarkovEstimator(ParameterEstimator):
         Returns:
             IntegerHiddenMarkovModelDistribution: The estimated distribution.
         """
-        init_counts, state_counts, trans_counts, wcnts, len_ss = suff_stat
+        init_counts, _state_counts, trans_counts, wcnts, len_ss = suff_stat
 
         num_states = len(init_counts)
         num_words = wcnts.shape[0]
@@ -1185,7 +1181,7 @@ def forward_backward(xs_seq, init_pvec, tran_mat, pmat, log_alpha, log_beta):
         log_alpha: pre-allocated output array (T, S) for log forward probabilities
         log_beta: pre-allocated output array (T, S) for log backward probabilities
     """
-    T = len(xs_seq)
+    seq_len = len(xs_seq)
     S = len(init_pvec)
 
     # Forward pass (in log space for numerical stability)
@@ -1196,7 +1192,7 @@ def forward_backward(xs_seq, init_pvec, tran_mat, pmat, log_alpha, log_beta):
 
     # Recursion: alpha_t(z) = sum_z' alpha_{t-1}(z') * A(z'->z) * P(x_t | z)
     temp = np.empty(S)
-    for t in range(1, T):
+    for t in range(1, seq_len):
         for j in range(S):
             for i in range(S):
                 temp[i] = log_alpha[t - 1, i] + np.log(tran_mat[i, j])
@@ -1206,10 +1202,10 @@ def forward_backward(xs_seq, init_pvec, tran_mat, pmat, log_alpha, log_beta):
 
     # Initialize: beta_T(z) = 1 for all z (log(1) = 0)
     for j in range(S):
-        log_beta[T - 1, j] = 0.0
+        log_beta[seq_len - 1, j] = 0.0
 
     # Recursion: beta_t(z) = sum_z' A(z->z') * P(x_{t+1} | z') * beta_{t+1}(z')
-    for t in range(T - 2, -1, -1):
+    for t in range(seq_len - 2, -1, -1):
         for i in range(S):
             for j in range(S):
                 temp[j] = (
@@ -1259,14 +1255,11 @@ def numba_baum_welch(
         for j in range(S):
             emit_counts[i, j] = 0.0
 
-    # Create a lock for thread-safe updates
-    lock = numba.objmode(None, "none")()
-
     # Process each sequence in parallel
     for seq_idx in numba.prange(num_sequences):
         start = tz[seq_idx]
         end = tz[seq_idx + 1]
-        T = end - start
+        seq_len = end - start
 
         # Extract sequence view
         xs_seq = xs[start:end]
@@ -1278,8 +1271,8 @@ def numba_baum_welch(
         local_emit = np.zeros((W, S))
 
         # Allocate arrays for forward-backward
-        log_alpha = np.zeros((T, S))
-        log_beta = np.zeros((T, S))
+        log_alpha = np.zeros((seq_len, S))
+        log_beta = np.zeros((seq_len, S))
 
         # Run forward-backward
         forward_backward(xs_seq, init_pvec, tran_mat, pmat, log_alpha, log_beta)
@@ -1288,10 +1281,10 @@ def numba_baum_welch(
         log_gamma = log_alpha + log_beta
 
         # Normalize each row
-        log_normalizers = np.empty(T)
+        log_normalizers = np.empty(seq_len)
         logsumexp_2d_rows(log_gamma, log_normalizers)
 
-        for t in range(T):
+        for t in range(seq_len):
             for j in range(S):
                 log_gamma[t, j] -= log_normalizers[t]
 
@@ -1301,7 +1294,7 @@ def numba_baum_welch(
         log_xi = np.empty((S, S))
         log_xi_flat = np.empty(S * S)
 
-        for t in range(T - 1):
+        for t in range(seq_len - 1):
             # Compute log_xi
             for i in range(S):
                 for j in range(S):
@@ -1329,7 +1322,7 @@ def numba_baum_welch(
             local_init[j] = gamma[0, j] * weight_loc
 
         # Accumulate emission counts
-        for t in range(T):
+        for t in range(seq_len):
             obs = xs_seq[t]
             for j in range(S):
                 local_emit[obs, j] += gamma[t, j] * weight_loc
@@ -1467,7 +1460,7 @@ def numba_baum_welch_alphas(
     "float64[:,:], float64[:,:])",
     fastmath=True,
 )
-def fast_seq_initialize(
+def fast_seq_initialize(  # pylint: disable=unused-argument
     xs: np.ndarray,
     tz: np.ndarray,
     weights: np.ndarray,

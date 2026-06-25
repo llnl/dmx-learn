@@ -124,6 +124,7 @@ class IntegerPLSIDistribution(SequenceEncodableProbabilityDistribution):
                 word_probs, state_probs, and doc_probs.
 
         """
+        super().__init__()
         self.prob_mat = np.asarray(state_word_mat, dtype=np.float64)
         self.state_mat = np.asarray(doc_state_mat, dtype=np.float64)
         self.doc_vec = np.asarray(doc_vec, dtype=np.float64)
@@ -240,7 +241,7 @@ class IntegerPLSIDistribution(SequenceEncodableProbabilityDistribution):
     def seq_log_density(self, x: "IntegerPLSIEncodedDataSequence") -> np.ndarray:
 
         if not isinstance(x, IntegerPLSIEncodedDataSequence):
-            raise Exception(
+            raise TypeError(
                 "IntegerPLSIEncodedDataSequence required for seq_log_density()."
             )
 
@@ -281,12 +282,12 @@ class IntegerPLSIDistribution(SequenceEncodableProbabilityDistribution):
         """
 
         if not isinstance(x, IntegerPLSIEncodedDataSequence):
-            raise Exception(
+            raise TypeError(
                 "IntegerPLSIEncodedDataSequence required for "
                 "seq_component_log_density()."
             )
 
-        nn, (xv, xc, xd, xi, xn, xm) = x.data
+        _nn, (xv, xc, xd, xi, _xn, xm) = x.data
         rv = np.zeros((xi[-1] + 1, self.num_states), dtype=np.float64)
         w_mat = self.prob_mat
         fast_seq_component_log_density(xv, xc, xd, xi, xm, w_mat, rv)
@@ -344,8 +345,7 @@ class IntegerPLSISampler(DistributionSampler):
             seed (Optional[int]): Set seed for random number generator used in sampling.
 
         """
-        self.rng = np.random.RandomState(seed)
-        self.dist = dist
+        super().__init__(dist, seed)
         self.size_rng = self.dist.len_dist.sampler(self.rng.randint(0, maxrandint))
 
     def sample(self, size: Optional[int] = None) -> Union[
@@ -518,7 +518,7 @@ class IntegerPLSIAccumulator(SequenceEncodableStatisticAccumulator):
         self, x: "IntegerPLSIEncodedDataSequence", weights: np.ndarray, rng: RandomState
     ) -> None:
 
-        nn, (xv, xc, xd, xi, xn, xm) = x.data
+        nn, (xv, xc, xd, xi, _xn, xm) = x.data
 
         if not self._init_rng:
             self._rng_initialize(rng)
@@ -544,7 +544,7 @@ class IntegerPLSIAccumulator(SequenceEncodableStatisticAccumulator):
         estimate: IntegerPLSIDistribution,
     ) -> None:
 
-        nn, (xv, xc, xd, xi, xn, xm) = x.data
+        nn, (xv, xc, xd, xi, _xn, xm) = x.data
         fast_seq_update(
             xv,
             xc,
@@ -559,25 +559,6 @@ class IntegerPLSIAccumulator(SequenceEncodableStatisticAccumulator):
             self.doc_count,
         )
 
-        """
-
-        temp = xc*weights[xi]
-        update  = estimate.prob_mat[xv, :] * estimate.state_mat[xd, :]
-
-        temp /= np.sum(update, axis=1)
-        update *= temp[:,None]
-
-        #vec_bincount1(xv, update, self.word_count.T)
-        #vec_bincount1(xd, update, self.comp_count)
-        #bincount(xm, weights, self.num_docs)
-
-        for i in range(self.num_states):
-            self.word_count[i,:] += np.bincount(xv, weights=update[:,i],
-            minlength=self.num_vals)
-            self.comp_count[:,i] += np.bincount(xd, weights=update[:,i],
-            minlength=self.num_docs)
-        self.doc_count += np.bincount(xm, weights=weights, minlength=self.num_docs)
-        """
         self.len_acc.seq_update(nn, weights, estimate.len_dist)
 
     def combine(
@@ -1020,7 +1001,9 @@ def fast_seq_log_density(xv, xc, xd, xi, xm, wmat, smat, dvec, out):
     "float64[:,:])",
     fastmath=True,
 )
-def fast_seq_component_log_density(xv, xc, xd, xi, xm, wmat, out):
+def fast_seq_component_log_density(  # pylint: disable=unused-argument
+    xv, xc, xd, xi, xm, wmat, out
+):
     n = len(xv)
     k = wmat.shape[1]
     for i in range(n):

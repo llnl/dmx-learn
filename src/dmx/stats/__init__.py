@@ -252,7 +252,8 @@ def load_models(x: str) -> SequenceEncodableProbabilityDistribution:
     Returns:
         SequenceEncodableProbabilityDistribution: Loaded model.
     """
-    return eval(x)
+    # Existing model strings are constructor expressions from distribution __repr__.
+    return eval(x)  # pylint: disable=eval-used
 
 
 def dump_models(x: SequenceEncodableProbabilityDistribution) -> str:
@@ -299,13 +300,12 @@ def initialize(
         seeds_broadcast = sc.broadcast(seeds)
 
         def acc(split_index, itr):
+            del split_index
             accumulator_for_split = (
                 estimator_broadcast.value.accumulator_factory().make()
             )
             counts_for_split = 0.0
             rng_loc = np.random.RandomState(seeds_broadcast.value[split_index])
-            rng_w = np.random.RandomState(seed=rng_loc.randint(2**31))
-
             for x in itr:
                 w = rng.binomial(n=1, p=p)
                 counts_for_split += w
@@ -333,7 +333,7 @@ def initialize(
         nobs = 0.0
         rng_w = np.random.RandomState(seed=rng.randint(2**31))
 
-        for i, x in enumerate(idata):
+        for _i, x in enumerate(idata):
             w = rng_w.binomial(n=1, p=p)
             nobs += w
             accumulator.initialize(x, w, rng)
@@ -375,6 +375,7 @@ def estimate(
         temp_estimate_b = sc.broadcast(temp_estimate)
 
         def acc(split_index, itr):
+            del split_index
             accumulator_for_split = (
                 estimator_broadcast.value.accumulator_factory().make()
             )
@@ -397,8 +398,6 @@ def estimate(
 
         return estimator.estimate(nobs, accumulator.value())
 
-    return None
-
     if hasattr(data, "__iter__"):
         idata = iter(data)
         accumulator = estimator.accumulator_factory().make()
@@ -409,6 +408,8 @@ def estimate(
             accumulator.update(x, 1.0, estimate=prev_estimate)
 
         return estimator.estimate(nobs, accumulator.value())
+
+    return None
 
 
 def seq_encode(
@@ -446,7 +447,7 @@ def seq_encode(
         elif estimator is not None:
             encoder = estimator.accumulator_factory().make().acc_to_encoder()
         else:
-            raise Exception(
+            raise ValueError(
                 "At least one arg: encoder, estimator, or dist must be passed."
             )
 
@@ -457,7 +458,7 @@ def seq_encode(
 
         enc_data = (
             data.glom()
-            .map(lambda x: list(x))
+            .map(list)
             .map(
                 lambda x: (len(x), pickle.loads(encoder_broadcast.value).seq_encode(x))
             )
@@ -482,7 +483,7 @@ def seq_encode(
 
 def seq_log_density_sum(
     enc_data: Union[List[Tuple[int, EncodedDataSequence]], RDD],
-    estimate: SequenceEncodableProbabilityDistribution,
+    estimate: SequenceEncodableProbabilityDistribution,  # pylint: disable=redefined-outer-name
 ) -> Tuple[float, float]:
     """Vectorized evaluation of the sum of log_density values for a given
     SequenceEncodableProbabilityDistribution
@@ -532,7 +533,7 @@ def seq_log_density_sum(
     )
 
 
-def seq_log_density(
+def seq_log_density(  # pylint: disable=redefined-outer-name
     enc_data: Union[List[Tuple[int, EncodedDataSequence]], RDD],
     estimate: Union[
         Sequence[SequenceEncodableProbabilityDistribution],
@@ -627,6 +628,7 @@ def seq_estimate(
         estimate_broadcast = sc.broadcast(pickle.dumps(prev_estimate, protocol=0))
 
         def acc(split_index, itr):
+            del split_index
             accumulator_for_split = (
                 estimator_broadcast.value.accumulator_factory().make()
             )
@@ -642,16 +644,6 @@ def seq_estimate(
             )
 
             return [rv]
-
-        def red(x, y):
-            xx = pickle.loads(x)
-            yy = pickle.loads(y)
-            accumulator = estimator_broadcast.value.accumulator_factory().make()
-            nobs = xx[0] + yy[0]
-            vals = accumulator.from_value(xx[1]).combine(yy[1]).value()
-            rv = pickle.dumps((nobs, vals))
-
-            return rv
 
         temp = enc_data.mapPartitionsWithIndex(acc, True).cache()
 
@@ -756,16 +748,6 @@ def seq_initialize(
                 (counts_for_split, accumulator_for_split.value()), protocol=0
             )
             return [rv]
-
-        def red(x, y):
-            xx = pickle.loads(x)
-            yy = pickle.loads(y)
-            accumulator = estimator_broadcast.value.accumulator_factory().make()
-            nobs = xx[0] + yy[0]
-            vals = accumulator.from_value(xx[1]).combine(yy[1]).value()
-            rv = pickle.dumps((nobs, vals))
-
-            return rv
 
         temp = enc_data.mapPartitionsWithIndex(acc, True).cache()
 

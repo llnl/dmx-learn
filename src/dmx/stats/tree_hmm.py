@@ -1,4 +1,3 @@
-import itertools
 import math
 from typing import Any, Dict, List, Optional, Sequence, Tuple, TypeVar, Union
 
@@ -7,8 +6,7 @@ import numpy as np
 from numpy.random import RandomState
 
 import dmx.utils.vector as vec
-from dmx.arithmetic import *
-from dmx.arithmetic import maxrandint
+from dmx.arithmetic import exp, maxrandint
 from dmx.stats.null_dist import (
     NullAccumulator,
     NullAccumulatorFactory,
@@ -151,6 +149,7 @@ class TreeHiddenMarkovModelDistribution(SequenceEncodableProbabilityDistribution
 
         """
 
+        super().__init__()
         with np.errstate(divide="ignore"):
             self.topics = topics
             self.num_states = len(w)
@@ -192,7 +191,7 @@ class TreeHiddenMarkovModelDistribution(SequenceEncodableProbabilityDistribution
     def seq_log_density(self, x: "TreeHiddenMarkovEncodedDataSequence") -> np.ndarray:
 
         if not isinstance(x, TreeHiddenMarkovEncodedDataSequence):
-            raise Exception(
+            raise TypeError(
                 "Requires TreeHiddenMarkovEncodedDataSequence for `seq_` calls."
             )
 
@@ -202,7 +201,7 @@ class TreeHiddenMarkovModelDistribution(SequenceEncodableProbabilityDistribution
                 (max_level, xln, xlnl, tlnz),
                 (xbi, xp, xc, xl, txz, tp, tpz),
                 enc_x,
-                len_enc,
+                _len_enc,
             ) = x.data[1]
 
             num_states = self.num_states
@@ -263,7 +262,7 @@ class TreeHiddenMarkovModelDistribution(SequenceEncodableProbabilityDistribution
             (xln, xlnl, xlni),
             (idx, xbi, xp, xc, level_idx, p_nxt, eta_p, i_nxt, _),
             enc_x,
-            len_enc,
+            _len_enc,
         ) = x.data[1]
 
         num_states = self.num_states
@@ -307,7 +306,7 @@ class TreeHiddenMarkovModelDistribution(SequenceEncodableProbabilityDistribution
         for level in range(len(level_idx) - 1, -1, -1):
 
             lidx = level_idx[level]
-            idxs, xbis, xps, xcs = idx[lidx], xbi[lidx], xp[lidx], xc[lidx]
+            _idxs, xbis, _xps, xcs = idx[lidx], xbi[lidx], xp[lidx], xc[lidx]
 
             #  Get etas
             temp = np.reshape(betas[xcs, :], (-1, num_states, 1))
@@ -344,7 +343,7 @@ class TreeHiddenMarkovModelDistribution(SequenceEncodableProbabilityDistribution
     ) -> List[np.ndarray]:
 
         if not isinstance(x, TreeHiddenMarkovEncodedDataSequence):
-            raise Exception(
+            raise TypeError(
                 "Requires TreeHiddenMarkovEncodedDataSequence for `seq_` calls."
             )
 
@@ -404,18 +403,16 @@ class TreeHiddenMarkovModelDistribution(SequenceEncodableProbabilityDistribution
         (
             cnt,
             tz,
-            (xln, xlnl, xlni),
-            (idx, xbi, xp, xc, level_idx, p_nxt, eta_p, i_nxt, _),
+            (xln, xlnl, _xlni),
+            (idx, xbi, xp, xc, level_idx, p_nxt, eta_p, _i_nxt, _),
             enc_x,
-            len_enc,
+            _len_enc,
         ) = x.data[1]
 
         num_states = self.num_states
         max_level = len(level_idx)
         a_mat = self.transitions
         w = self.w
-        num_trees = len(tz) - 1
-
         betas = np.ones((cnt, num_states), dtype=np.float64)
         etas = np.zeros((len(xbi), num_states), dtype=np.float64)
 
@@ -443,7 +440,7 @@ class TreeHiddenMarkovModelDistribution(SequenceEncodableProbabilityDistribution
         #  upward pass on betas
         for level in range(len(level_idx) - 1, -1, -1):
             lidx = level_idx[level]
-            idxs, xbis, xps, xcs = idx[lidx], xbi[lidx], xp[lidx], xc[lidx]
+            _idxs, xbis, _xps, xcs = idx[lidx], xbi[lidx], xp[lidx], xc[lidx]
 
             #  Get etas
             temp = np.reshape(betas[xcs, :], (-1, num_states, 1))
@@ -472,14 +469,14 @@ class TreeHiddenMarkovModelDistribution(SequenceEncodableProbabilityDistribution
     def seq_viterbi(self, x: "TreeHiddenMarkovEncodedDataSequence") -> List[np.ndarray]:
 
         if not isinstance(x, TreeHiddenMarkovEncodedDataSequence):
-            raise Exception(
+            raise TypeError(
                 "Requires TreeHiddenMarkovEncodedDataSequence for `seq_` calls."
             )
 
         if x.data[0]:
             (
                 tz,
-                (max_level, xln, xlnl, tlnz),
+                (max_level, xln, _xlnl, tlnz),
                 (xbi, xp, xc, xl, txz, tp, tpz),
                 enc_x,
                 _,
@@ -524,8 +521,8 @@ class TreeHiddenMarkovModelDistribution(SequenceEncodableProbabilityDistribution
         (
             cnt,
             tz,
-            (xln, xlnl, xlni),
-            (idx, xbi, xp, xc, level_idx, p_nxt, eta_p, i_nxt, rns),
+            (xln, _xlnl, _xlni),
+            (idx, xbi, xp, xc, level_idx, p_nxt, eta_p, _i_nxt, rns),
             enc_x,
             _,
         ) = x.data[1:]
@@ -548,7 +545,7 @@ class TreeHiddenMarkovModelDistribution(SequenceEncodableProbabilityDistribution
         #  upward pass on deltas
         for level in range(max_level - 1, -1, -1):
             lidx = level_idx[level]
-            idxs, xbis, xps, xcs = idx[lidx], xbi[lidx], xp[lidx], xc[lidx]
+            _idxs, xbis, _xps, xcs = idx[lidx], xbi[lidx], xp[lidx], xc[lidx]
 
             #  Get log_etas
             log_eta[xbis, :] += np.max(
@@ -571,7 +568,7 @@ class TreeHiddenMarkovModelDistribution(SequenceEncodableProbabilityDistribution
 
     def sampler(self, seed: Optional[int] = None) -> "TreeHiddenMarkovSampler":
         if isinstance(self.len_dist, NullDistribution):
-            raise Exception(
+            raise RuntimeError(
                 "TreeHiddenMarkovSampler requires len_dist with support on "
                 "non-negative integers"
             )
@@ -611,9 +608,8 @@ class TreeHiddenMarkovSampler(DistributionSampler):
     def __init__(
         self, dist: "TreeHiddenMarkovModelDistribution", seed: Optional[int] = None
     ) -> None:
+        super().__init__(dist, seed)
         self.num_states = dist.num_states
-        self.dist = dist
-        self.rng = RandomState(seed)
         self.obs_samplers = [
             topic.sampler(seed=self.rng.randint(maxrandint)) for topic in dist.topics
         ]
@@ -721,6 +717,7 @@ class TreeHiddenMarkovAccumulator(  # pylint: disable=too-many-instance-attribut
         self._len_rng: Optional[RandomState] = None
         self._acc_rng: Optional[List[RandomState]] = None
         self._idx_rng: Optional[RandomState] = None
+        self._w_rng: Optional[RandomState] = None
 
     def update(
         self,
@@ -762,7 +759,7 @@ class TreeHiddenMarkovAccumulator(  # pylint: disable=too-many-instance-attribut
 
         if x.data[0]:
 
-            tz, _, (xbi, xp, xc, xl, txz, tp, tpz), enc_x, len_enc = x.data[1]
+            tz, _, (_xbi, xp, xc, _xl, txz, tp, tpz), enc_x, len_enc = x.data[1]
 
             states = self._idx_rng.choice(self.num_states, replace=True, size=tz[-1])
 
@@ -781,9 +778,7 @@ class TreeHiddenMarkovAccumulator(  # pylint: disable=too-many-instance-attribut
             )
 
             idx = len_enc[0]
-            nz_idx, nz_idx_group, nz_idx_rep = np.unique(
-                idx, return_index=True, return_inverse=True
-            )
+            nz_idx = np.unique(idx)
             weights_nz = weights[nz_idx]
 
             for i in range(self.num_states):
@@ -801,7 +796,7 @@ class TreeHiddenMarkovAccumulator(  # pylint: disable=too-many-instance-attribut
                 cnt,
                 tz,
                 _,
-                (idx, xbi, xp, xc, level_idx, p_nxt, eta_p, i_nxt, rns),
+                (idx, _xbi, xp, xc, level_idx, _p_nxt, _eta_p, i_nxt, rns),
                 enc_x,
                 len_enc,
             ) = x.data[1]
@@ -822,7 +817,6 @@ class TreeHiddenMarkovAccumulator(  # pylint: disable=too-many-instance-attribut
                 lidx = level_idx[level]
                 idxs, xps, xcs = idx[lidx], xp[lidx], xc[lidx]
 
-                _, xps_cnt = np.unique(xps, return_counts=True)
                 bin_weights = []
                 bin_weights.extend([weights[kk] for kk in idxs])
 
@@ -833,9 +827,7 @@ class TreeHiddenMarkovAccumulator(  # pylint: disable=too-many-instance-attribut
                 self.trans_counts += np.reshape(trans_cnts, (num_states, num_states))
 
             obs_idx = len_enc[0]
-            nz_idx, nz_idx_group, nz_idx_rep = np.unique(
-                obs_idx, return_index=True, return_inverse=True
-            )
+            nz_idx = np.unique(obs_idx)
             weights_nz = weights[nz_idx]
 
             for i in range(self.num_states):
@@ -931,8 +923,8 @@ class TreeHiddenMarkovAccumulator(  # pylint: disable=too-many-instance-attribut
             (
                 cnt,
                 tz,
-                (xln, xlnl, xlni),
-                (idx, xbi, xp, xc, level_idx, p_nxt, eta_p, i_nxt, rns),
+                (xln, xlnl, _xlni),
+                (idx, xbi, xp, xc, level_idx, p_nxt, eta_p, _i_nxt, rns),
                 enc_x,
                 len_enc,
             ) = x.data[1]
@@ -1043,7 +1035,7 @@ class TreeHiddenMarkovAccumulator(  # pylint: disable=too-many-instance-attribut
         ],
     ) -> "TreeHiddenMarkovAccumulator":
         (
-            num_states,
+            _num_states,
             init_counts,
             state_counts,
             trans_counts,
@@ -1771,7 +1763,7 @@ def numba_baum_welch(  # pylint: disable=too-many-positional-arguments
 
         for nn in range(0, len(tps) - 1):
             t0, t1 = tps[nn], tps[nn + 1]
-            p, level = xps[t0], xls[t0]
+            p, _level = xps[t0], xls[t0]
 
             for k in range(t0, t1):
                 c, eta_idx = xcs[k], xbis[k]
@@ -2047,7 +2039,7 @@ def numba_viterbi(
 
         for nn in range(len(tps) - 2, -1, -1):
             t0, t1 = tps[nn], tps[nn + 1]
-            p, level = xps[t0], xls[t0]
+            p, _level = xps[t0], xls[t0]
             beta_max_v = None
             beta_max_i = None
             #  Get eta(p, u)_i and sum then get beta_i(p)
