@@ -458,12 +458,11 @@ class IntegerHiddenMarkovSampler(DistributionSampler):
 
             return obs_seq
 
-        else:
-            n = self.len_sampler.sample(size=size)
-            state_seq = [self.state_sampler.sample_seq(size=nn) for nn in n]
-            obs_seq = [[self.sample_int(j) for j in nn] for nn in state_seq]
+        n = self.len_sampler.sample(size=size)
+        state_seq = [self.state_sampler.sample_seq(size=nn) for nn in n]
+        obs_seq = [[self.sample_int(j) for j in nn] for nn in state_seq]
 
-            return obs_seq
+        return obs_seq
 
     def sample_terminal(self, terminal_set: Set[T]) -> List[int]:
         """Sample an HMM sequence, until a terminal value is samples from the emission
@@ -505,17 +504,15 @@ class IntegerHiddenMarkovSampler(DistributionSampler):
         if self.len_sampler is not None:
             return self.sample_seq(size=size)
 
-        elif self.terminal_set is not None:
+        if self.terminal_set is not None:
             if size is None:
                 return self.sample_terminal(self.terminal_set)
-            else:
-                return [self.sample_terminal(self.terminal_set) for i in range(size)]
+            return [self.sample_terminal(self.terminal_set) for i in range(size)]
 
-        else:
-            raise RuntimeError(
-                "IntegerHiddenMarkovSampler requires either a length distribution or "
-                "terminal value set."
-            )
+        raise RuntimeError(
+            "IntegerHiddenMarkovSampler requires either a length distribution or "
+            "terminal value set."
+        )
 
 
 class IntegerHiddenMarkovAccumulator(SequenceEncodableStatisticAccumulator):
@@ -828,8 +825,6 @@ class IntegerHiddenMarkovAccumulator(SequenceEncodableStatisticAccumulator):
         if self.len_accumulator is not None:
             self.len_accumulator.key_merge(stats_dict)
 
-        return None
-
     def key_replace(self, stats_dict: Dict[str, Any]) -> None:
         """Replace this accumulator's values with those from a dictionary by key.
 
@@ -851,8 +846,6 @@ class IntegerHiddenMarkovAccumulator(SequenceEncodableStatisticAccumulator):
 
         if self.len_accumulator is not None:
             self.len_accumulator.key_replace(stats_dict)
-
-        return None
 
     def acc_to_encoder(self) -> "IntegerHiddenMarkovDataEncoder":
         """Return a IntegerHiddenMarkovDataEncoder for this accumulator.
@@ -1101,11 +1094,10 @@ class IntegerHiddenMarkovDataEncoder(DataSequenceEncoder):
         return f"IntegerHiddenMarkovDataEncoder(len_encoder={str(self.len_encoder)})"
 
     def __eq__(self, other: object) -> bool:
-        if isinstance(other, IntegerHiddenMarkovDataEncoder):
-            if self.len_encoder == other.len_encoder:
-                return True
-        else:
-            return False
+        return (
+            isinstance(other, IntegerHiddenMarkovDataEncoder)
+            and self.len_encoder == other.len_encoder
+        )
 
     def seq_encode(
         self, x: Sequence[Sequence[int]]
@@ -1589,8 +1581,7 @@ def fast_log_density(
                 max_val = log_alpha_prev[0] + log_A[0, s]
                 for s_prev in range(1, num_states):
                     val = log_alpha_prev[s_prev] + log_A[s_prev, s]
-                    if val > max_val:
-                        max_val = val
+                    max_val = max(max_val, val)
 
                 sum_exp = 0.0
                 for s_prev in range(num_states):

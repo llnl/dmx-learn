@@ -161,9 +161,8 @@ class DiracMixtureDistribution(SequenceEncodableProbabilityDistribution):
         comp_log_density = self.component_log_density(x)
         if comp_log_density[1] == -np.inf:
             return np.array([1, 0], dtype=np.float64)
-        else:
-            comp_log_density[0] += self.log_p
-            comp_log_density[1] += self.log_1p
+        comp_log_density[0] += self.log_p
+        comp_log_density[1] += self.log_1p
 
         max_val = np.max(comp_log_density)
         comp_log_density -= max_val
@@ -231,18 +230,17 @@ class DiracMixtureDistribution(SequenceEncodableProbabilityDistribution):
             np.log(ll_sum, out=ll_sum)
             ll_sum += ll_max
             return ll_sum.flatten()
-        else:
-            ll_mat = ll_mat[good_rows, :]
-            ll_max = ll_max[good_rows]
-            ll_mat -= ll_max
-            np.exp(ll_mat, out=ll_mat)
-            ll_sum = np.sum(ll_mat, axis=1, keepdims=True)
-            np.log(ll_sum, out=ll_sum)
-            ll_sum += ll_max
-            rv = np.zeros(good_rows.shape, dtype=float)
-            rv[good_rows] = ll_sum.flatten()
-            rv[~good_rows] = -np.inf
-            return rv
+        ll_mat = ll_mat[good_rows, :]
+        ll_max = ll_max[good_rows]
+        ll_mat -= ll_max
+        np.exp(ll_mat, out=ll_mat)
+        ll_sum = np.sum(ll_mat, axis=1, keepdims=True)
+        np.log(ll_sum, out=ll_sum)
+        ll_sum += ll_max
+        rv = np.zeros(good_rows.shape, dtype=float)
+        rv[good_rows] = ll_sum.flatten()
+        rv[~good_rows] = -np.inf
+        return rv
 
     def seq_posterior(self, x: "DiracMixtureEncodedDataSequence") -> np.ndarray:
         """Vectorized evaluation of the posterior for the components of the Dirac
@@ -312,11 +310,10 @@ class DiracMixtureDistribution(SequenceEncodableProbabilityDistribution):
                 name=self.name,
                 keys=self.keys,
             )
-        else:
-            est = self.dist.estimator()
-            return DiracMixtureEstimator(
-                estimator=est, v=self.v, name=self.name, keys=self.keys
-            )
+        est = self.dist.estimator()
+        return DiracMixtureEstimator(
+            estimator=est, v=self.v, name=self.name, keys=self.keys
+        )
 
     def dist_to_encoder(self) -> "DiracMixtureDataEncoder":
         """Return a DiracMixtureDataEncoder for this distribution.
@@ -368,17 +365,15 @@ class DiracMixtureSampler(DistributionSampler):
         if size is None:
             if comp_state == 0:
                 return self.v
-            else:
-                return self.dist_sampler.sample()
-        else:
-            rv = np.zeros(size, dtype=np.int32)
-            rv.fill(self.v)
-            idx = np.flatnonzero(comp_state == 1)
-            if len(idx) > 0:
-                rv[idx] = np.asarray(
-                    self.dist_sampler.sample(size=len(idx)), dtype=np.int32
-                )
-            return list(rv)
+            return self.dist_sampler.sample()
+        rv = np.zeros(size, dtype=np.int32)
+        rv.fill(self.v)
+        idx = np.flatnonzero(comp_state == 1)
+        if len(idx) > 0:
+            rv[idx] = np.asarray(
+                self.dist_sampler.sample(size=len(idx)), dtype=np.int32
+            )
+        return list(rv)
 
 
 class DiracMixtureAccumulator(SequenceEncodableStatisticAccumulator):
@@ -826,10 +821,8 @@ class DiracMixtureDataEncoder(DataSequenceEncoder):
         if isinstance(other, DiracMixtureDataEncoder):
             if other.encoder == self.encoder:
                 return other.v == self.v
-            else:
-                return False
-        else:
             return False
+        return False
 
     def seq_encode(self, x: Sequence[int]) -> "DiracMixtureEncodedDataSequence":
         """Encode a sequence of integers for DiracMixtureDistribution.

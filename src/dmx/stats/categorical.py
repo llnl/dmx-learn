@@ -167,13 +167,12 @@ class CategoricalDistribution(SequenceEncodableProbabilityDistribution):
         if pseudo_count is None:
             return CategoricalEstimator(name=self.name, keys=self.keys)
 
-        else:
-            return CategoricalEstimator(
-                pseudo_count=pseudo_count,
-                suff_stat=self.pmap,
-                name=self.name,
-                keys=self.keys,
-            )
+        return CategoricalEstimator(
+            pseudo_count=pseudo_count,
+            suff_stat=self.pmap,
+            name=self.name,
+            keys=self.keys,
+        )
 
     def dist_to_encoder(self) -> "CategoricalDataEncoder":
         """Returns a CategoricalDataEncoder for this distribution.
@@ -229,11 +228,10 @@ class CategoricalSampler(DistributionSampler):
             idx = self.rng.choice(self.num_levels, p=self.probs, size=size)
             return self.levels[idx]
 
-        else:
-            levels = self.levels
-            rv = self.rng.choice(self.num_levels, p=self.probs, size=size)
+        levels = self.levels
+        rv = self.rng.choice(self.num_levels, p=self.probs, size=size)
 
-            return [levels[i] for i in rv]
+        return [levels[i] for i in rv]
 
 
 class CategoricalAccumulator(SequenceEncodableStatisticAccumulator):
@@ -255,7 +253,7 @@ class CategoricalAccumulator(SequenceEncodableStatisticAccumulator):
             keys (Optional[str], optional): All CategoricalAccumulators with same keys
                 will have suff-stats merged. Defaults to None.
         """
-        self.count_map = dict()
+        self.count_map = {}
         self.name = name
         self.key = keys
 
@@ -311,8 +309,8 @@ class CategoricalAccumulator(SequenceEncodableStatisticAccumulator):
             self.count_map = dict(zip(inv_key_map, bcnt))
 
         else:
-            for i, _ in enumerate(bcnt):
-                self.count_map[inv_key_map[i]] += bcnt[i]
+            for i, bcnt_i in enumerate(bcnt):
+                self.count_map[inv_key_map[i]] += bcnt_i
 
     def seq_initialize(
         self,

@@ -155,8 +155,7 @@ class SpearmanRankingSampler(DistributionSampler):
 
         if size is None:
             return self.perms[idx]
-        else:
-            return [self.perms[u] for u in idx]
+        return [self.perms[u] for u in idx]
 
 
 class SpearmanRankingAccumulator(SequenceEncodableStatisticAccumulator):

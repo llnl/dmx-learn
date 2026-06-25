@@ -321,13 +321,13 @@ def initialize(
             nobs = nobs + nobs_for_split
             accumulator.combine(stats_for_split)
 
-        stats_dict = dict()
+        stats_dict = {}
         accumulator.key_merge(stats_dict)
         accumulator.key_replace(stats_dict)
 
         return estimator.estimate(nobs, accumulator.value())
 
-    elif hasattr(data, "__iter__"):
+    if hasattr(data, "__iter__"):
         idata = iter(data)
         accumulator = estimator.accumulator_factory().make()
         nobs = 0.0
@@ -338,11 +338,13 @@ def initialize(
             nobs += w
             accumulator.initialize(x, w, rng)
 
-        stats_dict = dict()
+        stats_dict = {}
         accumulator.key_merge(stats_dict)
         accumulator.key_replace(stats_dict)
 
         return estimator.estimate(nobs, accumulator.value())
+
+    return None
 
 
 def estimate(
@@ -395,7 +397,9 @@ def estimate(
 
         return estimator.estimate(nobs, accumulator.value())
 
-    elif hasattr(data, "__iter__"):
+    return None
+
+    if hasattr(data, "__iter__"):
         idata = iter(data)
         accumulator = estimator.accumulator_factory().make()
         nobs = 0.0
@@ -461,20 +465,19 @@ def seq_encode(
 
         return enc_data
 
+    sz = len(data)
+    if chunk_size is not None:
+        num_chunks_loc = int(np.ceil(float(sz) / float(chunk_size)))
     else:
-        sz = len(data)
-        if chunk_size is not None:
-            num_chunks_loc = int(np.ceil(float(sz) / float(chunk_size)))
-        else:
-            num_chunks_loc = num_chunks
+        num_chunks_loc = num_chunks
 
-        rv = []
-        for i in range(num_chunks_loc):
-            data_loc = [data[i] for i in range(i, sz, num_chunks_loc)]
-            enc_data = encoder.seq_encode(data_loc)
-            rv.append((len(data_loc), enc_data))
+    rv = []
+    for i in range(num_chunks_loc):
+        data_loc = [data[i] for i in range(i, sz, num_chunks_loc)]
+        enc_data = encoder.seq_encode(data_loc)
+        rv.append((len(data_loc), enc_data))
 
-        return rv
+    return rv
 
 
 def seq_log_density_sum(
@@ -524,11 +527,9 @@ def seq_log_density_sum(
             lambda a, b: (a[0] + b[0], a[1] + b[1])
         )
 
-    else:
-
-        return sum([u[0] for u in enc_data]), sum(
-            [estimate.seq_log_density(u[1]).sum() for u in enc_data]
-        )
+    return sum(u[0] for u in enc_data), sum(
+        estimate.seq_log_density(u[1]).sum() for u in enc_data
+    )
 
 
 def seq_log_density(
@@ -575,20 +576,15 @@ def seq_log_density(
                     np.asarray([ee.seq_log_density(x) for ee in loc_estimate])
                     for sz, x in itr
                 ]
-            else:
-                return [loc_estimate.seq_log_density(x) for sz, x in itr]
+            return [loc_estimate.seq_log_density(x) for sz, x in itr]
 
         return enc_data.mapPartitions(acc).collect()
 
-    else:
-
-        if is_list:
-            return [
-                np.asarray([ee.seq_log_density(u[1]) for ee in estimate])
-                for u in enc_data
-            ]
-        else:
-            return [estimate.seq_log_density(u[1]) for u in enc_data]
+    if is_list:
+        return [
+            np.asarray([ee.seq_log_density(u[1]) for ee in estimate]) for u in enc_data
+        ]
+    return [estimate.seq_log_density(u[1]) for u in enc_data]
 
 
 def seq_estimate(
@@ -667,7 +663,7 @@ def seq_estimate(
             nobs = nobs + nobs_for_split
             accumulator.combine(stats_for_split)
 
-        stats_dict = dict()
+        stats_dict = {}
         accumulator.key_merge(stats_dict)
         accumulator.key_replace(stats_dict)
 
@@ -678,19 +674,18 @@ def seq_estimate(
 
         return estimator.estimate(nobs, accumulator.value())
 
-    else:
-        accumulator = estimator.accumulator_factory().make()
-        nobs = 0.0
+    accumulator = estimator.accumulator_factory().make()
+    nobs = 0.0
 
-        for sz, x in enc_data:
-            nobs += sz
-            accumulator.seq_update(x, np.ones(sz), prev_estimate)
+    for sz, x in enc_data:
+        nobs += sz
+        accumulator.seq_update(x, np.ones(sz), prev_estimate)
 
-        stats_dict = dict()
-        accumulator.key_merge(stats_dict)
-        accumulator.key_replace(stats_dict)
+    stats_dict = {}
+    accumulator.key_merge(stats_dict)
+    accumulator.key_replace(stats_dict)
 
-        return estimator.estimate(nobs, accumulator.value())
+    return estimator.estimate(nobs, accumulator.value())
 
 
 def seq_initialize(
@@ -782,7 +777,7 @@ def seq_initialize(
             nobs = nobs + nobs_for_split
             accumulator.combine(stats_for_split)
 
-        stats_dict = dict()
+        stats_dict = {}
         accumulator.key_merge(stats_dict)
         accumulator.key_replace(stats_dict)
 
@@ -793,18 +788,17 @@ def seq_initialize(
 
         return estimator.estimate(nobs, accumulator.value())
 
-    else:
-        accumulator = estimator.accumulator_factory().make()
-        nobs = 0.0
-        rng_w = np.random.RandomState(seed=rng.randint(2**31 - 1))
+    accumulator = estimator.accumulator_factory().make()
+    nobs = 0.0
+    rng_w = np.random.RandomState(seed=rng.randint(2**31 - 1))
 
-        for sz, enc_x in enc_data:
-            w = rng_w.binomial(n=1, p=p, size=sz).astype(dtype=np.float64)
-            accumulator.seq_initialize(enc_x, w, rng)
-            nobs += sz
+    for sz, enc_x in enc_data:
+        w = rng_w.binomial(n=1, p=p, size=sz).astype(dtype=np.float64)
+        accumulator.seq_initialize(enc_x, w, rng)
+        nobs += sz
 
-        stats_dict = dict()
-        accumulator.key_merge(stats_dict)
-        accumulator.key_replace(stats_dict)
+    stats_dict = {}
+    accumulator.key_merge(stats_dict)
+    accumulator.key_replace(stats_dict)
 
-        return estimator.estimate(nobs, accumulator.value())
+    return estimator.estimate(nobs, accumulator.value())

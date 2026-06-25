@@ -173,14 +173,14 @@ class ConditionalDistribution(SequenceEncodableProbabilityDistribution):
         sz, cond_vals, eobs_vals, idx_vals, given_enc = x.data
         rv = np.zeros(sz, dtype=float)
 
-        for i, _ in enumerate(cond_vals):
+        for i, cond_vals_i in enumerate(cond_vals):
             if self.has_default:
                 rv[idx_vals[i]] = self.dmap.get(
-                    cond_vals[i], self.default_dist
+                    cond_vals_i, self.default_dist
                 ).seq_log_density(eobs_vals[i])
             else:
-                if cond_vals[i] in self.dmap:
-                    rv[idx_vals[i]] += self.dmap[cond_vals[i]].seq_log_density(
+                if cond_vals_i in self.dmap:
+                    rv[idx_vals[i]] += self.dmap[cond_vals_i].seq_log_density(
                         eobs_vals[i]
                     )
 
@@ -316,8 +316,7 @@ class ConditionalDistributionSampler(ConditionalSampler, DistributionSampler):
         """
         if size is None:
             return self.single_sample()
-        else:
-            return [self.single_sample() for _ in range(size)]
+        return [self.single_sample() for _ in range(size)]
 
     def sample_given(self, x: T0) -> Any:
         """Sample from conditional distribution given value x.
@@ -330,10 +329,9 @@ class ConditionalDistributionSampler(ConditionalSampler, DistributionSampler):
         """
         if x in self.samplers:
             return self.samplers[x].sample()
-        elif self.has_default_sampler:
+        if self.has_default_sampler:
             return self.default_sampler.sample()
-        else:
-            raise Exception("Conditional default distribution unspecified.")
+        raise Exception("Conditional default distribution unspecified.")
 
 
 class ConditionalDistributionAccumulator(SequenceEncodableStatisticAccumulator):
@@ -442,7 +440,7 @@ class ConditionalDistributionAccumulator(SequenceEncodableStatisticAccumulator):
         Args:
             rng (RandomState): Random number generator.
         """
-        self._acc_rng = dict()
+        self._acc_rng = {}
         for acc_key in self.accumulator_map.keys():
             self._acc_rng[acc_key] = RandomState(seed=rng.randint(2**31))
         self._default_rng = RandomState(seed=rng.randint(2**31))
@@ -483,10 +481,10 @@ class ConditionalDistributionAccumulator(SequenceEncodableStatisticAccumulator):
         if not self._init_rng:
             self._rng_initialize(rng)
 
-        for i, _ in enumerate(cond_vals):
-            if cond_vals[i] in self.accumulator_map:
-                self.accumulator_map[cond_vals[i]].seq_initialize(
-                    eobs_vals[i], weights[idx_vals[i]], self._acc_rng[cond_vals[i]]
+        for i, cond_vals_i in enumerate(cond_vals):
+            if cond_vals_i in self.accumulator_map:
+                self.accumulator_map[cond_vals_i].seq_initialize(
+                    eobs_vals[i], weights[idx_vals[i]], self._acc_rng[cond_vals_i]
                 )
             else:
                 if self.has_default:
@@ -512,10 +510,10 @@ class ConditionalDistributionAccumulator(SequenceEncodableStatisticAccumulator):
         """
         sz, cond_vals, eobs_vals, idx_vals, given_enc = x.data
 
-        for i, _ in enumerate(cond_vals):
-            if cond_vals[i] in self.accumulator_map:
-                self.accumulator_map[cond_vals[i]].seq_update(
-                    eobs_vals[i], weights[idx_vals[i]], estimate.dmap[cond_vals[i]]
+        for i, cond_vals_i in enumerate(cond_vals):
+            if cond_vals_i in self.accumulator_map:
+                self.accumulator_map[cond_vals_i].seq_update(
+                    eobs_vals[i], weights[idx_vals[i]], estimate.dmap[cond_vals_i]
                 )
             else:
                 if self.has_default:
@@ -882,11 +880,11 @@ class ConditionalDistributionDataEncoder(DataSequenceEncoder):
         Returns:
             ConditionalEncodedDataSequence: Encoded data sequence.
         """
-        cond_enc = dict()
+        cond_enc = {}
         given_vals = []
 
-        for i, _ in enumerate(x):
-            xx = x[i]
+        for i, x_i in enumerate(x):
+            xx = x_i
             given_vals.append(xx[0])
             if xx[0] not in cond_enc:
                 cond_enc[xx[0]] = [[xx[1]], [i]]
@@ -896,7 +894,7 @@ class ConditionalDistributionDataEncoder(DataSequenceEncoder):
                 cond_enc_loc[1].append(i)
 
         cond_enc_items = list(cond_enc.items())
-        cond_vals = tuple([u[0] for u in cond_enc_items])
+        cond_vals = tuple(u[0] for u in cond_enc_items)
 
         eobs_vals = []
         idx_vals = []

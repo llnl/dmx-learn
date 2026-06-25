@@ -305,18 +305,17 @@ class IntegerPLSIDistribution(SequenceEncodableProbabilityDistribution):
                 name=self.name,
                 keys=self.keys,
             )
-        else:
-            pseudo_count = (pseudo_count, pseudo_count, pseudo_count)
-            return IntegerPLSIEstimator(
-                num_vals=self.num_vals,
-                num_states=self.num_states,
-                num_docs=self.num_docs,
-                pseudo_count=pseudo_count,
-                suff_stat=(self.prob_mat.T, self.state_mat, self.doc_vec),
-                len_estimator=self.len_dist.estimator(),
-                name=self.name,
-                keys=self.keys,
-            )
+        pseudo_count = (pseudo_count, pseudo_count, pseudo_count)
+        return IntegerPLSIEstimator(
+            num_vals=self.num_vals,
+            num_states=self.num_states,
+            num_docs=self.num_docs,
+            pseudo_count=pseudo_count,
+            suff_stat=(self.prob_mat.T, self.state_mat, self.doc_vec),
+            len_estimator=self.len_dist.estimator(),
+            name=self.name,
+            keys=self.keys,
+        )
 
     def dist_to_encoder(self) -> "IntegerPLSIDataEncoder":
 
@@ -382,8 +381,7 @@ class IntegerPLSISampler(DistributionSampler):
 
             return d_id, list(count_by_value(rv).items())
 
-        else:
-            return [self.sample() for i in range(size)]
+        return [self.sample() for i in range(size)]
 
 
 class IntegerPLSIAccumulator(SequenceEncodableStatisticAccumulator):
@@ -896,8 +894,7 @@ class IntegerPLSIDataEncoder(DataSequenceEncoder):
     def __eq__(self, other: object) -> bool:
         if isinstance(other, IntegerPLSIDataEncoder):
             return other.len_encoder == self.len_encoder
-        else:
-            return False
+        return False
 
     def seq_encode(
         self, x: Sequence[Tuple[int, Sequence[Tuple[int, float]]]]
@@ -1041,7 +1038,9 @@ def fast_seq_component_log_density(xv, xc, xd, xi, xm, wmat, out):
     "float64[:,:], float64[:,:], float64[:])",
     fastmath=True,
 )
-def fast_seq_update(xv, xc, xd, xi, xm, weights, wmat, smat, wcnt, scnt, dcnt):
+def fast_seq_update(  # pylint: disable=too-many-positional-arguments
+    xv, xc, xd, xi, xm, weights, wmat, smat, wcnt, scnt, dcnt
+):
     n = len(xv)
     m = len(xm)
     k = smat.shape[1]
@@ -1068,8 +1067,8 @@ def fast_seq_update(xv, xc, xd, xi, xm, weights, wmat, smat, wcnt, scnt, dcnt):
 @numba.njit("float64[:](float64[:,:], int32[:], float64[:,:], int32[:], float64[:])")
 def index_dot(x, xi, y, yi, out):
     n = x.shape[1]
-    for i, _ in enumerate(xi):
-        i1 = xi[i]
+    for i, xi_i in enumerate(xi):
+        i1 = xi_i
         i2 = yi[i]
         for j in range(n):
             out[i] += x[i1, j] * y[i2, j]
@@ -1078,24 +1077,24 @@ def index_dot(x, xi, y, yi, out):
 
 @numba.njit("float64[:](int32[:], float64[:], float64[:])")
 def bincount(x, w, out):
-    for i, _ in enumerate(x):
-        out[x[i]] += w[i]
+    for i, x_i in enumerate(x):
+        out[x_i] += w[i]
     return out
 
 
 @numba.njit("float64[:,:](int32[:], float64[:,:], float64[:,:])")
 def vec_bincount1(x, w, out):
     n = w.shape[1]
-    for i, _ in enumerate(x):
+    for i, x_i in enumerate(x):
         for j in range(n):
-            out[x[i], j] += w[i, j]
+            out[x_i, j] += w[i, j]
     return out
 
 
 @numba.njit("float64[:,:](int32[:], float64[:,:], int32[:], float64[:,:])")
 def vec_bincount2(x, w, y, out):
-    for i, _ in enumerate(x):
-        out[x[i], :] += w[y[i], :]
+    for i, x_i in enumerate(x):
+        out[x_i, :] += w[y[i], :]
     return out
 
 
@@ -1118,8 +1117,8 @@ def vec_bincount3(x, w, out):
         Numpy 2-d array.
 
     """
-    for j, _ in enumerate(x):
-        out[:, x[j]] += w[:, j]
+    for j, x_j in enumerate(x):
+        out[:, x_j] += w[:, j]
     return out
 
 
@@ -1142,6 +1141,6 @@ def vec_bincount4(x, w, out):
         Numpy 2-d array.
 
     """
-    for j, _ in enumerate(x):
-        out[x[j], :] += w[:, j]
+    for j, x_j in enumerate(x):
+        out[x_j, :] += w[:, j]
     return out

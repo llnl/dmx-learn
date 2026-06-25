@@ -78,7 +78,7 @@ class BernoulliSetDistribution(SequenceEncodableProbabilityDistribution):
         self.pmap = pmap
         self.required = set()
         self.nlog_sum = 0.0
-        self.log_dmap = dict()
+        self.log_dmap = {}
 
         if min_prob == 0:
             for k, v in pmap.items():
@@ -167,14 +167,13 @@ class BernoulliSetDistribution(SequenceEncodableProbabilityDistribution):
             return BernoulliSetEstimator(
                 min_prob=self.min_prob, name=self.name, keys=self.keys
             )
-        else:
-            return BernoulliSetEstimator(
-                min_prob=self.min_prob,
-                pseudo_count=pseudo_count,
-                suff_stat=self.pmap,
-                name=self.name,
-                keys=self.keys,
-            )
+        return BernoulliSetEstimator(
+            min_prob=self.min_prob,
+            pseudo_count=pseudo_count,
+            suff_stat=self.pmap,
+            name=self.name,
+            keys=self.keys,
+        )
 
     def dist_to_encoder(self) -> "BernoulliSetDataEncoder":
         return BernoulliSetDataEncoder()
@@ -214,12 +213,11 @@ class BernoulliSetSampler(DistributionSampler):
                     retval[i].append(k)
             return retval
 
-        else:
-            retval = []
-            for k, v in self.dist.pmap.items():
-                if self.rng.rand() <= v:
-                    retval.append(k)
-            return retval
+        retval = []
+        for k, v in self.dist.pmap.items():
+            if self.rng.rand() <= v:
+                retval.append(k)
+        return retval
 
 
 class BernoulliSetAccumulator(SequenceEncodableStatisticAccumulator):
@@ -439,9 +437,9 @@ class BernoulliSetDataEncoder(DataSequenceEncoder):
         idx = []
         xs = []
 
-        for i, _ in enumerate(x):
-            idx.extend([i] * len(x[i]))
-            xs.extend(x[i])
+        for i, x_i in enumerate(x):
+            idx.extend([i] * len(x_i))
+            xs.extend(x_i)
 
         val_map, xs = np.unique(xs, return_inverse=True)
 

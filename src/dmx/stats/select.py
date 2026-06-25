@@ -89,9 +89,8 @@ class SelectSampler(DistributionSampler):
     def sample(self, size: Optional[int] = None):
 
         if size is None:
-            return tuple([d.sample(size=size) for d in self.dist_samplers])
-        else:
-            return zip(*[d.sample(size=size) for d in self.dist_samplers])
+            return tuple(d.sample(size=size) for d in self.dist_samplers)
+        return zip(*[d.sample(size=size) for d in self.dist_samplers])
 
 
 class SelectEstimatorAccumulator(SequenceEncodableStatisticAccumulator):
@@ -232,12 +231,11 @@ class SelectDataEncoder(DataSequenceEncoder):
 
             return True
 
-        else:
-            return False
+        return False
 
     def seq_encode(self, x: Sequence[T]) -> "SelectEncodedDataSequence":
         cnt = 0
-        idx_dict = dict()
+        idx_dict = {}
 
         for i, xx in enumerate(x):
             idx = self.choice_function(xx)

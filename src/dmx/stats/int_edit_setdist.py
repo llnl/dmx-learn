@@ -230,11 +230,10 @@ class IntegerBernoulliEditSampler(DistributionSampler):
             rv[prev_ob] = temp[prev_ob] <= self.dist.log_edit_pmat[prev_ob, 3]
 
             return list(prev_ob), list(np.flatnonzero(rv))
-        else:
-            rv = []
-            for i in range(size):
-                rv.append(self.sample())
-            return rv
+        rv = []
+        for i in range(size):
+            rv.append(self.sample())
+        return rv
 
     def sample_given(self, x: Sequence[Sequence[int]]) -> List[int]:
         """Samples from the distribution given a prior subset.
@@ -624,8 +623,7 @@ class IntegerBernoulliEditDataEncoder(DataSequenceEncoder):
         """
         if isinstance(other, IntegerBernoulliEditDataEncoder):
             return other.init_encoder == self.init_encoder
-        else:
-            return False
+        return False
 
     def seq_encode(self, x: Sequence[T]) -> "IntegerBernoulliEditEncodedDataSequence":
         """Encodes a sequence of data.

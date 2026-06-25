@@ -173,15 +173,14 @@ class BinomialDistribution(SequenceEncodableProbabilityDistribution):
         """
         if pseudo_count is None:
             return BinomialEstimator(name=self.name, keys=self.keys)
-        else:
-            return BinomialEstimator(
-                max_val=self.n,
-                min_val=self.min_val,
-                pseudo_count=pseudo_count,
-                suff_stat=self.p * self.n * pseudo_count,
-                name=self.name,
-                keys=self.keys,
-            )
+        return BinomialEstimator(
+            max_val=self.n,
+            min_val=self.min_val,
+            pseudo_count=pseudo_count,
+            suff_stat=self.p * self.n * pseudo_count,
+            name=self.name,
+            keys=self.keys,
+        )
 
     def dist_to_encoder(self) -> "BinomialDataEncoder":
         """Return a BinomialDataEncoder."""
@@ -220,13 +219,10 @@ class BinomialSampler(DistributionSampler):
         if size is None:
             if self.dist.min_val is not None:
                 return int(rv) + self.dist.min_val
-            else:
-                return int(rv)
-        else:
-            if self.dist.min_val is not None:
-                return list(rv + self.dist.min_val)
-            else:
-                return list(rv)
+            return int(rv)
+        if self.dist.min_val is not None:
+            return list(rv + self.dist.min_val)
+        return list(rv)
 
 
 class BinomialAccumulator(SequenceEncodableStatisticAccumulator):

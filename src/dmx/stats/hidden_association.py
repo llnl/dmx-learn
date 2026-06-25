@@ -242,8 +242,7 @@ class HiddenAssociationSampler(DistributionSampler):
 
             return prev_obs, rv
 
-        else:
-            return [self.sample() for i in range(size)]
+        return [self.sample() for i in range(size)]
 
     def sample_given(self, x: List[Tuple[T, float]]):
         cnt = self.len_sampler.sample()

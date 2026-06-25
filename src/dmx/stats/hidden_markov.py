@@ -306,38 +306,35 @@ class HiddenMarkovModelDistribution(SequenceEncodableProbabilityDistribution):
 
             return retval
 
-        else:
-            x_iter = iter(x)
-            log_w = self.log_w
-            log_taus = self.log_taus
-            n_states = self.n_states
-            x0 = next(x_iter)
+        x_iter = iter(x)
+        log_w = self.log_w
+        log_taus = self.log_taus
+        n_states = self.n_states
+        x0 = next(x_iter)
 
+        obs_log_density_by_topic = np.asarray([u.log_density(x0) for u in self.topics])
+        log_likelihood_by_state = np.asarray(
+            [
+                log_w[i]
+                + vec.weighted_log_sum(obs_log_density_by_topic, log_taus[i, :])
+                for i in range(n_states)
+            ]
+        )
+
+        for x_obs in x_iter:
             obs_log_density_by_topic = np.asarray(
-                [u.log_density(x0) for u in self.topics]
+                [u.log_density(x_obs) for u in self.topics]
             )
-            log_likelihood_by_state = np.asarray(
-                [
-                    log_w[i]
-                    + vec.weighted_log_sum(obs_log_density_by_topic, log_taus[i, :])
-                    for i in range(n_states)
-                ]
-            )
+            log_likelihood_by_state = [
+                vec.weighted_log_sum(obs_log_density_by_topic, log_taus[:, i])
+                + vec.weighted_log_sum(obs_log_density_by_topic, log_taus[i, :])
+                for i in range(n_states)
+            ]
 
-            for x in x_iter:
-                obs_log_density_by_topic = np.asarray(
-                    [u.log_density(x) for u in self.topics]
-                )
-                log_likelihood_by_state = [
-                    vec.weighted_log_sum(obs_log_density_by_topic, log_taus[:, i])
-                    + vec.weighted_log_sum(obs_log_density_by_topic, log_taus[i, :])
-                    for i in range(n_states)
-                ]
+        rv = vec.log_sum(log_likelihood_by_state)
+        rv += self.len_dist.log_density(len(x))
 
-            rv = vec.log_sum(log_likelihood_by_state)
-            rv += self.len_dist.log_density(len(x))
-
-            return rv
+        return rv
 
     def seq_log_density(self, x: "HiddenMarkovEncodedDataSequence") -> "np.ndarray":
 
@@ -409,47 +406,45 @@ class HiddenMarkovModelDistribution(SequenceEncodableProbabilityDistribution):
 
             return ll_ret
 
-        else:
+        num_states = self.n_states
+        (idx, sz, enc_data), len_enc = x.data
 
-            num_states = self.n_states
-            (idx, sz, enc_data), len_enc = x.data
+        w = self.w
+        a_mat = self.transitions
+        tot_cnt = len(idx)
+        num_seq = len(sz)
 
-            w = self.w
-            a_mat = self.transitions
-            tot_cnt = len(idx)
-            num_seq = len(sz)
+        pr_obs = np.zeros((tot_cnt, num_states), dtype=np.float64)
+        ll_ret = np.zeros(num_seq, dtype=np.float64)
+        tz = np.concatenate([[0], sz]).cumsum().astype(dtype=np.int32)
 
-            pr_obs = np.zeros((tot_cnt, num_states), dtype=np.float64)
-            ll_ret = np.zeros(num_seq, dtype=np.float64)
-            tz = np.concatenate([[0], sz]).cumsum().astype(dtype=np.int32)
+        # Compute state likelihood vectors and scale the max to one
+        for i in range(num_states):
+            pr_obs[:, i] = self.topics[i].seq_log_density(enc_data)
 
-            # Compute state likelihood vectors and scale the max to one
-            for i in range(num_states):
-                pr_obs[:, i] = self.topics[i].seq_log_density(enc_data)
+        pr_max0 = pr_obs.max(axis=1)
+        pr_obs -= pr_max0[:, None]
+        np.exp(pr_obs, out=pr_obs)
 
-            pr_max0 = pr_obs.max(axis=1)
-            pr_obs -= pr_max0[:, None]
-            np.exp(pr_obs, out=pr_obs)
+        alpha_buff = np.zeros((num_seq, num_states), dtype=np.float64)
+        next_alpha = np.zeros((num_seq, num_states), dtype=np.float64)
 
-            alpha_buff = np.zeros((num_seq, num_states), dtype=np.float64)
-            next_alpha = np.zeros((num_seq, num_states), dtype=np.float64)
+        numba_seq_log_density(
+            num_states,
+            tz,
+            pr_obs,
+            w,
+            a_mat,
+            pr_max0,
+            next_alpha,
+            alpha_buff,
+            ll_ret,
+        )
 
-            numba_seq_log_density(
-                num_states,
-                tz,
-                pr_obs,
-                w,
-                a_mat,
-                pr_max0,
-                next_alpha,
-                alpha_buff,
-                ll_ret,
-            )
+        if self.len_dist is not None:
+            ll_ret += self.len_dist.seq_log_density(len_enc)
 
-            if self.len_dist is not None:
-                ll_ret += self.len_dist.seq_log_density(len_enc)
-
-            return ll_ret
+        return ll_ret
 
     def seq_posterior(self, x: "HiddenMarkovEncodedDataSequence") -> List[np.ndarray]:
         """Compute posterior distribution for each latent state of a sequence.
@@ -470,13 +465,12 @@ class HiddenMarkovModelDistribution(SequenceEncodableProbabilityDistribution):
                 "model.use_numba=True and re-encode"
                 " data."
             )
-        else:
-            if not x.numba_enc:
-                raise Exception(
-                    "Requires HiddenMarkovEncodedDataSequence for numba. Set "
-                    "model.use_numba=True and "
-                    "re-encode data."
-                )
+        if not x.numba_enc:
+            raise Exception(
+                "Requires HiddenMarkovEncodedDataSequence for numba. Set "
+                "model.use_numba=True and "
+                "re-encode data."
+            )
 
         (idx, sz, enc_data), len_enc = x.data
 
@@ -559,13 +553,12 @@ class HiddenMarkovModelDistribution(SequenceEncodableProbabilityDistribution):
                 "model.use_numba=True and re-encode"
                 " data."
             )
-        else:
-            if not x.numba_enc:
-                raise Exception(
-                    "Requires HiddenMarkovEncodedDataSequence for numba. Set "
-                    "model.use_numba=True and "
-                    "re-encode data."
-                )
+        if not x.numba_enc:
+            raise Exception(
+                "Requires HiddenMarkovEncodedDataSequence for numba. Set "
+                "model.use_numba=True and "
+                "re-encode data."
+            )
 
         num_states = self.n_states
         (
@@ -758,12 +751,11 @@ class HiddenMarkovSampler(DistributionSampler):
 
             return obs_seq
 
-        else:
-            n = self.len_sampler.sample(size=size)
-            state_seq = [self.state_sampler.sample_seq(size=nn) for nn in n]
-            obs_seq = [[self.obs_samplers[j].sample() for j in nn] for nn in state_seq]
+        n = self.len_sampler.sample(size=size)
+        state_seq = [self.state_sampler.sample_seq(size=nn) for nn in n]
+        obs_seq = [[self.obs_samplers[j].sample() for j in nn] for nn in state_seq]
 
-            return obs_seq
+        return obs_seq
 
     def sample_terminal(self, terminal_set: Set[T]) -> List[T]:
         """Sample an HMM sequence, until a terminal value is samples from the emission
@@ -805,17 +797,15 @@ class HiddenMarkovSampler(DistributionSampler):
         if self.len_sampler is not None:
             return self.sample_seq(size=size)
 
-        elif self.terminal_set is not None:
+        if self.terminal_set is not None:
             if size is None:
                 return self.sample_terminal(self.terminal_set)
-            else:
-                return [self.sample_terminal(self.terminal_set) for i in range(size)]
+            return [self.sample_terminal(self.terminal_set) for i in range(size)]
 
-        else:
-            raise RuntimeError(
-                "HiddenMarkovSampler requires either a length distribution or terminal "
-                "value set."
-            )
+        raise RuntimeError(
+            "HiddenMarkovSampler requires either a length distribution or terminal "
+            "value set."
+        )
 
 
 class HiddenMarkovAccumulator(SequenceEncodableStatisticAccumulator):
@@ -1316,7 +1306,7 @@ class HiddenMarkovAccumulator(SequenceEncodableStatisticAccumulator):
             self.init_counts,
             self.state_counts,
             self.trans_counts,
-            tuple([u.value() for u in self.accumulators]),
+            tuple(u.value() for u in self.accumulators),
             len_val,
         )
 
@@ -1370,8 +1360,8 @@ class HiddenMarkovAccumulator(SequenceEncodableStatisticAccumulator):
         if self.state_key is not None:
             if self.state_key in stats_dict:
                 acc = stats_dict[self.state_key]
-                for i, _ in enumerate(acc):
-                    acc[i] = acc[i].combine(self.accumulators[i].value())
+                for i, acc_i in enumerate(acc):
+                    acc_i = acc_i.combine(self.accumulators[i].value())
             else:
                 stats_dict[self.state_key] = self.accumulators
 
@@ -1380,8 +1370,6 @@ class HiddenMarkovAccumulator(SequenceEncodableStatisticAccumulator):
 
         if self.len_accumulator is not None:
             self.len_accumulator.key_merge(stats_dict)
-
-        return None
 
     def key_replace(self, stats_dict: Dict[str, Any]) -> None:
         """Replace this accumulator's values with those from a dictionary by key.
@@ -1407,8 +1395,6 @@ class HiddenMarkovAccumulator(SequenceEncodableStatisticAccumulator):
 
         if self.len_accumulator is not None:
             self.len_accumulator.key_replace(stats_dict)
-
-        return None
 
     def acc_to_encoder(self) -> "HiddenMarkovDataEncoder":
         """Return a HiddenMarkovDataEncoder for this accumulator.
@@ -1672,12 +1658,11 @@ class HiddenMarkovDataEncoder(DataSequenceEncoder):
         return s
 
     def __eq__(self, other: object) -> bool:
-        if isinstance(other, HiddenMarkovDataEncoder):
-            if self.use_numba == other.use_numba:
-                if self.len_encoder == other.len_encoder:
-                    return True
-        else:
-            return False
+        return (
+            isinstance(other, HiddenMarkovDataEncoder)
+            and self.use_numba == other.use_numba
+            and self.len_encoder == other.len_encoder
+        )
 
     def _seq_encode(
         self, x: Sequence[Sequence[T]]
@@ -1950,7 +1935,7 @@ def numba_seq_log_density(
     "float64[:,:], float64[:,:], float64[:], "
     "float64[:], float64[:,:])"
 )
-def numba_baum_welch(
+def numba_baum_welch(  # pylint: disable=too-many-positional-arguments
     num_states: int,
     tz: np.ndarray,
     prob_mat: np.ndarray,

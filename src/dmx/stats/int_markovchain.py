@@ -273,16 +273,14 @@ class IntegerMarkovChainSampler(DistributionSampler):
                 "IntegerMarkovChainSampler requires init_dist for "
                 "IntegerMarkovDistribution."
             )
-        else:
-            self.init_sampler = dist.init_dist.sampler(seeds[1])
+        self.init_sampler = dist.init_dist.sampler(seeds[1])
 
         if isinstance(dist.len_dist, NullDistribution):
             raise Exception(
                 "IntegerMarkovChainSampler requires len_dist for "
                 "IntegerMarkovDistribution."
             )
-        else:
-            self.len_sampler = dist.len_dist.sampler(seeds[2])
+        self.len_sampler = dist.len_dist.sampler(seeds[2])
 
     def single_sample(self) -> Sequence[int]:
         """Returns a single sample from the integer Markov chain distribution."""
@@ -299,8 +297,7 @@ class IntegerMarkovChainSampler(DistributionSampler):
                     self.trans_sampler.choice(n_val, p=self.dist.cond_dist[idx, :])
                 )
             return rv
-        else:
-            return []
+        return []
 
     def sample(
         self, size: Optional[int] = None
@@ -317,8 +314,7 @@ class IntegerMarkovChainSampler(DistributionSampler):
         """
         if size is not None:
             return [self.single_sample() for i in range(size)]
-        else:
-            return self.single_sample()
+        return self.single_sample()
 
     def sample_given(self, x: Sequence[int]) -> int:
         """Sample from the Markov chain conditioned on a given value 'x'.
@@ -398,7 +394,7 @@ class IntegerMarkovChainAccumulator(SequenceEncodableStatisticAccumulator):
 
         """
         self.lag = lag
-        self.trans_count_map = dict()
+        self.trans_count_map = {}
         self.len_accumulator = (
             len_accumulator if len_accumulator is not None else NullAccumulator()
         )
@@ -742,7 +738,7 @@ class IntegerMarkovChainEstimator(ParameterEstimator):
             else self.init_estimator.estimate(None, init_ss)
         )
 
-        num_values = 1 + max([max(max(u[0]), u[1]) for u in trans_count_map.keys()])
+        num_values = 1 + max(max(max(u[0]), u[1]) for u in trans_count_map.keys())
 
         cond_mat = np.zeros((num_values**lag, num_values), dtype=np.float32)
 
@@ -817,10 +813,8 @@ class IntegerMarkovChainDataEncoder(DataSequenceEncoder):
             c2 = self.lag == other.lag
             if c0 and c1 and c2:
                 return True
-            else:
-                return False
-        else:
             return False
+        return False
 
     def seq_encode(
         self, x: List[Sequence[int]]
@@ -866,8 +860,8 @@ class IntegerMarkovChainDataEncoder(DataSequenceEncoder):
         i0 = 0
         i1 = 0
 
-        for i, _ in enumerate(x):
-            xx = x[i]
+        for i, x_i in enumerate(x):
+            xx = x_i
             seq_len.append(max(len(xx) - lag + 1, 0))
 
             if len(xx) < lag:

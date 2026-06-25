@@ -288,8 +288,7 @@ class JointMixtureSampler(DistributionSampler):
             f2 = self.comp_sampler2[comp_state2].sample()
 
             return f1, f2
-        else:
-            return [self.sample() for i in range(size)]
+        return [self.sample() for i in range(size)]
 
 
 class JointMixtureEstimatorAccumulator(SequenceEncodableStatisticAccumulator):
@@ -526,8 +525,8 @@ class JointMixtureEstimatorAccumulator(SequenceEncodableStatisticAccumulator):
             self.comp_counts1,
             self.comp_counts2,
             self.joint_counts,
-            tuple([u.value() for u in self.accumulators1]),
-            tuple([u.value() for u in self.accumulators2]),
+            tuple(u.value() for u in self.accumulators1),
+            tuple(u.value() for u in self.accumulators2),
         )
 
     def from_value(
@@ -563,18 +562,14 @@ class JointMixtureEstimatorAccumulator(SequenceEncodableStatisticAccumulator):
                 for i, u in enumerate(stats_dict[acc1_key]):
                     self.accumulators1[i].combine(u)
             else:
-                stats_dict[acc1_key] = tuple(
-                    [acc.value() for acc in self.accumulators1]
-                )
+                stats_dict[acc1_key] = tuple(acc.value() for acc in self.accumulators1)
 
         if acc2_key is not None:
             if acc2_key in stats_dict:
                 for i, u in enumerate(stats_dict[acc2_key]):
                     self.accumulators2[i].combine(u)
             else:
-                stats_dict[acc2_key] = tuple(
-                    [acc.value() for acc in self.accumulators2]
-                )
+                stats_dict[acc2_key] = tuple(acc.value() for acc in self.accumulators2)
 
     def key_replace(self, stats_dict: Dict[str, Any]) -> None:
         weight_key, acc1_key, acc2_key = self.keys
@@ -812,8 +807,7 @@ class JointMixtureDataEncoder(DataSequenceEncoder):
     def __eq__(self, other: object) -> bool:
         if isinstance(other, JointMixtureDataEncoder):
             return self.encoder2 == other.encoder2 and self.encoder1 == other.encoder1
-        else:
-            return False
+        return False
 
     def seq_encode(
         self, x: Sequence[Tuple[T0, T1]]

@@ -137,10 +137,8 @@ class IgnoredSampler(DistributionSampler):
         if self.null_sampler:
             if size is None:
                 return None
-            else:
-                return [None] * size
-        else:
-            return self.dist_sampler.sample(size=size)
+            return [None] * size
+        return self.dist_sampler.sample(size=size)
 
 
 class IgnoredAccumulator(SequenceEncodableStatisticAccumulator):
@@ -327,8 +325,7 @@ class IgnoredDataEncoder(DataSequenceEncoder):
     def __eq__(self, other: object) -> bool:
         if isinstance(other, IgnoredDataEncoder):
             return other.encoder == self.encoder
-        else:
-            return False
+        return False
 
     def seq_encode(self, x: Sequence[T]) -> "IgnoredEncodedDataSequence":
         return IgnoredEncodedDataSequence(data=self.encoder.seq_encode(x))

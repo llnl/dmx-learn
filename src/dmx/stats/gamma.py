@@ -125,14 +125,13 @@ class GammaDistribution(SequenceEncodableProbabilityDistribution):
         """
         if pseudo_count is None:
             return GammaEstimator(name=self.name, keys=self.keys)
-        else:
-            suff_stat = (self.k * self.theta, exp(digamma(self.k) + log(self.theta)))
-            return GammaEstimator(
-                pseudo_count=(pseudo_count, pseudo_count),
-                suff_stat=suff_stat,
-                name=self.name,
-                keys=self.keys,
-            )
+        suff_stat = (self.k * self.theta, exp(digamma(self.k) + log(self.theta)))
+        return GammaEstimator(
+            pseudo_count=(pseudo_count, pseudo_count),
+            suff_stat=suff_stat,
+            name=self.name,
+            keys=self.keys,
+        )
 
     def dist_to_encoder(self) -> "GammaDataEncoder":
         """Return a GammaDataEncoder for this distribution.
@@ -178,8 +177,7 @@ class GammaSampler(DistributionSampler):
             return self.rng.gamma(
                 shape=self.dist.k, scale=self.dist.theta, size=size
             ).tolist()
-        else:
-            return float(self.rng.gamma(shape=self.dist.k, scale=self.dist.theta))
+        return float(self.rng.gamma(shape=self.dist.k, scale=self.dist.theta))
 
 
 class GammaAccumulator(SequenceEncodableStatisticAccumulator):
@@ -504,9 +502,8 @@ class GammaDataEncoder(DataSequenceEncoder):
         rv1 = np.asarray(x, dtype=float)
         if np.any(rv1 <= 0) or np.any(np.isnan(rv1)):
             raise Exception("GammaDistribution has support x > 0.")
-        else:
-            rv2 = np.log(rv1)
-            return GammaEncodedDataSequence(data=(rv1, rv2))
+        rv2 = np.log(rv1)
+        return GammaEncodedDataSequence(data=(rv1, rv2))
 
 
 class GammaEncodedDataSequence(EncodedDataSequence):

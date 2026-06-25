@@ -129,8 +129,8 @@ class SequenceDistribution(SequenceEncodableProbabilityDistribution):
         """
         rv = 1.0
 
-        for i, _ in enumerate(x):
-            rv *= self.dist.density(x[i])
+        for i, x_i in enumerate(x):
+            rv *= self.dist.density(x_i)
 
         if self.len_normalized and len(x) > 0:
             rv = np.power(rv, 1.0 / len(x))
@@ -153,8 +153,8 @@ class SequenceDistribution(SequenceEncodableProbabilityDistribution):
         """
         rv = 0.0
 
-        for i, _ in enumerate(x):
-            rv += self.dist.log_density(x[i])
+        for i, x_i in enumerate(x):
+            rv += self.dist.log_density(x_i)
 
         if self.len_normalized and len(x) > 0:
             rv /= len(x)
@@ -203,8 +203,7 @@ class SequenceDistribution(SequenceEncodableProbabilityDistribution):
                 "Error: len_dist cannot be none for "
                 "SequenceDistribution.sampler(seed:Optional[int]=None)."
             )
-        else:
-            return SequenceSampler(self.dist, self.len_dist, seed)
+        return SequenceSampler(self.dist, self.len_dist, seed)
 
     def estimator(self, pseudo_count: Optional[float] = None) -> "SequenceEstimator":
         len_est = self.len_dist.estimator(pseudo_count=pseudo_count)
@@ -283,8 +282,7 @@ class SequenceSampler(DistributionSampler):
         if size is None:
             n = self.len_sampler.sample()
             return [self.dist_sampler.sample() for i in range(n)]
-        else:
-            return [self.sample() for i in range(size)]
+        return [self.sample() for i in range(size)]
 
 
 class SequenceAccumulator(SequenceEncodableStatisticAccumulator):
@@ -360,8 +358,8 @@ class SequenceAccumulator(SequenceEncodableStatisticAccumulator):
         if estimate is None:
             w = weight / len(x) if (self.len_normalized and len(x) > 0) else weight
 
-            for i, _ in enumerate(x):
-                self.accumulator.update(x[i], w, None)
+            for i, x_i in enumerate(x):
+                self.accumulator.update(x_i, w, None)
 
             if not self.null_len_accumulator:
                 self.len_accumulator.update(len(x), weight, None)
@@ -369,8 +367,8 @@ class SequenceAccumulator(SequenceEncodableStatisticAccumulator):
         else:
             w = weight / len(x) if (self.len_normalized and len(x) > 0) else weight
 
-            for i, _ in enumerate(x):
-                self.accumulator.update(x[i], w, estimate.dist)
+            for i, x_i in enumerate(x):
+                self.accumulator.update(x_i, w, estimate.dist)
 
             if not self.null_len_accumulator:
                 self.len_accumulator.update(len(x), weight, estimate.len_dist)
@@ -632,13 +630,12 @@ class SequenceEstimator(ParameterEstimator):
                 name=self.name,
             )
 
-        else:
-            return SequenceDistribution(
-                self.estimator.estimate(nobs, suff_stat[0]),
-                len_dist=self.len_estimator.estimate(nobs, suff_stat[1]),
-                len_normalized=self.len_normalized,
-                name=self.name,
-            )
+        return SequenceDistribution(
+            self.estimator.estimate(nobs, suff_stat[0]),
+            len_dist=self.len_estimator.estimate(nobs, suff_stat[1]),
+            len_normalized=self.len_normalized,
+            name=self.name,
+        )
 
 
 class SequenceDataEncoder(DataSequenceEncoder):
@@ -690,26 +687,25 @@ class SequenceDataEncoder(DataSequenceEncoder):
         if not isinstance(other, SequenceDataEncoder):
             return False
 
-        else:
-            if not self.encoder == other.encoder:
-                return False
+        if not self.encoder == other.encoder:
+            return False
 
-            if not self.len_encoder == other.len_encoder:
-                return False
+        if not self.len_encoder == other.len_encoder:
+            return False
 
-            return True
+        return True
 
     def seq_encode(self, x: Sequence[Sequence[T]]) -> "SequenceEncodedDataSequence":
         tx = []
         nx = []
         tidx = []
 
-        for i, _ in enumerate(x):
-            nx.append(len(x[i]))
+        for i, x_i in enumerate(x):
+            nx.append(len(x_i))
 
-            for j, _ in enumerate(x[i]):
+            for j, x_i_j in enumerate(x_i):
                 tidx.append(i)
-                tx.append(x[i][j])
+                tx.append(x_i_j)
 
         rv1 = np.asarray(tidx, dtype=int)
         rv2 = np.asarray(nx, dtype=float)

@@ -78,8 +78,7 @@ class ExponentialDistribution(SequenceEncodableProbabilityDistribution):
         """
         if x < 0:
             return -inf
-        else:
-            return -x / self.beta - self.log_beta
+        return -x / self.beta - self.log_beta
 
     def seq_log_density(self, x: "ExponentialEncodedDataSequence") -> np.ndarray:
         """Vectorized log-density for encoded data.
@@ -121,13 +120,12 @@ class ExponentialDistribution(SequenceEncodableProbabilityDistribution):
         """
         if pseudo_count is None:
             return ExponentialEstimator(name=self.name, keys=self.keys)
-        else:
-            return ExponentialEstimator(
-                pseudo_count=pseudo_count,
-                suff_stat=self.beta,
-                name=self.name,
-                keys=self.keys,
-            )
+        return ExponentialEstimator(
+            pseudo_count=pseudo_count,
+            suff_stat=self.beta,
+            name=self.name,
+            keys=self.keys,
+        )
 
     def dist_to_encoder(self) -> "ExponentialDataEncoder":
         """Return an ExponentialDataEncoder for this distribution.

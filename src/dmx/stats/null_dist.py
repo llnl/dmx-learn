@@ -84,8 +84,7 @@ class NullDistribution(SequenceEncodableProbabilityDistribution):
         if pseudo_count is None:
             return NullEstimator(name=self.name)
 
-        else:
-            return NullEstimator(pseudo_count=pseudo_count, name=self.name)
+        return NullEstimator(pseudo_count=pseudo_count, name=self.name)
 
     def dist_to_encoder(self) -> "NullDataEncoder":
         return NullDataEncoder()

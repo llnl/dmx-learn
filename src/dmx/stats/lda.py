@@ -218,13 +218,12 @@ class LDADistribution(SequenceEncodableProbabilityDistribution):
                 name=self.name,
                 keys=self.keys,
             )
-        else:
-            return LDAEstimator(
-                estimators=[d.estimator() for d in self.topics],
-                pseudo_count=(pseudo_count, pseudo_count),
-                name=self.name,
-                keys=self.keys,
-            )
+        return LDAEstimator(
+            estimators=[d.estimator() for d in self.topics],
+            pseudo_count=(pseudo_count, pseudo_count),
+            name=self.name,
+            keys=self.keys,
+        )
 
     def dist_to_encoder(self) -> "LDADataEncoder":
         return LDADataEncoder(encoder=self.topics[0].dist_to_encoder())
@@ -260,8 +259,7 @@ class LDASampler(DistributionSampler):
                 rv.extend(self.comp_samplers[i].sample(size=topic_counts[i]))
             return rv
 
-        else:
-            return [self.sample() for i in range(size)]
+        return [self.sample() for i in range(size)]
 
 
 class LDAEstimatorAccumulator(SequenceEncodableStatisticAccumulator):
@@ -370,8 +368,8 @@ class LDAEstimatorAccumulator(SequenceEncodableStatisticAccumulator):
 
         for j in range(self.num_topics):
             w = ww_v[:, j]
-            for i, _ in enumerate(x):
-                self.accumulators[j].initialize(x[i][0], w[i], self._rng_topics[j])
+            for i, x_i in enumerate(x):
+                self.accumulators[j].initialize(x_i[0], w[i], self._rng_topics[j])
                 self.topic_counts[j] += w[i]
 
     def seq_update(
@@ -478,8 +476,8 @@ class LDAEstimatorAccumulator(SequenceEncodableStatisticAccumulator):
         if self.topics_key is not None:
             if self.topics_key in stats_dict:
                 acc = stats_dict[self.topics_key]
-                for i, _ in enumerate(acc):
-                    acc[i] = acc[i].combine(self.accumulators[i].value())
+                for i, acc_i in enumerate(acc):
+                    acc_i = acc_i.combine(self.accumulators[i].value())
             else:
                 stats_dict[self.topics_key] = self.accumulators
 
@@ -607,8 +605,7 @@ class LDADataEncoder(DataSequenceEncoder):
     def __eq__(self, other) -> bool:
         if isinstance(other, LDADataEncoder):
             return self.encoder == other.encoder
-        else:
-            return False
+        return False
 
     def seq_encode(
         self, x: Sequence[Sequence[Tuple[int, float]]]
@@ -636,12 +633,12 @@ class LDADataEncoder(DataSequenceEncoder):
         ctx = []
         nx = []
         tidx = []
-        for i, _ in enumerate(x):
-            nx.append(len(x[i]))
-            for j, _ in enumerate(x[i]):
+        for i, x_i in enumerate(x):
+            nx.append(len(x_i))
+            for j, x_i_j in enumerate(x_i):
                 tidx.append(i)
-                tx.append(x[i][j][0])
-                ctx.append(x[i][j][1])
+                tx.append(x_i_j[0])
+                ctx.append(x_i_j[1])
 
         idx = np.asarray(tidx)
         counts = np.asarray(ctx)
@@ -689,7 +686,7 @@ def mpe_update(
     if x_mat is None:
         x_mat = np.reshape(y, (1, -1))
         return x_mat, y
-    elif x_mat.shape[0] < min_size:
+    if x_mat.shape[0] < min_size:
         x_mat = np.concatenate((x_mat, np.reshape(y, (1, -1))), axis=0)
         return x_mat, y
 

@@ -98,8 +98,7 @@ class PoissonDistribution(SequenceEncodableProbabilityDistribution):
         """
         if x < 0:
             return -np.inf
-        else:
-            return x * self.log_lambda - gammaln(x + 1.0) - self.lam
+        return x * self.log_lambda - gammaln(x + 1.0) - self.lam
 
     def seq_log_density(self, x: "PoissonEncodedDataSequence") -> np.ndarray:
 
@@ -119,13 +118,12 @@ class PoissonDistribution(SequenceEncodableProbabilityDistribution):
     def estimator(self, pseudo_count: Optional[float] = None) -> "PoissonEstimator":
         if pseudo_count is None:
             return PoissonEstimator(name=self.name, keys=self.keys)
-        else:
-            return PoissonEstimator(
-                pseudo_count=pseudo_count,
-                suff_stat=self.lam,
-                name=self.name,
-                keys=self.keys,
-            )
+        return PoissonEstimator(
+            pseudo_count=pseudo_count,
+            suff_stat=self.lam,
+            name=self.name,
+            keys=self.keys,
+        )
 
     def dist_to_encoder(self) -> "PoissonDataEncoder":
         return PoissonDataEncoder()
@@ -169,8 +167,7 @@ class PoissonSampler(DistributionSampler):
         """
         if size:
             return self.rng.poisson(lam=self.dist.lam, size=size).tolist()
-        else:
-            return int(self.rng.poisson(lam=self.dist.lam))
+        return int(self.rng.poisson(lam=self.dist.lam))
 
 
 class PoissonAccumulator(SequenceEncodableStatisticAccumulator):
@@ -343,8 +340,7 @@ class PoissonEstimator(ParameterEstimator):
                 / (nobs + self.pseudo_count),
                 name=self.name,
             )
-        else:
-            return PoissonDistribution(psum / nobs, name=self.name)
+        return PoissonDistribution(psum / nobs, name=self.name)
 
 
 class PoissonDataEncoder(DataSequenceEncoder):
@@ -364,10 +360,9 @@ class PoissonDataEncoder(DataSequenceEncoder):
 
         if np.any(rv1 < 0) or np.any(np.isnan(rv1)):
             raise Exception("Poisson requires non-negative integer values of x.")
-        else:
-            rv2 = gammaln(rv1 + 1.0)
+        rv2 = gammaln(rv1 + 1.0)
 
-            return PoissonEncodedDataSequence(data=(rv1, rv2))
+        return PoissonEncodedDataSequence(data=(rv1, rv2))
 
 
 class PoissonEncodedDataSequence(EncodedDataSequence):

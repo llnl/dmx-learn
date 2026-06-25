@@ -144,13 +144,12 @@ class IntegerCategoricalDistribution(SequenceEncodableProbabilityDistribution):
         if pseudo_count is None:
             return IntegerCategoricalEstimator(name=self.name, keys=self.keys)
 
-        else:
-            return IntegerCategoricalEstimator(
-                pseudo_count=pseudo_count,
-                suff_stat=(self.min_val, self.p_vec),
-                name=self.name,
-                keys=self.keys,
-            )
+        return IntegerCategoricalEstimator(
+            pseudo_count=pseudo_count,
+            suff_stat=(self.min_val, self.p_vec),
+            name=self.name,
+            keys=self.keys,
+        )
 
     def dist_to_encoder(self) -> "IntegerCategoricalDataEncoder":
         return IntegerCategoricalDataEncoder()
@@ -203,12 +202,11 @@ class IntegerCategoricalSampler(DistributionSampler):
                 )
             )
 
-        else:
-            return self.rng.choice(
-                range(self.dist.min_val, self.dist.max_val + 1),
-                p=self.dist.p_vec,
-                size=size,
-            ).tolist()
+        return self.rng.choice(
+            range(self.dist.min_val, self.dist.max_val + 1),
+            p=self.dist.p_vec,
+            size=size,
+        ).tolist()
 
 
 class IntegerCategoricalAccumulator(SequenceEncodableStatisticAccumulator):
@@ -523,7 +521,7 @@ class IntegerCategoricalEstimator(ParameterEstimator):
                 name=self.name,
             )
 
-        elif (
+        if (
             self.pseudo_count is not None
             and self.min_val is not None
             and self.max_val is not None
@@ -547,7 +545,7 @@ class IntegerCategoricalEstimator(ParameterEstimator):
                 name=self.name,
             )
 
-        elif self.pseudo_count is not None and self.suff_stat is not None:
+        if self.pseudo_count is not None and self.suff_stat is not None:
 
             s_max_val = self.suff_stat[0] + len(self.suff_stat[1]) - 1
             s_min_val = self.suff_stat[0]
@@ -569,10 +567,9 @@ class IntegerCategoricalEstimator(ParameterEstimator):
                 min_val, count_vec / (count_vec.sum()), name=self.name
             )
 
-        else:
-            return IntegerCategoricalDistribution(
-                suff_stat[0], suff_stat[1] / (suff_stat[1].sum()), name=self.name
-            )
+        return IntegerCategoricalDistribution(
+            suff_stat[0], suff_stat[1] / (suff_stat[1].sum()), name=self.name
+        )
 
 
 class IntegerCategoricalDataEncoder(DataSequenceEncoder):

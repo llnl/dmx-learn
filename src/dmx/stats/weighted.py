@@ -92,10 +92,9 @@ class WeightedDistribution(SequenceEncodableProbabilityDistribution):
                 name=self.name,
                 keys=self.keys,
             )
-        else:
-            return WeightedEstimator(
-                estimator=self.dist.estimator(), name=self.name, keys=self.keys
-            )
+        return WeightedEstimator(
+            estimator=self.dist.estimator(), name=self.name, keys=self.keys
+        )
 
     def sampler(self, seed: Optional[int] = None) -> "DistributionSampler":
         return self.dist.sampler(seed)
@@ -283,8 +282,7 @@ class WeightedDataEncoder(DataSequenceEncoder):
     def __eq__(self, other: object) -> bool:
         if isinstance(other, WeightedDataEncoder):
             return other.encoder == self.encoder
-        else:
-            return False
+        return False
 
     def seq_encode(self, x: Sequence[Tuple[T, float]]) -> "WeightedEncodedDataSequence":
         rv_enc = self.encoder.seq_encode([xx[0] for xx in x]), np.asarray(

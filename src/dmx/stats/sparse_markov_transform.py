@@ -278,8 +278,7 @@ class SparseMarkovAssociationSampler(DistributionSampler):
 
             return list(count_by_value(v1).items()), list(count_by_value(v2).items())
 
-        else:
-            return [self.sample() for i in range(size)]
+        return [self.sample() for i in range(size)]
 
 
 class SparseMarkovAssociationAccumulator(SequenceEncodableStatisticAccumulator):
@@ -654,8 +653,7 @@ class SparseMarkovAssociationDataEncoder(DataSequenceEncoder):
                 other.len_encoder == self.len_encoder
                 and self.low_memory == other.low_memory
             )
-        else:
-            return False
+        return False
 
     def __str__(self) -> str:
         return (
@@ -699,7 +697,7 @@ class SparseMarkovAssociationDataEncoder(DataSequenceEncoder):
         else:
             rv = []
             nn = []
-            vmap = dict()
+            vmap = {}
 
             obsidx = []
             pairidx = []

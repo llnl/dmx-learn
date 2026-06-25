@@ -75,12 +75,10 @@ class MultivariateGaussianDistribution(SequenceEncodableProbabilityDistribution)
             raise RuntimeError(
                 "Cannot obtain Choleskey factorization for covariance matrix."
             )
-        else:
-            self.use_lstsq = False
-            self.chol_const = -0.5 * (
-                len(self.mu) * np.log(2.0 * pi)
-                + 2.0 * np.log(vec.diag(self.chol)).sum()
-            )
+        self.use_lstsq = False
+        self.chol_const = -0.5 * (
+            len(self.mu) * np.log(2.0 * pi) + 2.0 * np.log(vec.diag(self.chol)).sum()
+        )
 
     def __str__(self) -> str:
         s1 = repr(self.mu.tolist())
@@ -116,14 +114,13 @@ class MultivariateGaussianDistribution(SequenceEncodableProbabilityDistribution)
         """
         if self.use_lstsq:
             raise RuntimeError("Least-squares log-likelihood evaluation not supported.")
-        else:
-            try:
-                diff = self.mu - x
-                soln = scipy.linalg.cho_solve((self.chol, self.lower), diff.T).T
-                rv = self.chol_const - 0.5 * ((diff * soln).sum())
-                return rv
-            except Exception as e:
-                raise e
+        try:
+            diff = self.mu - x
+            soln = scipy.linalg.cho_solve((self.chol, self.lower), diff.T).T
+            rv = self.chol_const - 0.5 * ((diff * soln).sum())
+            return rv
+        except Exception as e:
+            raise e
 
     def seq_log_density(
         self, x: "MultivariateGaussianEncodedDataSequence"
@@ -137,11 +134,10 @@ class MultivariateGaussianDistribution(SequenceEncodableProbabilityDistribution)
 
         if self.use_lstsq:
             return np.ones(x.data.shape[0])
-        else:
-            diff = self.mu - x.data
-            soln = scipy.linalg.cho_solve((self.chol, self.lower), diff.T).T
-            rv = self.chol_const - 0.5 * ((diff * soln).sum(axis=1))
-            return rv
+        diff = self.mu - x.data
+        soln = scipy.linalg.cho_solve((self.chol, self.lower), diff.T).T
+        rv = self.chol_const - 0.5 * ((diff * soln).sum(axis=1))
+        return rv
 
     def sampler(self, seed: Optional[int] = None):
         return MultivariateGaussianSampler(self, seed)
@@ -151,15 +147,14 @@ class MultivariateGaussianDistribution(SequenceEncodableProbabilityDistribution)
             return MultivariateGaussianEstimator(
                 dim=self.dim, name=self.name, keys=self.keys
             )
-        else:
-            pseudo_count = (pseudo_count, pseudo_count)
-            return MultivariateGaussianEstimator(
-                dim=self.dim,
-                pseudo_count=pseudo_count,
-                suff_stat=(self.mu, self.covar),
-                name=self.name,
-                keys=self.keys,
-            )
+        pseudo_count = (pseudo_count, pseudo_count)
+        return MultivariateGaussianEstimator(
+            dim=self.dim,
+            pseudo_count=pseudo_count,
+            suff_stat=(self.mu, self.covar),
+            name=self.name,
+            keys=self.keys,
+        )
 
     def dist_to_encoder(self) -> "MultivariateGaussianDataEncoder":
         return MultivariateGaussianDataEncoder(dim=self.dim)

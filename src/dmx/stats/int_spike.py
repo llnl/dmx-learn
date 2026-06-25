@@ -76,8 +76,7 @@ class SpikeAndSlabDistribution(SequenceEncodableProbabilityDistribution):
                 f"Spike value k must be between [{repr(self.min_val)}, "
                 f"{repr(self.max_val)}]."
             )
-        else:
-            self.k = k
+        self.k = k
 
         self.log_p = np.log(p)
         self.num_vals = num_vals
@@ -104,8 +103,7 @@ class SpikeAndSlabDistribution(SequenceEncodableProbabilityDistribution):
     def log_density(self, x: int) -> float:
         if self.max_val >= x >= self.min_val:
             return self.log_p if x == self.k else self.log_1p
-        else:
-            return -np.inf
+        return -np.inf
 
     def seq_log_density(self, x: "SpikeAndSlabEncodedDataSequence") -> np.ndarray:
 
@@ -141,14 +139,13 @@ class SpikeAndSlabDistribution(SequenceEncodableProbabilityDistribution):
                 keys=self.keys,
             )
 
-        else:
-            return SpikeAndSlabEstimator(
-                min_val=self.min_val,
-                max_val=self.max_val,
-                pseudo_count=pseudo_count,
-                name=self.name,
-                keys=self.keys,
-            )
+        return SpikeAndSlabEstimator(
+            min_val=self.min_val,
+            max_val=self.max_val,
+            pseudo_count=pseudo_count,
+            name=self.name,
+            keys=self.keys,
+        )
 
     def dist_to_encoder(self) -> "SpikeAndSlabDataEncoder":
         return SpikeAndSlabDataEncoder()
@@ -186,19 +183,17 @@ class SpikeAndSlabSampler(DistributionSampler):
             z = self.rng.binomial(n=1, p=self.dist.p)
             if z == 1:
                 return self.dist.k
-            else:
-                return self.rng.choice(self.non_k)
-        else:
+            return self.rng.choice(self.non_k)
 
-            rv = np.zeros(size, dtype=int)
-            rv.fill(self.dist.k)
-            z = self.rng.binomial(n=1, p=self.dist.p, size=size)
-            idx = np.flatnonzero(z == 0)
+        rv = np.zeros(size, dtype=int)
+        rv.fill(self.dist.k)
+        z = self.rng.binomial(n=1, p=self.dist.p, size=size)
+        idx = np.flatnonzero(z == 0)
 
-            if len(idx) > 0:
-                rv[idx] = self.rng.choice(self.non_k, replace=True, size=len(idx))
+        if len(idx) > 0:
+            rv[idx] = self.rng.choice(self.non_k, replace=True, size=len(idx))
 
-            return rv
+        return rv
 
 
 class SpikeAndSlabAccumulator(SequenceEncodableStatisticAccumulator):
@@ -481,6 +476,7 @@ class SpikeAndSlabEstimator(ParameterEstimator):
                     p=p,
                     name=self.name,
                 )
+
             if self.pseudo_count is not None:
                 if self.suff_stat[0] is not None and self.suff_stat[1] is None:
                     k_pseudo = (
@@ -506,7 +502,7 @@ class SpikeAndSlabEstimator(ParameterEstimator):
                         name=self.name,
                     )
 
-                elif self.suff_stat[0] is not None and self.suff_stat[1] is not None:
+                if self.suff_stat[0] is not None and self.suff_stat[1] is not None:
                     k_pseudo = (
                         self.suff_stat[0]
                         if min_val is None
@@ -529,24 +525,25 @@ class SpikeAndSlabEstimator(ParameterEstimator):
                         p=p,
                         name=self.name,
                     )
-                else:
-                    count_vec += self.pseudo_count
-                    count = np.sum(count_vec)
-                    p_vec = count_vec / count
-                    ll = np.log1p(-p_vec)
-                    ll -= np.log(len(count_vec) - 1)
-                    ll *= count - count_vec
-                    ll += count_vec * np.log(p_vec)
-                    k = np.argmax(ll)
-                    p = p_vec[k]
+                count_vec += self.pseudo_count
+                count = np.sum(count_vec)
+                p_vec = count_vec / count
+                ll = np.log1p(-p_vec)
+                ll -= np.log(len(count_vec) - 1)
+                ll *= count - count_vec
+                ll += count_vec * np.log(p_vec)
+                k = np.argmax(ll)
+                p = p_vec[k]
 
-                    return SpikeAndSlabDistribution(
-                        k=k if min_val is None else k + min_val,
-                        min_val=min_val,
-                        num_vals=len(count_vec),
-                        p=p,
-                        name=self.name,
-                    )
+                return SpikeAndSlabDistribution(
+                    k=k if min_val is None else k + min_val,
+                    min_val=min_val,
+                    num_vals=len(count_vec),
+                    p=p,
+                    name=self.name,
+                )
+
+        return None
 
 
 class SpikeAndSlabDataEncoder(DataSequenceEncoder):
@@ -557,7 +554,7 @@ class SpikeAndSlabDataEncoder(DataSequenceEncoder):
         return "IntegerCategoricalDataEncoder"
 
     def __eq__(self, other: object) -> bool:
-        return True if isinstance(other, SpikeAndSlabDataEncoder) else False
+        return isinstance(other, SpikeAndSlabDataEncoder)
 
     def seq_encode(
         self, x: Union[List[int], np.ndarray]

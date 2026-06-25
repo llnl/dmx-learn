@@ -271,7 +271,7 @@ class HierarchicalMixtureDistribution(SequenceEncodableProbabilityDistribution):
 
         if (sz > 0) and np.all(cnt == 0):
             return np.zeros(sz, dtype=np.float64)
-        elif sz == 0:
+        if sz == 0:
             return np.zeros(0, dtype=np.float64)
 
         # Compute p_mat(data|topic) for each topic
@@ -638,7 +638,7 @@ class HierarchicalMixtureEstimatorAccumulator(SequenceEncodableStatisticAccumula
 
         return (
             self.comp_counts,
-            tuple([u.value() for u in self.accumulators]),
+            tuple(u.value() for u in self.accumulators),
             self.len_accumulator.value(),
         )
 
@@ -663,8 +663,8 @@ class HierarchicalMixtureEstimatorAccumulator(SequenceEncodableStatisticAccumula
         if self.comp_key is not None:
             if self.comp_key in stats_dict:
                 acc = stats_dict[self.comp_key]
-                for i, _ in enumerate(acc):
-                    acc[i] = acc[i].combine(self.accumulators[i].value())
+                for i, acc_i in enumerate(acc):
+                    acc_i = acc_i.combine(self.accumulators[i].value())
             else:
                 stats_dict[self.comp_key] = self.accumulators
 
@@ -944,8 +944,7 @@ class HierarchicalMixtureDataEncoder(DataSequenceEncoder):
                 other.topic_encoder == self.topic_encoder
                 and other.len_encoder == self.len_encoder
             )
-        else:
-            return False
+        return False
 
     def seq_encode(
         self, x: Sequence[Sequence[T]]
@@ -954,10 +953,10 @@ class HierarchicalMixtureDataEncoder(DataSequenceEncoder):
         idx = []
         cnt = []
 
-        for i, _ in enumerate(x):
-            idx.extend([i] * len(x[i]))
-            sx.extend(x[i])
-            cnt.append(len(x[i]))
+        for i, x_i in enumerate(x):
+            idx.extend([i] * len(x_i))
+            sx.extend(x_i)
+            cnt.append(len(x_i))
 
         enc_len = self.len_encoder.seq_encode(cnt)
         idx = np.asarray(idx, dtype=np.int32)

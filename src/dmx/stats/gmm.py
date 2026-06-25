@@ -167,11 +167,10 @@ class GaussianMixtureDistribution(SequenceEncodableProbabilityDistribution):
         max_val = np.max(comp_log_density)
         if max_val == -np.inf:
             return self.w.copy()
-        else:
-            comp_log_density -= max_val
-            np.exp(comp_log_density, out=comp_log_density)
-            comp_log_density /= comp_log_density.sum()
-            return comp_log_density
+        comp_log_density -= max_val
+        np.exp(comp_log_density, out=comp_log_density)
+        comp_log_density /= comp_log_density.sum()
+        return comp_log_density
 
     def seq_component_log_density(
         self, x: "GaussianMixtureEncodedDataSequence"
@@ -226,18 +225,17 @@ class GaussianMixtureDistribution(SequenceEncodableProbabilityDistribution):
             np.log(ll_sum, out=ll_sum)
             ll_sum += ll_max
             return ll_sum.flatten()
-        else:
-            ll_mat = ll_mat[good_rows, :]
-            ll_max = ll_max[good_rows]
-            ll_mat -= ll_max
-            np.exp(ll_mat, out=ll_mat)
-            ll_sum = np.sum(ll_mat, axis=1, keepdims=True)
-            np.log(ll_sum, out=ll_sum)
-            ll_sum += ll_max
-            rv = np.zeros(good_rows.shape, dtype=float)
-            rv[good_rows] = ll_sum.flatten()
-            rv[~good_rows] = -np.inf
-            return rv
+        ll_mat = ll_mat[good_rows, :]
+        ll_max = ll_max[good_rows]
+        ll_mat -= ll_max
+        np.exp(ll_mat, out=ll_mat)
+        ll_sum = np.sum(ll_mat, axis=1, keepdims=True)
+        np.log(ll_sum, out=ll_sum)
+        ll_sum += ll_max
+        rv = np.zeros(good_rows.shape, dtype=float)
+        rv[good_rows] = ll_sum.flatten()
+        rv[~good_rows] = -np.inf
+        return rv
 
     def seq_posterior(self, x: "GaussianMixtureEncodedDataSequence") -> np.ndarray:
         """Vectorized posterior probabilities for encoded data.

@@ -129,13 +129,12 @@ class GeometricDistribution(SequenceEncodableProbabilityDistribution):
         """
         if pseudo_count is None:
             return GeometricEstimator(name=self.name, keys=self.keys)
-        else:
-            return GeometricEstimator(
-                pseudo_count=pseudo_count,
-                suff_stat=self.p,
-                name=self.name,
-                keys=self.keys,
-            )
+        return GeometricEstimator(
+            pseudo_count=pseudo_count,
+            suff_stat=self.p,
+            name=self.name,
+            keys=self.keys,
+        )
 
     def dist_to_encoder(self) -> "GeometricDataEncoder":
         """Return a GeometricDataEncoder for this distribution.
@@ -459,8 +458,7 @@ class GeometricDataEncoder(DataSequenceEncoder):
             raise Exception(
                 "GeometricDistribution requires integers greater than 0 for x."
             )
-        else:
-            return GeometricEncodedDataSequence(data=np.asarray(rv, dtype=float))
+        return GeometricEncodedDataSequence(data=np.asarray(rv, dtype=float))
 
 
 class GeometricEncodedDataSequence(EncodedDataSequence):

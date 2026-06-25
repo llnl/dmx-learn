@@ -19,7 +19,6 @@ extension-pkg-allow-list=numpy,scipy,torch,numba
 disable=
     # Keep pylint focused on correctness; formatting/docs/style are enforced by Black,
     # isort, and pydocstyle in separate CI jobs.
-    R,
     W,
 
     # Too strict for scientific code
@@ -36,6 +35,7 @@ disable=
     # Variable naming (allow mathematical conventions)
     C0103,  # Invalid name (allow x, y, mu, sigma, etc.)
     C0302,  # Legacy stats modules exceed the module line budget
+    R0801,  # Legacy numerical kernels intentionally share similar structure
 
     # Numpy/scientific conventions
     E1101,  # No member (numpy has dynamic members)
@@ -190,6 +190,9 @@ valid-metaclass-classmethod-first-arg=mcs
 [DESIGN]
 # Maximum number of arguments for function / method
 max-args=10
+
+# Match max-args for pylint's positional-only argument check.
+max-positional-arguments=10
 
 # Maximum number of attributes for a class
 max-attributes=15

@@ -152,9 +152,9 @@ class MultinomialDistribution(SequenceEncodableProbabilityDistribution):
         """
         rv = 0.0
         cc = 0.0
-        for i, _ in enumerate(x):
-            rv += self.dist.log_density(x[i][0]) * x[i][1]
-            cc += x[i][1]
+        for i, x_i in enumerate(x):
+            rv += self.dist.log_density(x_i[0]) * x_i[1]
+            cc += x_i[1]
 
         if self.len_normalized and len(x) > 0:
             rv /= cc
@@ -298,7 +298,7 @@ class MultinomialSampler(DistributionSampler):
         """
         if size is None:
             n = self.len_sampler.sample()
-            rv = dict()
+            rv = {}
             for i in range(n):
                 v = self.dist_sampler.sample()
                 if v in rv:
@@ -307,8 +307,7 @@ class MultinomialSampler(DistributionSampler):
                     rv[v] = 1
             return list(rv.items())
 
-        else:
-            return [self.sample() for i in range(size)]
+        return [self.sample() for i in range(size)]
 
 
 class MultinomialAccumulator(SequenceEncodableStatisticAccumulator):
@@ -390,13 +389,13 @@ class MultinomialAccumulator(SequenceEncodableStatisticAccumulator):
 
         if estimate is None:
             w = weight / ss if (self.len_normalized and ss > 0) else weight
-            for i, _ in enumerate(x):
-                self.accumulator.update(x[i][0], w * x[i][1], None)
+            for i, x_i in enumerate(x):
+                self.accumulator.update(x_i[0], w * x_i[1], None)
             self.len_accumulator.update(ss, weight, None)
         else:
             w = weight / ss if (self.len_normalized and ss > 0) else weight
-            for i, _ in enumerate(x):
-                self.accumulator.update(x[i][0], w * x[i][1], estimate.dist)
+            for i, x_i in enumerate(x):
+                self.accumulator.update(x_i[0], w * x_i[1], estimate.dist)
             self.len_accumulator.update(ss, weight, estimate.len_dist)
 
     def _rng_initialize(self, rng: RandomState) -> None:
@@ -434,8 +433,8 @@ class MultinomialAccumulator(SequenceEncodableStatisticAccumulator):
         ss = sum(cc)
         w = weight / ss if self.len_normalized and ss > 0 else weight
 
-        for i, _ in enumerate(x):
-            self.accumulator.initialize(x[i][0], w * x[i][1], self._acc_rng)
+        for i, x_i in enumerate(x):
+            self.accumulator.initialize(x_i[0], w * x_i[1], self._acc_rng)
 
         self.len_accumulator.initialize(ss, weight, self._len_rng)
 
@@ -755,8 +754,7 @@ class MultinomialDataEncoder(DataSequenceEncoder):
     def __eq__(self, other: object) -> bool:
         if isinstance(other, MultinomialDataEncoder):
             return other.len_encoder == self.len_encoder
-        else:
-            return False
+        return False
 
     def __str__(self) -> str:
         return "MultinomialDataEncoder(len_encoder=" + str(self.len_encoder) + ")"
@@ -791,14 +789,14 @@ class MultinomialDataEncoder(DataSequenceEncoder):
         cc = []
         ccc = []
 
-        for i, _ in enumerate(x):
-            nx.append(len(x[i]))
+        for i, x_i in enumerate(x):
+            nx.append(len(x_i))
             aa = 0
-            for j, _ in enumerate(x[i]):
+            for j, x_i_j in enumerate(x_i):
                 tidx.append(i)
-                tx.append(x[i][j][0])
-                cc.append(x[i][j][1])
-                aa += x[i][j][1]
+                tx.append(x_i_j[0])
+                cc.append(x_i_j[1])
+                aa += x_i_j[1]
             ccc.append(aa)
 
         rv1 = np.asarray(tidx, dtype=int)

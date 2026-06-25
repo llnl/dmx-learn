@@ -172,7 +172,7 @@ class TreeHiddenMarkovModelDistribution(SequenceEncodableProbabilityDistribution
     def __str__(self) -> str:
         s1 = ",".join(map(str, self.topics))
         s2 = repr(list(self.w))
-        s3 = repr([u for u in self.transitions.tolist()])
+        s3 = repr(list(self.transitions.tolist()))
         s4 = str(self.len_dist)
         s5 = repr(self.name)
         s6 = repr(self.use_numba)
@@ -257,91 +257,87 @@ class TreeHiddenMarkovModelDistribution(SequenceEncodableProbabilityDistribution
 
             return ll_ret
 
-        else:
+        (
+            cnt,
+            tz,
+            (xln, xlnl, xlni),
+            (idx, xbi, xp, xc, level_idx, p_nxt, eta_p, i_nxt, _),
+            enc_x,
+            len_enc,
+        ) = x.data[1]
 
-            (
-                cnt,
-                tz,
-                (xln, xlnl, xlni),
-                (idx, xbi, xp, xc, level_idx, p_nxt, eta_p, i_nxt, _),
-                enc_x,
-                len_enc,
-            ) = x.data[1]
+        num_states = self.num_states
+        max_level = len(level_idx)
+        a_mat = self.transitions
+        w = self.w
+        num_trees = len(tz) - 1
 
-            num_states = self.num_states
-            max_level = len(level_idx)
-            a_mat = self.transitions
-            w = self.w
-            num_trees = len(tz) - 1
+        betas = np.ones((cnt, num_states), dtype=np.float64)
+        etas = np.zeros((len(xbi), num_states), dtype=np.float64)
 
-            betas = np.ones((cnt, num_states), dtype=np.float64)
-            etas = np.zeros((len(xbi), num_states), dtype=np.float64)
+        p_level = np.zeros((max_level + 1, num_states), dtype=np.float64)
+        p_level[0, :] += w
 
-            p_level = np.zeros((max_level + 1, num_states), dtype=np.float64)
-            p_level[0, :] += w
+        for level in range(1, max_level + 1):
+            p_level[level, :] += np.matmul(p_level[level - 1, :], a_mat)
 
-            for level in range(1, max_level + 1):
-                p_level[level, :] += np.matmul(p_level[level - 1, :], a_mat)
+        pr_obs = np.zeros((cnt, num_states), dtype=np.float64)
+        ll_ret = np.zeros(num_trees, dtype=np.float64)
 
-            pr_obs = np.zeros((cnt, num_states), dtype=np.float64)
-            ll_ret = np.zeros(num_trees, dtype=np.float64)
+        # Compute state likelihood vectors and scale the max to one
+        for i in range(num_states):
+            pr_obs[:, i] = self.topics[i].seq_log_density(enc_x)
 
-            # Compute state likelihood vectors and scale the max to one
-            for i in range(num_states):
-                pr_obs[:, i] = self.topics[i].seq_log_density(enc_x)
+        pr_max0 = pr_obs.max(axis=1)
+        pr_obs -= pr_max0[:, None]
+        np.exp(pr_obs, out=pr_obs)
 
-            pr_max0 = pr_obs.max(axis=1)
-            pr_obs -= pr_max0[:, None]
-            np.exp(pr_obs, out=pr_obs)
+        #  set the leaf nodes
+        betas[xln, :] *= pr_obs[xln, :] * p_level[xlnl, :]
+        betas_sum = np.sum(betas[xln, :], axis=1, keepdims=True)
+        betas[xln, :] /= betas_sum
 
-            #  set the leaf nodes
-            betas[xln, :] *= pr_obs[xln, :] * p_level[xlnl, :]
-            betas_sum = np.sum(betas[xln, :], axis=1, keepdims=True)
-            betas[xln, :] /= betas_sum
+        ll_ret += np.bincount(
+            xlni,
+            weights=np.log(betas_sum.flatten()) + pr_max0[xln],
+            minlength=num_trees,
+        )
+
+        #  upward pass on betas
+        for level in range(len(level_idx) - 1, -1, -1):
+
+            lidx = level_idx[level]
+            idxs, xbis, xps, xcs = idx[lidx], xbi[lidx], xp[lidx], xc[lidx]
+
+            #  Get etas
+            temp = np.reshape(betas[xcs, :], (-1, num_states, 1))
+            temp /= np.reshape(p_level[level + 1, :], (1, num_states, 1))
+            temp = np.sum(a_mat.T * temp, axis=1)
+            etas[xbis, :] += temp
+
+            temp = np.zeros((len(xbis) + 1, num_states), dtype=np.float64)
+            temp[1:, :] += np.log(etas[xbis, :])
+            log_etas = np.cumsum(temp, axis=0)
+            log_etas = log_etas[eta_p[level][1:], :] - log_etas[eta_p[level][:-1], :]
+
+            betas[p_nxt[level], :] *= np.exp(log_etas) * pr_obs[p_nxt[level], :]
+            betas[p_nxt[level], :] *= p_level[level, :]
+            betas_sum = np.sum(betas[p_nxt[level], :], axis=1, keepdims=True)
+
+            betas[p_nxt[level], :] /= betas_sum
 
             ll_ret += np.bincount(
-                xlni,
-                weights=np.log(betas_sum.flatten()) + pr_max0[xln],
+                i_nxt[level],
+                weights=np.log(betas_sum.flatten()) + pr_max0[p_nxt[level]],
                 minlength=num_trees,
             )
 
-            #  upward pass on betas
-            for level in range(len(level_idx) - 1, -1, -1):
+        # if len_enc is not None:
+        #     ret_len = np.zeros(num_trees, dtype=np.float64)
+        # ll_ret += vec_bincount(len_enc[0],
+        # self.len_dist.seq_log_density(len_enc[1]), ret_len)
 
-                lidx = level_idx[level]
-                idxs, xbis, xps, xcs = idx[lidx], xbi[lidx], xp[lidx], xc[lidx]
-
-                #  Get etas
-                temp = np.reshape(betas[xcs, :], (-1, num_states, 1))
-                temp /= np.reshape(p_level[level + 1, :], (1, num_states, 1))
-                temp = np.sum(a_mat.T * temp, axis=1)
-                etas[xbis, :] += temp
-
-                temp = np.zeros((len(xbis) + 1, num_states), dtype=np.float64)
-                temp[1:, :] += np.log(etas[xbis, :])
-                log_etas = np.cumsum(temp, axis=0)
-                log_etas = (
-                    log_etas[eta_p[level][1:], :] - log_etas[eta_p[level][:-1], :]
-                )
-
-                betas[p_nxt[level], :] *= np.exp(log_etas) * pr_obs[p_nxt[level], :]
-                betas[p_nxt[level], :] *= p_level[level, :]
-                betas_sum = np.sum(betas[p_nxt[level], :], axis=1, keepdims=True)
-
-                betas[p_nxt[level], :] /= betas_sum
-
-                ll_ret += np.bincount(
-                    i_nxt[level],
-                    weights=np.log(betas_sum.flatten()) + pr_max0[p_nxt[level]],
-                    minlength=num_trees,
-                )
-
-            # if len_enc is not None:
-            #     ret_len = np.zeros(num_trees, dtype=np.float64)
-            # ll_ret += vec_bincount(len_enc[0],
-            # self.len_dist.seq_log_density(len_enc[1]), ret_len)
-
-            return ll_ret
+        return ll_ret
 
     def seq_posterior(
         self, x: "TreeHiddenMarkovEncodedDataSequence"
@@ -405,72 +401,69 @@ class TreeHiddenMarkovModelDistribution(SequenceEncodableProbabilityDistribution
 
             return [betas[tz[i] : tz[i + 1], :] for i in range(len(tz) - 1)]
 
-        else:
-            (
-                cnt,
-                tz,
-                (xln, xlnl, xlni),
-                (idx, xbi, xp, xc, level_idx, p_nxt, eta_p, i_nxt, _),
-                enc_x,
-                len_enc,
-            ) = x.data[1]
+        (
+            cnt,
+            tz,
+            (xln, xlnl, xlni),
+            (idx, xbi, xp, xc, level_idx, p_nxt, eta_p, i_nxt, _),
+            enc_x,
+            len_enc,
+        ) = x.data[1]
 
-            num_states = self.num_states
-            max_level = len(level_idx)
-            a_mat = self.transitions
-            w = self.w
-            num_trees = len(tz) - 1
+        num_states = self.num_states
+        max_level = len(level_idx)
+        a_mat = self.transitions
+        w = self.w
+        num_trees = len(tz) - 1
 
-            betas = np.ones((cnt, num_states), dtype=np.float64)
-            etas = np.zeros((len(xbi), num_states), dtype=np.float64)
+        betas = np.ones((cnt, num_states), dtype=np.float64)
+        etas = np.zeros((len(xbi), num_states), dtype=np.float64)
 
-            p_level = np.zeros((max_level + 1, num_states), dtype=np.float64)
-            p_level[0, :] += w
+        p_level = np.zeros((max_level + 1, num_states), dtype=np.float64)
+        p_level[0, :] += w
 
-            for level in range(1, max_level + 1):
-                p_level[level, :] += np.matmul(p_level[level - 1, :], a_mat)
+        for level in range(1, max_level + 1):
+            p_level[level, :] += np.matmul(p_level[level - 1, :], a_mat)
 
-            pr_obs = np.zeros((cnt, num_states), dtype=np.float64)
+        pr_obs = np.zeros((cnt, num_states), dtype=np.float64)
 
-            # Compute state likelihood vectors and scale the max to one
-            for i in range(num_states):
-                pr_obs[:, i] = self.topics[i].seq_log_density(enc_x)
+        # Compute state likelihood vectors and scale the max to one
+        for i in range(num_states):
+            pr_obs[:, i] = self.topics[i].seq_log_density(enc_x)
 
-            pr_max0 = pr_obs.max(axis=1)
-            pr_obs -= pr_max0[:, None]
-            np.exp(pr_obs, out=pr_obs)
+        pr_max0 = pr_obs.max(axis=1)
+        pr_obs -= pr_max0[:, None]
+        np.exp(pr_obs, out=pr_obs)
 
-            #  set the leaf nodes
-            betas[xln, :] *= pr_obs[xln, :] * p_level[xlnl, :]
-            betas_sum = np.sum(betas[xln, :], axis=1, keepdims=True)
-            betas[xln, :] /= betas_sum
+        #  set the leaf nodes
+        betas[xln, :] *= pr_obs[xln, :] * p_level[xlnl, :]
+        betas_sum = np.sum(betas[xln, :], axis=1, keepdims=True)
+        betas[xln, :] /= betas_sum
 
-            #  upward pass on betas
-            for level in range(len(level_idx) - 1, -1, -1):
-                lidx = level_idx[level]
-                idxs, xbis, xps, xcs = idx[lidx], xbi[lidx], xp[lidx], xc[lidx]
+        #  upward pass on betas
+        for level in range(len(level_idx) - 1, -1, -1):
+            lidx = level_idx[level]
+            idxs, xbis, xps, xcs = idx[lidx], xbi[lidx], xp[lidx], xc[lidx]
 
-                #  Get etas
-                temp = np.reshape(betas[xcs, :], (-1, num_states, 1))
-                temp /= np.reshape(p_level[level + 1, :], (1, num_states, 1))
-                temp = np.sum(a_mat.T * temp, axis=1)
-                etas[xbis, :] += temp
+            #  Get etas
+            temp = np.reshape(betas[xcs, :], (-1, num_states, 1))
+            temp /= np.reshape(p_level[level + 1, :], (1, num_states, 1))
+            temp = np.sum(a_mat.T * temp, axis=1)
+            etas[xbis, :] += temp
 
-                temp = np.zeros((len(xbis) + 1, num_states), dtype=np.float64)
-                temp[1:, :] += np.log(etas[xbis, :])
-                log_etas = np.cumsum(temp, axis=0)
-                log_etas = (
-                    log_etas[eta_p[level][1:], :] - log_etas[eta_p[level][:-1], :]
-                )
+            temp = np.zeros((len(xbis) + 1, num_states), dtype=np.float64)
+            temp[1:, :] += np.log(etas[xbis, :])
+            log_etas = np.cumsum(temp, axis=0)
+            log_etas = log_etas[eta_p[level][1:], :] - log_etas[eta_p[level][:-1], :]
 
-                betas[p_nxt[level], :] *= np.exp(log_etas) * pr_obs[p_nxt[level], :]
-                betas[p_nxt[level], :] *= p_level[level, :]
-                betas_sum = np.sum(betas[p_nxt[level], :], axis=1, keepdims=True)
+            betas[p_nxt[level], :] *= np.exp(log_etas) * pr_obs[p_nxt[level], :]
+            betas[p_nxt[level], :] *= p_level[level, :]
+            betas_sum = np.sum(betas[p_nxt[level], :], axis=1, keepdims=True)
 
-                betas[p_nxt[level], :] /= betas_sum
+            betas[p_nxt[level], :] /= betas_sum
 
-            #  Return betas by observed sequence need tz
-            return [betas[tz[i] : tz[i + 1], :] for i in range(len(tz) - 1)]
+        #  Return betas by observed sequence need tz
+        return [betas[tz[i] : tz[i + 1], :] for i in range(len(tz) - 1)]
 
     def viterbi(self, x: Sequence[Tuple[D, T]]) -> np.ndarray:
         enc_x = self.dist_to_encoder().seq_encode([x])
@@ -528,54 +521,53 @@ class TreeHiddenMarkovModelDistribution(SequenceEncodableProbabilityDistribution
 
             return [out[tz[i] : tz[i + 1]] for i in range(len(tz) - 1)]
 
-        else:
-            (
-                cnt,
-                tz,
-                (xln, xlnl, xlni),
-                (idx, xbi, xp, xc, level_idx, p_nxt, eta_p, i_nxt, rns),
-                enc_x,
-                _,
-            ) = x.data[1:]
+        (
+            cnt,
+            tz,
+            (xln, xlnl, xlni),
+            (idx, xbi, xp, xc, level_idx, p_nxt, eta_p, i_nxt, rns),
+            enc_x,
+            _,
+        ) = x.data[1:]
 
-            num_states = self.num_states
-            max_level = len(level_idx)
-            log_a_mat = self.log_transitions
-            log_w = self.log_w
+        num_states = self.num_states
+        max_level = len(level_idx)
+        log_a_mat = self.log_transitions
+        log_w = self.log_w
 
-            log_delta = np.ones((cnt, num_states), dtype=np.float64)
-            log_eta = np.zeros((len(xbi), num_states), dtype=np.float64)
-            state_tracker = np.zeros(cnt, dtype=np.int32)
+        log_delta = np.ones((cnt, num_states), dtype=np.float64)
+        log_eta = np.zeros((len(xbi), num_states), dtype=np.float64)
+        state_tracker = np.zeros(cnt, dtype=np.int32)
 
-            # Compute state likelihood vectors, and initialize the deltas for each state
-            for i in range(num_states):
-                log_delta[:, i] += self.topics[i].seq_log_density(enc_x)
+        # Compute state likelihood vectors, and initialize the deltas for each state
+        for i in range(num_states):
+            log_delta[:, i] += self.topics[i].seq_log_density(enc_x)
 
-            state_tracker[xln] += np.argmax(log_delta[xln, :], axis=1).flatten()
+        state_tracker[xln] += np.argmax(log_delta[xln, :], axis=1).flatten()
 
-            #  upward pass on deltas
-            for level in range(max_level - 1, -1, -1):
-                lidx = level_idx[level]
-                idxs, xbis, xps, xcs = idx[lidx], xbi[lidx], xp[lidx], xc[lidx]
+        #  upward pass on deltas
+        for level in range(max_level - 1, -1, -1):
+            lidx = level_idx[level]
+            idxs, xbis, xps, xcs = idx[lidx], xbi[lidx], xp[lidx], xc[lidx]
 
-                #  Get log_etas
-                log_eta[xbis, :] += np.max(
-                    np.reshape(log_delta[xcs, :], (-1, 1, num_states)) + log_a_mat,
-                    axis=2,
-                )
-                temp = np.zeros((len(xbis) + 1, num_states), dtype=np.float64)
-                temp[1:, :] += np.cumsum(log_eta[xbis, :], axis=0)
-                temp = temp[eta_p[level][1:], :] - temp[eta_p[level][:-1], :]
-                log_delta[p_nxt[level], :] += temp
-                state_tracker[p_nxt[level]] += np.argmax(
-                    log_delta[p_nxt[level], :], axis=1, keepdims=False
-                )
+            #  Get log_etas
+            log_eta[xbis, :] += np.max(
+                np.reshape(log_delta[xcs, :], (-1, 1, num_states)) + log_a_mat,
+                axis=2,
+            )
+            temp = np.zeros((len(xbis) + 1, num_states), dtype=np.float64)
+            temp[1:, :] += np.cumsum(log_eta[xbis, :], axis=0)
+            temp = temp[eta_p[level][1:], :] - temp[eta_p[level][:-1], :]
+            log_delta[p_nxt[level], :] += temp
+            state_tracker[p_nxt[level]] += np.argmax(
+                log_delta[p_nxt[level], :], axis=1, keepdims=False
+            )
 
-            #  Set the init for leaf nodes
-            log_delta[rns, :] += log_w
-            state_tracker[rns] += np.argmax(log_delta[rns, :], axis=1).flatten()
+        #  Set the init for leaf nodes
+        log_delta[rns, :] += log_w
+        state_tracker[rns] += np.argmax(log_delta[rns, :], axis=1).flatten()
 
-            return [state_tracker[tz[i] : tz[i + 1]] for i in range(len(tz) - 1)]
+        return [state_tracker[tz[i] : tz[i + 1]] for i in range(len(tz) - 1)]
 
     def sampler(self, seed: Optional[int] = None) -> "TreeHiddenMarkovSampler":
         if isinstance(self.len_dist, NullDistribution):
@@ -653,7 +645,7 @@ class TreeHiddenMarkovSampler(DistributionSampler):
             y0 = self.obs_samplers[zi].sample()
 
             seq.append(((0, -1), y0))
-            iter_cond = True if ni > 0 else False
+            iter_cond = ni > 0
 
             cnt = 1
             lvl_cnt = 0
@@ -674,26 +666,26 @@ class TreeHiddenMarkovSampler(DistributionSampler):
                 if len(nodes_next) == 0:
                     iter_cond = False
                 else:
-                    nodes = [xx for xx in nodes_next]
+                    nodes = list(nodes_next)
 
                 lvl_cnt += 1
 
             return seq
 
-        else:
-            return [self.sample_tree() for xx in range(size)]
+        return [self.sample_tree() for xx in range(size)]
 
     def sample(self, size: Optional[int] = None):
         if self.len_sampler is not None:
             return self.sample_tree(size=size)
-        else:
-            raise RuntimeError(
-                "TreeHiddenMarkovSampler requires either a length distribution for "
-                "number of children."
-            )
+        raise RuntimeError(
+            "TreeHiddenMarkovSampler requires either a length distribution for "
+            "number of children."
+        )
 
 
-class TreeHiddenMarkovAccumulator(SequenceEncodableStatisticAccumulator):
+class TreeHiddenMarkovAccumulator(  # pylint: disable=too-many-instance-attributes
+    SequenceEncodableStatisticAccumulator
+):
 
     def __init__(
         self,
@@ -1003,8 +995,8 @@ class TreeHiddenMarkovAccumulator(SequenceEncodableStatisticAccumulator):
             ## alpha (upward pass) set the root nodes
             alphas[rns, :] += betas[rns, :]
 
-            for level, _ in enumerate(level_idx):
-                lidx = level_idx[level]
+            for level, level_idx_level in enumerate(level_idx):
+                lidx = level_idx_level
                 idxs, xbis, xps, xcs = idx[lidx], xbi[lidx], xp[lidx], xc[lidx]
                 weights_loc = np.reshape(weights[idxs], (-1, 1, 1))
 
@@ -1081,7 +1073,7 @@ class TreeHiddenMarkovAccumulator(SequenceEncodableStatisticAccumulator):
             self.init_counts,
             self.state_counts,
             self.trans_counts,
-            tuple([u.value() for u in self.accumulators]),
+            tuple(u.value() for u in self.accumulators),
             len_val,
         )
 
@@ -1119,8 +1111,8 @@ class TreeHiddenMarkovAccumulator(SequenceEncodableStatisticAccumulator):
         if self.state_key is not None:
             if self.state_key in stats_dict:
                 acc = stats_dict[self.state_key]
-                for i, _ in enumerate(acc):
-                    acc[i] = acc[i].combine(self.accumulators[i].value())
+                for i, acc_i in enumerate(acc):
+                    acc_i = acc_i.combine(self.accumulators[i].value())
             else:
                 stats_dict[self.state_key] = self.accumulators
 
@@ -1129,8 +1121,6 @@ class TreeHiddenMarkovAccumulator(SequenceEncodableStatisticAccumulator):
 
         if self.len_accumulator is not None:
             self.len_accumulator.key_merge(stats_dict)
-
-        return None
 
     def key_replace(self, stats_dict: Dict[str, Any]) -> None:
         if self.init_key is not None:
@@ -1150,8 +1140,6 @@ class TreeHiddenMarkovAccumulator(SequenceEncodableStatisticAccumulator):
 
         if self.len_accumulator is not None:
             self.len_accumulator.key_replace(stats_dict)
-
-        return None
 
     def acc_to_encoder(self) -> "TreeHiddenMarkovDataEncoder":
         emission_encoder = self.accumulators[0].acc_to_encoder()
@@ -1306,11 +1294,10 @@ class TreeHiddenMarkovDataEncoder(DataSequenceEncoder):
         )
 
     def __eq__(self, other: object) -> bool:
-        if isinstance(other, TreeHiddenMarkovDataEncoder):
-            if self.len_encoder == other.len_encoder:
-                return True
-        else:
-            return False
+        return (
+            isinstance(other, TreeHiddenMarkovDataEncoder)
+            and self.len_encoder == other.len_encoder
+        )
 
     def _seq_encode(self, x: Sequence[Sequence[Tuple[D, T]]]) -> E1:
 
@@ -1356,8 +1343,8 @@ class TreeHiddenMarkovDataEncoder(DataSequenceEncoder):
 
             #  beta parent/child combos
             if len(u1) > 0:
-                for j, _ in enumerate(u1):
-                    xp.extend([u0[j] + cnt] * u1[j])
+                for j, u1_j in enumerate(u1):
+                    xp.extend([u0[j] + cnt] * u1_j)
                     xc.extend(cnt + xc0[np.flatnonzero(xp0[1:] == u0[j])])
 
             if len(xp0) > 1:
@@ -1420,15 +1407,14 @@ class TreeHiddenMarkovDataEncoder(DataSequenceEncoder):
                 enc_x,
                 (obs_idx, len_enc),
             )
-        else:
-            return False, (
-                cnt,
-                tz,
-                (xln, xlnl, xlni),
-                (idx, xbi, xp, xc, level_idx, p_nxt, eta_p, i_nxt, rns),
-                enc_x,
-                None,
-            )
+        return False, (
+            cnt,
+            tz,
+            (xln, xlnl, xlni),
+            (idx, xbi, xp, xc, level_idx, p_nxt, eta_p, i_nxt, rns),
+            enc_x,
+            None,
+        )
 
     def seq_encode(
         self, x: Sequence[Sequence[Tuple[D, T]]]
@@ -1471,8 +1457,8 @@ class TreeHiddenMarkovDataEncoder(DataSequenceEncoder):
 
                 #  beta parent/child combos
                 if len(u1) > 0:
-                    for j, _ in enumerate(u1):
-                        xp.extend([u0[j]] * u1[j])
+                    for j, u1_j in enumerate(u1):
+                        xp.extend([u0[j]] * u1_j)
                         xc.extend(xc0[np.flatnonzero(xp0[1:] == u0[j])])
 
                     txz.append(np.sum(u1))
@@ -1485,11 +1471,11 @@ class TreeHiddenMarkovDataEncoder(DataSequenceEncoder):
                     tpz.append(1)
 
                 if len(xp0) > 1:
-                    xbi.extend([kk for kk in range(len(xp0) - 1)])
+                    xbi.extend(list(range(len(xp0) - 1)))
 
                     xl_temp = find_level(xp0)
                     xl.extend(xl_temp)
-                    xln_temp = [yy for yy in np.delete(np.arange(n), u0)]
+                    xln_temp = list(np.delete(np.arange(n), u0))
                     xlnl.extend(
                         [xl_temp[np.flatnonzero(xc0 == x)[0]] for x in xln_temp]
                     )
@@ -1538,8 +1524,7 @@ class TreeHiddenMarkovDataEncoder(DataSequenceEncoder):
 
             return TreeHiddenMarkovEncodedDataSequence(data=(True, rv_enc))
 
-        else:
-            return TreeHiddenMarkovEncodedDataSequence(data=self._seq_encode(x))
+        return TreeHiddenMarkovEncodedDataSequence(data=self._seq_encode(x))
 
 
 class TreeHiddenMarkovEncodedDataSequence(EncodedDataSequence):
@@ -1559,7 +1544,7 @@ class TreeHiddenMarkovEncodedDataSequence(EncodedDataSequence):
     fastmath=True,
     parallel=True,
 )
-def numba_seq_log_density(
+def numba_seq_log_density(  # pylint: disable=too-many-positional-arguments
     num_states,
     tz,
     txz,
@@ -1609,8 +1594,8 @@ def numba_seq_log_density(
         xlns = xln[j0:j1]
         xlnls = xlnl[j0:j1]
 
-        for k, _ in enumerate(xlns):
-            leaf_node = xlns[k]
+        for k, xlns_k in enumerate(xlns):
+            leaf_node = xlns_k
             leaf_level = xlnls[k]
             beta_sum = 0
             for i in range(num_states):
@@ -1670,7 +1655,7 @@ def numba_seq_log_density(
     "float64[:,:, :], float64[:,:])",
     parallel=True,
 )
-def numba_baum_welch(
+def numba_baum_welch(  # pylint: disable=too-many-positional-arguments
     num_states,
     tz,
     txz,
@@ -1730,8 +1715,8 @@ def numba_baum_welch(
         xlns = xln[j0:j1]
         xlnls = xlnl[j0:j1]
 
-        for k, _ in enumerate(xlns):
-            leaf_node = xlns[k]
+        for k, xlns_k in enumerate(xlns):
+            leaf_node = xlns_k
             leaf_level = xlnls[k]
             beta_sum = 0
             for i in range(num_states):
@@ -1831,7 +1816,7 @@ def numba_baum_welch(
     fastmath=True,
     parallel=True,
 )
-def numba_posteriors(
+def numba_posteriors(  # pylint: disable=too-many-positional-arguments
     num_states,
     tz,
     txz,
@@ -1883,8 +1868,8 @@ def numba_posteriors(
         xlns = xln[j0:j1]
         xlnls = xlnl[j0:j1]
 
-        for k, _ in enumerate(xlns):
-            leaf_node = xlns[k]
+        for k, xlns_k in enumerate(xlns):
+            leaf_node = xlns_k
             leaf_level = xlnls[k]
             beta_sum = 0
             for i in range(num_states):
@@ -1937,7 +1922,7 @@ def numba_posteriors(
     parallel=True,
     nopython=True,
 )
-def numba_initialize(
+def numba_initialize(  # pylint: disable=too-many-positional-arguments
     tz, txz, tp, tpz, xp, xc, states, weights, init_counts, state_counts, trans_counts
 ):
     for n in numba.prange(len(tz) - 1):
@@ -1976,6 +1961,7 @@ def numba_initialize(
     "int32[:])",
     parallel=True,
 )
+# pylint: disable-next=too-many-positional-arguments
 def numba_viterbi(
     num_states,
     tz,
@@ -1995,6 +1981,8 @@ def numba_viterbi(
     etas,
     out,
 ):
+    # Keep the numba kernel in a single function to preserve compilation behavior.
+    # pylint: disable=too-many-nested-blocks
     for n in numba.prange(len(tz) - 1):
 
         #  Observed value slice (xs)
@@ -2032,8 +2020,8 @@ def numba_viterbi(
         j0, j1 = tlnz[n], tlnz[n + 1]
         xlns = xln[j0:j1]
 
-        for k, _ in enumerate(xlns):
-            leaf_node = xlns[k]
+        for k, xlns_k in enumerate(xlns):
+            leaf_node = xlns_k
             temp = log_b[leaf_node, 0]
             beta_mat[leaf_node, 0] += temp
             max_leaf_v = temp

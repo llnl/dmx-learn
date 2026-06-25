@@ -311,19 +311,17 @@ class IntegerHiddenAssociationSampler(DistributionSampler):
             raise Exception(
                 "HiddenAssociationSampler requires attribute dist.prev_dist."
             )
-        else:
-            self.prev_sampler = self.dist.prev_dist.sampler(
-                seed=self.rng.randint(0, maxrandint)
-            )
+        self.prev_sampler = self.dist.prev_dist.sampler(
+            seed=self.rng.randint(0, maxrandint)
+        )
 
         if isinstance(self.dist.len_dist, NullDistribution):
             raise Exception(
                 "HiddenAssociationSampler requires attribute dist.size_dist."
             )
-        else:
-            self.size_sampler = self.dist.len_dist.sampler(
-                seed=self.rng.randint(0, maxrandint)
-            )
+        self.size_sampler = self.dist.len_dist.sampler(
+            seed=self.rng.randint(0, maxrandint)
+        )
 
     def sample_given(self, x: List[Tuple[int, float]]) -> List[Tuple[int, float]]:
         slen = self.size_sampler.sample()
@@ -360,10 +358,10 @@ class IntegerHiddenAssociationSampler(DistributionSampler):
         if size is None:
             x = self.prev_sampler.sample()
             return x, self.sample_given(x)
-        else:
-            return [self.sample() for i in range(size)]
+        return [self.sample() for i in range(size)]
 
 
+# pylint: disable-next=too-many-instance-attributes
 class IntegerHiddenAssociationAccumulator(SequenceEncodableStatisticAccumulator):
 
     def __init__(
@@ -497,8 +495,8 @@ class IntegerHiddenAssociationAccumulator(SequenceEncodableStatisticAccumulator)
             weights_0 = []
             weights_1 = []
 
-            for i, _ in enumerate(s0):
-                weights_0.extend([weights[i]] * s0[i] * self.num_states)
+            for i, s0_i in enumerate(s0):
+                weights_0.extend([weights[i]] * s0_i * self.num_states)
                 weights_1.extend([weights[i]] * s1[i])
 
             weights_0 = np.asarray(weights_0)
@@ -743,6 +741,8 @@ class IntegerHiddenAssociationEstimator(ParameterEstimator):
 
     """
 
+    # This estimator preserves a long-standing public constructor shape.
+    # pylint: disable-next=too-many-positional-arguments
     def __init__(
         self,
         num_vals: Union[List[int], Tuple[int, int], int],
@@ -889,8 +889,7 @@ class IntegerHiddenAssociationDataEncoder(DataSequenceEncoder):
             cond1 = self.len_encoder == other.len_encoder
             cond2 = self.use_numba == other.use_numba
             return cond0 and cond1 and cond2
-        else:
-            return False
+        return False
 
     def _seq_encode(
         self, x: Sequence[Tuple[List[Tuple[int, float]], List[Tuple[int, float]]]]
@@ -962,45 +961,44 @@ class IntegerHiddenAssociationDataEncoder(DataSequenceEncoder):
 
         if not self.use_numba:
             return self._seq_encode(x)
-        else:
-            x1 = []
-            x0 = []
-            s1 = []
-            s0 = []
-            c0 = []
-            c1 = []
-            w0 = []
-            nn = []
+        x1 = []
+        x0 = []
+        s1 = []
+        s0 = []
+        c0 = []
+        c1 = []
+        w0 = []
+        nn = []
 
-            for i, xx in enumerate(x):
-                xx0 = [v for v, c in xx[0]]
-                cc0 = [c for v, c in xx[0]]
-                xx1 = [v for v, c in xx[1]]
-                cc1 = [c for v, c in xx[1]]
+        for i, xx in enumerate(x):
+            xx0 = [v for v, c in xx[0]]
+            cc0 = [c for v, c in xx[0]]
+            xx1 = [v for v, c in xx[1]]
+            cc1 = [c for v, c in xx[1]]
 
-                x0.extend(xx0)
-                x1.extend(xx1)
-                c0.extend(cc0)
-                c1.extend(cc1)
-                w0.append(sum(cc0))
-                s1.append(len(xx1))
-                s0.append(len(xx0))
-                nn.append(sum(cc1))
+            x0.extend(xx0)
+            x1.extend(xx1)
+            c0.extend(cc0)
+            c1.extend(cc1)
+            w0.append(sum(cc0))
+            s1.append(len(xx1))
+            s0.append(len(xx0))
+            nn.append(sum(cc1))
 
-            nn = self.len_encoder.seq_encode(nn)
-            xv = self.prev_encoder.seq_encode([x[0] for x in x])
+        nn = self.len_encoder.seq_encode(nn)
+        xv = self.prev_encoder.seq_encode([x[0] for x in x])
 
-            x0 = np.asarray(x0, dtype=np.int32)
-            x1 = np.asarray(x1, dtype=np.int32)
-            c0 = np.asarray(c0, dtype=np.float64)
-            c1 = np.asarray(c1, dtype=np.float64)
-            s0 = np.asarray(s0, dtype=np.int32)
-            s1 = np.asarray(s1, dtype=np.int32)
-            w0 = np.asarray(w0, dtype=np.float64)
+        x0 = np.asarray(x0, dtype=np.int32)
+        x1 = np.asarray(x1, dtype=np.int32)
+        c0 = np.asarray(c0, dtype=np.float64)
+        c1 = np.asarray(c1, dtype=np.float64)
+        s0 = np.asarray(s0, dtype=np.int32)
+        s1 = np.asarray(s1, dtype=np.int32)
+        w0 = np.asarray(w0, dtype=np.float64)
 
-            return IntegerHiddenAssociationEncodedDataSequence(
-                data=((s0, s1, x0, x1, c0, c1, w0), xv, nn), use_numba=True
-            )
+        return IntegerHiddenAssociationEncodedDataSequence(
+            data=((s0, s1, x0, x1, c0, c1, w0), xv, nn), use_numba=True
+        )
 
 
 class IntegerHiddenAssociationEncodedDataSequence(EncodedDataSequence):
@@ -1043,7 +1041,7 @@ class IntegerHiddenAssociationEncodedDataSequence(EncodedDataSequence):
     "float64[:], float64[:,:], "
     "float64[:,:], float64[:], float64, float64, float64[:])"
 )
-def numba_seq_log_density(
+def numba_seq_log_density(  # pylint: disable=too-many-positional-arguments
     num_states,
     max_len1,
     t0,
@@ -1094,7 +1092,7 @@ def numba_seq_log_density(
     "float64[:], float64[:,:], "
     "float64[:,:], float64[:,:], float64[:,:], float64[:], float64[:])"
 )
-def numba_seq_update(
+def numba_seq_update(  # pylint: disable=too-many-positional-arguments
     num_states,
     max_len1,
     t0,
@@ -1163,8 +1161,8 @@ def vec_bincount1(x, w, out):
         Numpy 2-d array.
 
     """
-    for i, _ in enumerate(x):
-        out[x[i], :] += w[i, :]
+    for i, x_i in enumerate(x):
+        out[x_i, :] += w[i, :]
     return out
 
 
@@ -1185,6 +1183,6 @@ def vec_bincount2(x, w, out):
         Numpy 2-d array.
 
     """
-    for j, _ in enumerate(x):
-        out[:, x[j]] += w[:, j]
+    for j, x_j in enumerate(x):
+        out[:, x_j] += w[:, j]
     return out

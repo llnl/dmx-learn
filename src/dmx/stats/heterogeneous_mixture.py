@@ -178,11 +178,10 @@ class HeterogeneousMixtureDistribution(SequenceEncodableProbabilityDistribution)
 
         if max_val == -np.inf:
             return self.w.copy()
-        else:
-            comp_log_density -= max_val
-            np.exp(comp_log_density, out=comp_log_density)
-            comp_log_density /= comp_log_density.sum()
-            return comp_log_density
+        comp_log_density -= max_val
+        np.exp(comp_log_density, out=comp_log_density)
+        comp_log_density /= comp_log_density.sum()
+        return comp_log_density
 
     def seq_log_density(
         self, x: "HeterogeneousMixtureEncodedDataSequence"
@@ -220,18 +219,17 @@ class HeterogeneousMixtureDistribution(SequenceEncodableProbabilityDistribution)
             np.log(ll_sum, out=ll_sum)
             ll_sum += ll_max
             return ll_sum.flatten()
-        else:
-            ll_mat = ll_mat[good_rows, :]
-            ll_max = ll_max[good_rows]
-            ll_mat -= ll_max
-            np.exp(ll_mat, out=ll_mat)
-            ll_sum = np.sum(ll_mat, axis=1, keepdims=True)
-            np.log(ll_sum, out=ll_sum)
-            ll_sum += ll_max
-            rv = np.zeros(good_rows.shape, dtype=float)
-            rv[good_rows] = ll_sum.flatten()
-            rv[~good_rows] = -np.inf
-            return rv
+        ll_mat = ll_mat[good_rows, :]
+        ll_max = ll_max[good_rows]
+        ll_mat -= ll_max
+        np.exp(ll_mat, out=ll_mat)
+        ll_sum = np.sum(ll_mat, axis=1, keepdims=True)
+        np.log(ll_sum, out=ll_sum)
+        ll_sum += ll_max
+        rv = np.zeros(good_rows.shape, dtype=float)
+        rv[good_rows] = ll_sum.flatten()
+        rv[~good_rows] = -np.inf
+        return rv
 
     def seq_component_log_density(
         self, x: "HeterogeneousMixtureEncodedDataSequence"
@@ -334,10 +332,9 @@ class HeterogeneousMixtureDistribution(SequenceEncodableProbabilityDistribution)
                 name=self.name,
                 keys=self.keys,
             )
-        else:
-            return HeterogeneousMixtureEstimator(
-                [u.estimator() for u in self.components], name=self.name, keys=self.keys
-            )
+        return HeterogeneousMixtureEstimator(
+            [u.estimator() for u in self.components], name=self.name, keys=self.keys
+        )
 
     def dist_to_encoder(self) -> "HeterogeneousMixtureDataEncoder":
         """Return a HeterogeneousMixtureDataEncoder for this distribution.
@@ -389,8 +386,7 @@ class HeterogeneousMixtureSampler(DistributionSampler):
         )
         if size is None:
             return self.comp_samplers[comp_state].sample()
-        else:
-            return [self.comp_samplers[i].sample() for i in comp_state]
+        return [self.comp_samplers[i].sample() for i in comp_state]
 
 
 class HeterogeneousMixtureAccumulator(SequenceEncodableStatisticAccumulator):
@@ -594,7 +590,7 @@ class HeterogeneousMixtureAccumulator(SequenceEncodableStatisticAccumulator):
             Tuple[np.ndarray, Tuple[Any, ...]]: (component counts, tuple of component
             accumulator values)
         """
-        return self.comp_counts, tuple([u.value() for u in self.accumulators])
+        return self.comp_counts, tuple(u.value() for u in self.accumulators)
 
     def from_value(
         self, x: Tuple[np.ndarray, Tuple[Any, ...]]
@@ -628,8 +624,8 @@ class HeterogeneousMixtureAccumulator(SequenceEncodableStatisticAccumulator):
         if self.comp_key is not None:
             if self.comp_key in stats_dict:
                 acc = stats_dict[self.comp_key]
-                for i, _ in enumerate(acc):
-                    acc[i] = acc[i].combine(self.accumulators[i].value())
+                for i, acc_i in enumerate(acc):
+                    acc_i = acc_i.combine(self.accumulators[i].value())
             else:
                 stats_dict[self.comp_key] = self.accumulators
 
@@ -841,8 +837,8 @@ class HeterogeneousMixtureDataEncoder(DataSequenceEncoder):
                 objects for each heterogeneous mixture
                 component.
         """
-        encoder_dict: Dict[str, DataSequenceEncoder] = dict()
-        idx_dict: Dict[str, Sequence[int]] = dict()
+        encoder_dict: Dict[str, DataSequenceEncoder] = {}
+        idx_dict: Dict[str, Sequence[int]] = {}
 
         for encoder_idx, encoder in enumerate(encoders):
             enc_str = str(encoder)
@@ -874,11 +870,9 @@ class HeterogeneousMixtureDataEncoder(DataSequenceEncoder):
         """
         if not isinstance(other, HeterogeneousMixtureDataEncoder):
             return False
-        else:
-            return (
-                other.idx_dict == self.idx_dict
-                and other.encoder_dict == self.encoder_dict
-            )
+        return (
+            other.idx_dict == self.idx_dict and other.encoder_dict == self.encoder_dict
+        )
 
     def seq_encode(self, x: Sequence[T]) -> "HeterogeneousMixtureEncodedDataSequence":
         """Encode a sequence of heterogeneous mixture observations.

@@ -142,8 +142,7 @@ class GaussianDistribution(SequenceEncodableProbabilityDistribution):
                 name=self.name,
                 keys=self.keys,
             )
-        else:
-            return GaussianEstimator(name=self.name, keys=self.keys)
+        return GaussianEstimator(name=self.name, keys=self.keys)
 
     def dist_to_encoder(self) -> "GaussianDataEncoder":
         """Return a GaussianDataEncoder for this distribution.

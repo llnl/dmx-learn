@@ -179,12 +179,11 @@ class IntegerBernoulliSetSampler(DistributionSampler):
         if size is None:
             log_u = np.log(self.rng.rand(self.dist.num_vals))
             return np.flatnonzero(log_u <= self.dist.log_pvec).tolist()
-        else:
-            rv = []
-            for i in range(size):
-                log_u = np.log(self.rng.rand(self.dist.num_vals))
-                rv.append(np.flatnonzero(log_u <= self.dist.log_pvec).tolist())
-            return rv
+        rv = []
+        for i in range(size):
+            log_u = np.log(self.rng.rand(self.dist.num_vals))
+            rv.append(np.flatnonzero(log_u <= self.dist.log_pvec).tolist())
+        return rv
 
 
 class IntegerBernoulliSetAccumulator(SequenceEncodableStatisticAccumulator):

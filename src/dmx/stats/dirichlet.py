@@ -281,14 +281,13 @@ class DirichletDistribution(SequenceEncodableProbabilityDistribution):
         """
         if pseudo_count is None:
             return DirichletEstimator(dim=self.dim, name=self.name, keys=self.keys)
-        else:
-            return DirichletEstimator(
-                dim=self.dim,
-                pseudo_count=pseudo_count,
-                suff_stat=np.log(self.alpha / sum(self.alpha)),
-                name=self.name,
-                keys=self.keys,
-            )
+        return DirichletEstimator(
+            dim=self.dim,
+            pseudo_count=pseudo_count,
+            suff_stat=np.log(self.alpha / sum(self.alpha)),
+            name=self.name,
+            keys=self.keys,
+        )
 
     def dist_to_encoder(self) -> "DirichletDataEncoder":
         """Create DirichletDataEncoder object for encoding sequences of iid Dirichlet
@@ -340,8 +339,7 @@ class DirichletSampler(DistributionSampler):
                 rv = np.zeros((size, alpha.size))
                 rv[:, alpha_ma] = self.rng.dirichlet(alpha=alpha[alpha_ma], size=size)
             return rv
-        else:
-            return self.rng.dirichlet(alpha=self.dist.alpha, size=size)
+        return self.rng.dirichlet(alpha=self.dist.alpha, size=size)
 
 
 class DirichletAccumulator(SequenceEncodableStatisticAccumulator):
@@ -661,16 +659,15 @@ class DirichletEstimator(ParameterEstimator):
 
         if nobs == 1.0:
             return DirichletDistribution(initial_estimate, name=self.name)
+        if self.use_mpe:
+            alpha, its_cnt = find_alpha(
+                np.asarray(initial_estimate), mean_log_p, self.delta
+            )
         else:
-            if self.use_mpe:
-                alpha, its_cnt = find_alpha(
-                    np.asarray(initial_estimate), mean_log_p, self.delta
-                )
-            else:
-                alpha, its_cnt = dirichlet_param_solve(
-                    np.asarray(initial_estimate), mean_log_p, self.delta
-                )
-            return DirichletDistribution(alpha, name=self.name)
+            alpha, its_cnt = dirichlet_param_solve(
+                np.asarray(initial_estimate), mean_log_p, self.delta
+            )
+        return DirichletDistribution(alpha, name=self.name)
 
 
 class DirichletDataEncoder(DataSequenceEncoder):

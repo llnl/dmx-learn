@@ -201,16 +201,15 @@ class IntegerMultinomialDistribution(SequenceEncodableProbabilityDistribution):
             return IntegerMultinomialEstimator(
                 len_estimator=len_est, name=self.name, keys=self.keys
             )
-        else:
-            return IntegerMultinomialEstimator(
-                min_val=self.min_val,
-                max_val=self.max_val,
-                len_estimator=len_est,
-                pseudo_count=pseudo_count,
-                suff_stat=(self.min_val, self.p_vec),
-                name=self.name,
-                keys=self.keys,
-            )
+        return IntegerMultinomialEstimator(
+            min_val=self.min_val,
+            max_val=self.max_val,
+            len_estimator=len_est,
+            pseudo_count=pseudo_count,
+            suff_stat=(self.min_val, self.p_vec),
+            name=self.name,
+            keys=self.keys,
+        )
 
     def dist_to_encoder(self) -> "IntegerMultinomialDataEncoder":
         len_encoder = self.len_dist.dist_to_encoder()
@@ -269,17 +268,16 @@ class IntegerMultinomialSampler(DistributionSampler):
                 rrv.append((j + self.dist.min_val, int(entry[j])))
             return rrv
 
-        else:
-            cnt = self.len_sampler.sample(size=size)
-            rv = []
+        cnt = self.len_sampler.sample(size=size)
+        rv = []
 
-            for i in range(size):
-                rrv = []
-                entry = self.rng.multinomial(cnt[i], self.dist.p_vec)
-                for j in np.flatnonzero(entry).tolist():
-                    rrv.append((j + self.dist.min_val, int(entry[j])))
-                rv.append(rrv)
-            return rv
+        for i in range(size):
+            rrv = []
+            entry = self.rng.multinomial(cnt[i], self.dist.p_vec)
+            for j in np.flatnonzero(entry).tolist():
+                rrv.append((j + self.dist.min_val, int(entry[j])))
+            rv.append(rrv)
+        return rv
 
 
 class IntegerMultinomialAccumulator(SequenceEncodableStatisticAccumulator):
@@ -671,7 +669,7 @@ class IntegerMultinomialEstimator(ParameterEstimator):
                 keys=self.keys,
             )
 
-        elif (
+        if (
             self.pseudo_count is not None
             and self.min_val is not None
             and self.max_val is not None
@@ -696,7 +694,7 @@ class IntegerMultinomialEstimator(ParameterEstimator):
                 keys=self.keys,
             )
 
-        elif self.pseudo_count is not None and self.suff_stat is not None:
+        if self.pseudo_count is not None and self.suff_stat is not None:
             s_max_val = self.suff_stat[0] + len(self.suff_stat[1]) - 1
             s_min_val = self.suff_stat[0]
 
@@ -720,14 +718,13 @@ class IntegerMultinomialEstimator(ParameterEstimator):
                 name=self.name,
                 keys=self.keys,
             )
-        else:
-            return IntegerMultinomialDistribution(
-                suff_stat[0],
-                suff_stat[1] / (suff_stat[1].sum()),
-                len_dist=len_dist,
-                name=self.name,
-                keys=self.keys,
-            )
+        return IntegerMultinomialDistribution(
+            suff_stat[0],
+            suff_stat[1] / (suff_stat[1].sum()),
+            len_dist=len_dist,
+            name=self.name,
+            keys=self.keys,
+        )
 
 
 class IntegerMultinomialDataEncoder(DataSequenceEncoder):
@@ -763,8 +760,7 @@ class IntegerMultinomialDataEncoder(DataSequenceEncoder):
     def __eq__(self, other: object) -> bool:
         if isinstance(other, IntegerMultinomialDataEncoder):
             return self.len_encoder == other.len_encoder
-        else:
-            return False
+        return False
 
     def seq_encode(self, x: Sequence[Sequence[Tuple[int, float]]]):
         """Encode a sequence of iid integer multinomial observations.

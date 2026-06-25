@@ -125,8 +125,7 @@ class LogGaussianDistribution(SequenceEncodableProbabilityDistribution):
                 name=self.name,
                 keys=self.keys,
             )
-        else:
-            return LogGaussianEstimator(name=self.name, keys=self.keys)
+        return LogGaussianEstimator(name=self.name, keys=self.keys)
 
     def dist_to_encoder(self) -> "LogGaussianDataEncoder":
         return LogGaussianDataEncoder()

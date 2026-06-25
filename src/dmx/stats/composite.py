@@ -158,7 +158,7 @@ class CompositeDistribution(SequenceEncodableProbabilityDistribution):
         Returns:
             CompositeDataEncoder: Encoder object.
         """
-        encoders = tuple([d.dist_to_encoder() for d in self.dists])
+        encoders = tuple(d.dist_to_encoder() for d in self.dists)
         return CompositeDataEncoder(encoders=encoders)
 
 
@@ -208,9 +208,8 @@ class CompositeSampler(DistributionSampler):
             len(dists).
         """
         if size is None:
-            return tuple([d.sample(size=size) for d in self.dist_samplers])
-        else:
-            return list(zip(*[d.sample(size=size) for d in self.dist_samplers]))
+            return tuple(d.sample(size=size) for d in self.dist_samplers)
+        return list(zip(*[d.sample(size=size) for d in self.dist_samplers]))
 
 
 class CompositeAccumulator(SequenceEncodableStatisticAccumulator):
@@ -362,7 +361,7 @@ class CompositeAccumulator(SequenceEncodableStatisticAccumulator):
         Returns:
             Tuple[Any, ...]: Tuple of sufficient statistics for each accumulator.
         """
-        return tuple([x.value() for x in self.accumulators])
+        return tuple(x.value() for x in self.accumulators)
 
     def from_value(self, x: Tuple[Any, ...]) -> "CompositeAccumulator":
         """Set the sufficient statistics from a tuple.
@@ -411,7 +410,7 @@ class CompositeAccumulator(SequenceEncodableStatisticAccumulator):
         Returns:
             CompositeDataEncoder: Encoder object.
         """
-        encoders = tuple([acc.acc_to_encoder() for acc in self.accumulators])
+        encoders = tuple(acc.acc_to_encoder() for acc in self.accumulators)
         return CompositeDataEncoder(encoders=encoders)
 
 
@@ -517,9 +516,7 @@ class CompositeEstimator(ParameterEstimator):
             CompositeDistribution: Estimated distribution.
         """
         return CompositeDistribution(
-            tuple(
-                [est.estimate(nobs, ss) for est, ss in zip(self.estimators, suff_stat)]
-            )
+            tuple(est.estimate(nobs, ss) for est, ss in zip(self.estimators, suff_stat))
         )
 
 

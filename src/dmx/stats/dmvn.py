@@ -159,13 +159,12 @@ class DiagonalGaussianDistribution(SequenceEncodableProbabilityDistribution):
             return DiagonalGaussianEstimator(
                 dim=self.dim, name=self.name, keys=self.keys
             )
-        else:
-            return DiagonalGaussianEstimator(
-                dim=self.dim,
-                pseudo_count=(pseudo_count, pseudo_count),
-                name=self.name,
-                keys=self.keys,
-            )
+        return DiagonalGaussianEstimator(
+            dim=self.dim,
+            pseudo_count=(pseudo_count, pseudo_count),
+            name=self.name,
+            keys=self.keys,
+        )
 
     def dist_to_encoder(self) -> "DiagonalGaussianDataEncoder":
         """Return a DiagonalGaussianDataEncoder for this distribution.
@@ -210,8 +209,7 @@ class DiagonalGaussianSampler(DistributionSampler):
             rv *= np.sqrt(self.dist.covar)
             rv += self.dist.mu
             return rv
-        else:
-            return [self.sample() for _ in range(size)]
+        return [self.sample() for _ in range(size)]
 
 
 class DiagonalGaussianAccumulator(SequenceEncodableStatisticAccumulator):
@@ -602,8 +600,7 @@ class DiagonalGaussianDataEncoder(DataSequenceEncoder):
         """
         if isinstance(other, DiagonalGaussianDataEncoder):
             return self.dim == other.dim
-        else:
-            return False
+        return False
 
     def seq_encode(
         self, x: Sequence[Union[List[float], np.ndarray]]

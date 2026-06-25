@@ -220,18 +220,17 @@ class DiagonalGaussianMixtureDistribution(SequenceEncodableProbabilityDistributi
             np.log(ll_sum, out=ll_sum)
             ll_sum += ll_max
             return ll_sum.flatten()
-        else:
-            ll_mat = ll_mat[good_rows, :]
-            ll_max = ll_max[good_rows]
-            ll_mat -= ll_max
-            np.exp(ll_mat, out=ll_mat)
-            ll_sum = np.sum(ll_mat, axis=1, keepdims=True)
-            np.log(ll_sum, out=ll_sum)
-            ll_sum += ll_max
-            rv = np.zeros(good_rows.shape, dtype=float)
-            rv[good_rows] = ll_sum.flatten()
-            rv[~good_rows] = -np.inf
-            return rv
+        ll_mat = ll_mat[good_rows, :]
+        ll_max = ll_max[good_rows]
+        ll_mat -= ll_max
+        np.exp(ll_mat, out=ll_mat)
+        ll_sum = np.sum(ll_mat, axis=1, keepdims=True)
+        np.log(ll_sum, out=ll_sum)
+        ll_sum += ll_max
+        rv = np.zeros(good_rows.shape, dtype=float)
+        rv[good_rows] = ll_sum.flatten()
+        rv[~good_rows] = -np.inf
+        return rv
 
     def seq_posterior(
         self, x: "DiagonalGaussianMixtureEncodedDataSequence"
@@ -327,14 +326,13 @@ class DiagonalGaussianMixtureDistribution(SequenceEncodableProbabilityDistributi
                 name=self.name,
                 keys=self.keys,
             )
-        else:
-            return DiagonalGaussianMixtureEstimator(
-                tied=self.tied,
-                dim=self.dim,
-                num_components=self.num_components,
-                name=self.name,
-                keys=self.keys,
-            )
+        return DiagonalGaussianMixtureEstimator(
+            tied=self.tied,
+            dim=self.dim,
+            num_components=self.num_components,
+            name=self.name,
+            keys=self.keys,
+        )
 
     def dist_to_encoder(self) -> "DiagonalGaussianMixtureDataEncoder":
         """Return a DiagonalGaussianMixtureDataEncoder for this distribution.

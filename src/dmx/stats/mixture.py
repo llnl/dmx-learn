@@ -168,12 +168,11 @@ class MixtureDistribution(SequenceEncodableProbabilityDistribution):
 
         if max_val == -np.inf:
             return self.w.copy()
-        else:
-            comp_log_density -= max_val
-            np.exp(comp_log_density, out=comp_log_density)
-            comp_log_density /= comp_log_density.sum()
+        comp_log_density -= max_val
+        np.exp(comp_log_density, out=comp_log_density)
+        comp_log_density /= comp_log_density.sum()
 
-            return comp_log_density
+        return comp_log_density
 
     def seq_component_log_density(self, x: "MixtureEncodedDataSequence") -> np.ndarray:
         """Vectorized evaluation of component_log_density.
@@ -239,22 +238,20 @@ class MixtureDistribution(SequenceEncodableProbabilityDistribution):
 
             return ll_sum.flatten()
 
-        else:
+        ll_mat = ll_mat[good_rows, :]
+        ll_max = ll_max[good_rows]
+        ll_mat -= ll_max
+        np.exp(ll_mat, out=ll_mat)
 
-            ll_mat = ll_mat[good_rows, :]
-            ll_max = ll_max[good_rows]
-            ll_mat -= ll_max
-            np.exp(ll_mat, out=ll_mat)
+        ll_sum = np.sum(ll_mat, axis=1, keepdims=True)
+        np.log(ll_sum, out=ll_sum)
+        ll_sum += ll_max
 
-            ll_sum = np.sum(ll_mat, axis=1, keepdims=True)
-            np.log(ll_sum, out=ll_sum)
-            ll_sum += ll_max
+        rv = np.zeros(good_rows.shape, dtype=float)
+        rv[good_rows] = ll_sum.flatten()
+        rv[~good_rows] = -np.inf
 
-            rv = np.zeros(good_rows.shape, dtype=float)
-            rv[good_rows] = ll_sum.flatten()
-            rv[~good_rows] = -np.inf
-
-            return rv
+        return rv
 
     def seq_posterior(self, x: T1) -> np.ndarray:
         """Vectorized evaluation of posterior.
@@ -311,10 +308,9 @@ class MixtureDistribution(SequenceEncodableProbabilityDistribution):
                 name=self.name,
                 keys=self.keys,
             )
-        else:
-            return MixtureEstimator(
-                [u.estimator() for u in self.components], name=self.name, keys=self.keys
-            )
+        return MixtureEstimator(
+            [u.estimator() for u in self.components], name=self.name, keys=self.keys
+        )
 
     def dist_to_encoder(self) -> "MixtureDataEncoder":
         dist_encoder = self.components[0].dist_to_encoder()
@@ -370,8 +366,7 @@ class MixtureSampler(DistributionSampler):
 
         if size is None:
             return self.comp_samplers[comp_state].sample()
-        else:
-            return [self.comp_samplers[i].sample() for i in comp_state]
+        return [self.comp_samplers[i].sample() for i in comp_state]
 
 
 class MixtureAccumulator(SequenceEncodableStatisticAccumulator):
@@ -543,7 +538,7 @@ class MixtureAccumulator(SequenceEncodableStatisticAccumulator):
         return self
 
     def value(self) -> Tuple[np.ndarray, Tuple[Any, ...]]:
-        return self.comp_counts, tuple([u.value() for u in self.accumulators])
+        return self.comp_counts, tuple(u.value() for u in self.accumulators)
 
     def from_value(self, x: Tuple[np.ndarray, Tuple[T2, ...]]) -> "MixtureAccumulator":
         self.comp_counts = x[0]
@@ -561,8 +556,8 @@ class MixtureAccumulator(SequenceEncodableStatisticAccumulator):
         if self.comp_key is not None:
             if self.comp_key in stats_dict:
                 acc = stats_dict[self.comp_key]
-                for i, _ in enumerate(acc):
-                    acc[i] = acc[i].combine(self.accumulators[i].value())
+                for i, acc_i in enumerate(acc):
+                    acc_i = acc_i.combine(self.accumulators[i].value())
             else:
                 stats_dict[self.comp_key] = self.accumulators
 
@@ -761,11 +756,9 @@ class MixtureDataEncoder(DataSequenceEncoder):
     def __eq__(self, other: object) -> bool:
         if not isinstance(other, MixtureDataEncoder):
             return self.encoder == other
-        else:
-            if other.encoder == self.encoder:
-                return True
-            else:
-                return False
+        if other.encoder == self.encoder:
+            return True
+        return False
 
     def seq_encode(self, x: Sequence[T]) -> "MixtureEncodedDataSequence":
         """Sequence encoder a sequence of iid observations that match the data type of

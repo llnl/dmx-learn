@@ -184,8 +184,7 @@ class VonMisesFisherDistribution(SequenceEncodableProbabilityDistribution):
 
         if pseudo_count is None:
             return VonMisesFisherEstimator(dim=self.dim, name=self.name, keys=self.keys)
-        else:
-            return VonMisesFisherEstimator(dim=self.dim, name=self.name, keys=self.keys)
+        return VonMisesFisherEstimator(dim=self.dim, name=self.name, keys=self.keys)
 
     def dist_to_encoder(self) -> "VonMisesFisherDataEncoder":
         return VonMisesFisherDataEncoder()
@@ -262,8 +261,7 @@ class VonMisesFisherSampler(DistributionSampler):
 
         if size is None:
             return rv[0, :]
-        else:
-            return rv
+        return rv
 
 
 class VonMisesFisherAccumulator(SequenceEncodableStatisticAccumulator):

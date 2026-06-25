@@ -141,14 +141,11 @@ class OptionalDistribution(SequenceEncodableProbabilityDistribution):
         if self.has_p:
             if not_missing:
                 return self.dist.log_density(x) + self.log_pn
-            else:
-                return self.log_p
+            return self.log_p
         # This is a degenerate use case that should probably be deprecated
-        else:
-            if not_missing:
-                return self.dist.log_density(x)
-            else:
-                return 0.0
+        if not_missing:
+            return self.dist.log_density(x)
+        return 0.0
 
     def seq_log_density(self, x: "OptionalEncodedDataSequence") -> np.ndarray:
 
@@ -239,28 +236,25 @@ class OptionalSampler(DistributionSampler):
                 == 0
             ):
                 return self.dist.missing_value
-            else:
-                return sampler.sample(size=size)
-        else:
-            states = self.rng.choice(
-                [0, 1], size=size, replace=True, p=[self.dist.p, 1.0 - self.dist.p]
-            )
+            return sampler.sample(size=size)
+        states = self.rng.choice(
+            [0, 1], size=size, replace=True, p=[self.dist.p, 1.0 - self.dist.p]
+        )
 
-            nz_count = int(np.sum(states))
+        nz_count = int(np.sum(states))
 
-            if nz_count == size:
-                return sampler.sample(size=size)
-            elif nz_count == 0:
-                return [self.dist.missing_value for i in range(size)]
-            else:
-                nz_vals = sampler.sample(size=nz_count)
-                nz_idx = np.flatnonzero(states)
-                rv = [self.dist.missing_value for i in range(size)]
+        if nz_count == size:
+            return sampler.sample(size=size)
+        if nz_count == 0:
+            return [self.dist.missing_value for i in range(size)]
+        nz_vals = sampler.sample(size=nz_count)
+        nz_idx = np.flatnonzero(states)
+        rv = [self.dist.missing_value for i in range(size)]
 
-                for cnt, i in enumerate(nz_idx):
-                    rv[i] = nz_vals[cnt]
+        for cnt, i in enumerate(nz_idx):
+            rv[i] = nz_vals[cnt]
 
-                return rv
+        return rv
 
 
 class OptionalEstimatorAccumulator(SequenceEncodableStatisticAccumulator):
@@ -507,7 +501,7 @@ class OptionalEstimator(ParameterEstimator):
                 name=self.name,
             )
 
-        elif self.est_prob:
+        if self.est_prob:
 
             nobs_loc = suff_stat[0][0] + suff_stat[0][1]
             z_nobs = suff_stat[0][0]
@@ -516,17 +510,15 @@ class OptionalEstimator(ParameterEstimator):
                 return OptionalDistribution(
                     dist, None, missing_value=self.missing_value, name=self.name
                 )
-            else:
-                return OptionalDistribution(
-                    dist,
-                    p=z_nobs / nobs_loc,
-                    missing_value=self.missing_value,
-                    name=self.name,
-                )
-        else:
             return OptionalDistribution(
-                dist, p=None, missing_value=self.missing_value, name=self.name
+                dist,
+                p=z_nobs / nobs_loc,
+                missing_value=self.missing_value,
+                name=self.name,
             )
+        return OptionalDistribution(
+            dist, p=None, missing_value=self.missing_value, name=self.name
+        )
 
 
 class OptionalDataEncoder(DataSequenceEncoder):
@@ -568,8 +560,7 @@ class OptionalDataEncoder(DataSequenceEncoder):
             # default to False
             return False
 
-        else:
-            return False
+        return False
 
     def seq_encode(self, x: Sequence[T]) -> "OptionalEncodedDataSequence":
         nz_idx = []

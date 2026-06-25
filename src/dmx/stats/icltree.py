@@ -174,8 +174,7 @@ class ICLTreeSampler(DistributionSampler):
                 rv[j] = self.rng.choice(len(pmat), p=pmat)
 
             return rv
-        else:
-            return [self.sample() for i in range(size)]
+        return [self.sample() for i in range(size)]
 
 
 class ICLTreeAccumulator(SequenceEncodableStatisticAccumulator):
@@ -297,7 +296,7 @@ class ICLTreeAccumulator(SequenceEncodableStatisticAccumulator):
         if self.counts is None and counts is None:
             return self
 
-        elif (self.counts is None) and (counts is not None):
+        if (self.counts is None) and (counts is not None):
             self.counts = counts
             self.marginal_counts = marginal_counts
             self.num_states = suff_stat.shape[-1]
