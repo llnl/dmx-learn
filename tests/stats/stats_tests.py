@@ -25,6 +25,8 @@ from dmx.stats import *
 from dmx.stats import DataSequenceEncoder, SequenceEncodableProbabilityDistribution
 from dmx.utils.estimation import empirical_kl_divergence
 
+_TYPING_EXPORTS = (cast,)
+
 
 def str_eval_test(dist: Any) -> bool:
     dist2 = eval(str(dist))

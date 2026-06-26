@@ -754,7 +754,9 @@ class IntegerMarkovChainEstimator(ParameterEstimator):
         )
 
         num_values = 1 + max(
-            max(max(context), value) for context, value in trans_count_map.keys()
+            observed_value
+            for context, value in trans_count_map.keys()
+            for observed_value in (*context, value)
         )
 
         cond_mat = np.zeros((num_values**lag, num_values), dtype=np.float32)

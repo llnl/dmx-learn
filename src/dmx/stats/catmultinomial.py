@@ -299,7 +299,7 @@ class MultinomialSampler(DistributionSampler):
         if size is None:
             n = self.len_sampler.sample()
             rv: Dict[Any, float] = {}
-            for i in range(n):
+            for _ in range(n):
                 v = self.dist_sampler.sample()
                 rv[v] = rv.get(v, 0.0) + 1.0
             return list(rv.items())

@@ -6,7 +6,6 @@ import numpy as np
 from numpy.random import RandomState
 
 from dmx.bstats import MixtureDistribution as BstatsMixtureDistribution
-from dmx.bstats.pdist import ParameterEstimator
 from dmx.stats.mixture import MixtureDistribution as StatsMixtureDistribution
 from dmx.utils.automatic import prepare_mixture_model
 

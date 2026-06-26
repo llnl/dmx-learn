@@ -75,10 +75,18 @@ jobs:
 
       - name: Run mypy type checking on core modules
         run: |
-          poetry run mypy src/dmx/stats/pdist.py \
-                          src/dmx/torch_stats/pdist.py \
-                          src/dmx/utils/optsutil.py \
-                          src/dmx/utils/vector.py
+          poetry run mypy --explicit-package-bases \
+            src/dmx/arithmetic.py \
+            src/dmx/utils \
+            src/dmx/stats \
+            src/dmx/torch_utils \
+            src/dmx/torch_stats \
+            src/dmx/mpi4py \
+            examples \
+            examples_mpi4py \
+            examples_spark \
+            examples_torch \
+            tests
 
   linting:
     name: Linting (pylint)

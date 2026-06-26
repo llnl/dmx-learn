@@ -77,6 +77,8 @@ from dmx.torch_stats.pdist import (
 )
 from dmx.torch_utils.vector import float_dtype_for_device, set_default_float_dtype
 
+_TYPING_EXPORTS = (Any, cast)
+
 # ---------------------------------------------------------------------------
 # Tolerance: float64 on CPU/CUDA gives ~1e-14; we allow 1e-10 as a safe
 # margin.  MPS uses float32 so we relax to 1e-4 there.
