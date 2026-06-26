@@ -7,6 +7,7 @@ import torch as tn
 
 DINT = tn.int32
 _DEFAULT_FLOAT_DTYPE_STATE = {"value": tn.float64}
+DeviceLike = Union[str, tn.device, None]
 
 
 def _resolve_float_dtype(
@@ -19,7 +20,13 @@ def _resolve_float_dtype(
     return _DEFAULT_FLOAT_DTYPE_STATE["value"]
 
 
-def resolve_device(device=None) -> tn.device:
+def _normalize_optional_device(device: DeviceLike) -> Optional[tn.device]:
+    if device is None:
+        return None
+    return resolve_device(device)
+
+
+def resolve_device(device: DeviceLike = None) -> tn.device:
     """Convert string or None to torch.device. Auto-detects CUDA > MPS > CPU if None."""
     if device is None:
         if tn.cuda.is_available():
@@ -55,11 +62,13 @@ def _sample_dirichlet_with_generator(
     )
 
 
-def seed_tng(seed: int, device: Optional[tn.device] = None):
-    return tn.Generator(device=device).manual_seed(int(seed))
+def seed_tng(seed: int, device: DeviceLike = None) -> tn.Generator:
+    return tn.Generator(device=_normalize_optional_device(device)).manual_seed(
+        int(seed)
+    )
 
 
-def seed_sample(n: int, tng: tn.Generator):
+def seed_sample(n: int, tng: tn.Generator) -> tn.Tensor:
     if n == 1:
         return tn.randint(0, 2**31, size=(n,), generator=tng, dtype=DINT)[0]
 
@@ -68,25 +77,31 @@ def seed_sample(n: int, tng: tn.Generator):
 
 def zeros(
     size: Union[int, Tuple[int, ...]],
-    device: Optional[tn.device] = None,
+    device: DeviceLike = None,
     dtype: Optional[tn.dtype] = None,
-):
-    return tn.zeros(size, dtype=_resolve_float_dtype(device, dtype), device=device)
+) -> tn.Tensor:
+    target_device = _normalize_optional_device(device)
+    return tn.zeros(
+        size, dtype=_resolve_float_dtype(target_device, dtype), device=target_device
+    )
 
 
 def ones(
     size: Union[int, Tuple[int, ...]],
-    device: Optional[tn.device] = None,
+    device: DeviceLike = None,
     dtype: Optional[tn.dtype] = None,
-):
-    return tn.ones(size, dtype=_resolve_float_dtype(device, dtype), device=device)
+) -> tn.Tensor:
+    target_device = _normalize_optional_device(device)
+    return tn.ones(
+        size, dtype=_resolve_float_dtype(target_device, dtype), device=target_device
+    )
 
 
-def int_vec(size: Union[int, Tuple[int, ...]], device: Optional[tn.device] = None):
-    return tn.zeros(size, dtype=DINT, device=device)
+def int_vec(size: Union[int, Tuple[int, ...]], device: DeviceLike = None) -> tn.Tensor:
+    return tn.zeros(size, dtype=DINT, device=_normalize_optional_device(device))
 
 
-def zeros_like(x: tn.Tensor):
+def zeros_like(x: tn.Tensor) -> tn.Tensor:
     return tn.zeros_like(x, dtype=_resolve_float_dtype(x.device, None))
 
 
@@ -101,30 +116,31 @@ def tensor(
         List[List[float]],
         np.ndarray,
     ],
-    device: Optional[tn.device] = None,
+    device: DeviceLike = None,
     dtype: Optional[tn.dtype] = None,
-):
+) -> tn.Tensor:
+    target_device = _normalize_optional_device(device)
     target_device = (
-        device
-        if device is not None
+        target_device
+        if target_device is not None
         else (x.device if isinstance(x, tn.Tensor) else None)
     )
     dtype = _resolve_float_dtype(target_device, dtype)
     if isinstance(x, tn.Tensor):
         y = x.clone().detach().to(dtype)
-        if device is not None:
-            y = y.to(device)
+        if target_device is not None:
+            y = y.to(target_device)
 
         return y
 
-    return tn.tensor(x, device=device, dtype=dtype)
+    return tn.tensor(x, device=target_device, dtype=dtype)
 
 
 def int_tensor(
     x: Union[List[int], List[List[int]], np.ndarray, tn.Tensor],
-    device: Optional[tn.device] = None,
+    device: DeviceLike = None,
     dtype: Optional[tn.dtype] = DINT,
-):
+) -> tn.Tensor:
     return tensor(x, device=device, dtype=dtype)
 
 
@@ -143,7 +159,7 @@ def choice(
 
 def randint(
     size: int, low: int, high: int, tng: tn.Generator, dtype: Optional[tn.dtype] = DINT
-):
+) -> tn.Tensor:
     return tn.randint(
         size=(size,), low=low, high=high, generator=tng, dtype=dtype, device=tng.device
     )
