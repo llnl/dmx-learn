@@ -2,9 +2,9 @@
 
 import math
 from collections import defaultdict
-from collections.abc import Iterable
+from collections.abc import Iterable, Mapping
 from importlib import import_module
-from typing import Any, Dict, Optional, Sequence, Union
+from typing import Any, DefaultDict, List, Optional, Sequence, Union
 
 import numpy as np
 
@@ -47,7 +47,7 @@ def prepare_mixture_model(
     mix_threshold_count: float = 0.5,
     max_its: int = 1000,
     print_iter: int = 100,
-    comp_estimator: Optional[ParameterEstimator] = None,
+    comp_estimator: Optional[Any] = None,
     mix_model: Optional[
         Union[StatsMixtureDistribution, BstatsMixtureDistribution]
     ] = None,
@@ -76,7 +76,7 @@ def prepare_mixture_model(
 
 def get_optional_estimator(
     est: ParameterEstimator, missing_value: Optional[Any], use_bstats: bool = False
-):
+) -> Any:
     """Gets an optional estimator that handles missing values.
 
     Args:
@@ -93,7 +93,7 @@ def get_optional_estimator(
     return OptionalEstimator(est, missing_value=missing_value)
 
 
-def get_sequence_estimator(est: ParameterEstimator, use_bstats=False):
+def get_sequence_estimator(est: ParameterEstimator, use_bstats: bool = False) -> Any:
     """Gets a sequence estimator.
 
     Args:
@@ -109,7 +109,7 @@ def get_sequence_estimator(est: ParameterEstimator, use_bstats=False):
     return SequenceEstimator(est)
 
 
-def get_ignored_estimator(use_bstats: bool = False):
+def get_ignored_estimator(use_bstats: bool = False) -> Any:
     """Gets an ignored estimator.
 
     Args:
@@ -124,9 +124,7 @@ def get_ignored_estimator(use_bstats: bool = False):
     return IgnoredEstimator()
 
 
-def get_composite_estimator(
-    ests: Sequence[ParameterEstimator], use_bstats: bool = False
-):
+def get_composite_estimator(ests: Sequence[Any], use_bstats: bool = False) -> Any:
     """Gets a composite estimator.
 
     Args:
@@ -143,11 +141,11 @@ def get_composite_estimator(
 
 
 def get_categorical_estimator(
-    vdict: Dict[Any, float],
+    vdict: Mapping[Any, float],
     pseudo_count: Optional[float] = None,
     emp_suff_stat: bool = True,
     use_bstats: bool = False,
-):
+) -> Any:
     """Gets a categorical estimator.
 
     Args:
@@ -184,11 +182,11 @@ def get_categorical_estimator(
 
 
 def get_poisson_estimator(
-    vdict: Dict[Any, float],
+    vdict: Mapping[Any, float],
     pseudo_count: Optional[float] = None,
     emp_suff_stat: bool = True,
     use_bstats: bool = False,
-):
+) -> Any:
     """Gets a Poisson estimator.
 
     Args:
@@ -226,11 +224,11 @@ def get_poisson_estimator(
 
 
 def get_gaussian_estimator(
-    vdict: Dict[Any, float],
+    vdict: Mapping[Any, float],
     pseudo_count: Optional[float] = None,
     emp_suff_stat: bool = True,
     use_bstats: bool = False,
-):
+) -> Any:
     """Gets a Gaussian estimator.
 
     Args:
@@ -295,17 +293,17 @@ class DatumNode:
     """
 
     def __init__(
-        self, parent: Optional["DatumNode"] = None, data: Sequence[Any] = None
-    ):
+        self, parent: Optional["DatumNode"] = None, data: Optional[Sequence[Any]] = None
+    ) -> None:
         """Initializes a DatumNode.
 
         Args:
             parent (Optional[DatumNode]): Parent node.
             data (Sequence[Any]): Data to add to the node.
         """
-        self.children = []
+        self.children: List[DatumNode] = []
         self.parent = parent
-        self.vdict = defaultdict(int)
+        self.vdict: DefaultDict[Any, int] = defaultdict(int)
         self.count = 0
         self.none_count = 0
         self.nan_count = 0
@@ -320,7 +318,7 @@ class DatumNode:
         if data is not None:
             self.add_data(data)
 
-    def add_data(self, x):
+    def add_data(self, x: Iterable[Any]) -> None:
         """Adds multiple data points to the node.
 
         Args:
@@ -329,7 +327,7 @@ class DatumNode:
         for xx in x:
             self.add_datum(xx)
 
-    def add_datum(self, x):
+    def add_datum(self, x: Any) -> None:
         """Adds a single data point to the node.
 
         Args:
@@ -424,7 +422,7 @@ class DatumNode:
         pseudo_count: float = 1.0,
         emp_suff_stat: bool = True,
         use_bstats: bool = False,
-    ):
+    ) -> Any:
         """Gets an estimator based on the node's data.
 
         Args:
@@ -514,7 +512,7 @@ def get_estimator(
     pseudo_count: float = 1.0,
     emp_suff_stat: bool = True,
     use_bstats: bool = True,
-):
+) -> Any:
     """Gets an estimator for the given data.
 
     Args:
@@ -533,12 +531,12 @@ def get_estimator(
 # pylint: disable=too-many-positional-arguments
 def get_dpm_mixture(
     data: Sequence[Any],
-    estimator: Optional[ParameterEstimator] = None,
+    estimator: Optional[Any] = None,
     max_comp: int = 20,
     rng: Optional[np.random.RandomState] = None,
     max_its: int = 1000,
     print_iter: int = 100,
-    mix_threshold_count: int = 0.5,
+    mix_threshold_count: float = 0.5,
 ) -> BstatsMixtureDistribution:
     """Gets a Dirichlet Process Mixture model for the data.
 

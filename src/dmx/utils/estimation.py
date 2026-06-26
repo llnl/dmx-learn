@@ -7,10 +7,22 @@ Useful functions for estimating dmx-learn
 
 import sys
 import time
-from typing import IO, Any, Callable, List, Optional, Sequence, Tuple, TypeVar, Union
+from typing import (
+    IO,
+    Any,
+    Callable,
+    List,
+    Optional,
+    Sequence,
+    Tuple,
+    TypeVar,
+    Union,
+    cast,
+)
 
 import numpy as np
 from numpy.random import RandomState
+from pyspark import RDD
 
 from dmx.stats import (
     seq_encode,
@@ -27,6 +39,7 @@ from dmx.stats.pdist import (
 
 T = TypeVar("T")
 E0 = TypeVar("E0")
+EncodedChunks = Union[List[Tuple[int, EncodedDataSequence]], RDD[Any]]
 
 
 def empirical_kl_divergence(
@@ -53,8 +66,8 @@ def empirical_kl_divergence(
 
     """
 
-    ll = seq_log_density(enc_data, estimate=(dist1, dist2))
-    ll = np.hstack(ll)
+    log_density_chunks = seq_log_density(enc_data, estimate=(dist1, dist2))
+    ll = np.hstack(log_density_chunks)
 
     l1 = ll[0, :]
     l2 = ll[1, :]
@@ -120,7 +133,7 @@ def partition_data_index(
     sidx = np.argsort(idx)
 
     rv = []
-    p_tot = 0
+    p_tot = 0.0
     prev_idx = 0
 
     for p in pvec:
@@ -165,8 +178,8 @@ def best_of(
     delta: float,
     rng: RandomState,
     init_estimator: Optional[ParameterEstimator] = None,
-    enc_data: Optional[List[Tuple[int, E0]]] = None,
-    enc_vdata: Optional[Sequence[Tuple[int, E0]]] = None,
+    enc_data: Optional[EncodedChunks] = None,
+    enc_vdata: Optional[EncodedChunks] = None,
     out: IO = sys.stdout,
     print_iter: int = 1,
 ) -> Tuple[float, SequenceEncodableProbabilityDistribution]:
@@ -203,7 +216,7 @@ def best_of(
 
     """
     rv_ll = -np.inf
-    rv_mm = None
+    rv_mm: Optional[SequenceEncodableProbabilityDistribution] = None
     i_est = est if init_estimator is None else init_estimator
 
     if data is None and enc_data is None:
@@ -220,20 +233,23 @@ def best_of(
 
     for kk in range(trials):
 
-        if enc_data is None:
+        encoded_data = enc_data
+        encoded_vdata = enc_vdata
+        if encoded_data is None:
+            assert data is not None
             encoder = i_est.accumulator_factory().make().acc_to_encoder()
-            enc_data = seq_encode(data, encoder)
+            encoded_data = seq_encode(data, encoder)
 
-            if enc_vdata is None and vdata is not None:
-                enc_vdata = seq_encode(vdata, encoder)
+            if encoded_vdata is None and vdata is not None:
+                encoded_vdata = seq_encode(vdata, encoder)
 
-        mm = seq_initialize(enc_data, i_est, rng, init_p)
-        _, old_ll = seq_log_density_sum(enc_data, mm)
+        mm = seq_initialize(encoded_data, i_est, rng, init_p)
+        _, old_ll = seq_log_density_sum(encoded_data, mm)
 
         for i in range(max_its):
 
-            mm_next = seq_estimate(enc_data, est, mm)
-            _, ll = seq_log_density_sum(enc_data, mm_next)
+            mm_next = seq_estimate(encoded_data, est, mm)
+            _, ll = seq_log_density_sum(encoded_data, mm_next)
             dll = ll - old_ll
 
             if (i + 1) % print_iter == 0:
@@ -247,12 +263,16 @@ def best_of(
 
             old_ll = ll
 
-        _, vll = seq_log_density_sum(enc_vdata, mm)
+        validation_data = encoded_vdata if encoded_vdata is not None else encoded_data
+        _, vll = seq_log_density_sum(validation_data, mm)
         out.write(f"Trial {kk + 1}. VLL={vll:f}\n")
 
         if vll > rv_ll:
             rv_mm = mm
             rv_ll = vll
+
+    if rv_mm is None:
+        raise RuntimeError("No model was estimated.")
 
     return rv_ll, rv_mm
 
@@ -269,8 +289,8 @@ def optimize(
     rng: RandomState = RandomState(),
     prev_estimate: Optional[SequenceEncodableProbabilityDistribution] = None,
     vdata: Optional[Sequence[T]] = None,
-    enc_data: Optional[List[Tuple[int, E0]]] = None,
-    enc_vdata: Optional[List[Tuple[int, E0]]] = None,
+    enc_data: Optional[EncodedChunks] = None,
+    enc_vdata: Optional[EncodedChunks] = None,
     out: IO = sys.stdout,
     print_iter: int = 1,
     num_chunks: int = 1,
@@ -323,6 +343,7 @@ def optimize(
         data_encoder = prev_estimate.dist_to_encoder()
 
     if enc_data is None:
+        assert data is not None
         enc_data = seq_encode(data=data, encoder=data_encoder, num_chunks=num_chunks)
 
     if prev_estimate is None:
@@ -414,7 +435,7 @@ def iterate(
     init_p: float = 0.1,
     rng: Optional[RandomState] = RandomState(),
     out: IO = sys.stdout,
-    enc_data: Optional[List[Tuple[int, E0]]] = None,
+    enc_data: Optional[EncodedChunks] = None,
     init_estimator: Optional[ParameterEstimator] = None,
     print_iter: int = 1,
 ) -> SequenceEncodableProbabilityDistribution:
@@ -451,10 +472,13 @@ def iterate(
     if data is None and enc_data is None:
         raise ValueError("Optimization called with empty data or enc_data.")
 
-    i_est = estimator if init_estimator is None else init_estimator
+    active_estimator = estimator if estimator is not None else init_estimator
+    if active_estimator is None:
+        raise ValueError("estimator or init_estimator is required.")
+    rng = rng if rng is not None else RandomState()
 
     if enc_data is None:
-        encoder = estimator.accumulator_factory().make().acc_to_encoder()
+        encoder = active_estimator.accumulator_factory().make().acc_to_encoder()
         enc_data = seq_encode(data, encoder)
 
     if prev_estimate is None:
@@ -464,16 +488,16 @@ def iterate(
                 "less than or equal to 1."
             )
 
-        mm = seq_initialize(enc_data, i_est, rng, init_p)
+        mm = seq_initialize(enc_data, active_estimator, rng, init_p)
     else:
         mm = prev_estimate
 
     if hasattr(enc_data, "cache"):
-        enc_data.cache()
+        cast(Any, enc_data).cache()
 
     t0 = time.time()
     for i in range(max_its):
-        mm = seq_estimate(enc_data, estimator, mm)
+        mm = seq_estimate(enc_data, active_estimator, mm)
 
         if (i + 1) % print_iter == 0:
             out.write(
@@ -492,11 +516,11 @@ def hill_climb(
     estimator: ParameterEstimator,
     prev_estimate: SequenceEncodableProbabilityDistribution,
     max_its: int,
-    metric_lambda: Callable[[EncodedDataSequence], Sequence],
+    metric_lambda: Callable[[List[T], SequenceEncodableProbabilityDistribution], float],
     best_estimate: Optional[SequenceEncodableProbabilityDistribution] = None,
-    enc_data: Optional[EncodedDataSequence] = None,
-    enc_vdata: Optional[EncodedDataSequence] = None,
-    out=sys.stdout,
+    enc_data: Optional[EncodedChunks] = None,
+    enc_vdata: Optional[EncodedChunks] = None,
+    out: IO = sys.stdout,
     print_iter: int = 1,
 ) -> SequenceEncodableProbabilityDistribution:
     """Performs hill-climbing optimization to find the best model.
@@ -532,11 +556,11 @@ def hill_climb(
     mm = prev_estimate
 
     if enc_data is None:
-        enc_data = mm.dist_to_encoder().seq_encode(data)
-        enc_data = [(len(data), enc_data)]
+        data_enc = mm.dist_to_encoder().seq_encode(data)
+        enc_data = [(len(data), data_enc)]
     if enc_vdata is None:
-        enc_vdata = mm.dist_to_encoder().seq_encode(vdata)
-        enc_vdata = [(len(vdata), enc_vdata)]
+        vdata_enc = mm.dist_to_encoder().seq_encode(vdata)
+        enc_vdata = [(len(vdata), vdata_enc)]
 
     best_model = prev_estimate if best_estimate is None else best_estimate
     _, best_ll = seq_log_density_sum(enc_vdata, best_model)

@@ -8,7 +8,6 @@ from numpy.random import RandomState
 from umap import UMAP
 
 from dmx.bstats import MixtureDistribution as BstatsMixtureDistribution
-from dmx.bstats.pdist import ParameterEstimator
 from dmx.stats.mixture import MixtureDistribution as StatsMixtureDistribution
 from dmx.utils.automatic import prepare_mixture_model
 
@@ -41,7 +40,7 @@ def humap(
     max_its: int = 1000,
     print_iter: int = 100,
     seed: Optional[int] = None,
-    comp_estimator: Optional[ParameterEstimator] = None,
+    comp_estimator: Optional[Any] = None,
     mix_model: Optional[
         Union[StatsMixtureDistribution, BstatsMixtureDistribution]
     ] = None,

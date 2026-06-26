@@ -157,6 +157,7 @@ module = [
   "mpmath.*",
   "pandas.*",
   "pyspark.*",
+  "umap",
 ]
 ignore_missing_imports = true
 
