@@ -137,7 +137,7 @@ def tensor(
 
 
 def int_tensor(
-    x: Union[List[int], List[List[int]], np.ndarray, tn.Tensor],
+    x: Union[List[int], List[List[int]], Sequence[int], np.ndarray, tn.Tensor],
     device: DeviceLike = None,
     dtype: Optional[tn.dtype] = DINT,
 ) -> tn.Tensor:

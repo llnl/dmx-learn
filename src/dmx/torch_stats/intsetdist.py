@@ -71,25 +71,29 @@ class IntegerBernoulliSetDistribution(TorchProbabilityDistribution):
         super().__init__(device)
         num_vals = len(log_pvec)
         self.num_vals = num_vals
-        self.log_pvec = vec.tensor(log_pvec, device=self._device)
+        self.log_pvec: tn.Tensor = vec.tensor(log_pvec, device=self._device)
         self.key = keys
 
         if log_nvec is None:
-            log_nvec = tn.log1p(-tn.exp(self.log_pvec))
+            log_nvec_tensor = tn.log1p(-tn.exp(self.log_pvec))
             self.log_nvec = None
-            self.log_dvec = self.log_pvec - log_nvec
-            self.log_nsum = tn.sum(log_nvec[tn.isfinite(log_nvec)])
+            self.log_dvec = self.log_pvec - log_nvec_tensor
+            self.log_nsum = tn.sum(log_nvec_tensor[tn.isfinite(log_nvec_tensor)])
         else:
             self.log_nvec = vec.tensor(log_nvec, device=self._device)
             self.log_dvec = self.log_pvec - self.log_nvec
             self.log_nsum = tn.sum(self.log_nvec[tn.isfinite(self.log_nvec)])
 
-    def to(self, device: tn.device) -> None:
-        self.log_pvec = self.log_pvec.to(device)
-        self.log_nvec = self.log_nvec.to(device) if self.log_nvec is not None else None
-        self.log_dvec = self.log_dvec.to(device)
-        self.log_nsum = self.log_nsum.to(device)
-        self._device = device
+    def to(self, device: vec.DeviceLike) -> "IntegerBernoulliSetDistribution":
+        target_device = self._resolve_device_arg(device)
+        self.log_pvec = self.log_pvec.to(target_device)
+        self.log_nvec = (
+            self.log_nvec.to(target_device) if self.log_nvec is not None else None
+        )
+        self.log_dvec = self.log_dvec.to(target_device)
+        self.log_nsum = self.log_nsum.to(target_device)
+        self._device = target_device
+        return self
 
     def __repr__(self) -> str:
         s1 = repr(self.log_pvec.cpu().detach().tolist())
@@ -100,7 +104,7 @@ class IntegerBernoulliSetDistribution(TorchProbabilityDistribution):
         return f"IntegerBernoulliSetDistribution({s1}, log_nvec={s2})"
 
     def density(self, x: Union[Sequence[int], np.ndarray]) -> float:
-        return exp(self.log_density(x))
+        return float(exp(self.log_density(x)))
 
     def log_density(self, x: Union[Sequence[int], np.ndarray]) -> float:
         xx = np.asarray(x, dtype=int)
@@ -170,7 +174,7 @@ class IntegerBernoulliSetSampler(DistributionSampler):
             log_u = np.log(self.rng.rand(self.num_vals))
             return list(np.flatnonzero(log_u <= self.log_pvec))
 
-        rv = []
+        rv: List[Sequence[int]] = []
         for _ in range(size):
             log_u = np.log(self.rng.rand(self.num_vals))
             rv.append(list(np.flatnonzero(log_u <= self.log_pvec)))
@@ -341,9 +345,10 @@ class IntegerBernoulliSetEstimator(TorchParameterEstimator):
         suff_stat: Optional[np.ndarray] = None,
         device: Optional[tn.device] = None,
     ) -> "IntegerBernoulliSetDistribution":
+        assert suff_stat is not None
         if self.pseudo_count is not None and self.suff_stat is not None:
-            p0 = np.product(self.suff_stat, self.pseudo_count)
-            p1 = np.product(np.subtract(1.0, self.suff_stat), self.pseudo_count)
+            p0 = self.suff_stat * self.pseudo_count
+            p1 = np.subtract(1.0, self.suff_stat) * self.pseudo_count
             pvec = np.log(suff_stat[0] + p0)
             nvec = np.log((suff_stat[1] - suff_stat[0]) + p1)
             tsum = np.log(suff_stat[1] + self.pseudo_count)
@@ -402,23 +407,26 @@ class IntegerBernoulliSetDataEncoder(TorchSequenceEncoder):
     def seq_encode(
         self, x: Sequence[Sequence[int]], device: Optional[tn.device] = None
     ) -> "IntegerBernoulliSetTorchSequence":
-        idx = []
-        xs = []
+        idx: List[int] = []
+        xs: List[int] = []
         for i, xx in enumerate(x):
             idx.extend([i] * len(xx))
             xs.extend(xx)
 
-        idx = vec.int_tensor(idx, device=device)
-        xs = vec.int_tensor(xs, device=device)
+        idx_tensor = vec.int_tensor(idx, device=device)
+        xs_tensor = vec.int_tensor(xs, device=device)
 
-        return IntegerBernoulliSetTorchSequence(data=(len(x), idx, xs), device=device)
+        return IntegerBernoulliSetTorchSequence(
+            data=(len(x), idx_tensor, xs_tensor), device=device
+        )
 
 
 class IntegerBernoulliSetTorchSequence(TorchEncodedSequence):
+    data: Tuple[int, tn.Tensor, tn.Tensor]
 
     def __init__(
         self, data: Tuple[int, tn.Tensor, tn.Tensor], device: Optional[tn.device] = None
-    ):
+    ) -> None:
         super().__init__(data=data, device=device)
 
     def __str__(self) -> str:

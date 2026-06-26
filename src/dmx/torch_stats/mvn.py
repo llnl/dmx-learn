@@ -40,9 +40,9 @@ class MultivariateGaussianDistribution(TorchProbabilityDistribution):
 
     Attributes:
         dim (int): N is the dim of multivariate normal.
-        mu (tn.tensor): Length N numpy array
-        covar (tn.tensor): N by N numpy array for Covariance matrix.
-        chol (tn.tensor): Cholesky decomposition of covar.
+        mu (tn.Tensor): Length N numpy array
+        covar (tn.Tensor): N by N numpy array for Covariance matrix.
+        chol (tn.Tensor): Cholesky decomposition of covar.
         name (Optional[str]): Set name to object.
         keys (Optional[str]): Set keys for distribution.
         self.use_lstsq (bool): Cholesky does not exist so use least-squares
@@ -69,24 +69,26 @@ class MultivariateGaussianDistribution(TorchProbabilityDistribution):
         """
         super().__init__(device)
         self.dim = len(mu)
-        self.mu = vec.tensor(mu, device=self._device)
-        self.covar = vec.tensor(covar, device=self._device).reshape(
+        self.mu: tn.Tensor = vec.tensor(mu, device=self._device)
+        self.covar: tn.Tensor = vec.tensor(covar, device=self._device).reshape(
             (self.dim, self.dim)
         )
-        self.chol = tn.cholesky(self.covar)
+        self.chol: tn.Tensor = tn.cholesky(self.covar)
         self.keys = keys
-        self.chol_const = -0.5 * (
+        self.chol_const: tn.Tensor = -0.5 * (
             len(self.mu) * np.log(2.0 * pi) + 2.0 * tn.log(tn.diag(self.chol)).sum()
         )
 
-    def to(self, device: Optional[tn.device] = None) -> None:
-        self.mu = self.mu.to(device)
-        self.covar = self.covar.to(device)
-        self.chol = self.chol.to(device)
+    def to(self, device: vec.DeviceLike = None) -> "MultivariateGaussianDistribution":
+        target_device = self._resolve_device_arg(device)
+        self.mu = self.mu.to(target_device)
+        self.covar = self.covar.to(target_device)
+        self.chol = self.chol.to(target_device)
         self.chol_const = -0.5 * (
             len(self.mu) * np.log(2.0 * pi) + 2.0 * tn.log(tn.diag(self.chol)).sum()
         )
-        self._device = device
+        self._device = target_device
+        return self
 
     def __repr__(self) -> str:
         s1 = repr(self.mu.data.cpu().tolist())
@@ -105,7 +107,7 @@ class MultivariateGaussianDistribution(TorchProbabilityDistribution):
             float: Density at x.
 
         """
-        return exp(self.log_density(x))
+        return float(exp(self.log_density(x)))
 
     def log_density(self, x: np.ndarray) -> float:
         """Evaluate the log-density at x.
@@ -154,16 +156,22 @@ class MultivariateGaussianDistribution(TorchProbabilityDistribution):
         rv = self.chol_const - 0.5 * ((diff * soln).sum(dim=1))
         return rv
 
-    def sampler(self, seed: Optional[int] = None):
+    def sampler(self, seed: Optional[int] = None) -> "MultivariateGaussianSampler":
         return MultivariateGaussianSampler(self, seed)
 
-    def estimator(self, pseudo_count: Optional[float] = None):
+    def estimator(
+        self, pseudo_count: Optional[float] = None
+    ) -> "MultivariateGaussianEstimator":
         if pseudo_count is None:
             return MultivariateGaussianEstimator()
 
-        pseudo_count = (pseudo_count, pseudo_count)
+        pseudo_counts = (pseudo_count, pseudo_count)
         return MultivariateGaussianEstimator(
-            pseudo_count=pseudo_count, suff_stat=(self.mu, self.covar)
+            pseudo_count=pseudo_counts,
+            suff_stat=(
+                self.mu.detach().cpu().numpy(),
+                self.covar.detach().cpu().numpy(),
+            ),
         )
 
     def dist_to_encoder(self) -> "MultivariateGaussianDataEncoder":
@@ -196,8 +204,8 @@ class MultivariateGaussianAccumulator(TorchStatisticAccumulator):
         self.key = keys
 
         if dim is not None:
-            self.sum = np.zeros(dim, dtype=np.float64)
-            self.sum2 = np.zeros((dim, dim), dtype=np.float64)
+            self.sum: Optional[np.ndarray] = np.zeros(dim, dtype=np.float64)
+            self.sum2: Optional[np.ndarray] = np.zeros((dim, dim), dtype=np.float64)
         else:
             self.sum = None
             self.sum2 = None
@@ -213,6 +221,8 @@ class MultivariateGaussianAccumulator(TorchStatisticAccumulator):
             self.sum = np.zeros(self.dim, dtype=np.float64)
             self.sum2 = np.zeros((self.dim, self.dim), dtype=np.float64)
 
+        assert self.sum is not None
+        assert self.sum2 is not None
         x_weight = tn.multiply(x.data.T, weights)
         self.count += float(weights.sum())
         self.sum += x_weight.sum(dim=1).cpu().detach().numpy()
@@ -242,6 +252,8 @@ class MultivariateGaussianAccumulator(TorchStatisticAccumulator):
         return self
 
     def value(self) -> Tuple[np.ndarray, np.ndarray, float]:
+        assert self.sum is not None
+        assert self.sum2 is not None
         return self.sum, self.sum2, self.count
 
     def from_value(
@@ -321,26 +333,37 @@ class MultivariateGaussianEstimator(TorchParameterEstimator):
 
         """
 
+        suff_stat_loc = suff_stat if suff_stat is not None else (None, None)
         dim_loc = (
             dim
             if dim is not None
             else (
-                (None if suff_stat[1] is None else int(np.sqrt(np.size(suff_stat[1]))))
-                if suff_stat[0] is None
-                else len(suff_stat[0])
+                (
+                    None
+                    if suff_stat_loc[1] is None
+                    else int(np.sqrt(np.size(suff_stat_loc[1])))
+                )
+                if suff_stat_loc[0] is None
+                else len(suff_stat_loc[0])
             )
         )
 
         self.dim = dim_loc
-        self.pseudo_count = pseudo_count
-        self.prior_mu = (
-            None if suff_stat[0] is None else np.reshape(suff_stat[0], dim_loc)
-        )
-        self.prior_covar = (
-            None
-            if suff_stat[1] is None
-            else np.reshape(suff_stat[1], (dim_loc, dim_loc))
-        )
+        self.pseudo_count = pseudo_count if pseudo_count is not None else (None, None)
+        if suff_stat_loc[0] is not None:
+            if dim_loc is None:
+                raise ValueError("dim must be set when suff_stat is provided.")
+            self.prior_mu: Optional[np.ndarray] = np.reshape(suff_stat_loc[0], dim_loc)
+        else:
+            self.prior_mu = None
+        if suff_stat_loc[1] is not None:
+            if dim_loc is None:
+                raise ValueError("dim must be set when suff_stat is provided.")
+            self.prior_covar: Optional[np.ndarray] = np.reshape(
+                suff_stat_loc[1], (dim_loc, dim_loc)
+            )
+        else:
+            self.prior_covar = None
         self.key = keys
 
     def accumulator_factory(self) -> "MultivariateGaussianAccumulatorFactory":
@@ -391,15 +414,18 @@ class MultivariateGaussianDataEncoder(TorchSequenceEncoder):
         device: Optional[tn.device] = None,
     ) -> "MultivariateGaussianTorchSequence":
         self.dim = len(x[0]) if self.dim is None else self.dim
+        dim = self.dim
 
         return MultivariateGaussianTorchSequence(
-            data=vec.tensor(np.reshape(np.asarray(x), (-1, self.dim)), device=device)
+            data=vec.tensor(np.reshape(np.asarray(x), (-1, dim)), device=device),
+            device=device,
         )
 
 
 class MultivariateGaussianTorchSequence(TorchEncodedSequence):
+    data: tn.Tensor
 
-    def __init__(self, data: tn.tensor, device: Optional[tn.device] = None):
+    def __init__(self, data: tn.Tensor, device: Optional[tn.device] = None) -> None:
         super().__init__(data=data, device=device)
 
     def __str__(self) -> str:

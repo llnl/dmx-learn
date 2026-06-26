@@ -10,7 +10,7 @@ Data type: int.
 
 # pylint: disable=too-many-positional-arguments,duplicate-code
 
-from typing import Any, Dict, List, Optional, Sequence, Tuple, Union
+from typing import Any, Dict, List, Optional, Sequence, Tuple, Union, cast
 
 import numpy as np
 import torch as tn
@@ -90,8 +90,9 @@ class BinomialDistribution(TorchProbabilityDistribution):
         self.keys = keys
         self.min_val = min_val
 
-    def to(self, device: tn.device) -> None:
-        self._device = device
+    def to(self, device: vec.DeviceLike) -> "BinomialDistribution":
+        self._device = self._resolve_device_arg(device)
+        return self
 
     def __repr__(self) -> str:
         return (
@@ -112,7 +113,7 @@ class BinomialDistribution(TorchProbabilityDistribution):
             float: Probability mass of x for binomial(n,p) with
                 min_val=min_val. 0.0 if x is not in support.
         """
-        return np.exp(self.log_density(x))
+        return float(np.exp(self.log_density(x)))
 
     def log_density(self, x: int) -> float:
         """Returns the log-probability mass of integer value x.
@@ -155,7 +156,7 @@ class BinomialDistribution(TorchProbabilityDistribution):
             + self.log_1p * (n - xx)
             + self.log_p * xx
         )
-        return cc[ix]
+        return cast(tn.Tensor, cc[ix])
 
     def sampler(self, seed: Optional[int] = None) -> "BinomialSampler":
         """Return a BinomialSampler for `BinomialDistribution(n, p, min_val)`.
@@ -565,11 +566,13 @@ class BinomialDataEncoder(TorchSequenceEncoder):
 
 
 class BinomialTorchEncodedSequence(TorchEncodedSequence):
+    data: Tuple[tn.Tensor, tn.Tensor, tn.Tensor, int, int]
+
     def __init__(
         self,
         data: Tuple[tn.Tensor, tn.Tensor, tn.Tensor, int, int],
         device: Optional[tn.device] = None,
-    ):
+    ) -> None:
         super().__init__(data=data, device=device)
 
     def __str__(self) -> str:

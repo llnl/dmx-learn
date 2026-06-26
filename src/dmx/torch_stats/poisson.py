@@ -59,8 +59,9 @@ class PoissonDistribution(TorchProbabilityDistribution):
         self.lam = lam
         self.log_lam = log(lam)
 
-    def to(self, device: str) -> None:
-        self._device = device
+    def to(self, device: vec.DeviceLike) -> "PoissonDistribution":
+        self._device = self._resolve_device_arg(device)
+        return self
 
     def __repr__(self) -> str:
         return f"PoissonDistribution({repr(self.lam)})"
@@ -75,7 +76,7 @@ class PoissonDistribution(TorchProbabilityDistribution):
             float: Density of Poisson distribution evaluated at x.
 
         """
-        return np.exp(self.log_density(x))
+        return float(np.exp(self.log_density(x)))
 
     def log_density(self, x: int) -> float:
         """Log-density of Poisson distribution evaluated at x.
@@ -92,7 +93,7 @@ class PoissonDistribution(TorchProbabilityDistribution):
 
         return x * self.log_lam - gammaln(x + 1.0) - self.lam
 
-    def seq_log_density(self, x: "PoissonTorchSequence") -> tn.tensor:
+    def seq_log_density(self, x: "PoissonTorchSequence") -> tn.Tensor:
         if not isinstance(x, PoissonTorchSequence):
             raise TypeError("Requires PoissonTorchSequence for `seq_` function calls.")
 
@@ -308,7 +309,7 @@ class PoissonDataEncoder(TorchSequenceEncoder):
     def __str__(self) -> str:
         return "PoissonDataEncoder"
 
-    def __eq__(self, other) -> bool:
+    def __eq__(self, other: object) -> bool:
         return isinstance(other, PoissonDataEncoder)
 
     def seq_encode(
@@ -324,10 +325,11 @@ class PoissonDataEncoder(TorchSequenceEncoder):
 
 
 class PoissonTorchSequence(TorchEncodedSequence):
+    data: Tuple[tn.Tensor, tn.Tensor]
 
     def __init__(
-        self, data: Tuple[tn.tensor, tn.tensor], device: Optional[tn.device] = None
-    ):
+        self, data: Tuple[tn.Tensor, tn.Tensor], device: Optional[tn.device] = None
+    ) -> None:
         super().__init__(data=data, device=device)
 
     def __str__(self) -> str:

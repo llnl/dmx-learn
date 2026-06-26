@@ -21,6 +21,7 @@ import torch as tn
 from numpy.random import RandomState
 from torch import Generator
 
+import dmx.torch_utils.vector as vec
 from dmx.arithmetic import maxrandint
 from dmx.torch_stats.pdist import (
     DistributionSampler,
@@ -77,10 +78,12 @@ class CompositeDistribution(TorchProbabilityDistribution):
         self.dists = dists
         self.count = len(dists)
 
-    def to(self, device: TorchDevice) -> None:
-        self._device = device
+    def to(self, device: vec.DeviceLike) -> "CompositeDistribution":
+        target_device = self._resolve_device_arg(device)
+        self._device = target_device
         for comp in self.dists:
-            comp.to(device)
+            comp.to(target_device)
+        return self
 
     def __repr__(self) -> str:
         s0 = ",".join(map(str, self.dists))
@@ -279,7 +282,7 @@ class CompositeAccumulator(TorchStatisticAccumulator):
                 x.data[i], weights, estimate.dists[i] if estimate is not None else None
             )
 
-    def combine(self, suff_stat: SS) -> "CompositeAccumulator":
+    def combine(self, suff_stat: Tuple[Any, ...]) -> "CompositeAccumulator":
         for i in range(self.count):
             self.accumulators[i].combine(suff_stat[i])
 
@@ -288,7 +291,7 @@ class CompositeAccumulator(TorchStatisticAccumulator):
     def value(self) -> Tuple[Any, ...]:
         return tuple(x.value() for x in self.accumulators)
 
-    def from_value(self, x: SS) -> "CompositeAccumulator":
+    def from_value(self, x: Tuple[Any, ...]) -> "CompositeAccumulator":
         self.accumulators = [
             self.accumulators[i].from_value(x[i]) for i in range(len(x))
         ]
@@ -405,7 +408,10 @@ class CompositeEstimator(TorchParameterEstimator):
         )
 
     def estimate(
-        self, nobs: Optional[float], suff_stat: SS, device: Optional[TorchDevice] = None
+        self,
+        nobs: Optional[float],
+        suff_stat: Tuple[Any, ...],
+        device: Optional[TorchDevice] = None,
     ) -> "CompositeDistribution":
         """
         Estimate a CompositeDistribution from an aggregated sufficient
@@ -497,7 +503,7 @@ class CompositeDataEncoder(TorchSequenceEncoder):
                     CompositeTorchEncodedSequence
 
         """
-        enc_data = []
+        enc_data: List[TorchEncodedSequence] = []
 
         for i, encoder in enumerate(self.encoders):
             enc_data.append(encoder.seq_encode([u[i] for u in x], device=device))
@@ -506,12 +512,13 @@ class CompositeDataEncoder(TorchSequenceEncoder):
 
 
 class CompositeTorchEncodedSequence(TorchEncodedSequence):
+    data: Tuple[TorchEncodedSequence, ...]
 
     def __init__(
         self,
         data: Tuple[TorchEncodedSequence, ...],
         device: Optional[TorchDevice] = None,
-    ):
+    ) -> None:
         super().__init__(data=data, device=device)
 
     def __str__(self) -> str:

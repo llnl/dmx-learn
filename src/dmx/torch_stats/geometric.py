@@ -55,14 +55,15 @@ class GeometricDistribution(TorchProbabilityDistribution):
         """
         super().__init__(device)
         self.p = p
-        self.log_p = np.log(p)
-        self.log_1p = np.log1p(-p)
+        self.log_p = float(np.log(p))
+        self.log_1p = float(np.log1p(-p))
 
     def __repr__(self) -> str:
         return f"GeometricDistribution(p={repr(self.p)})"
 
-    def to(self, device: tn.device) -> None:
-        self._device = device
+    def to(self, device: vec.DeviceLike) -> "GeometricDistribution":
+        self._device = self._resolve_device_arg(device)
+        return self
 
     def density(self, x: int) -> float:
         """Density of geometric distribution evaluated at x.
@@ -79,7 +80,7 @@ class GeometricDistribution(TorchProbabilityDistribution):
             float: Density of geometric distribution evaluated at x.
 
         """
-        return exp(self.log_density(x))
+        return float(exp(self.log_density(x)))
 
     def log_density(self, x: int) -> float:
         """Log-density of geometric distribution evaluated at x.
@@ -94,7 +95,7 @@ class GeometricDistribution(TorchProbabilityDistribution):
             float: Log-density of geometric distribution evaluated at x.
 
         """
-        return (x - 1) * self.log_1p + self.log_p
+        return float((x - 1) * self.log_1p + self.log_p)
 
     def seq_log_density(self, x: "GeometricTorchEncodedSequence") -> tn.Tensor:
 
@@ -308,7 +309,7 @@ class GeometricDataEncoder(TorchSequenceEncoder):
     def __str__(self) -> str:
         return "GeometricDataEncoder"
 
-    def __eq__(self, other) -> bool:
+    def __eq__(self, other: object) -> bool:
         return isinstance(other, GeometricDataEncoder)
 
     def seq_encode(
@@ -324,8 +325,9 @@ class GeometricDataEncoder(TorchSequenceEncoder):
 
 
 class GeometricTorchEncodedSequence(TorchEncodedSequence):
+    data: tn.Tensor
 
-    def __init__(self, data: tn.tensor, device: Optional[tn.device] = None):
+    def __init__(self, data: tn.Tensor, device: Optional[tn.device] = None) -> None:
         super().__init__(data=data, device=device)
 
     def __str__(self) -> str:

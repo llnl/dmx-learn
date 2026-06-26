@@ -24,6 +24,8 @@ from typing import Any, Dict, Generic, Optional, TypeVar
 import torch as tn
 from torch import device as TorchDevice
 
+from dmx.torch_utils.vector import DeviceLike, resolve_device
+
 SS = TypeVar("SS")
 
 
@@ -38,14 +40,14 @@ class TorchProbabilityDistribution:
 
     """
 
-    def __init__(self, device: Optional[tn.device] = None) -> None:
+    def __init__(self, device: DeviceLike = None) -> None:
         """Initialize the distribution with a specified device.
 
         Args:
             device: PyTorch device for computations. Defaults to CPU if None.
 
         """
-        self._device = tn.device("cpu") if device is None else device
+        self._device = TorchDevice("cpu") if device is None else resolve_device(device)
 
     def __repr__(self) -> str:
         """Return string representation of the distribution."""
@@ -61,7 +63,7 @@ class TorchProbabilityDistribution:
         return self._device
 
     @abstractmethod
-    def to(self, device: TorchDevice) -> "TorchProbabilityDistribution":
+    def to(self, device: DeviceLike) -> "TorchProbabilityDistribution":
         """Move the distribution to a specified device.
 
         Args:
@@ -72,6 +74,9 @@ class TorchProbabilityDistribution:
 
         """
         raise NotImplementedError
+
+    def _resolve_device_arg(self, device: DeviceLike) -> TorchDevice:
+        return self._device if device is None else resolve_device(device)
 
     @abstractmethod
     def density(self, x: Any) -> float:
@@ -207,14 +212,14 @@ class TorchStatisticAccumulator(Generic[SS]):
 
     """
 
-    def __init__(self, device: Optional[str] = None) -> None:
+    def __init__(self, device: DeviceLike = None) -> None:
         """Initialize the accumulator with a specified device.
 
         Args:
             device: Device string (e.g., 'cpu', 'cuda'). Defaults to CPU if None.
 
         """
-        self._device = TorchDevice("cpu") if device is None else device
+        self._device = TorchDevice("cpu") if device is None else resolve_device(device)
 
     @abstractmethod
     def seq_update(self, x: Any, weights: tn.Tensor, estimate: Any) -> None:
@@ -229,7 +234,7 @@ class TorchStatisticAccumulator(Generic[SS]):
         raise NotImplementedError
 
     @abstractmethod
-    def seq_initialize(self, x: Any, weights: tn.Tensor, tng: tn.Generator) -> None:
+    def seq_initialize(self, x: Any, weights: tn.Tensor, tng: Any) -> None:
         """Initialize sufficient statistics with a sequence of observations.
 
         Args:

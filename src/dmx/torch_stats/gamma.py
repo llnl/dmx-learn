@@ -58,10 +58,11 @@ class GammaDistribution(TorchProbabilityDistribution):
         super().__init__(device)
         self.k = k
         self.theta = theta
-        self.log_const = -(gammaln(k) + k * log(theta))
+        self.log_const = float(-(gammaln(k) + k * log(theta)))
 
-    def to(self, device: tn.device) -> None:
-        self._device = device
+    def to(self, device: vec.DeviceLike) -> "GammaDistribution":
+        self._device = self._resolve_device_arg(device)
+        return self
 
     def __repr__(self) -> str:
         s0, s1 = repr(self.k), repr(self.theta)
@@ -80,7 +81,7 @@ class GammaDistribution(TorchProbabilityDistribution):
             float: Density of gamma distribution evaluated at x.
 
         """
-        return exp(self.log_const + (self.k - one) * log(x) - x / self.theta)
+        return float(exp(self.log_const + (self.k - one) * log(x) - x / self.theta))
 
     def log_density(self, x: float) -> float:
         """Log-density of gamma distribution evaluated at x.
@@ -97,7 +98,7 @@ class GammaDistribution(TorchProbabilityDistribution):
             float: Log-density of gamma distribution evaluated at x.
 
         """
-        return self.log_const + (self.k - one) * log(x) - x / self.theta
+        return float(self.log_const + (self.k - one) * log(x) - x / self.theta)
 
     def seq_log_density(self, x: "GammaTorchEncodedSequence") -> tn.Tensor:
 
@@ -383,7 +384,7 @@ class GammaEstimator(TorchParameterEstimator):
         while builtins.abs(old_k - k) > threshold:
             old_k = k
             k -= (log(k) - digamma(k) - s) / (one / k - trigamma(k))
-        return k
+        return float(k)
 
 
 class GammaDataEncoder(TorchSequenceEncoder):
@@ -417,14 +418,15 @@ class GammaDataEncoder(TorchSequenceEncoder):
             raise ValueError("GammaDistribution has support x > 0.")
 
         rv2 = tn.log(rv1)
-        return GammaTorchEncodedSequence(data=(rv1, rv2))
+        return GammaTorchEncodedSequence(data=(rv1, rv2), device=device)
 
 
 class GammaTorchEncodedSequence(TorchEncodedSequence):
+    data: Tuple[tn.Tensor, tn.Tensor]
 
     def __init__(
-        self, data: Tuple[tn.tensor, tn.tensor], device: Optional[tn.device] = None
-    ):
+        self, data: Tuple[tn.Tensor, tn.Tensor], device: Optional[tn.device] = None
+    ) -> None:
         super().__init__(data=data, device=device)
 
     def __str__(self) -> str:

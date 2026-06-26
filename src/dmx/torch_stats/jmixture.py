@@ -147,18 +147,20 @@ class JointMixtureDistribution(TorchProbabilityDistribution):
         self.log_taus21 = tn.log(self.taus21)
         self.keys = keys if keys is not None else (None, None, None)
 
-    def to(self, device: tn.device) -> None:
-        self.w1 = self.w1.to(device)
-        self.w2 = self.w2.to(device)
-        self.taus12 = self.taus12.to(device)
-        self.taus21 = self.taus21.to(device)
+    def to(self, device: vec.DeviceLike) -> "JointMixtureDistribution":
+        target_device = self._resolve_device_arg(device)
+        self.w1 = self.w1.to(target_device)
+        self.w2 = self.w2.to(target_device)
+        self.taus12 = self.taus12.to(target_device)
+        self.taus21 = self.taus21.to(target_device)
 
         self.log_w1 = tn.log(self.w1)
         self.log_w2 = tn.log(self.w2)
         self.log_taus12 = tn.log(self.taus12)
         self.log_taus21 = tn.log(self.taus21)
 
-        self._device = device
+        self._device = target_device
+        return self
 
     def __repr__(self) -> str:
         s1 = ", ".join([repr(u) for u in self.components1])
@@ -241,10 +243,13 @@ class JointMixtureDistribution(TorchProbabilityDistribution):
         estimators1 = [comp1.estimator() for comp1 in self.components1]
         estimators2 = [comp2.estimator() for comp2 in self.components2]
 
+        pseudo_counts = (
+            None if pseudo_count is None else (pseudo_count, pseudo_count, pseudo_count)
+        )
         return JointMixtureEstimator(
             estimators1=estimators1,
             estimators2=estimators2,
-            pseudo_count=pseudo_count,
+            pseudo_count=pseudo_counts,
             keys=self.keys,
         )
 
@@ -289,7 +294,12 @@ class JointMixtureSampler(DistributionSampler):
             f2 = self.comp_sampler2[comp_state2].sample()
 
             return f1, f2
-        return [self.sample() for _ in range(size)]
+        samples: List[Tuple[Any, Any]] = []
+        for _ in range(size):
+            sample = self.sample()
+            assert isinstance(sample, tuple)
+            samples.append(sample)
+        return samples
 
 
 class JointMixtureEstimatorAccumulator(TorchStatisticAccumulator):
@@ -377,16 +387,16 @@ class JointMixtureEstimatorAccumulator(TorchStatisticAccumulator):
             generator=tng,
         )
 
-        temp = tn.bincount(
+        temp_counts = tn.bincount(
             idx1 * self.num_components1 + idx2,
             minlength=self.num_components1 * self.num_components2,
         )
-        temp = (
-            temp.reshape((self.num_components1, self.num_components2))
+        temp_arr = (
+            temp_counts.reshape((self.num_components1, self.num_components2))
             .data.cpu()
             .numpy()
         )
-        self.joint_counts += temp
+        self.joint_counts += temp_arr
 
         for i in range(self.num_components1):
             w = vec.zeros(sz, device=self._device)
@@ -644,7 +654,7 @@ class JointMixtureEstimator(TorchParameterEstimator):
 
     def estimate(
         self,
-        nobs,
+        nobs: Optional[float],
         suff_stat: Tuple[
             np.ndarray, np.ndarray, np.ndarray, Tuple[E0, ...], Tuple[E1, ...]
         ],
@@ -733,12 +743,13 @@ class JointMixtureDataEncoder(TorchSequenceEncoder):
 
 
 class JointMixtureTorchEncodedSequence(TorchEncodedSequence):
+    data: Tuple[int, TorchEncodedSequence, TorchEncodedSequence]
 
     def __init__(
         self,
         data: Tuple[int, TorchEncodedSequence, TorchEncodedSequence],
-        device: Optional[tn.tensor] = None,
-    ):
+        device: Optional[tn.device] = None,
+    ) -> None:
         super().__init__(data=data, device=device)
 
     def __str__(self) -> str:

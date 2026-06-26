@@ -149,12 +149,14 @@ class ConditionalDistribution(TorchProbabilityDistribution):
             f"given_dist={s3}, keys={s4})"
         )
 
-    def to(self, device: tn.device) -> None:
-        self._device = device
+    def to(self, device: vec.DeviceLike) -> "ConditionalDistribution":
+        target_device = self._resolve_device_arg(device)
+        self._device = target_device
         for v in self.dmap.values():
-            v.to(device)
-        self.default_dist.to(device)
-        self.given_dist.to(device)
+            v.to(target_device)
+        self.default_dist.to(target_device)
+        self.given_dist.to(target_device)
+        return self
 
     def density(self, x: Tuple[T0, T1]) -> float:
         """
@@ -426,7 +428,7 @@ class ConditionalDistributionAccumulator(TorchStatisticAccumulator):
 
     def __init__(
         self,
-        accumulator_map: Dict[T0, TorchStatisticAccumulator],
+        accumulator_map: Dict[Any, TorchStatisticAccumulator],
         default_accumulator: Optional[TorchStatisticAccumulator] = NullAccumulator(),
         given_accumulator: Optional[TorchStatisticAccumulator] = NullAccumulator(),
         keys: Optional[str] = None,
@@ -467,7 +469,7 @@ class ConditionalDistributionAccumulator(TorchStatisticAccumulator):
 
         #### seeds for intializers
         self._init_tng = False
-        self._acc_tng: Optional[Dict[T0, Generator]] = None
+        self._acc_tng: Optional[Dict[Any, Generator]] = None
         self._default_tng: Optional[Generator] = None
         self._given_tng: Optional[Generator] = None
 
@@ -489,6 +491,11 @@ class ConditionalDistributionAccumulator(TorchStatisticAccumulator):
 
         if not self._init_tng:
             self._tng_initialize(tng)
+            self._init_tng = True
+
+        assert self._acc_tng is not None
+        assert self._default_tng is not None
+        assert self._given_tng is not None
 
         for i, cond_val in enumerate(cond_vals):
             if cond_val in self.accumulator_map:
@@ -536,7 +543,7 @@ class ConditionalDistributionAccumulator(TorchStatisticAccumulator):
                 )
 
     def combine(
-        self, suff_stat: Tuple[Dict[T0, SS0], Optional[SS1], Optional[SS2]]
+        self, suff_stat: Tuple[Dict[Any, SS0], Optional[SS1], Optional[SS2]]
     ) -> "ConditionalDistributionAccumulator":
 
         for k, v in suff_stat[0].items():
@@ -561,7 +568,7 @@ class ConditionalDistributionAccumulator(TorchStatisticAccumulator):
         return rv1, rv2, rv3
 
     def from_value(
-        self, x: Tuple[Dict[T0, SS0], Optional[SS1], Optional[SS1]]
+        self, x: Tuple[Dict[Any, SS0], Optional[SS1], Optional[SS1]]
     ) -> "ConditionalDistributionAccumulator":
 
         for k, v in x[0].items():
@@ -700,7 +707,7 @@ class ConditionalDistributionEstimator(TorchParameterEstimator):
 
     def __init__(
         self,
-        estimator_map: Dict[T0, TorchParameterEstimator],
+        estimator_map: Dict[Any, TorchParameterEstimator],
         default_estimator: Optional[TorchParameterEstimator] = NullEstimator(),
         given_estimator: Optional[TorchParameterEstimator] = NullEstimator(),
         keys: Optional[str] = None,
@@ -740,7 +747,7 @@ class ConditionalDistributionEstimator(TorchParameterEstimator):
     def estimate(
         self,
         nobs: Optional[float],
-        suff_stat: Tuple[Dict[T0, SS0], Optional[SS1], Optional[SS2]],
+        suff_stat: Tuple[Dict[Any, SS0], Optional[SS1], Optional[SS2]],
         device: Optional[tn.device] = None,
     ) -> "ConditionalDistribution":
         """
@@ -800,7 +807,7 @@ class ConditionalDistributionDataEncoder(TorchSequenceEncoder):
 
     def __init__(
         self,
-        encoder_map: Dict[T0, TorchSequenceEncoder],
+        encoder_map: Dict[Any, TorchSequenceEncoder],
         default_encoder: TorchSequenceEncoder = NullDataEncoder(),
         given_encoder: TorchSequenceEncoder = NullDataEncoder(),
     ) -> None:
@@ -903,13 +910,13 @@ class ConditionalDistributionDataEncoder(TorchSequenceEncoder):
                     ConditionalTorchEncodedSequence
 
         """
-        cond_enc = {}
-        given_vals = []
+        cond_enc: Dict[Any, Tuple[List[Any], List[int]]] = {}
+        given_vals: List[Any] = []
 
         for i, xx in enumerate(x):
             given_vals.append(xx[0])
             if xx[0] not in cond_enc:
-                cond_enc[xx[0]] = [[xx[1]], [i]]
+                cond_enc[xx[0]] = ([xx[1]], [i])
             else:
                 cond_enc_loc = cond_enc[xx[0]]
                 cond_enc_loc[0].append(xx[1])
@@ -918,8 +925,8 @@ class ConditionalDistributionDataEncoder(TorchSequenceEncoder):
         cond_enc_items = list(cond_enc.items())
         cond_vals = tuple(u[0] for u in cond_enc_items)
 
-        eobs_vals = []
-        idx_vals = []
+        eobs_vals: List[TorchEncodedSequence] = []
+        idx_vals: List[tn.Tensor] = []
 
         for u in cond_enc_items:
             if self.null_default_encoder:
@@ -945,6 +952,13 @@ class ConditionalDistributionDataEncoder(TorchSequenceEncoder):
 
 
 class ConditionalTorchEncodedSequence(TorchEncodedSequence):
+    data: Tuple[
+        int,
+        Tuple[Any, ...],
+        Tuple[TorchEncodedSequence, ...],
+        Tuple[tn.Tensor, ...],
+        TorchEncodedSequence,
+    ]
 
     def __init__(
         self,
@@ -952,11 +966,11 @@ class ConditionalTorchEncodedSequence(TorchEncodedSequence):
             int,
             Tuple[Any, ...],
             Tuple[TorchEncodedSequence, ...],
-            Tuple[tn.tensor, ...],
+            Tuple[tn.Tensor, ...],
             TorchEncodedSequence,
         ],
         device: Optional[tn.device] = None,
-    ):
+    ) -> None:
         super().__init__(data=data, device=device)
 
     def __str__(self) -> str:
