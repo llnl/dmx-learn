@@ -8,6 +8,7 @@ Run with mpiexec -n 4 python3 examples_mpi4py/humap_example.py
 
 import os
 import pickle
+from typing import Any
 
 from mpi4py import MPI  # pylint: disable=no-name-in-module
 
@@ -35,8 +36,13 @@ if __name__ == "__main__":
 
     results = humap_mpi(data=data, seed=1, umap_kwargs=umap_kwargs)
 
+    rv: dict[str, Any] | None
+
     # you can access the results on the master node
     if world_rank == 0:
+        if results is None:
+            raise RuntimeError("HUMAP MPI did not return results on rank 0.")
+
         # UMAP embeddings, mixture model fit, the UMAP fit, and the posteriors.
         embeddings, mix_model, fit, posteriors = results
 
