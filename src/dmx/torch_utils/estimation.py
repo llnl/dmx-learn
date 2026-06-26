@@ -1,5 +1,5 @@
 import sys
-from typing import IO, List, Optional, Sequence, Tuple, TypeVar
+from typing import IO, Any, List, Optional, Sequence, Tuple, TypeVar
 
 import numpy as np
 import torch as tn
@@ -26,7 +26,21 @@ from dmx.torch_utils.vector import (
 )
 
 T = TypeVar("T")
-E0 = TypeVar("E0")
+EncodedChunks = List[Tuple[int, Any]]
+MpEncodedChunks = Sequence[Tuple[int, Any]]
+
+
+def _seq_log_density_sum_mp_checked(
+    world_rank: int,
+    enc_data: MpEncodedChunks,
+    estimate: TorchProbabilityDistribution,
+) -> Tuple[Optional[float], Optional[float]]:
+    result = seq_log_density_sum_mp(
+        world_rank=world_rank, enc_data=enc_data, estimate=estimate
+    )
+    if result is None:
+        raise RuntimeError("Distributed log-density sum did not return a result tuple.")
+    return result
 
 
 def empirical_kl_divergence(
@@ -87,8 +101,8 @@ def optimize(
     device: Optional[tn.device] = None,
     prev_estimate: Optional[TorchProbabilityDistribution] = None,
     vdata: Optional[Sequence[T]] = None,
-    enc_data: Optional[List[Tuple[int, E0]]] = None,
-    enc_vdata: Optional[List[Tuple[int, E0]]] = None,
+    enc_data: Optional[EncodedChunks] = None,
+    enc_vdata: Optional[EncodedChunks] = None,
     out: IO = sys.stdout,
     print_iter: int = 1,
     num_chunks: int = 1,
@@ -147,6 +161,7 @@ def optimize(
         data_encoder = prev_estimate.dist_to_encoder()
 
     if enc_data is None:
+        assert data is not None
         enc_data = seq_encode(
             data=data, encoder=data_encoder, num_chunks=num_chunks, device=device
         )
@@ -244,8 +259,8 @@ def optimize_mp(
     seed: Optional[int] = None,
     prev_estimate: Optional[TorchProbabilityDistribution] = None,
     vdata: Optional[Sequence[T]] = None,
-    enc_data: Optional[List[Tuple[int, E0]]] = None,
-    enc_vdata: Optional[List[Tuple[int, E0]]] = None,
+    enc_data: Optional[MpEncodedChunks] = None,
+    enc_vdata: Optional[MpEncodedChunks] = None,
     out: IO = sys.stdout,
     print_iter: int = 1,
     num_chunks: int = 1,
@@ -329,9 +344,8 @@ def optimize_mp(
         mm = prev_estimate
 
     # none on all except master
-    _, old_ll = seq_log_density_sum_mp(
-        world_rank=world_rank, enc_data=enc_data, estimate=mm
-    )
+    _, old_ll_opt = _seq_log_density_sum_mp_checked(world_rank, enc_data, mm)
+    old_ll = 0.0 if old_ll_opt is None else old_ll_opt
 
     if enc_vdata is None and vdata is not None:
         enc_vdata = seq_encode_mp(
@@ -342,9 +356,8 @@ def optimize_mp(
         )
 
     if enc_vdata is not None:
-        _, old_vll = seq_log_density_sum_mp(
-            world_rank=world_rank, enc_data=enc_vdata, estimate=mm
-        )
+        _, old_vll_opt = _seq_log_density_sum_mp_checked(world_rank, enc_vdata, mm)
+        old_vll = 0.0 if old_vll_opt is None else old_vll_opt
     else:
         old_vll = old_ll
 
@@ -357,21 +370,23 @@ def optimize_mp(
         update_model = [False]
         vflag = [False]
 
-        mm_next = seq_estimate_mp(
+        maybe_mm_next = seq_estimate_mp(
             world_rank=world_rank,
             world_size=world_size,
             enc_data=enc_data,
             estimator=est,
             prev_estimate=mm,
         )
-        _, ll = seq_log_density_sum_mp(
-            world_rank=world_rank, enc_data=enc_data, estimate=mm_next
-        )
+        if maybe_mm_next is None:
+            raise RuntimeError("Distributed estimate did not produce a model.")
+        mm_next = maybe_mm_next
+
+        _, ll_opt = _seq_log_density_sum_mp_checked(world_rank, enc_data, mm_next)
+        ll = 0.0 if ll_opt is None else ll_opt
 
         if enc_vdata is not None:
-            _, vll = seq_log_density_sum_mp(
-                world_rank=world_rank, enc_data=enc_vdata, estimate=mm_next
-            )
+            _, vll_opt = _seq_log_density_sum_mp_checked(world_rank, enc_vdata, mm_next)
+            vll = 0.0 if vll_opt is None else vll_opt
         else:
             vll = ll
 

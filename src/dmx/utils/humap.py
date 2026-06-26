@@ -3,7 +3,7 @@
 from typing import Any, Dict, Optional, Sequence, Tuple, TypeVar, Union
 
 import numpy as np
-import umap
+import umap  # type: ignore[import-untyped]
 from numpy.random import RandomState
 from umap import UMAP
 
