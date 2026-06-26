@@ -5,6 +5,8 @@ Generate synthetic count data, fit a binomial model, and evaluate log densities.
 
 # pylint: disable=duplicate-code
 
+from typing import Sequence, cast
+
 import torch
 
 from dmx.torch_stats import BinomialDistribution, BinomialEstimator, seq_encode
@@ -19,7 +21,7 @@ if __name__ == "__main__":
     dist = BinomialDistribution(p=0.4, n=5, min_val=0)
     # Generate data from sampler
     sampler = dist.sampler(seed=1)
-    data = sampler.sample(n)
+    data = cast(Sequence[int], sampler.sample(n))
     # Print out a few samples
     print(data[:5])
     # Define estimator

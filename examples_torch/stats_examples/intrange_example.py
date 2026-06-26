@@ -6,6 +6,8 @@ evaluate log densities.
 
 # pylint: disable=duplicate-code
 
+from typing import Sequence, cast
+
 import numpy as np
 import torch
 
@@ -26,7 +28,7 @@ if __name__ == "__main__":
     dist = IntegerCategoricalDistribution(min_val=0, p_vec=p)
     # Generate data from sampler
     sampler = dist.sampler(seed=1)
-    data = sampler.sample(n)
+    data = cast(Sequence[int], sampler.sample(n))
     # Define estimator
     est = IntegerCategoricalEstimator()
     # Estimate model

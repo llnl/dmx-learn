@@ -20,6 +20,7 @@ from dmx.torch_stats.pdist import (
     TorchProbabilityDistribution,
 )
 from dmx.torch_utils.vector import (
+    DeviceLike,
     float_dtype_for_device,
     resolve_device,
     set_default_float_dtype,
@@ -98,7 +99,7 @@ def optimize(
     delta: Optional[float] = 1.0e-9,
     init_estimator: Optional[TorchParameterEstimator] = None,
     init_p: float = 0.1,
-    device: Optional[tn.device] = None,
+    device: DeviceLike = None,
     prev_estimate: Optional[TorchProbabilityDistribution] = None,
     vdata: Optional[Sequence[T]] = None,
     enc_data: Optional[EncodedChunks] = None,
@@ -126,8 +127,8 @@ def optimize(
             If None, estimator is used. Must be consistent with estimator.
         init_p (float): Value in `(0.0, 1.0]` for randomizing the proportion of
             data points used in initialization.
-        device (Optional[tn.device]): Device used for tensor calculations.
-            Defaults to auto-detection.
+        device (DeviceLike): Device used for tensor calculations. Strings are
+            resolved to torch devices; None defaults to auto-detection.
         tng (Generator): Set seed for initializing the EM algorithm.
         vdata (Optional[Sequence[T]]): Optional validation set.
         prev_estimate (Optional[TorchProbabilityDistribution]): Optional model
@@ -146,8 +147,8 @@ def optimize(
         criteria are met.
 
     """
-    device = resolve_device(device)
-    set_default_float_dtype(float_dtype_for_device(device))
+    target_device = resolve_device(device)
+    set_default_float_dtype(float_dtype_for_device(target_device))
 
     if data is None and enc_data is None:
         raise ValueError("Optimization called with empty data or enc_data.")
@@ -157,13 +158,13 @@ def optimize(
     if prev_estimate is None:
         data_encoder = est.accumulator_factory().make().acc_to_encoder()
     else:
-        prev_estimate.to(device)
+        prev_estimate.to(target_device)
         data_encoder = prev_estimate.dist_to_encoder()
 
     if enc_data is None:
         assert data is not None
         enc_data = seq_encode(
-            data=data, encoder=data_encoder, num_chunks=num_chunks, device=device
+            data=data, encoder=data_encoder, num_chunks=num_chunks, device=target_device
         )
 
     if prev_estimate is None:
@@ -174,7 +175,7 @@ def optimize(
 
         seed = seed if seed is not None else np.random.randint(2**31)
         mm = seq_initialize(
-            enc_data=enc_data, estimator=est, seed=seed, p=p, device=device
+            enc_data=enc_data, estimator=est, seed=seed, p=p, device=target_device
         )
     else:
         mm = prev_estimate
@@ -183,7 +184,10 @@ def optimize(
 
     if enc_vdata is None and vdata is not None:
         enc_vdata = seq_encode(
-            data=vdata, encoder=data_encoder, num_chunks=num_chunks, device=device
+            data=vdata,
+            encoder=data_encoder,
+            num_chunks=num_chunks,
+            device=target_device,
         )
 
     if enc_vdata is not None:

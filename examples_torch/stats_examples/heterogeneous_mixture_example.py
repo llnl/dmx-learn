@@ -9,6 +9,8 @@ distributions as the components. The comps must have the same support.
 
 # pylint: disable=duplicate-code
 
+from typing import cast
+
 import torch
 
 from dmx.torch_stats import (
@@ -42,8 +44,11 @@ if __name__ == "__main__":
     est1 = BinomialEstimator()
     est = HeterogeneousMixtureEstimator(estimators=[est0, est1])
     # Estimate model
-    model = optimize(
-        data=data, estimator=est, max_its=100, seed=1, print_iter=1, device=device
+    model = cast(
+        HeterogeneousMixtureDistribution,
+        optimize(
+            data=data, estimator=est, max_its=100, seed=1, print_iter=1, device=device
+        ),
     )
     print(str(model))
     # Eval likelihood on an observation

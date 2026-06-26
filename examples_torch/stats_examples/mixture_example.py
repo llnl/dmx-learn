@@ -6,6 +6,8 @@ inspect posterior probabilities and log densities.
 
 # pylint: disable=duplicate-code
 
+from typing import cast
+
 import torch
 
 from dmx.torch_stats import (
@@ -36,8 +38,11 @@ if __name__ == "__main__":
     est1 = GaussianEstimator()
     est = MixtureEstimator(estimators=[est0, est1])
     # Estimate model
-    model = optimize(
-        data=data, estimator=est, max_its=100, seed=1, print_iter=1, device=device
+    model = cast(
+        MixtureDistribution,
+        optimize(
+            data=data, estimator=est, max_its=100, seed=1, print_iter=1, device=device
+        ),
     )
     print(str(model))
     print(f"Model weights: {model.w.tolist()}")
