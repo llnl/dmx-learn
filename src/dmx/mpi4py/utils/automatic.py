@@ -1,6 +1,6 @@
 """Automatic estimations for input data files. Use in auto-estimation step of htsne."""
 
-from typing import Any, Optional, Sequence
+from typing import Any, Optional, Sequence, cast
 
 import numpy as np
 
@@ -13,13 +13,13 @@ from dmx.utils.automatic import get_estimator
 # Keep the current helper call signature stable for now.
 # pylint: disable-next=too-many-positional-arguments
 def get_dpm_mixture_mpi(
-    data: Sequence[Any],
+    data: Optional[Sequence[Any]],
     estimator: Optional[ParameterEstimator] = None,
     max_comp: int = 20,
     rng: Optional[np.random.RandomState] = None,
     max_its: int = 1000,
     print_iter: int = 100,
-    mix_threshold_count: int = 0.5,
+    mix_threshold_count: float = 0.5,
 ) -> MixtureDistribution:
     """Gets a Dirichlet Process Mixture model for the data.
 
@@ -46,6 +46,8 @@ def get_dpm_mixture_mpi(
     world_rank = comm.Get_rank()
 
     if world_rank == 0:
+        if data is None:
+            raise ValueError("Data must be defined on rank 0.")
         est = (
             estimator if estimator is not None else get_estimator(data, use_bstats=True)
         )
@@ -61,6 +63,9 @@ def get_dpm_mixture_mpi(
     mix_model = optimize_mpi(data, est, max_its=max_its, rng=rng, print_iter=print_iter)
 
     if world_rank == 0:
+        assert data is not None
+        if mix_model is None:
+            raise RuntimeError("DPM mixture optimization did not return a model.")
         thresh = mix_threshold_count / len(data)
         mix_comps = [
             mix_model.components[i] for i in np.flatnonzero(mix_model.w >= thresh)
@@ -73,6 +78,6 @@ def get_dpm_mixture_mpi(
     else:
         mix_dist = None
 
-    mix_dist = comm.bcast(mix_dist, root=0)
+    mix_dist = cast(MixtureDistribution, comm.bcast(mix_dist, root=0))
 
     return mix_dist

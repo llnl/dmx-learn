@@ -51,7 +51,7 @@ def optimize_mpi(
     out: IO = sys.stdout,
     print_iter: int = 1,
     num_chunks: int = 1,
-) -> SequenceEncodableProbabilityDistribution:
+) -> Optional[SequenceEncodableProbabilityDistribution]:
     """Run EM estimation with MPI until convergence or `max_its`.
 
     Args:
@@ -123,12 +123,15 @@ def optimize_mpi(
         enc_data = seq_encode_mpi(
             data=data, encoder=data_encoder, num_chunks=num_chunks
         )
+    if enc_data is None:
+        raise RuntimeError("Encoded data is missing on this MPI rank.")
+    encoded_data = enc_data
 
     if not skip_init:
         _validate_init_p(init_p)
-        mm = seq_initialize_mpi(enc_data, estimator=est, rng=rng, p=init_p)
+        mm = seq_initialize_mpi(encoded_data, estimator=est, rng=rng, p=init_p)
 
-    _, old_ll = seq_log_density_sum_mpi(enc_data=enc_data, estimate=mm)
+    _, old_ll = seq_log_density_sum_mpi(enc_data=encoded_data, estimate=mm)
 
     # check if validation data is passed
     # check if encoded data is already on each worker
@@ -146,8 +149,12 @@ def optimize_mpi(
         enc_vdata_exists_all = True
 
     if enc_vdata_exists_all:
+        if enc_vdata is None:
+            raise RuntimeError("Encoded validation data is missing on this MPI rank.")
         _, old_vll = seq_log_density_sum_mpi(enc_vdata, mm)
+        validation_data: Optional[Sequence[Tuple[int, EncodedDataSequence]]] = enc_vdata
     else:
+        validation_data = None
         old_vll = old_ll
 
     best_model = mm
@@ -155,11 +162,13 @@ def optimize_mpi(
 
     for i in range(max_its):
 
-        mm_next = seq_estimate_mpi(enc_data=enc_data, estimator=est, prev_estimate=mm)
-        _, ll = seq_log_density_sum_mpi(enc_data=enc_data, estimate=mm_next)
+        mm_next = seq_estimate_mpi(
+            enc_data=encoded_data, estimator=est, prev_estimate=mm
+        )
+        _, ll = seq_log_density_sum_mpi(enc_data=encoded_data, estimate=mm_next)
 
-        if enc_vdata_exists_all:
-            _, vll = seq_log_density_sum_mpi(enc_data=enc_vdata, estimate=mm_next)
+        if validation_data is not None:
+            _, vll = seq_log_density_sum_mpi(enc_data=validation_data, estimate=mm_next)
         else:
             vll = ll
 
@@ -225,7 +234,7 @@ def best_of_mpi(
     enc_vdata: Optional[Sequence[Tuple[int, EncodedDataSequence]]] = None,
     out: IO = sys.stdout,
     print_iter: int = 1,
-) -> SequenceEncodableProbabilityDistribution:
+) -> Optional[SequenceEncodableProbabilityDistribution]:
     """Run multiple MPI EM initializations and keep the best model.
 
     Args:
@@ -284,6 +293,9 @@ def best_of_mpi(
 
     if not enc_data_exists_all:
         enc_data = seq_encode_mpi(data=data, encoder=data_encoder)
+    if enc_data is None:
+        raise RuntimeError("Encoded data is missing on this MPI rank.")
+    encoded_data = enc_data
 
     _validate_init_p(init_p)
 
@@ -301,6 +313,13 @@ def best_of_mpi(
     if not enc_vdata_exists_all and vdata_exists:
         enc_vdata = seq_encode_mpi(vdata, encoder=data_encoder)
         enc_vdata_exists_all = True
+    validation_data: Optional[Sequence[Tuple[int, EncodedDataSequence]]]
+    if enc_vdata_exists_all:
+        if enc_vdata is None:
+            raise RuntimeError("Encoded validation data is missing on this MPI rank.")
+        validation_data = enc_vdata
+    else:
+        validation_data = None
 
     rv_ll = -np.inf
     rv_mm = None
@@ -311,13 +330,13 @@ def best_of_mpi(
 
     for kk in range(trials):
 
-        mm = seq_initialize_mpi(enc_data, i_est, rng, init_p)
-        _, old_ll = seq_log_density_sum_mpi(enc_data, mm)
+        mm = seq_initialize_mpi(encoded_data, i_est, rng, init_p)
+        _, old_ll = seq_log_density_sum_mpi(encoded_data, mm)
 
         for i in range(max_its):
 
-            mm_next = seq_estimate_mpi(enc_data, est, mm)
-            _, ll = seq_log_density_sum_mpi(enc_data, mm_next)
+            mm_next = seq_estimate_mpi(encoded_data, est, mm)
+            _, ll = seq_log_density_sum_mpi(encoded_data, mm_next)
             dll = ll - old_ll
 
             if world_rank == 0:
@@ -332,7 +351,8 @@ def best_of_mpi(
 
             old_ll = ll
 
-        _, vll = seq_log_density_sum_mpi(enc_vdata, mm)
+        score_data = validation_data if validation_data is not None else encoded_data
+        _, vll = seq_log_density_sum_mpi(score_data, mm)
         if world_rank == 0:
             out.write(f"Trial {kk + 1}. VLL={vll:f}\n")
 
@@ -343,7 +363,7 @@ def best_of_mpi(
     # iterate further on best model
     rv_mm = optimize_mpi(
         data=None,
-        enc_data=enc_data,
+        enc_data=encoded_data,
         estimator=est,
         rng=rng,
         init_p=init_p,
