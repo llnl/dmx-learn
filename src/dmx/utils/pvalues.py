@@ -2,7 +2,7 @@
 
 import itertools
 from importlib import import_module
-from typing import List, Optional, Tuple, Union
+from typing import List, Optional, Sequence, Tuple, Union
 
 import numpy as np
 
@@ -10,9 +10,9 @@ SPECIAL = import_module("scipy.special")
 
 
 def binomial_rank(
-    log_p_vec: Union[List[float], np.ndarray],
-    log_p1_vec: Optional[Union[List[float], np.ndarray]] = None,
-    count_vec: Optional[Union[List, np.ndarray]] = None,
+    log_p_vec: Union[Sequence[float], np.ndarray],
+    log_p1_vec: Optional[Union[Sequence[float], np.ndarray]] = None,
+    count_vec: Optional[Union[Sequence[float], np.ndarray]] = None,
     ll_eps: float = 1.0e-4,
     max_len: Optional[int] = None,
 ) -> Tuple[np.ndarray, np.ndarray, Tuple[float, float, float]]:
@@ -28,16 +28,21 @@ def binomial_rank(
     Returns:
         log_density array, corresponding probs array, Tuple[ll0, dll, total_count]
     """
-    entries = []
+    entries: List[Tuple[np.ndarray, np.ndarray, float]] = []
+    log_p_arr = np.asarray(log_p_vec, dtype=float)
 
     if log_p1_vec is None:
-        log_p1_vec = np.log1p(-np.exp(log_p_vec))
+        log_p1_arr = np.log1p(-np.exp(log_p_arr))
+    else:
+        log_p1_arr = np.asarray(log_p1_vec, dtype=float)
 
     if count_vec is None:
-        count_vec = np.ones(len(log_p_vec))
+        count_arr = np.ones(len(log_p_arr), dtype=float)
+    else:
+        count_arr = np.asarray(count_vec, dtype=float)
 
     # Compute binomial log-densities and probabilities
-    for log_p, log_p1, n in zip(log_p_vec, log_p1_vec, count_vec):
+    for log_p, log_p1, n in zip(log_p_arr, log_p1_arr, count_arr):
         if n == 0 or log_p == -np.inf or log_p1 == -np.inf:
             continue
         nn = np.arange(0, n + 1)
@@ -52,7 +57,7 @@ def binomial_rank(
         llv = llv[ell > 0]
         ell = ell[ell > 0]
 
-        entries.append((llv, ell, n))
+        entries.append((llv, ell, float(n)))
 
     # Find parameters for a common fixed-space grid [ll0, ll0 + dll, ll0 + 2*dll, ...]
     min_vec = np.asarray([entry[0].min() for entry in entries])
@@ -69,13 +74,13 @@ def binomial_rank(
 
     # Adjust log-density histograms to a common grid and convolve
     temp_idx = np.floor((entries[0][0] - entries[0][0].min()) / dll).astype(int)
-    acc_prob = np.bincount(temp_idx, weights=entries[0][1])
+    acc_prob = np.asarray(np.bincount(temp_idx, weights=entries[0][1]), dtype=float)
     acc_count = entries[0][2]
 
     for next_llv, next_ell, next_count in entries[1:]:
         next_idx = np.floor((next_llv - next_llv.min()) / dll).astype(int)
 
-        next_prob = np.bincount(next_idx, weights=next_ell)
+        next_prob = np.asarray(np.bincount(next_idx, weights=next_ell), dtype=float)
         max_count = max(next_count, acc_count)
         acc_weight = np.power(2.0, acc_count - max_count)
         next_weight = np.power(2.0, next_count - max_count)

@@ -3,20 +3,18 @@
 Create ROC curves and search depth rankings.
 """
 
-from typing import Any, Callable, List, Optional, Sequence, Tuple, TypeVar, Union
+from typing import Any, Callable, Dict, List, Optional, Sequence, Tuple, Union
 
 import numpy as np
 
 from dmx.stats.pdist import SequenceEncodableProbabilityDistribution
 
-T = TypeVar("T")
-
 
 def classify(
-    data: Sequence[T],
+    data: Sequence[Tuple[Any, Any]],
     model: SequenceEncodableProbabilityDistribution,
-    labels: Optional[List[T]] = None,
-):
+    labels: Optional[Sequence[Any]] = None,
+) -> Tuple[np.ndarray, np.ndarray, np.ndarray, Dict[Any, np.ndarray]]:
     """Classifies iid observations from model predictions.
 
     Returns
@@ -31,38 +29,42 @@ def classify(
 
     """
     cnt = len(data)
-    data_labels = [u[0] for u in data]
+    data_labels = [label for label, _ in data]
 
     encoder = model.dist_to_encoder()
 
     if labels is None:
-        labels = sorted(set(data_labels))
+        label_values = sorted(set(data_labels))
+    else:
+        label_values = list(labels)
 
-    class_ll = np.zeros((len(data), len(labels)))
+    class_probs = np.zeros((len(data), len(label_values)))
     u_labels, true_labels = np.unique(data_labels, return_inverse=True)
 
-    other_labs = sorted(set(labels).difference(list(u_labels)))
+    other_labs = sorted(set(label_values).difference(list(u_labels)))
     u_label_map = dict(
         zip(list(u_labels) + other_labs, range(len(u_labels) + len(other_labs)))
     )
 
-    for label in labels:
+    for label in label_values:
         idx = u_label_map[label]
-        loc_data = [(label, u[1]) for u in data]
-        class_ll[:, idx] = model.seq_log_density(encoder.seq_encode(loc_data))
+        loc_data = [(label, value) for _, value in data]
+        class_probs[:, idx] = model.seq_log_density(encoder.seq_encode(loc_data))
 
-    max_ll = np.max(class_ll, axis=1, keepdims=True)
-    class_ll -= max_ll
-    np.exp(class_ll, out=class_ll)
-    class_ll /= class_ll.sum(axis=1, keepdims=True)
+    max_ll = np.max(class_probs, axis=1, keepdims=True)
+    class_probs -= max_ll
+    np.exp(class_probs, out=class_probs)
+    class_probs /= class_probs.sum(axis=1, keepdims=True)
 
-    class_prob = class_ll[np.arange(cnt), true_labels]
-    class_diff = class_ll - class_prob[:, None]
+    class_prob = class_probs[np.arange(cnt), true_labels]
+    class_diff = class_probs - class_prob[:, None]
     class_rank = (class_diff >= 0).sum(axis=1) - 1
-    data_labels = np.asarray(data_labels)
-    class_ll = {label: class_ll[:, u_label_map[label]] for label in labels}
+    data_labels_arr = np.asarray(data_labels)
+    class_prob_by_label = {
+        label: class_probs[:, u_label_map[label]] for label in label_values
+    }
 
-    return class_rank, class_prob, data_labels, class_ll
+    return class_rank, class_prob, data_labels_arr, class_prob_by_label
 
 
 def roc_curve(
@@ -121,7 +123,7 @@ def roc_percentiles(
     """
 
     pd, fa = roc_curve(pos_x, neg_x)
-    rv = []
+    rv: List[List[float]] = []
 
     for _, perc_point in enumerate(perc_points):
 
@@ -169,13 +171,7 @@ def ranking_depth(
               corresponding input entry.
     """
 
-    if k is not None:
-        retval = np.zeros((len(x), k))
-        retval.fill(np.nan)
-    else:
-        retval = []
-
-    idx = 0
+    all_ranks: List[np.ndarray] = []
     for entry in x:
 
         scores = np.asarray([u[1] for u in entry[1]])
@@ -188,12 +184,14 @@ def ranking_depth(
 
         ranks = np.arange(len(sidx))[matches]
 
-        if k is not None:
-            sz = min(k, len(ranks))
-            retval[idx, :sz] = ranks[:sz]
-        else:
-            retval.append(ranks)
+        all_ranks.append(ranks)
 
-        idx += 1
+    if k is None:
+        return all_ranks
 
+    retval = np.zeros((len(x), k))
+    retval.fill(np.nan)
+    for idx, ranks in enumerate(all_ranks):
+        sz = min(k, len(ranks))
+        retval[idx, :sz] = ranks[:sz]
     return retval
