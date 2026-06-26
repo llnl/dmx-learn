@@ -1,6 +1,7 @@
 """Create, estimate, and sample from a gamma distribution with shape k and scale theta.
 
-Defines the GammaDistribution, GammaSampler, GammaAccumulatorFactory, GammaAccumulator, GammaEstimator,
+Defines the GammaDistribution, GammaSampler, GammaAccumulatorFactory, GammaAccumulator,
+GammaEstimator,
 and the GammaDataEncoder classes for use with dmx-learn.
 """
 
@@ -8,9 +9,8 @@ from typing import Any, Dict, List, Optional, Tuple, Union
 
 import numpy as np
 from numpy.random import RandomState
-from scipy.special import gammaln
 
-from dmx.arithmetic import *
+from dmx.arithmetic import exp, inf, log, one, sqrt, zero
 from dmx.stats.pdist import (
     DataSequenceEncoder,
     DistributionSampler,
@@ -20,7 +20,7 @@ from dmx.stats.pdist import (
     SequenceEncodableStatisticAccumulator,
     StatisticAccumulatorFactory,
 )
-from dmx.utils.special import digamma, trigamma
+from dmx.utils.special import digamma, gammaln, trigamma
 
 
 class GammaDistribution(SequenceEncodableProbabilityDistribution):
@@ -49,6 +49,7 @@ class GammaDistribution(SequenceEncodableProbabilityDistribution):
             name (Optional[str], optional): Name for the GammaDistribution instance.
             keys (Optional[str], optional): Key for parameters of distribution.
         """
+        super().__init__()
         self.k = k
         self.theta = theta
         self.log_const = -(gammaln(k) + k * log(theta))
@@ -95,7 +96,7 @@ class GammaDistribution(SequenceEncodableProbabilityDistribution):
             np.ndarray: Log-density values.
         """
         if not isinstance(x, GammaEncodedDataSequence):
-            raise Exception("GammaEncodedDataSequence required for seq_log_density().")
+            raise TypeError("GammaEncodedDataSequence required for seq_log_density().")
 
         rv = x.data[0] * (-1.0 / self.theta)
         if self.k != 1.0:
@@ -125,14 +126,13 @@ class GammaDistribution(SequenceEncodableProbabilityDistribution):
         """
         if pseudo_count is None:
             return GammaEstimator(name=self.name, keys=self.keys)
-        else:
-            suff_stat = (self.k * self.theta, exp(digamma(self.k) + log(self.theta)))
-            return GammaEstimator(
-                pseudo_count=(pseudo_count, pseudo_count),
-                suff_stat=suff_stat,
-                name=self.name,
-                keys=self.keys,
-            )
+        suff_stat = (self.k * self.theta, exp(digamma(self.k) + log(self.theta)))
+        return GammaEstimator(
+            pseudo_count=(pseudo_count, pseudo_count),
+            suff_stat=suff_stat,
+            name=self.name,
+            keys=self.keys,
+        )
 
     def dist_to_encoder(self) -> "GammaDataEncoder":
         """Return a GammaDataEncoder for this distribution.
@@ -159,25 +159,25 @@ class GammaSampler(DistributionSampler):
             dist (GammaDistribution): GammaDistribution to sample from.
             seed (Optional[int], optional): Seed for random number generator.
         """
-        self.rng = RandomState(seed)
-        self.dist = dist
+        super().__init__(dist, seed)
         self.seed = seed
 
     def sample(self, size: Optional[int] = None) -> Union[float, List[float]]:
         """Draw iid samples from the gamma distribution.
 
         Args:
-            size (Optional[int], optional): Number of iid samples to draw. If None, returns a single sample.
+            size (Optional[int], optional): Number of iid samples to draw. If None,
+                returns a single sample.
 
         Returns:
-            Union[float, List[float]]: Single sample (float) if size is None, else a list of samples.
+            Union[float, List[float]]: Single sample (float) if size is None, else a
+            list of samples.
         """
         if size:
             return self.rng.gamma(
                 shape=self.dist.k, scale=self.dist.theta, size=size
             ).tolist()
-        else:
-            return float(self.rng.gamma(shape=self.dist.k, scale=self.dist.theta))
+        return float(self.rng.gamma(shape=self.dist.k, scale=self.dist.theta))
 
 
 class GammaAccumulator(SequenceEncodableStatisticAccumulator):
@@ -212,6 +212,7 @@ class GammaAccumulator(SequenceEncodableStatisticAccumulator):
             weight (float): Weight for the observation.
             rng (Optional[RandomState]): Random number generator (not used).
         """
+        del rng
         self.update(x, weight, None)
 
     def seq_initialize(
@@ -364,7 +365,8 @@ class GammaEstimator(ParameterEstimator):
     """Estimator for the gamma distribution from aggregated sufficient statistics.
 
     Attributes:
-        pseudo_count (Tuple[float, float]): Values used to re-weight sufficient statistics.
+        pseudo_count (Tuple[float, float]): Values used to re-weight sufficient
+            statistics.
         suff_stat (Tuple[float, float]): Prior shape 'k' and scale 'theta'.
         threshold (float): Threshold for estimating the shape of gamma.
         name (Optional[str]): Name for the estimator.
@@ -382,8 +384,10 @@ class GammaEstimator(ParameterEstimator):
         """Initialize GammaEstimator.
 
         Args:
-            pseudo_count (Tuple[float, float], optional): Values used to re-weight sufficient statistics.
-            suff_stat (Tuple[float, float], optional): Prior shape 'k' and scale 'theta'.
+            pseudo_count (Tuple[float, float], optional): Values used to re-weight
+                sufficient statistics.
+            suff_stat (Tuple[float, float], optional): Prior shape 'k' and scale
+                'theta'.
             threshold (float, optional): Threshold for estimating the shape of gamma.
             name (Optional[str], optional): Name for the estimator.
             keys (Optional[str], optional): Key for combining sufficient statistics.
@@ -417,7 +421,8 @@ class GammaEstimator(ParameterEstimator):
 
         Args:
             nobs (Optional[float]): Number of observations (not used).
-            suff_stat (Tuple[float, float, float]): (nobs, sum, sum_of_logs) sufficient statistics.
+            suff_stat (Tuple[float, float, float]): (nobs, sum, sum_of_logs) sufficient
+                statistics.
 
         Returns:
             GammaDistribution: Estimated distribution.
@@ -457,7 +462,7 @@ class GammaEstimator(ParameterEstimator):
         s = log(avg_sum) - avg_sum_of_logs
         old_k = inf
         k = (3 - s + sqrt((s - 3) * (s - 3) + 24 * s)) / (12 * s)
-        while abs(old_k - k) > threshold:
+        while np.abs(old_k - k) > threshold:
             old_k = k
             k -= (log(k) - digamma(k) - s) / (one / k - trigamma(k))
         return k
@@ -497,10 +502,9 @@ class GammaDataEncoder(DataSequenceEncoder):
         """
         rv1 = np.asarray(x, dtype=float)
         if np.any(rv1 <= 0) or np.any(np.isnan(rv1)):
-            raise Exception("GammaDistribution has support x > 0.")
-        else:
-            rv2 = np.log(rv1)
-            return GammaEncodedDataSequence(data=(rv1, rv2))
+            raise ValueError("GammaDistribution has support x > 0.")
+        rv2 = np.log(rv1)
+        return GammaEncodedDataSequence(data=(rv1, rv2))
 
 
 class GammaEncodedDataSequence(EncodedDataSequence):

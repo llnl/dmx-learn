@@ -1,12 +1,16 @@
-""""Create, estimate, and sample from a von Mises-Fisher distribution.
+""" "Create, estimate, and sample from a von Mises-Fisher distribution.
 
-Defines the VonMisesFisherDistribution, VonMisesFisherSampler, VonMisesFisherAccumulatorFactory,
-VonMisesFisherAccumulator, VonMisesFisherEstimator, and the VonMisesFisherDataEncoder classes for use with dmx-learn.
+Defines the VonMisesFisherDistribution, VonMisesFisherSampler,
+VonMisesFisherAccumulatorFactory,
+VonMisesFisherAccumulator, VonMisesFisherEstimator, and the VonMisesFisherDataEncoder
+classes for use with dmx-learn.
 
 Data type: Union[Sequence[float], np.ndarray].
 
-The von Mises-Fisher (vmf) distribution on the (p-1) sphere in R^{p}. Assume x_mat = (X_1,..,X_p) follows a vmf
-distribution with mean direction vector mu = (mu_1, mu_2, ..., mu_p) s.t. ||mu||=1 and concentration parameter
+The von Mises-Fisher (vmf) distribution on the (p-1) sphere in R^{p}. Assume x_mat =
+(X_1,..,X_p) follows a vmf
+distribution with mean direction vector mu = (mu_1, mu_2, ..., mu_p) s.t. ||mu||=1 and
+concentration parameter
 kappa > 0. The vmf log-density if given by
 
     log(f(x; mu, kappa)) = log(c_p(kappa)) + kappa * dot(mu, x),
@@ -14,7 +18,8 @@ kappa > 0. The vmf log-density if given by
 where dot is a dot product and
     log(c_p(kappa)) = (p/2-1)log(kappa) - (p/2)*log(2*pi) + log(B_{p/2-1}(kappa)), where
 
-log(B_{p/2-1}(kappa)) = denotes the modified Bessel function of the first kind at order p/2-1.
+log(B_{p/2-1}(kappa)) = denotes the modified Bessel function of the first kind at order
+p/2-1.
 
 """
 
@@ -23,12 +28,10 @@ from typing import Any, Dict, Optional, Sequence, Tuple, Union
 
 import numpy as np
 import scipy.linalg
-import scipy.special
 from numpy.random import RandomState
-from scipy.special import gammaln
 
 import dmx.utils.vector as vec
-from dmx.arithmetic import *
+from dmx.arithmetic import exp, maxrandint, pi
 from dmx.stats.pdist import (
     DataSequenceEncoder,
     DistributionSampler,
@@ -38,6 +41,7 @@ from dmx.stats.pdist import (
     SequenceEncodableStatisticAccumulator,
     StatisticAccumulatorFactory,
 )
+from dmx.utils.special import gammaln, ive
 
 
 def lniv_z(v: float, ln_z: float) -> float:
@@ -89,7 +93,7 @@ def lniv(v: float, ln_z: float) -> float:
     """
     z = np.exp(ln_z)
     if np.isfinite(ln_z):
-        rv0 = scipy.special.ive(v, z)
+        rv0 = ive(v, z)
         if rv0 == 0:
             rv = lniv_z(v, ln_z)
         elif np.isposinf(rv0):
@@ -122,11 +126,13 @@ class VonMisesFisherDistribution(SequenceEncodableProbabilityDistribution):
     ) -> None:
         """
         Args:
-            mu (Union[Sequence[float], np.ndarray]): Mean direction vector. Norm should be 1.0.
+            mu (Union[Sequence[float], np.ndarray]): Mean direction vector. Norm should
+                be 1.0.
             kappa (float): Positive concentration parameter.
             name (Optional[str]): Optional name for the distribution instance.
             keys (Optional[str]): Optional keys for the distribution instance.
         """
+        super().__init__()
         dim = len(mu)
         mu = np.asarray(mu).copy()
 
@@ -153,7 +159,7 @@ class VonMisesFisherDistribution(SequenceEncodableProbabilityDistribution):
         s2 = repr(self.kappa)
         s3 = repr(self.name)
         s4 = repr(self.keys)
-        return "VonMisesFisherDistribution(%s, %s, name=%s, keys=%s)" % (s1, s2, s3, s4)
+        return f"VonMisesFisherDistribution({s1}, {s2}, name={s3}, keys={s4})"
 
     def density(self, x: Union[Sequence[float], np.ndarray]) -> float:
         return exp(self.log_density(x))
@@ -165,7 +171,7 @@ class VonMisesFisherDistribution(SequenceEncodableProbabilityDistribution):
     def seq_log_density(self, x: "VonMisesFisherEncodedDataSequence") -> np.ndarray:
 
         if not isinstance(x, VonMisesFisherEncodedDataSequence):
-            raise Exception(
+            raise TypeError(
                 "VonMisesFisherEncodedDataSequence required for seq_log_density()."
             )
         return np.dot(x.data, self.mu) * self.kappa + self.log_const
@@ -179,8 +185,7 @@ class VonMisesFisherDistribution(SequenceEncodableProbabilityDistribution):
 
         if pseudo_count is None:
             return VonMisesFisherEstimator(dim=self.dim, name=self.name, keys=self.keys)
-        else:
-            return VonMisesFisherEstimator(dim=self.dim, name=self.name, keys=self.keys)
+        return VonMisesFisherEstimator(dim=self.dim, name=self.name, keys=self.keys)
 
     def dist_to_encoder(self) -> "VonMisesFisherDataEncoder":
         return VonMisesFisherDataEncoder()
@@ -202,14 +207,14 @@ class VonMisesFisherSampler(DistributionSampler):
             dist (VonMisesFisherDistribution): The vmf distribution instance.
             seed (Optional[int]): Random seed for sampling.
         """
-        self.rng = RandomState(seed)
-        self.dist = dist
+        super().__init__(dist, seed)
 
     def sample(self, size: Optional[int] = None) -> np.ndarray:
         """Generates samples from the vmf distribution.
 
         Args:
-            size (Optional[int]): Number of samples to generate. If None, generates a single sample.
+            size (Optional[int]): Number of samples to generate. If None, generates a
+                single sample.
 
         Returns:
             np.ndarray: Generated samples.
@@ -256,8 +261,7 @@ class VonMisesFisherSampler(DistributionSampler):
 
         if size is None:
             return rv[0, :]
-        else:
-            return rv
+        return rv
 
 
 class VonMisesFisherAccumulator(SequenceEncodableStatisticAccumulator):
@@ -310,6 +314,7 @@ class VonMisesFisherAccumulator(SequenceEncodableStatisticAccumulator):
     def initialize(
         self, x: Union[Sequence[float], np.ndarray], weight: float, rng: RandomState
     ) -> None:
+        del rng
         self.update(x, weight, None)
 
     def seq_update(

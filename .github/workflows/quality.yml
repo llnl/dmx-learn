@@ -70,8 +70,8 @@ jobs:
           path: .venv
           key: venv-${{ runner.os }}-3.13-${{ hashFiles('**/poetry.lock') }}
 
-      - name: Install dependencies with optional deps (torch for torch_stats)
-        run: poetry install --no-interaction --extras ci --with dev
+      - name: Install dependencies with optional deps (torch, mpi4py)
+        run: poetry install --no-interaction --extras "ci optional" --with dev
 
       - name: Run mypy type checking on core modules
         run: |
@@ -107,18 +107,17 @@ jobs:
           path: .venv
           key: venv-${{ runner.os }}-3.13-${{ hashFiles('**/poetry.lock') }}
 
-      - name: Install dependencies with optional deps (torch for torch_stats)
-        run: poetry install --no-interaction --extras ci --with dev
+      - name: Install dependencies with optional deps (torch, mpi4py)
+        run: poetry install --no-interaction --extras "ci optional" --with dev
 
       - name: Run pylint on core modules
         run: |
-          poetry run pylint src/dmx/stats/pdist.py --jobs=1 --fail-under=10
+          poetry run pylint src/dmx/stats --jobs=1 --fail-under=10
           poetry run pylint src/dmx/torch_stats --jobs=1 --fail-under=10
           poetry run pylint src/dmx/mpi4py --jobs=1 --fail-under=10
           poetry run pylint src/dmx/utils --jobs=1 --fail-under=10
           poetry run pylint src/dmx/torch_utils --jobs=1 --fail-under=10
           poetry run pylint examples --jobs=1 --fail-under=10
-          poetry run pylint examples_bstats --jobs=1 --fail-under=10
           poetry run pylint examples_mpi4py --jobs=1 --fail-under=10
           poetry run pylint examples_spark --jobs=1 --fail-under=10
           poetry run pylint examples_torch --jobs=1 --fail-under=10
@@ -151,8 +150,8 @@ jobs:
           path: .venv
           key: venv-${{ runner.os }}-3.13-${{ hashFiles('**/poetry.lock') }}
 
-      - name: Install dependencies with optional deps (torch for torch_stats)
-        run: poetry install --no-interaction --extras ci --with dev
+      - name: Install dependencies with optional deps (torch, mpi4py)
+        run: poetry install --no-interaction --extras "ci optional" --with dev
 
       - name: Run pydocstyle on core modules
         run: |

@@ -3,7 +3,8 @@
 Defines the NullDistribution, NullSampler, NullAccumulatorFactory, NullAccumulator,
 NullEstimator, and the NullDataEncoder classes for use with dmx-learn.
 
-The NullDistribution object and its related classes are space filling objects meant for consistency in type hints.
+The NullDistribution object and its related classes are space filling objects meant for
+consistency in type hints.
 
 Notes:
     The density evaluates to 1.0 for any value (Any data type).
@@ -15,7 +16,6 @@ Notes:
 from typing import Any, Dict, Optional
 
 import numpy as np
-from numpy.random import RandomState
 
 import dmx.utils.vector as vec
 from dmx.stats.pdist import (
@@ -44,10 +44,11 @@ class NullDistribution(SequenceEncodableProbabilityDistribution):
             name (Optional[str]): Name for object.
 
         """
+        super().__init__()
         self.name = name
 
     def __str__(self) -> str:
-        return "NullDistribution(name=%s)" % repr(self.name)
+        return f"NullDistribution(name={repr(self.name)})"
 
     def density(self, x: Optional[Any]) -> float:
         """Density for NullDistribution.
@@ -83,8 +84,7 @@ class NullDistribution(SequenceEncodableProbabilityDistribution):
         if pseudo_count is None:
             return NullEstimator(name=self.name)
 
-        else:
-            return NullEstimator(pseudo_count=pseudo_count, name=self.name)
+        return NullEstimator(pseudo_count=pseudo_count, name=self.name)
 
     def dist_to_encoder(self) -> "NullDataEncoder":
         return NullDataEncoder()
@@ -94,7 +94,8 @@ class NullSampler(DistributionSampler):
     """NullSampler object, always generates None as sample type.
 
     Note:
-        This generally serves as a place-holder for consistency with other classes. Try to remove it before sampling.
+        This generally serves as a place-holder for consistency with other classes. Try
+        to remove it before sampling.
 
     Attributes:
         rng (RandomState): For consistency with other samplers.
@@ -110,8 +111,7 @@ class NullSampler(DistributionSampler):
             dist (NullDistribution): For consistency with other samplers.
 
         """
-        self.rng = RandomState(seed)
-        self.dist = dist
+        super().__init__(dist, seed)
 
     def sample(self, size: Optional[int] = None) -> None:
         """Generate samples from NullDistribution.
@@ -132,7 +132,8 @@ class NullAccumulator(SequenceEncodableStatisticAccumulator):
     """NullAccumulator object for accumulating sufficient statistics.
 
     Notes:
-        All functions do nothing. They are kept for consistency with other classes to ensure type checks.
+        All functions do nothing. They are kept for consistency with other classes to
+        ensure type checks.
 
     Attributes:
         keys (Optional[str]): Set key for distribution.
@@ -166,6 +167,7 @@ class NullAccumulator(SequenceEncodableStatisticAccumulator):
     def initialize(
         self, x: Optional[Any], weight: float, rng: Optional["np.random.RandomState"]
     ) -> None:
+        del rng
         self.update(x, weight, None)
 
     def seq_initialize(
@@ -203,7 +205,8 @@ class NullAccumulatorFactory(StatisticAccumulatorFactory):
     """NullAccumulatorFactory object for creating NullAccumulator objects.
 
     Notes:
-        All functions do nothing. They are kept for consistency with other classes to ensure type checks.
+        All functions do nothing. They are kept for consistency with other classes to
+        ensure type checks.
 
     Attributes:
         keys (Optional[str]): Set key for distribution.
@@ -233,7 +236,8 @@ class NullEstimator(ParameterEstimator):
     Attributes:
         pseudo_count (Optional[float]): Regularize sufficient statistics (ignored).
         suff_stat (Optional[Any]): Can pass anything, is simply ignored.
-        keys (Optional[str]): Key for distribution (not meaningful as all estimates are NullDistribution())
+        keys (Optional[str]): Key for distribution (not meaningful as all estimates are
+            NullDistribution())
         name (Optional[str]): Name for estimator.
 
 
@@ -251,7 +255,8 @@ class NullEstimator(ParameterEstimator):
         Args:
             pseudo_count (Optional[float]): Regularize sufficient statistics (ignored).
             suff_stat (Optional[Any]): Can pass anything, is simply ignored.
-            keys (Optional[str]): Key for distribution (not meaningful as all estimates are NullDistribution())
+            keys (Optional[str]): Key for distribution (not meaningful as all estimates
+                are NullDistribution())
             name (Optional[str]): Name for estimator.
 
 

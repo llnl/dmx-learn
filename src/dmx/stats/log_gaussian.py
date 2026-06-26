@@ -1,6 +1,8 @@
-"""Evaluate, estimate, and sample from a log-gaussian distribution with location mu and scale sigma2.
+"""Evaluate, estimate, and sample from a log-gaussian distribution with location mu and
+scale sigma2.
 
-Defines the LogGaussianDistribution, LogGaussianSampler, LogGaussianAccumulatorFactory, LogGaussianAccumulator,
+Defines the LogGaussianDistribution, LogGaussianSampler, LogGaussianAccumulatorFactory,
+LogGaussianAccumulator,
 LogGaussianEstimator, and the LogGaussianDataEncoder classes for use with dmx-learn.
 
 """
@@ -10,7 +12,7 @@ from typing import Any, Callable, Dict, List, Optional, Tuple, Union
 import numpy as np
 from numpy.random import RandomState
 
-from dmx.arithmetic import *
+from dmx.arithmetic import exp, isinf, isnan, log, pi, sqrt
 from dmx.stats.pdist import (
     DataSequenceEncoder,
     DistributionSampler,
@@ -23,7 +25,8 @@ from dmx.stats.pdist import (
 
 
 class LogGaussianDistribution(SequenceEncodableProbabilityDistribution):
-    """LogGaussianDistribution object defines Gaussian distribution with mean mu and variance sigma2.
+    """LogGaussianDistribution object defines Gaussian distribution with mean mu and
+    variance sigma2.
 
     Attributes:
         mu (float): Location parameter for log-Gaussian distribution.
@@ -51,6 +54,7 @@ class LogGaussianDistribution(SequenceEncodableProbabilityDistribution):
             keys (Optional[str]): Key for parameters of dist.
 
         """
+        super().__init__()
         self.mu = mu
         self.sigma2 = 1.0 if (sigma2 <= 0 or isnan(sigma2) or isinf(sigma2)) else sigma2
         self.log_const = -0.5 * log(2.0 * pi * self.sigma2)
@@ -59,11 +63,9 @@ class LogGaussianDistribution(SequenceEncodableProbabilityDistribution):
         self.keys = keys
 
     def __str__(self) -> str:
-        return "LogGaussianDistribution(%s, %s, name=%s, keys=%s)" % (
-            repr(self.mu),
-            repr(self.sigma2),
-            repr(self.name),
-            repr(self.keys),
+        return (
+            f"LogGaussianDistribution({repr(self.mu)}, {repr(self.sigma2)}, "
+            f"name={repr(self.name)}, keys={repr(self.keys)})"
         )
 
     def density(self, x: float) -> float:
@@ -100,7 +102,7 @@ class LogGaussianDistribution(SequenceEncodableProbabilityDistribution):
     def seq_log_density(self, x: "LogGaussianEncodedDataSequence") -> np.ndarray:
 
         if not isinstance(x, LogGaussianEncodedDataSequence):
-            raise Exception(
+            raise TypeError(
                 "LogGaussianEncodedDataSequence required for seq_log_density()."
             )
 
@@ -124,8 +126,7 @@ class LogGaussianDistribution(SequenceEncodableProbabilityDistribution):
                 name=self.name,
                 keys=self.keys,
             )
-        else:
-            return LogGaussianEstimator(name=self.name, keys=self.keys)
+        return LogGaussianEstimator(name=self.name, keys=self.keys)
 
     def dist_to_encoder(self) -> "LogGaussianDataEncoder":
         return LogGaussianDataEncoder()
@@ -146,17 +147,18 @@ class LogGaussianSampler(DistributionSampler):
         """LogGaussianSampler object.
 
         Args:
-            dist (LogGaussianDistribution): LogGaussianDistribution instance to sample from.
+            dist (LogGaussianDistribution): LogGaussianDistribution instance to sample
+                from.
             seed (Optional[int]): Used to set seed in random sampler.
 
         """
-        self.rng = RandomState(seed)
-        self.dist = dist
+        super().__init__(dist, seed)
 
     def sample(self, size: Optional[int] = None) -> Union[float, np.ndarray]:
         """Draw 'size' iid samples from LogGaussianSampler object.
 
-        Numpy array of length 'size' from log-Gaussian distribution with scale beta if size not None. Else a single
+        Numpy array of length 'size' from log-Gaussian distribution with scale beta if
+        size not None. Else a single
         sample is returned as float.
 
         Args:
@@ -174,7 +176,8 @@ class LogGaussianSampler(DistributionSampler):
 
 
 class LogGaussianAccumulator(SequenceEncodableStatisticAccumulator):
-    """LogGaussianAccumulator object used to accumulate sufficient statistics from observed data.
+    """LogGaussianAccumulator object used to accumulate sufficient statistics from
+    observed data.
 
     Attributes:
         log_sum (float): Sum of weighted observations (sum_i w_i*X_i).
@@ -182,7 +185,8 @@ class LogGaussianAccumulator(SequenceEncodableStatisticAccumulator):
         count (float): Sum of weights for observations (sum_i w_i).
         count2 (float): Sum of weights for squared observations (sum_i w_i).
         count (float): Tracks the sum of weighted observations used to form sum.
-        keys (Optional[str]): Key string used to aggregate all sufficient statistics with same keys values.
+        keys (Optional[str]): Key string used to aggregate all sufficient statistics
+            with same keys values.
         name (Optional[str]): Name for GaussianAccumulator object.
 
     """
@@ -212,6 +216,7 @@ class LogGaussianAccumulator(SequenceEncodableStatisticAccumulator):
         self.count2 += weight
 
     def initialize(self, x: float, weight: float, rng: Optional[RandomState]) -> None:
+        del rng
         self.update(x, weight, None)
 
     def seq_initialize(
@@ -279,7 +284,8 @@ class LogGaussianAccumulatorFactory(StatisticAccumulatorFactory):
 
     Attributes:
         name (Optional[str]): Name of the LogGaussianAccumulatorFactory object.
-        keys (Optional[str]): String id for merging sufficient statistics of LogGaussianAccumulator.
+        keys (Optional[str]): String id for merging sufficient statistics of
+            LogGaussianAccumulator.
 
     """
 
@@ -303,9 +309,11 @@ class LogGaussianEstimator(ParameterEstimator):
 
     Attributes:
         pseudo_count (Tuple[Optional[float], Optional[float]]): Weights for suff_stat.
-        suff_stat (Tuple[Optional[float], Optional[float]]): Tuple of mean (mu) and variance (sigma2).
+        suff_stat (Tuple[Optional[float], Optional[float]]): Tuple of mean (mu) and
+            variance (sigma2).
         name (Optional[str]): String name of LogGaussianEstimator instance.
-        keys (Optional[str]): String keys of LogGaussianEstimator instance for combining sufficient statistics.
+        keys (Optional[str]): String keys of LogGaussianEstimator instance for combining
+            sufficient statistics.
 
     """
 
@@ -319,10 +327,13 @@ class LogGaussianEstimator(ParameterEstimator):
         """LogGaussianEstimator object.
 
         Args:
-            pseudo_count (Tuple[Optional[float], Optional[float]]): Tuple of two positive floats.
-            suff_stat (Tuple[Optional[float], Optional[float]]): Tuple of float and positive float.
+            pseudo_count (Tuple[Optional[float], Optional[float]]): Tuple of two
+                positive floats.
+            suff_stat (Tuple[Optional[float], Optional[float]]): Tuple of float and
+                positive float.
             name (Optional[str]): Assign a name to LogGaussianEstimator.
-            keys (Optional[str]): Assign keys to LogGaussianEstimator for combining sufficient statistics.
+            keys (Optional[str]): Assign keys to LogGaussianEstimator for combining
+                sufficient statistics.
 
         """
         if isinstance(keys, str) or keys is None:
@@ -370,7 +381,8 @@ class LogGaussianEstimator(ParameterEstimator):
 
 
 class LogGaussianDataEncoder(DataSequenceEncoder):
-    """LogGaussianDataEncoder object for encoding sequences of iid Gaussian observations with data type float."""
+    """LogGaussianDataEncoder object for encoding sequences of iid Gaussian observations
+    with data type float."""
 
     def __str__(self) -> str:
         return "LogGaussianDataEncoder"
@@ -386,7 +398,8 @@ class LogGaussianDataEncoder(DataSequenceEncoder):
         Data type must be List[float] or np.ndarray[float].
 
         Args:
-            x (Union[List[float], np.ndarray]): Sequence of iid log-Gaussian observations.
+            x (Union[List[float], np.ndarray]): Sequence of iid log-Gaussian
+                observations.
 
         Returns:
             A numpy array of floats.
@@ -395,7 +408,7 @@ class LogGaussianDataEncoder(DataSequenceEncoder):
         rv = np.asarray(np.log(x), dtype=float)
 
         if np.any(np.isnan(rv)) or np.any(np.isinf(rv)):
-            raise Exception("LogGaussianDistribution requires support x in (0,inf).")
+            raise ValueError("LogGaussianDistribution requires support x in (0,inf).")
         return LogGaussianEncodedDataSequence(data=rv)
 
 

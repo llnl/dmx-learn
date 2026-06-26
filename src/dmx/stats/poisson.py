@@ -1,6 +1,7 @@
 """Create, estimate, and sample from a Poisson distribution with rate lam > 0.0.
 
-Defines the PoissonDistribution, PoissonSampler, PoissonAccumulatorFactory, PoissonAccumulator,
+Defines the PoissonDistribution, PoissonSampler, PoissonAccumulatorFactory,
+PoissonAccumulator,
 PoissonEstimator, and the PoissonDataEncoder classes for use with dmx-learn.
 
 Data type (int): The Poisson distribution with rate lam, has log-density
@@ -16,10 +17,9 @@ else.
 """
 
 from math import log
-from typing import Any, Dict, List, Optional, Sequence, Tuple, Union
+from typing import Any, Dict, Optional, Sequence, Tuple, Union
 
 import numpy as np
-from numpy.random import RandomState
 
 from dmx.stats.pdist import (
     DataSequenceEncoder,
@@ -55,6 +55,7 @@ class PoissonDistribution(SequenceEncodableProbabilityDistribution):
             keys (Optional[str]): Key for lambda.
 
         """
+        super().__init__()
         self.lam = lam
         self.log_lambda = log(lam)
         self.name = name
@@ -65,7 +66,7 @@ class PoissonDistribution(SequenceEncodableProbabilityDistribution):
         s1 = repr(self.name)
         s2 = repr(self.keys)
 
-        return "PoissonDistribution(%s, name=%s, keys=%s)" % (s0, s1, s2)
+        return f"PoissonDistribution({s0}, name={s1}, keys={s2})"
 
     def density(self, x: int) -> float:
         """Evaluate the density of Poisson distribution at observation x.
@@ -97,13 +98,12 @@ class PoissonDistribution(SequenceEncodableProbabilityDistribution):
         """
         if x < 0:
             return -np.inf
-        else:
-            return x * self.log_lambda - gammaln(x + 1.0) - self.lam
+        return x * self.log_lambda - gammaln(x + 1.0) - self.lam
 
     def seq_log_density(self, x: "PoissonEncodedDataSequence") -> np.ndarray:
 
         if not isinstance(x, PoissonEncodedDataSequence):
-            raise Exception(
+            raise TypeError(
                 "PoissonEncodedDataSequence required for seq_log_density()."
             )
 
@@ -118,13 +118,12 @@ class PoissonDistribution(SequenceEncodableProbabilityDistribution):
     def estimator(self, pseudo_count: Optional[float] = None) -> "PoissonEstimator":
         if pseudo_count is None:
             return PoissonEstimator(name=self.name, keys=self.keys)
-        else:
-            return PoissonEstimator(
-                pseudo_count=pseudo_count,
-                suff_stat=self.lam,
-                name=self.name,
-                keys=self.keys,
-            )
+        return PoissonEstimator(
+            pseudo_count=pseudo_count,
+            suff_stat=self.lam,
+            name=self.name,
+            keys=self.keys,
+        )
 
     def dist_to_encoder(self) -> "PoissonDataEncoder":
         return PoissonDataEncoder()
@@ -144,20 +143,22 @@ class PoissonSampler(DistributionSampler):
 
         Args:
             dist (PoissonDistribution): Set PoissonDistribution to sample from.
-            seed (Optional[int]): Used to set seed on random number generator used in sampling.
+            seed (Optional[int]): Used to set seed on random number generator used in
+                sampling.
 
         """
-        self.rng = RandomState(seed)
-        self.dist = dist
+        super().__init__(dist, seed)
 
     def sample(self, size: Optional[int] = None) -> Union[int, Sequence[int]]:
         """Generate iid samples from Poisson distribution.
 
-        Generates a single Poisson sample (int) if size is None, else a numpy array of integers of length size
+        Generates a single Poisson sample (int) if size is None, else a numpy array of
+        integers of length size
         containing iid samples, from the Poisson distribution.
 
         Args:
-            size (Optional[int]): Number of iid samples to draw. If None, assumed to be 1.
+            size (Optional[int]): Number of iid samples to draw. If None, assumed to be
+                1.
 
         Returns:
             If size is None, int, else size length numpy array of ints.
@@ -165,18 +166,19 @@ class PoissonSampler(DistributionSampler):
         """
         if size:
             return self.rng.poisson(lam=self.dist.lam, size=size).tolist()
-        else:
-            return int(self.rng.poisson(lam=self.dist.lam))
+        return int(self.rng.poisson(lam=self.dist.lam))
 
 
 class PoissonAccumulator(SequenceEncodableStatisticAccumulator):
-    """PoissonAccumulator object used to accumulate sufficient statistics from observed data.
+    """PoissonAccumulator object used to accumulate sufficient statistics from observed
+    data.
 
     Attributes:
          sum (float): Aggregate sum of weighted observations.
          count (float): Aggregate sum of observation weights.
          name (Optional[str]): name for object
-         keys (Optional[str]): Key for combining sufficient statistics with object instance containing the same key.
+         keys (Optional[str]): Key for combining sufficient statistics with object
+             instance containing the same key.
 
     """
 
@@ -188,6 +190,7 @@ class PoissonAccumulator(SequenceEncodableStatisticAccumulator):
             keys (Optional[str]): Assign a string valued to key to object instance.
 
         """
+        del name
         self.sum = 0.0
         self.count = 0.0
         self.keys = keys
@@ -195,6 +198,7 @@ class PoissonAccumulator(SequenceEncodableStatisticAccumulator):
     def initialize(
         self, x: int, weight: float, rng: Optional[np.random.RandomState] = None
     ) -> None:
+        del rng
         self.update(x, weight, None)
 
     def update(
@@ -256,11 +260,13 @@ class PoissonAccumulator(SequenceEncodableStatisticAccumulator):
 
 
 class PoissonAccumulatorFactory(StatisticAccumulatorFactory):
-    """PoissonAccumulatorFactory object used for constructing PoissonAccumulator objects.
+    """PoissonAccumulatorFactory object used for constructing PoissonAccumulator
+    objects.
 
     Attributes:
         name (Optional[str]): Name for object
-        keys (Optional[str]): Tag for combining sufficient statistics of PoissonAccumulator objects when
+        keys (Optional[str]): Tag for combining sufficient statistics of
+            PoissonAccumulator objects when
             constructed.
 
     """
@@ -281,13 +287,15 @@ class PoissonAccumulatorFactory(StatisticAccumulatorFactory):
 
 
 class PoissonEstimator(ParameterEstimator):
-    """PoissonEstimator object for estimating PoissonDistribution object from aggregated sufficient statistics.
+    """PoissonEstimator object for estimating PoissonDistribution object from aggregated
+    sufficient statistics.
 
     Attributes:
         pseudo_count (Optional[float]): Re-weight suff_stat.
         suff_stat (Optional[float]): Mean of Poisson if not None.
         name (Optional[str]): String name of PoissonEstimator instance.
-        keys (Optional[str]): String keys of PoissonEstimator instance for combining sufficient statistics.
+        keys (Optional[str]): String keys of PoissonEstimator instance for combining
+            sufficient statistics.
 
     """
 
@@ -304,7 +312,8 @@ class PoissonEstimator(ParameterEstimator):
             pseudo_count (Optional[float]): Optional non-negative float.
             suff_stat (Optional[float]): Optional non-negative float.
             name (Optional[str]): Assign a name to PoissonEstimator.
-            keys (Optional[str]): Assign keys to PoissonEstimator for combining sufficient statistics.
+            keys (Optional[str]): Assign keys to PoissonEstimator for combining
+                sufficient statistics.
 
         """
         if isinstance(keys, str) or keys is None:
@@ -332,12 +341,12 @@ class PoissonEstimator(ParameterEstimator):
                 / (nobs + self.pseudo_count),
                 name=self.name,
             )
-        else:
-            return PoissonDistribution(psum / nobs, name=self.name)
+        return PoissonDistribution(psum / nobs, name=self.name)
 
 
 class PoissonDataEncoder(DataSequenceEncoder):
-    """GeometricDataEncoder object for encoding sequences of iid Poisson observations with data type int."""
+    """GeometricDataEncoder object for encoding sequences of iid Poisson observations
+    with data type int."""
 
     def __str__(self) -> str:
         return "PoissonDataEncoder"
@@ -351,18 +360,18 @@ class PoissonDataEncoder(DataSequenceEncoder):
         rv1 = np.asarray(x)
 
         if np.any(rv1 < 0) or np.any(np.isnan(rv1)):
-            raise Exception("Poisson requires non-negative integer values of x.")
-        else:
-            rv2 = gammaln(rv1 + 1.0)
+            raise ValueError("Poisson requires non-negative integer values of x.")
+        rv2 = gammaln(rv1 + 1.0)
 
-            return PoissonEncodedDataSequence(data=(rv1, rv2))
+        return PoissonEncodedDataSequence(data=(rv1, rv2))
 
 
 class PoissonEncodedDataSequence(EncodedDataSequence):
     """PoissonEncodedDataSequence object for vectorized function calls.
 
     Attributes:
-        data (Tuple[np.ndarray, np.ndarray]): Poisson observations, and the log-gamma value of the obs.
+        data (Tuple[np.ndarray, np.ndarray]): Poisson observations, and the log-gamma
+            value of the obs.
 
     """
 
@@ -370,7 +379,8 @@ class PoissonEncodedDataSequence(EncodedDataSequence):
         """PoissonEncodedDataSequence object.
 
         Args:
-            data (Tuple[np.ndarray, np.ndarray]): Poisson observations, and the log-gamma value of the obs.
+            data (Tuple[np.ndarray, np.ndarray]): Poisson observations, and the
+                log-gamma value of the obs.
 
         """
         super().__init__(data=data)

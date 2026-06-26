@@ -1,8 +1,11 @@
-"""Evaluate, estimate, and sample from a uniform distribution over integers in range [min_val, max_val] with a spike
+"""Evaluate, estimate, and sample from a uniform distribution over integers in range
+[min_val, max_val] with a spike
   placed on the integer value k.
 
-Defines the SpikeAndSlabDistribution, SpikeAndSlabSampler, SpikeAndSlabAccumulatorFactory,
-SpikeAndSlabAccumulator, SpikeAndSlabEstimator, and the SpikeAndSlabDataEncoder classes for use
+Defines the SpikeAndSlabDistribution, SpikeAndSlabSampler,
+SpikeAndSlabAccumulatorFactory,
+SpikeAndSlabAccumulator, SpikeAndSlabEstimator, and the SpikeAndSlabDataEncoder classes
+for use
 with dmx-learn.
 
 """
@@ -13,7 +16,6 @@ import numpy as np
 from numpy.random import RandomState
 
 import dmx.utils.vector as vec
-from dmx.arithmetic import *
 from dmx.stats.pdist import (
     DataSequenceEncoder,
     DistributionSampler,
@@ -26,7 +28,8 @@ from dmx.stats.pdist import (
 
 
 class SpikeAndSlabDistribution(SequenceEncodableProbabilityDistribution):
-    """SpikeAndSlabDistribution object for creating a uniform integer distribution with a spike on k.
+    """SpikeAndSlabDistribution object for creating a uniform integer distribution with
+    a spike on k.
 
     Attributes:
         p (float): Probability of drawing from k.
@@ -53,25 +56,27 @@ class SpikeAndSlabDistribution(SequenceEncodableProbabilityDistribution):
         """SpikeAndSlabDistribution object.
 
         Args:
-            k (int): Integer value to place spike on. Must be within [min_val,min_val+num_vals)
+            k (int): Integer value to place spike on. Must be within
+                [min_val,min_val+num_vals)
             num_vals (int): Number of integers in the range.
-            p (float): Probability of drawing k. (1-p)/(num_vals-1) to draw any other integer in range.
+            p (float): Probability of drawing k. (1-p)/(num_vals-1) to draw any other
+                integer in range.
             min_val (Optional[int]): Defaults to 0. Set bottom of integer range.
             name (Optional[str]): Set name for object.
             keys (Optional[str]): Key for parameters.
 
         """
+        super().__init__()
         self.p = p
         self.min_val = min_val
         self.max_val = min_val + num_vals
 
         if not self.min_val <= k <= self.max_val:
-            raise Exception(
-                "Spike value k must be between [%s, %s]."
-                % (repr(self.min_val), repr(self.max_val))
+            raise ValueError(
+                f"Spike value k must be between [{repr(self.min_val)}, "
+                f"{repr(self.max_val)}]."
             )
-        else:
-            self.k = k
+        self.k = k
 
         self.log_p = np.log(p)
         self.num_vals = num_vals
@@ -88,8 +93,8 @@ class SpikeAndSlabDistribution(SequenceEncodableProbabilityDistribution):
         s6 = repr(self.keys)
 
         return (
-            "SpikeAndSlabDistribution(p=%s, min_val=%s, num_vals=%s,k=%s, name=%s, keys=%s)"
-            % (s3, s1, s2, s4, s5, s6)
+            f"SpikeAndSlabDistribution(p={s3}, min_val={s1}, num_vals={s2},k={s4}, "
+            f"name={s5}, keys={s6})"
         )
 
     def density(self, x: int) -> float:
@@ -98,13 +103,12 @@ class SpikeAndSlabDistribution(SequenceEncodableProbabilityDistribution):
     def log_density(self, x: int) -> float:
         if self.max_val >= x >= self.min_val:
             return self.log_p if x == self.k else self.log_1p
-        else:
-            return -np.inf
+        return -np.inf
 
     def seq_log_density(self, x: "SpikeAndSlabEncodedDataSequence") -> np.ndarray:
 
         if not isinstance(x, SpikeAndSlabEncodedDataSequence):
-            raise Exception(
+            raise TypeError(
                 "SpikeAndSlabEncodedDataSequence required for seq_log_density()."
             )
 
@@ -135,21 +139,21 @@ class SpikeAndSlabDistribution(SequenceEncodableProbabilityDistribution):
                 keys=self.keys,
             )
 
-        else:
-            return SpikeAndSlabEstimator(
-                min_val=self.min_val,
-                max_val=self.max_val,
-                pseudo_count=pseudo_count,
-                name=self.name,
-                keys=self.keys,
-            )
+        return SpikeAndSlabEstimator(
+            min_val=self.min_val,
+            max_val=self.max_val,
+            pseudo_count=pseudo_count,
+            name=self.name,
+            keys=self.keys,
+        )
 
     def dist_to_encoder(self) -> "SpikeAndSlabDataEncoder":
         return SpikeAndSlabDataEncoder()
 
 
 class SpikeAndSlabSampler(DistributionSampler):
-    """SpikeAndSlabSampler object for sampling from spike and slab distribution on integers.
+    """SpikeAndSlabSampler object for sampling from spike and slab distribution on
+    integers.
 
     Attributes:
         rng (RandomState): RandomState for seeding samples.
@@ -167,8 +171,7 @@ class SpikeAndSlabSampler(DistributionSampler):
             seed (Optional[int]): Seed for generating samples.
 
         """
-        self.rng = RandomState(seed)
-        self.dist = dist
+        super().__init__(dist, seed)
         self.non_k = np.delete(
             np.arange(self.dist.min_val, self.dist.max_val), self.dist.k
         )
@@ -179,19 +182,17 @@ class SpikeAndSlabSampler(DistributionSampler):
             z = self.rng.binomial(n=1, p=self.dist.p)
             if z == 1:
                 return self.dist.k
-            else:
-                return self.rng.choice(self.non_k)
-        else:
+            return self.rng.choice(self.non_k)
 
-            rv = np.zeros(size, dtype=int)
-            rv.fill(self.dist.k)
-            z = self.rng.binomial(n=1, p=self.dist.p, size=size)
-            idx = np.flatnonzero(z == 0)
+        rv = np.zeros(size, dtype=int)
+        rv.fill(self.dist.k)
+        z = self.rng.binomial(n=1, p=self.dist.p, size=size)
+        idx = np.flatnonzero(z == 0)
 
-            if len(idx) > 0:
-                rv[idx] = self.rng.choice(self.non_k, replace=True, size=len(idx))
+        if len(idx) > 0:
+            rv[idx] = self.rng.choice(self.non_k, replace=True, size=len(idx))
 
-            return rv
+        return rv
 
 
 class SpikeAndSlabAccumulator(SequenceEncodableStatisticAccumulator):
@@ -264,6 +265,7 @@ class SpikeAndSlabAccumulator(SequenceEncodableStatisticAccumulator):
             self.count_vec[x - self.min_val] += weight
 
     def initialize(self, x: int, weight: float, rng: RandomState) -> None:
+        del rng
         return self.update(x, weight, None)
 
     def seq_initialize(
@@ -400,13 +402,15 @@ class SpikeAndSlabAccumulatorFactory(StatisticAccumulatorFactory):
 
 
 class SpikeAndSlabEstimator(ParameterEstimator):
-    """SpikeAndSlabEstimator object instance for estimating SpikeAndSlabDistribution objects.
+    """SpikeAndSlabEstimator object instance for estimating SpikeAndSlabDistribution
+    objects.
 
     Attributes:
         pseudo_count (Optional[float]): Regularize value k.
         min_val (int): Smallest integer value in the range. Defaults to 0.
         max_val (int): Set to the min val plus number of values - 1.
-        suff_stat (Optional[Tuple[int, Optional[float]]]): Tuple of k to regularize and optional value of p for k.
+        suff_stat (Optional[Tuple[int, Optional[float]]]): Tuple of k to regularize and
+            optional value of p for k.
         name (Optional[str]): Set name for object instance.
         keys (Optional[str]): Set keys for object instance.
 
@@ -426,7 +430,8 @@ class SpikeAndSlabEstimator(ParameterEstimator):
         Args:
             min_val (Optional[int]): Smallest integer value in the range.
             pseudo_count (Optional[float]): Regularize value k.
-            suff_stat (Optional[Tuple[int, Optional[float]]]): Tuple of k to regularize and optional value of p for k.
+            suff_stat (Optional[Tuple[int, Optional[float]]]): Tuple of k to regularize
+                and optional value of p for k.
             name (Optional[str]): Set name for object instance.
             keys (Optional[str]): Set keys for object instance.
 
@@ -471,6 +476,7 @@ class SpikeAndSlabEstimator(ParameterEstimator):
                     p=p,
                     name=self.name,
                 )
+
             if self.pseudo_count is not None:
                 if self.suff_stat[0] is not None and self.suff_stat[1] is None:
                     k_pseudo = (
@@ -496,7 +502,7 @@ class SpikeAndSlabEstimator(ParameterEstimator):
                         name=self.name,
                     )
 
-                elif self.suff_stat[0] is not None and self.suff_stat[1] is not None:
+                if self.suff_stat[0] is not None and self.suff_stat[1] is not None:
                     k_pseudo = (
                         self.suff_stat[0]
                         if min_val is None
@@ -519,34 +525,36 @@ class SpikeAndSlabEstimator(ParameterEstimator):
                         p=p,
                         name=self.name,
                     )
-                else:
-                    count_vec += self.pseudo_count
-                    count = np.sum(count_vec)
-                    p_vec = count_vec / count
-                    ll = np.log1p(-p_vec)
-                    ll -= np.log(len(count_vec) - 1)
-                    ll *= count - count_vec
-                    ll += count_vec * np.log(p_vec)
-                    k = np.argmax(ll)
-                    p = p_vec[k]
+                count_vec += self.pseudo_count
+                count = np.sum(count_vec)
+                p_vec = count_vec / count
+                ll = np.log1p(-p_vec)
+                ll -= np.log(len(count_vec) - 1)
+                ll *= count - count_vec
+                ll += count_vec * np.log(p_vec)
+                k = np.argmax(ll)
+                p = p_vec[k]
 
-                    return SpikeAndSlabDistribution(
-                        k=k if min_val is None else k + min_val,
-                        min_val=min_val,
-                        num_vals=len(count_vec),
-                        p=p,
-                        name=self.name,
-                    )
+                return SpikeAndSlabDistribution(
+                    k=k if min_val is None else k + min_val,
+                    min_val=min_val,
+                    num_vals=len(count_vec),
+                    p=p,
+                    name=self.name,
+                )
+
+        return None
 
 
 class SpikeAndSlabDataEncoder(DataSequenceEncoder):
-    """IntegerCategoricalDataEncoder object for encoding sequences of iid integer categorical observations."""
+    """IntegerCategoricalDataEncoder object for encoding sequences of iid integer
+    categorical observations."""
 
     def __str__(self) -> str:
         return "IntegerCategoricalDataEncoder"
 
     def __eq__(self, other: object) -> bool:
-        return True if isinstance(other, SpikeAndSlabDataEncoder) else False
+        return isinstance(other, SpikeAndSlabDataEncoder)
 
     def seq_encode(
         self, x: Union[List[int], np.ndarray]

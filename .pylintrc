@@ -3,7 +3,7 @@
 jobs=0
 
 # Pickle collected data for later comparisons
-persistent=yes
+persistent=no
 
 # List of plugins (as comma separated values of python module names)
 load-plugins=
@@ -17,6 +17,9 @@ extension-pkg-allow-list=numpy,scipy,torch,numba
 [MESSAGES CONTROL]
 # Disable specific messages that are too strict for scientific computing
 disable=
+    # Keep pylint focused on correctness; formatting/docs/style are enforced by Black,
+    # isort, and pydocstyle in separate CI jobs.
+
     # Too strict for scientific code
     R0913,  # Too many arguments (common in scientific functions)
     R0914,  # Too many local variables (common in algorithms)
@@ -30,9 +33,13 @@ disable=
 
     # Variable naming (allow mathematical conventions)
     C0103,  # Invalid name (allow x, y, mu, sigma, etc.)
+    C0302,  # Legacy stats modules exceed the module line budget
+    R0801,  # Legacy numerical kernels intentionally share similar structure
 
     # Numpy/scientific conventions
     E1101,  # No member (numpy has dynamic members)
+    E1123,  # Numba/numpy signatures can confuse pylint inference
+    E1133,  # numba.prange is iterable at runtime but pylint flags it
 
     # Allow TODO comments
     W0511,  # fixme/todo
@@ -182,6 +189,9 @@ valid-metaclass-classmethod-first-arg=mcs
 [DESIGN]
 # Maximum number of arguments for function / method
 max-args=10
+
+# Match max-args for pylint's positional-only argument check.
+max-positional-arguments=10
 
 # Maximum number of attributes for a class
 max-attributes=15

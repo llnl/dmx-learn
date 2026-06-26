@@ -1,11 +1,14 @@
 """Create, estimate, and sample from a integer set Bernoulli distribution.
 
-Defines the IntegerBernoulliSetDistribution, IntegerBernoulliSetSampler, IntegerBernoulliSetAccumulatorFactory,
-IntegerBernoulliSetAccumulator, IntegerBernoulliSetEstimator, and the IntegerBernoulliSetDataEncoder classes for use
+Defines the IntegerBernoulliSetDistribution, IntegerBernoulliSetSampler,
+IntegerBernoulliSetAccumulatorFactory,
+IntegerBernoulliSetAccumulator, IntegerBernoulliSetEstimator, and the
+IntegerBernoulliSetDataEncoder classes for use
 with dmx-learn.
 
 
-Let S = {0,1,2,3...,N-1} be a set if integers. Let x_mat be a random subset of S. The Bernoulli set distribution models
+Let S = {0,1,2,3...,N-1} be a set if integers. Let x_mat be a random subset of S. The
+Bernoulli set distribution models
 random subset of S as
 
     p_k = p_mat(k is in x_mat) , k = 0,2,...,N-1.
@@ -20,7 +23,7 @@ from typing import Any, Dict, List, Optional, Sequence, Tuple, Union
 import numpy as np
 from numpy.random import RandomState
 
-from dmx.arithmetic import *
+from dmx.arithmetic import exp
 from dmx.stats.pdist import (
     DataSequenceEncoder,
     DistributionSampler,
@@ -33,15 +36,18 @@ from dmx.stats.pdist import (
 
 
 class IntegerBernoulliSetDistribution(SequenceEncodableProbabilityDistribution):
-    """IntegerBernoulliSetDistribution object defining a Bernoulli set distribution on integers [0,len(pvec)).
+    """IntegerBernoulliSetDistribution object defining a Bernoulli set distribution on
+    integers [0,len(pvec)).
 
     Attributes:
         name (Optional[str]): Name for object instance.
         log_pvec (np.ndarray): Probability of integer k being in set.
-        log_nvec (Optional[Union[Sequence[float], np.ndarray]]): Optional normalizing probability for each
+        log_nvec (Optional[Union[Sequence[float], np.ndarray]]): Optional normalizing
+            probability for each
             integer probability.
         log_dvec (np.ndarray): Normalized probability for each integer value.
-        log_nsum (float): Sum of normalized probabilities used for easily adding unobserved (missing) integer
+        log_nsum (float): Sum of normalized probabilities used for easily adding
+            unobserved (missing) integer
             values in an observation.
         key (Optional[str]): Set keys for object instance.
 
@@ -57,14 +63,17 @@ class IntegerBernoulliSetDistribution(SequenceEncodableProbabilityDistribution):
         """IntegerBernoulliSetDistribution object.
 
         Args:
-            log_pvec (Union[Sequence[float], np.ndarray]): Probability of integer k being in set.
-            log_nvec (Optional[Union[Sequence[float], np.ndarray]]): Optional normalizing probability for each
+            log_pvec (Union[Sequence[float], np.ndarray]): Probability of integer k
+                being in set.
+            log_nvec (Optional[Union[Sequence[float], np.ndarray]]): Optional
+                normalizing probability for each
                 integer probability.
             name (Optional[str]): Set name to object instance.
             keys (Optional[str]): Set keys for object instance.
 
         """
 
+        super().__init__()
         num_vals = len(log_pvec)
         self.name = name
         self.num_vals = num_vals
@@ -72,21 +81,6 @@ class IntegerBernoulliSetDistribution(SequenceEncodableProbabilityDistribution):
         self.keys = keys
 
         if log_nvec is None:
-            """
-            is_one   = log_pvec == 0
-            is_zero  = log_pvec == -np.inf
-            is_good  = np.bitwise_and(~is_one, ~is_zero)
-
-            log_nvec = np.zeros(len(log_pvec), dtype=np.float64)
-            log_dvec = np.zeros(len(log_pvec), dtype=np.float64)
-            log_nvec[is_good] = np.log1p(-np.exp(self.log_pvec[is_good]))
-            log_dvec[is_good] = self.log_pvec[is_good] - log_nvec[is_good]
-            log_dvec[is_zero] = -np.inf
-
-            self.log_nvec = None
-            self.log_dvec = log_dvec
-            self.log_nsum = np.sum(log_nvec)
-            """
             log_nvec = np.log1p(-np.exp(self.log_pvec))
             self.log_nvec = None
             self.log_dvec = self.log_pvec - log_nvec
@@ -101,11 +95,9 @@ class IntegerBernoulliSetDistribution(SequenceEncodableProbabilityDistribution):
         s2 = repr(None if self.log_nvec is None else self.log_nvec.tolist())
         s3 = repr(self.name)
         s4 = repr(self.keys)
-        return "IntegerBernoulliSetDistribution(%s, log_nvec=%s, name=%s, keys=%s)" % (
-            s1,
-            s2,
-            s3,
-            s4,
+        return (
+            f"IntegerBernoulliSetDistribution({s1}, log_nvec={s2}, "
+            f"name={s3}, keys={s4})"
         )
 
     def density(self, x: Union[Sequence[int], np.ndarray]) -> float:
@@ -120,7 +112,7 @@ class IntegerBernoulliSetDistribution(SequenceEncodableProbabilityDistribution):
     ) -> np.ndarray:
 
         if not isinstance(x, IntegerBernoulliSetEncodedDataSequence):
-            raise Exception(
+            raise TypeError(
                 "IntegerBernoulliSetEncodedDataSequence required for seq_log_density()."
             )
 
@@ -145,7 +137,8 @@ class IntegerBernoulliSetDistribution(SequenceEncodableProbabilityDistribution):
 
 
 class IntegerBernoulliSetSampler(DistributionSampler):
-    """IntegerBernoulliSetSampler object for sampling from an IntegerBernoulliSetDistribution instance.
+    """IntegerBernoulliSetSampler object for sampling from an
+    IntegerBernoulliSetDistribution instance.
 
     Attributes:
         rng (RandomState): RandomState object with seed set if passed in args.
@@ -163,8 +156,7 @@ class IntegerBernoulliSetSampler(DistributionSampler):
             seed (Optional[int]): Seed for random number generator.
 
         """
-        self.rng = np.random.RandomState(seed)
-        self.dist = dist
+        super().__init__(dist, seed)
 
     def sample(
         self, size: Optional[int] = None
@@ -172,20 +164,21 @@ class IntegerBernoulliSetSampler(DistributionSampler):
         if size is None:
             log_u = np.log(self.rng.rand(self.dist.num_vals))
             return np.flatnonzero(log_u <= self.dist.log_pvec).tolist()
-        else:
-            rv = []
-            for i in range(size):
-                log_u = np.log(self.rng.rand(self.dist.num_vals))
-                rv.append(np.flatnonzero(log_u <= self.dist.log_pvec).tolist())
-            return rv
+        rv = []
+        for _ in range(size):
+            log_u = np.log(self.rng.rand(self.dist.num_vals))
+            rv.append(np.flatnonzero(log_u <= self.dist.log_pvec).tolist())
+        return rv
 
 
 class IntegerBernoulliSetAccumulator(SequenceEncodableStatisticAccumulator):
-    """IntegerBernoulliSetAccumulator object for accumulating sufficient statistics from observed data.
+    """IntegerBernoulliSetAccumulator object for accumulating sufficient statistics from
+    observed data.
 
     Attributes:
        pcnt (np.ndarray): Used for aggregating weighted counts of integers.
-       keys (Optional[str]): Keys for merging sufficient statistics with matching key'd objects.
+       keys (Optional[str]): Keys for merging sufficient statistics with matching key'd
+           objects.
        num_vals (int): Number of values in integer range for the set.
        tot_sum (float): Sum of weights for observations.
        name (Optional[str]): Name for object.
@@ -200,7 +193,8 @@ class IntegerBernoulliSetAccumulator(SequenceEncodableStatisticAccumulator):
 
         Args:
             num_vals (int): Number of values in integer range for the set.
-            keys (Optional[str]): Keys for merging sufficient statistics with matching key'd objects.
+            keys (Optional[str]): Keys for merging sufficient statistics with matching
+                key'd objects.
             name (Optional[str]): Name for object.
 
         """
@@ -226,6 +220,7 @@ class IntegerBernoulliSetAccumulator(SequenceEncodableStatisticAccumulator):
         weight: float,
         rng: Optional[RandomState],
     ) -> None:
+        del rng
         self.update(x, weight, None)
 
     def seq_update(
@@ -235,7 +230,7 @@ class IntegerBernoulliSetAccumulator(SequenceEncodableStatisticAccumulator):
         estimate: Optional[IntegerBernoulliSetDistribution],
     ) -> None:
 
-        sz, idx, xs = x.data
+        _sz, idx, xs = x.data
         agg_cnt = np.bincount(xs, weights=weights[idx])
         n = len(agg_cnt)
         self.pcnt[:n] += agg_cnt
@@ -284,10 +279,12 @@ class IntegerBernoulliSetAccumulator(SequenceEncodableStatisticAccumulator):
 
 
 class IntegerBernoulliSetAccumulatorFactory(StatisticAccumulatorFactory):
-    """IntegerBernoulliSetAccumulatorFactory for creating IntegerBernoulliSetAccumulator objects.
+    """IntegerBernoulliSetAccumulatorFactory for creating IntegerBernoulliSetAccumulator
+    objects.
 
     Attributes:
-        keys (Optional[str]): Keys for merging sufficient statistics with matching key'd objects.
+        keys (Optional[str]): Keys for merging sufficient statistics with matching key'd
+            objects.
         num_vals (int): Number of values in integer range for the set.
         name (Optional[str]): Name for object.
 
@@ -299,7 +296,8 @@ class IntegerBernoulliSetAccumulatorFactory(StatisticAccumulatorFactory):
         """IntegerBernoulliSetAccumulatorFactory object.
 
         Args:
-            keys (Optional[str]): Keys for merging sufficient statistics with matching key'd objects.
+            keys (Optional[str]): Keys for merging sufficient statistics with matching
+                key'd objects.
             num_vals (int): Number of values in integer range for the set.
             name (Optional[str]): Name for object.
 
@@ -315,12 +313,13 @@ class IntegerBernoulliSetAccumulatorFactory(StatisticAccumulatorFactory):
 
 
 class IntegerBernoulliSetEstimator(ParameterEstimator):
-    """IntegerBernoulliSetEstimator object for estimating integer Bernoulli set distributions from aggregated
-        sufficient statistics.
+    """IntegerBernoulliSetEstimator object for estimating integer Bernoulli set
+    distributions from aggregated sufficient statistics.
 
     Attributes:
         num_vals (int): Number of values in integer range for the set.
-        keys (Optional[str]): Keys for merging sufficient statistics with matching key'd objects.
+        keys (Optional[str]): Keys for merging sufficient statistics with matching key'd
+            objects.
         pseudo_count (Optional[float]): Re-weight suff stats in estimation.
         suff_stat (Optional[np.ndarray]): Probability for integer inclusion.
         name (Optional[str]): Set name for object instance.
@@ -345,7 +344,8 @@ class IntegerBernoulliSetEstimator(ParameterEstimator):
             pseudo_count (Optional[float]): Re-weight suff stats in estimation.
             suff_stat (Optional[np.ndarray]): Probability for integer inclusion.
             name (Optional[str]): Set name for object instance.
-            keys (Optional[str]): Keys for merging sufficient statistics with matching key'd objects.
+            keys (Optional[str]): Keys for merging sufficient statistics with matching
+                key'd objects.
 
         """
         if isinstance(keys, str) or keys is None:
@@ -420,7 +420,8 @@ class IntegerBernoulliSetEstimator(ParameterEstimator):
 
 
 class IntegerBernoulliSetDataEncoder(DataSequenceEncoder):
-    """IntegerBernoulliSetDataEncoder object for encoding sequences of iid integer Bernoulli set observations."""
+    """IntegerBernoulliSetDataEncoder object for encoding sequences of iid integer
+    Bernoulli set observations."""
 
     def __str__(self) -> str:
         return "IntegerBernoulliSetDataEncoder"
@@ -469,7 +470,8 @@ class IntegerBernoulliSetEncodedDataSequence(EncodedDataSequence):
         """IntegerBernoulliSetEncodedDataSequence object.
 
         Args:
-            data (Tuple[int, np.ndarray, np.ndarray]): Encoded Bernoulli Set observations.
+            data (Tuple[int, np.ndarray, np.ndarray]): Encoded Bernoulli Set
+                observations.
 
         """
         super().__init__(data=data)

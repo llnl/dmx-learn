@@ -1,21 +1,28 @@
 """Create, estimate, and sample from an integer Bernoulli edit set distribution.
 
-Defines the IntegerBernoulliEditDistribution, IntegerBernoulliEditSampler, IntegerBernoulliEditAccumulatorFactory,
-IntegerBernoulliEditAccumulator, IntegerBernoulliEditEstimator, and the IntegerBernoulliEditDataEncoder classes for use
+Defines the IntegerBernoulliEditDistribution, IntegerBernoulliEditSampler,
+IntegerBernoulliEditAccumulatorFactory,
+IntegerBernoulliEditAccumulator, IntegerBernoulliEditEstimator, and the
+IntegerBernoulliEditDataEncoder classes for use
 with dmx-learn.
 
-Assume S = {0,1,2,...N-1} is a set of integers. The Bernoulli edit set distribution considers transitions between two
-random subsets. That is, let X1 and X2 be a random subsets of unique integers from S, s.t. X1 and X2 have
+Assume S = {0,1,2,...N-1} is a set of integers. The Bernoulli edit set distribution
+considers transitions between two
+random subsets. That is, let X1 and X2 be a random subsets of unique integers from S,
+s.t. X1 and X2 have
 at most N elements.
 
 Consider observed subsets of S x1 and x2. The density is givne by
 
-    (1) p_mat(x2 | x1) = sum_{k=0}^{N-1} p_mat(k in x2 | k in x1) + p_mat(k in x2 | k not in x1) + p_mat(k not in x2 | k in x1)
+    (1) p_mat(x2 | x1) = sum_{k=0}^{N-1} p_mat(k in x2 | k in x1) + p_mat(k in x2 | k
+    not in x1) + p_mat(k not in x2 | k in x1)
         + p_mat(k not in x2 | k not in x1).
     (2) p_mat(x1,x2) = P_init(x1)*p_mat(x2|x1).
 
-Note: In (1) only one of the summation terms in non-zero for a given value of k. In (2), P_init() is a distribution
-defining probabilities for an integer 0<=k<N being in a set (Generally a BernoulliSetDistribution is a good choice).
+Note: In (1) only one of the summation terms in non-zero for a given value of k. In (2),
+    P_init() is a distribution
+defining probabilities for an integer 0<=k<N being in a set (Generally a
+BernoulliSetDistribution is a good choice).
 
 """
 
@@ -24,12 +31,10 @@ from typing import Any, Dict, List, Optional, Sequence, Tuple, TypeVar, Union
 import numpy as np
 from numpy.random import RandomState
 
-from dmx.arithmetic import *
-from dmx.arithmetic import maxrandint
+from dmx.arithmetic import exp, maxrandint
 from dmx.stats.null_dist import (
     NullAccumulator,
     NullAccumulatorFactory,
-    NullDataEncoder,
     NullDistribution,
     NullEstimator,
 )
@@ -52,10 +57,12 @@ class IntegerBernoulliEditDistribution(SequenceEncodableProbabilityDistribution)
 
     Attributes:
         name (Optional[str]): Name for object.
-        init_dist (SequenceEncodableProbabilityDistribution): Initial probability distribution.
+        init_dist (SequenceEncodableProbabilityDistribution): Initial probability
+            distribution.
         num_vals (int): Number of values in the distribution.
         orig_log_edit_pmat (np.ndarray): Original log probabilities for the edit matrix.
-        log_edit_pmat (np.ndarray): Log probabilities for the edit matrix, expanded to 4 columns.
+        log_edit_pmat (np.ndarray): Log probabilities for the edit matrix, expanded to 4
+            columns.
         log_nsum (float): Logarithmic sum of probabilities for missing values.
         log_dvec (np.ndarray): Difference vector for log probabilities.
         keys (Optional[str]): Keys for parameters of distribution.
@@ -73,11 +80,14 @@ class IntegerBernoulliEditDistribution(SequenceEncodableProbabilityDistribution)
         """Defines the Integer Bernoulli Edit Set Distribution.
 
         Args:
-            log_edit_pmat (Union[Sequence[Tuple[float, float]], np.ndarray]): Log probabilities for the edit matrix.
-            init_dist (Optional[SequenceEncodableProbabilityDistribution]): Initial distribution. Defaults to NullDistribution().
+            log_edit_pmat (Union[Sequence[Tuple[float, float]], np.ndarray]): Log
+                probabilities for the edit matrix.
+            init_dist (Optional[SequenceEncodableProbabilityDistribution]): Initial
+                distribution. Defaults to NullDistribution().
             name (Optional[str]): Name for object.
             keys (Optional[str]): Keys for parameters of distribution.
         """
+        super().__init__()
         num_vals = len(log_edit_pmat)
         self.name = name
         self.init_dist = init_dist if init_dist is not None else NullDistribution()
@@ -114,8 +124,8 @@ class IntegerBernoulliEditDistribution(SequenceEncodableProbabilityDistribution)
         s4 = repr(self.name)
 
         return (
-            "IntegerBernoulliEditDistribution(%s, init_dist=%s, keys=%s, name=%s)"
-            % (s1, s2, s3, s4)
+            f"IntegerBernoulliEditDistribution({s1}, init_dist={s2}, keys={s3}, "
+            f"name={s4})"
         )
 
     def density(self, x: T) -> float:
@@ -151,10 +161,11 @@ class IntegerBernoulliEditDistribution(SequenceEncodableProbabilityDistribution)
         self, x: "IntegerBernoulliEditEncodedDataSequence"
     ) -> np.ndarray:
         if not isinstance(x, IntegerBernoulliEditEncodedDataSequence):
-            raise Exception(
-                "IntegerBernoulliEditEncodedDataSequence required for seq_log_density()."
+            raise TypeError(
+                "IntegerBernoulliEditEncodedDataSequence required for "
+                "seq_log_density()."
             )
-        sz, idx, xs, ys, ym, init_enc = x.data
+        sz, idx, xs, ys, _ym, init_enc = x.data
         rv = np.bincount(idx, weights=self.log_dvec[xs, ys], minlength=sz)
         rv += self.log_nsum
         rv += self.init_dist.seq_log_density(init_enc)
@@ -200,8 +211,7 @@ class IntegerBernoulliEditSampler(DistributionSampler):
             dist (IntegerBernoulliEditDistribution): The distribution to sample from.
             seed (Optional[int]): Random seed for reproducibility.
         """
-        self.rng = np.random.RandomState(seed)
-        self.dist = dist
+        super().__init__(dist, seed)
         self.init_rng = dist.init_dist.sampler(self.rng.randint(0, maxrandint))
         self.next_rng = np.random.RandomState(self.rng.randint(0, maxrandint))
 
@@ -218,11 +228,10 @@ class IntegerBernoulliEditSampler(DistributionSampler):
             rv[prev_ob] = temp[prev_ob] <= self.dist.log_edit_pmat[prev_ob, 3]
 
             return list(prev_ob), list(np.flatnonzero(rv))
-        else:
-            rv = []
-            for i in range(size):
-                rv.append(self.sample())
-            return rv
+        rv = []
+        for _ in range(size):
+            rv.append(self.sample())
+        return rv
 
     def sample_given(self, x: Sequence[Sequence[int]]) -> List[int]:
         """Samples from the distribution given a prior subset.
@@ -245,7 +254,8 @@ class IntegerBernoulliEditSampler(DistributionSampler):
 
 
 class IntegerBernoulliEditAccumulator(SequenceEncodableStatisticAccumulator):
-    """Accumulator for sufficient statistics of the Integer Bernoulli Edit Set Distribution.
+    """Accumulator for sufficient statistics of the Integer Bernoulli Edit Set
+    Distribution.
 
     Attributes:
         pcnt (np.ndarray): Counts for sufficient statistics.
@@ -262,20 +272,12 @@ class IntegerBernoulliEditAccumulator(SequenceEncodableStatisticAccumulator):
         name: Optional[str] = None,
         keys: Optional[str] = None,
     ) -> None:
+        del name
         self.pcnt = np.zeros((num_vals, 3), dtype=np.float64)
         self.keys = keys
         self.num_vals = num_vals
         self.init_acc = init_acc if init_acc is not None else NullAccumulator()
         self.tot_sum = 0.0
-
-    """Accumulator for sufficient statistics of the Integer Bernoulli Edit Set Distribution.
-
-    Args:
-        num_vals (int): Number of values in the distribution.
-        init_acc (Optional[SequenceEncodableStatisticAccumulator]): Initial accumulator. Defaults to NullAccumulator().
-        name (Optional[str]): Name for object.
-        keys (Optional[str]): Keys for parameters of distribution.
-    """
 
     def update(
         self, x: T, weight: float, estimate: Optional[IntegerBernoulliEditDistribution]
@@ -316,7 +318,7 @@ class IntegerBernoulliEditAccumulator(SequenceEncodableStatisticAccumulator):
         weights: np.ndarray,
         estimate: Optional[IntegerBernoulliEditDistribution],
     ) -> None:
-        sz, idx, xs, ys, ym, init_enc = x.data
+        _sz, idx, xs, _ys, ym, init_enc = x.data
 
         agg_cnt0 = np.bincount(xs[ym[0]], weights=weights[idx[ym[0]]])
         agg_cnt1 = np.bincount(xs[ym[1]], weights=weights[idx[ym[1]]])
@@ -335,7 +337,7 @@ class IntegerBernoulliEditAccumulator(SequenceEncodableStatisticAccumulator):
         weights: np.ndarray,
         rng: np.random.RandomState,
     ) -> None:
-        sz, idx, xs, ys, ym, init_enc = x.data
+        _sz, idx, xs, _ys, ym, init_enc = x.data
 
         agg_cnt0 = np.bincount(xs[ym[0]], weights=weights[idx[ym[0]]])
         agg_cnt1 = np.bincount(xs[ym[1]], weights=weights[idx[ym[1]]])
@@ -396,7 +398,8 @@ class IntegerBernoulliEditAccumulatorFactory(StatisticAccumulatorFactory):
 
     Attributes:
         keys (Optional[str]): Keys for parameters of distribution.
-        init_factory (StatisticAccumulatorFactory): Initial factory for creating accumulators.
+        init_factory (StatisticAccumulatorFactory): Initial factory for creating
+            accumulators.
         num_vals (int): Number of values in the distribution.
         name (Optional[str]): Name for object.
     """
@@ -412,7 +415,8 @@ class IntegerBernoulliEditAccumulatorFactory(StatisticAccumulatorFactory):
 
         Args:
             num_vals (int): Number of values in the distribution.
-            init_factory (Optional[StatisticAccumulatorFactory]): Initial accumulator factory. Defaults to NullAccumulatorFactory().
+            init_factory (Optional[StatisticAccumulatorFactory]): Initial accumulator
+                factory. Defaults to NullAccumulatorFactory().
             keys (Optional[str]): Keys for parameters of distribution.
             name (Optional[str]): Name for object.
         """
@@ -459,9 +463,11 @@ class IntegerBernoulliEditEstimator(ParameterEstimator):
 
         Args:
             num_vals (int): Number of values in the distribution.
-            init_estimator (Optional[ParameterEstimator]): Initial estimator. Defaults to NullEstimator().
+            init_estimator (Optional[ParameterEstimator]): Initial estimator. Defaults
+                to NullEstimator().
             min_prob (float): Minimum probability value. Defaults to 1.0e-128.
-            pseudo_count (Optional[float]): Pseudo-count for smoothing. Defaults to None.
+            pseudo_count (Optional[float]): Pseudo-count for smoothing. Defaults to
+                None.
             suff_stat (Optional[np.ndarray]): Sufficient statistics. Defaults to None.
             name (Optional[str]): Name for object.
             keys (Optional[str]): Keys for parameters of distribution.
@@ -605,8 +611,7 @@ class IntegerBernoulliEditDataEncoder(DataSequenceEncoder):
         """
         if isinstance(other, IntegerBernoulliEditDataEncoder):
             return other.init_encoder == self.init_encoder
-        else:
-            return False
+        return False
 
     def seq_encode(self, x: Sequence[T]) -> "IntegerBernoulliEditEncodedDataSequence":
         """Encodes a sequence of data.
@@ -657,7 +662,8 @@ class IntegerBernoulliEditEncodedDataSequence(EncodedDataSequence):
     """Encoded data sequence for the Integer Bernoulli Edit Set Distribution.
 
     Attributes:
-        data (Tuple[int, np.ndarray, np.ndarray, np.ndarray, Tuple[np.ndarray, np.ndarray, np.ndarray], EncodedDataSequence]):
+        data (Tuple[int, np.ndarray, np.ndarray, np.ndarray, Tuple[np.ndarray,
+        np.ndarray, np.ndarray], EncodedDataSequence]):
             Encoded data containing size, indices, values, and other metadata.
     """
 
@@ -675,7 +681,8 @@ class IntegerBernoulliEditEncodedDataSequence(EncodedDataSequence):
         """Encoded data sequence for the Integer Bernoulli Edit Set Distribution.
 
         Args:
-            data (Tuple[int, np.ndarray, np.ndarray, np.ndarray, Tuple[np.ndarray, np.ndarray, np.ndarray], EncodedDataSequence]):
+            data (Tuple[int, np.ndarray, np.ndarray, np.ndarray, Tuple[np.ndarray,
+            np.ndarray, np.ndarray], EncodedDataSequence]):
                 Encoded data containing size, indices, values, and other metadata.
         """
         super().__init__(data=data)

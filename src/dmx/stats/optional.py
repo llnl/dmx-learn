@@ -1,12 +1,15 @@
 """Create, estimate, and sample from an Optional distribution.
 
-Defines the OptionalDistribution, OptionalSampler, OptionalAccumulatorFactory, OptionalAccumulator,
+Defines the OptionalDistribution, OptionalSampler, OptionalAccumulatorFactory,
+OptionalAccumulator,
 OptionalEstimator, and the OptionalDataEncoder classes for use with dmx-learn.
 
-This distribution assigns a probability (p) to data being missing. With probability (1-p) the data is assumed to come
+This distribution assigns a probability (p) to data being missing. With probability
+(1-p) the data is assumed to come
 from a base distribution set by the user.
 
-The OptionalDistribution allows for potentially missing data. The value p (the probability of being missing)
+The OptionalDistribution allows for potentially missing data. The value p (the
+probability of being missing)
 must be specified to sample from the distribution.
 
 """
@@ -65,6 +68,7 @@ class OptionalDistribution(SequenceEncodableProbabilityDistribution):
             keys (Optional[str]): Keys for parameters.
 
         """
+        super().__init__()
         self.dist = dist
         self.p = p if p is not None else 0.0
         self.has_p = p is not None
@@ -88,12 +92,9 @@ class OptionalDistribution(SequenceEncodableProbabilityDistribution):
             s3 = repr(self.missing_value)
         s4 = repr(self.name)
         s5 = repr(self.keys)
-        return "OptionalDistribution(%s, p=%s, missing_value=%s, name=%s, keys=%s)" % (
-            s1,
-            s2,
-            s3,
-            s4,
-            s5,
+        return (
+            f"OptionalDistribution({s1}, p={s2}, missing_value={s3}, name={s4}, "
+            f"keys={s5})"
         )
 
     def density(self, x: T) -> float:
@@ -116,7 +117,8 @@ class OptionalDistribution(SequenceEncodableProbabilityDistribution):
 
         Notes:
             If x is a missing value: return log(p) if p is not None, else return 0.0
-            If x is not the missing_value: if p is not None, return the log_density(x) at base dist + log(1-p) else:
+            If x is not the missing_value: if p is not None, return the log_density(x)
+            at base dist + log(1-p) else:
             return log_density(x).
 
         Args:
@@ -140,19 +142,16 @@ class OptionalDistribution(SequenceEncodableProbabilityDistribution):
         if self.has_p:
             if not_missing:
                 return self.dist.log_density(x) + self.log_pn
-            else:
-                return self.log_p
+            return self.log_p
         # This is a degenerate use case that should probably be deprecated
-        else:
-            if not_missing:
-                return self.dist.log_density(x)
-            else:
-                return 0.0
+        if not_missing:
+            return self.dist.log_density(x)
+        return 0.0
 
     def seq_log_density(self, x: "OptionalEncodedDataSequence") -> np.ndarray:
 
         if not isinstance(x, OptionalEncodedDataSequence):
-            raise Exception(
+            raise TypeError(
                 "OptionalEncodedDataSequence required for seq_log_density()."
             )
 
@@ -238,35 +237,33 @@ class OptionalSampler(DistributionSampler):
                 == 0
             ):
                 return self.dist.missing_value
-            else:
-                return sampler.sample(size=size)
-        else:
-            states = self.rng.choice(
-                [0, 1], size=size, replace=True, p=[self.dist.p, 1.0 - self.dist.p]
-            )
+            return sampler.sample(size=size)
+        states = self.rng.choice(
+            [0, 1], size=size, replace=True, p=[self.dist.p, 1.0 - self.dist.p]
+        )
 
-            nz_count = int(np.sum(states))
+        nz_count = int(np.sum(states))
 
-            if nz_count == size:
-                return sampler.sample(size=size)
-            elif nz_count == 0:
-                return [self.dist.missing_value for i in range(size)]
-            else:
-                nz_vals = sampler.sample(size=nz_count)
-                nz_idx = np.flatnonzero(states)
-                rv = [self.dist.missing_value for i in range(size)]
+        if nz_count == size:
+            return sampler.sample(size=size)
+        if nz_count == 0:
+            return [self.dist.missing_value for i in range(size)]
+        nz_vals = sampler.sample(size=nz_count)
+        nz_idx = np.flatnonzero(states)
+        rv = [self.dist.missing_value for i in range(size)]
 
-                for cnt, i in enumerate(nz_idx):
-                    rv[i] = nz_vals[cnt]
+        for cnt, i in enumerate(nz_idx):
+            rv[i] = nz_vals[cnt]
 
-                return rv
+        return rv
 
 
 class OptionalEstimatorAccumulator(SequenceEncodableStatisticAccumulator):
     """OptionalEstimatorAccumulator object for accumulating sufficient statistics.
 
     Attributes:
-        accumulator (SequenceEncodableStatisticAccumulator): Accumulator for the base distribution.
+        accumulator (SequenceEncodableStatisticAccumulator): Accumulator for the base
+            distribution.
         weights (List[float]): Suff stat weighted counts.
         missing_value (Any): Optional value
         missing_value_is_nan (bool): True if missing value is np.nan.
@@ -285,9 +282,11 @@ class OptionalEstimatorAccumulator(SequenceEncodableStatisticAccumulator):
         """OptionalEstimatorAccumulator object.
 
         Args:
-            accumulator (SequenceEncodableStatisticAccumulator): Accumulator for the base distribution.
+            accumulator (SequenceEncodableStatisticAccumulator): Accumulator for the
+                base distribution.
             missing_value (Any): Optional value
-            keys (Optional[str]): Keys for the Optional distribution parameters and weights.
+            keys (Optional[str]): Keys for the Optional distribution parameters and
+                weights.
             name (Optional[str]): Name for the distribution.
 
         """
@@ -334,7 +333,7 @@ class OptionalEstimatorAccumulator(SequenceEncodableStatisticAccumulator):
         weights: np.ndarray,
         estimate: OptionalDistribution,
     ) -> None:
-        sz, z_idx, nz_idx, enc_data = x.data
+        _sz, z_idx, nz_idx, enc_data = x.data
         nz_weights = weights[nz_idx]
         z_weights = weights[z_idx]
 
@@ -347,7 +346,7 @@ class OptionalEstimatorAccumulator(SequenceEncodableStatisticAccumulator):
     def seq_initialize(
         self, x: "OptionalEncodedDataSequence", weights: np.ndarray, rng: RandomState
     ) -> None:
-        sz, z_idx, nz_idx, enc_data = x.data
+        _sz, z_idx, nz_idx, enc_data = x.data
         nz_weights = weights[nz_idx]
         z_weights = weights[z_idx]
 
@@ -394,10 +393,12 @@ class OptionalEstimatorAccumulator(SequenceEncodableStatisticAccumulator):
 
 
 class OptionalEstimatorAccumulatorFactory(StatisticAccumulatorFactory):
-    """OptionalEstimatorAccumulatorFactory object for creating OptionalEstimatorAccumulator objects.
+    """OptionalEstimatorAccumulatorFactory object for creating
+    OptionalEstimatorAccumulator objects.
 
     Attributes:
-        estimator (ParameterEstimator): Parameter Estimator for creating base distribution accumulator object.
+        estimator (ParameterEstimator): Parameter Estimator for creating base
+            distribution accumulator object.
         missing_value (Any): Optional value
         keys (Optional[str]): Keys for the Optional distribution parameters and weights.
         name (Optional[str]): Name for the distribution.
@@ -411,12 +412,15 @@ class OptionalEstimatorAccumulatorFactory(StatisticAccumulatorFactory):
         keys: Optional[str] = None,
         name: Optional[str] = None,
     ) -> None:
-        """OptionalEstimatorAccumulatorFactory object for creating OptionalEstimatorAccumulator objects.
+        """OptionalEstimatorAccumulatorFactory object for creating
+        OptionalEstimatorAccumulator objects.
 
         Args:
-            estimator (ParameterEstimator): Parameter Estimator for creating base distribution accumulator object.
+            estimator (ParameterEstimator): Parameter Estimator for creating base
+                distribution accumulator object.
             missing_value (Any): Optional value
-            keys (Optional[str]): Keys for the Optional distribution parameters and weights.
+            keys (Optional[str]): Keys for the Optional distribution parameters and
+                weights.
             name (Optional[str]): Name for the distribution.
 
         """
@@ -498,7 +502,7 @@ class OptionalEstimator(ParameterEstimator):
                 name=self.name,
             )
 
-        elif self.est_prob:
+        if self.est_prob:
 
             nobs_loc = suff_stat[0][0] + suff_stat[0][1]
             z_nobs = suff_stat[0][0]
@@ -507,24 +511,23 @@ class OptionalEstimator(ParameterEstimator):
                 return OptionalDistribution(
                     dist, None, missing_value=self.missing_value, name=self.name
                 )
-            else:
-                return OptionalDistribution(
-                    dist,
-                    p=z_nobs / nobs_loc,
-                    missing_value=self.missing_value,
-                    name=self.name,
-                )
-        else:
             return OptionalDistribution(
-                dist, p=None, missing_value=self.missing_value, name=self.name
+                dist,
+                p=z_nobs / nobs_loc,
+                missing_value=self.missing_value,
+                name=self.name,
             )
+        return OptionalDistribution(
+            dist, p=None, missing_value=self.missing_value, name=self.name
+        )
 
 
 class OptionalDataEncoder(DataSequenceEncoder):
     """OptionalDataEncoder object for encoding sequences of Optional data.
 
     Attributes:
-        encoder (DataSequenceEncoder): DataSequenceEncoder for optional base distribution.
+        encoder (DataSequenceEncoder): DataSequenceEncoder for optional base
+            distribution.
         missing_value (Any): Value considered 'optional' or missing.
         missing_value_is_nan (bool): True if the missing value is np.nan.
 
@@ -534,7 +537,8 @@ class OptionalDataEncoder(DataSequenceEncoder):
         """OptionalDataEncoder object.
 
         Args:
-            encoder (DataSequenceEncoder): DataSequenceEncoder for optional base distribution.
+            encoder (DataSequenceEncoder): DataSequenceEncoder for optional base
+                distribution.
             missing_value (Any): Value considered 'optional' or missing.
 
         """
@@ -557,8 +561,7 @@ class OptionalDataEncoder(DataSequenceEncoder):
             # default to False
             return False
 
-        else:
-            return False
+        return False
 
     def seq_encode(self, x: Sequence[T]) -> "OptionalEncodedDataSequence":
         nz_idx = []
@@ -595,7 +598,8 @@ class OptionalEncodedDataSequence(EncodedDataSequence):
         E = Tuple[int, np.ndarray, np.ndarray, EncodedDataSequence]
 
     Attributes:
-        data (E): Sequence encoded data for OptionalDistribution and OptionalAccumulator.
+        data (E): Sequence encoded data for OptionalDistribution and
+            OptionalAccumulator.
 
 
     """
@@ -604,7 +608,8 @@ class OptionalEncodedDataSequence(EncodedDataSequence):
         """OptionalEncodedDataSequence object.
 
         Args:
-            data (E): Sequence encoded data for OptionalDistribution and OptionalAccumulator.
+            data (E): Sequence encoded data for OptionalDistribution and
+                OptionalAccumulator.
 
         """
         super().__init__(data=data)

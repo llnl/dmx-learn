@@ -1,8 +1,11 @@
-""""Create, estimate, and sample from a multivariate normal distribution with mean vector 'mu' (length n), and
+""" "Create, estimate, and sample from a multivariate normal distribution with mean
+vector 'mu' (length n), and
 covariance matrix 'covar' (n by n).
 
-Defines the MultivariateGaussianDistribution, MultivariateGaussianSampler, MultivariateGaussianAccumulatorFactory,
-MultivariateGaussianAccumulator, MultivariateGaussianEstimator, and the MultivariateGaussianDataEncoder classes for use
+Defines the MultivariateGaussianDistribution, MultivariateGaussianSampler,
+MultivariateGaussianAccumulatorFactory,
+MultivariateGaussianAccumulator, MultivariateGaussianEstimator, and the
+MultivariateGaussianDataEncoder classes for use
 with dmx-learn.
 
 """
@@ -14,7 +17,7 @@ import scipy.linalg
 from numpy.random import RandomState
 
 import dmx.utils.vector as vec
-from dmx.arithmetic import *
+from dmx.arithmetic import exp, pi
 from dmx.stats.pdist import (
     DataSequenceEncoder,
     DistributionSampler,
@@ -27,7 +30,8 @@ from dmx.stats.pdist import (
 
 
 class MultivariateGaussianDistribution(SequenceEncodableProbabilityDistribution):
-    """MultivariateGaussianDistribution object for multivariate Gaussian with mean mu and covaraince 'covar'.
+    """MultivariateGaussianDistribution object for multivariate Gaussian with mean mu
+    and covaraince 'covar'.
 
     Attributes:
         dim (int): N is the dim of multivariate normal.
@@ -53,11 +57,13 @@ class MultivariateGaussianDistribution(SequenceEncodableProbabilityDistribution)
 
         Args:
             mu (Union[List[float], np.ndarray]): N-dimensional mean.
-            covar (Union[List[List[float]], np.ndarray]): Covariance matrix, should be N by N and positive definite.
+            covar (Union[List[List[float]], np.ndarray]): Covariance matrix, should be N
+                by N and positive definite.
             name (Optional[str]): Set name to object.
             keys (Optional[str]): Set keys for distribution.
 
         """
+        super().__init__()
         self.dim = len(mu)
         self.mu = np.asarray(mu, dtype=float)
         self.covar = np.asarray(covar, dtype=float)
@@ -70,23 +76,19 @@ class MultivariateGaussianDistribution(SequenceEncodableProbabilityDistribution)
             raise RuntimeError(
                 "Cannot obtain Choleskey factorization for covariance matrix."
             )
-        else:
-            self.use_lstsq = False
-            self.chol_const = -0.5 * (
-                len(self.mu) * np.log(2.0 * pi)
-                + 2.0 * np.log(vec.diag(self.chol)).sum()
-            )
+        self.use_lstsq = False
+        self.chol_const = -0.5 * (
+            len(self.mu) * np.log(2.0 * pi) + 2.0 * np.log(vec.diag(self.chol)).sum()
+        )
 
     def __str__(self) -> str:
         s1 = repr(self.mu.tolist())
         s2 = repr([u.tolist() for u in self.covar])
         s3 = repr(self.name)
         s4 = repr(self.keys)
-        return "MultivariateGaussianDistribution(mu=%s, covar=%s, name=%s, keys=%s)" % (
-            s1,
-            s2,
-            s3,
-            s4,
+        return (
+            f"MultivariateGaussianDistribution(mu={s1}, covar={s2}, name={s3}, "
+            f"keys={s4})"
         )
 
     def density(self, x: np.ndarray) -> float:
@@ -113,31 +115,30 @@ class MultivariateGaussianDistribution(SequenceEncodableProbabilityDistribution)
         """
         if self.use_lstsq:
             raise RuntimeError("Least-squares log-likelihood evaluation not supported.")
-        else:
-            try:
-                diff = self.mu - x
-                soln = scipy.linalg.cho_solve((self.chol, self.lower), diff.T).T
-                rv = self.chol_const - 0.5 * ((diff * soln).sum())
-                return rv
-            except Exception as e:
-                raise e
+        try:
+            diff = self.mu - x
+            soln = scipy.linalg.cho_solve((self.chol, self.lower), diff.T).T
+            rv = self.chol_const - 0.5 * ((diff * soln).sum())
+            return rv
+        except Exception as e:
+            raise e
 
     def seq_log_density(
         self, x: "MultivariateGaussianEncodedDataSequence"
     ) -> np.ndarray:
 
         if not isinstance(x, MultivariateGaussianEncodedDataSequence):
-            raise Exception(
-                "MultivariateGaussianEncodedDataSequence required for seq_log_density()."
+            raise TypeError(
+                "MultivariateGaussianEncodedDataSequence required for "
+                "seq_log_density()."
             )
 
         if self.use_lstsq:
             return np.ones(x.data.shape[0])
-        else:
-            diff = self.mu - x.data
-            soln = scipy.linalg.cho_solve((self.chol, self.lower), diff.T).T
-            rv = self.chol_const - 0.5 * ((diff * soln).sum(axis=1))
-            return rv
+        diff = self.mu - x.data
+        soln = scipy.linalg.cho_solve((self.chol, self.lower), diff.T).T
+        rv = self.chol_const - 0.5 * ((diff * soln).sum(axis=1))
+        return rv
 
     def sampler(self, seed: Optional[int] = None):
         return MultivariateGaussianSampler(self, seed)
@@ -147,26 +148,27 @@ class MultivariateGaussianDistribution(SequenceEncodableProbabilityDistribution)
             return MultivariateGaussianEstimator(
                 dim=self.dim, name=self.name, keys=self.keys
             )
-        else:
-            pseudo_count = (pseudo_count, pseudo_count)
-            return MultivariateGaussianEstimator(
-                dim=self.dim,
-                pseudo_count=pseudo_count,
-                suff_stat=(self.mu, self.covar),
-                name=self.name,
-                keys=self.keys,
-            )
+        pseudo_count = (pseudo_count, pseudo_count)
+        return MultivariateGaussianEstimator(
+            dim=self.dim,
+            pseudo_count=pseudo_count,
+            suff_stat=(self.mu, self.covar),
+            name=self.name,
+            keys=self.keys,
+        )
 
     def dist_to_encoder(self) -> "MultivariateGaussianDataEncoder":
         return MultivariateGaussianDataEncoder(dim=self.dim)
 
 
 class MultivariateGaussianSampler(DistributionSampler):
-    """MultivariateGaussianSampler object for sampling from MultivariateGaussianDistribution.
+    """MultivariateGaussianSampler object for sampling from
+    MultivariateGaussianDistribution.
 
     Attributes:
         rng (RandomState): Sets seed for generating samples.
-        dist (MultivariateGaussianDistribution): MultivariateGaussianDistribution to sample from.
+        dist (MultivariateGaussianDistribution): MultivariateGaussianDistribution to
+            sample from.
 
     """
 
@@ -177,11 +179,11 @@ class MultivariateGaussianSampler(DistributionSampler):
 
         Args:
             seed (Optional[int]): Set the seed for sampling.
-            dist (MultivariateGaussianDistribution): MultivariateGaussianDistribution to sample from.
+            dist (MultivariateGaussianDistribution): MultivariateGaussianDistribution to
+                sample from.
 
         """
-        self.rng = RandomState(seed)
-        self.dist = dist
+        super().__init__(dist, seed)
 
     def sample(self, size: Optional[int] = None) -> np.ndarray:
         """Generate samples from MultivariateGaussianDistribution.
@@ -256,6 +258,7 @@ class MultivariateGaussianAccumulator(SequenceEncodableStatisticAccumulator):
     def initialize(
         self, x: np.ndarray, weight: float, rng: Optional[RandomState]
     ) -> None:
+        del rng
         self.update(x, weight, None)
 
     def seq_update(
@@ -323,7 +326,8 @@ class MultivariateGaussianAccumulator(SequenceEncodableStatisticAccumulator):
 
 
 class MultivariateGaussianAccumulatorFactory(StatisticAccumulatorFactory):
-    """MultivariateGaussianAccumulatorFactory object for creating MultivariateGaussianAccumulator objects.
+    """MultivariateGaussianAccumulatorFactory object for creating
+    MultivariateGaussianAccumulator objects.
 
     Attributes:
         dim (Optional[int]): Dimension of the mvn.
@@ -354,13 +358,16 @@ class MultivariateGaussianAccumulatorFactory(StatisticAccumulatorFactory):
 
 
 class MultivariateGaussianEstimator(ParameterEstimator):
-    """MultivariateGaussianEstimator object for estimating multivariate normal distribution from sufficient stats.
+    """MultivariateGaussianEstimator object for estimating multivariate normal
+    distribution from sufficient stats.
 
     Attributes:
         dim (int): Dimension of multivariate normal.
-        pseudo_count (Optional[Tuple[Optional[float], Optional[float]]]): Regularize mean and/or covariance.
+        pseudo_count (Optional[Tuple[Optional[float], Optional[float]]]): Regularize
+            mean and/or covariance.
         prior_mu (Optional[np.ndarray]): Mean from prior data or used to regularize.
-        prior_covar (Optional[np.ndarray]): Covariance matrix from prior data or used to regularize.
+        prior_covar (Optional[np.ndarray]): Covariance matrix from prior data or used to
+            regularize.
         name (Optional[str]): Set name to object.
         keys (Optional[str]): Keys for merging sufficient statistics.
 
@@ -380,9 +387,12 @@ class MultivariateGaussianEstimator(ParameterEstimator):
         """MultivariateGaussianEstimator object.
 
         Args:
-            dim (Optional[int]): Dimension of multivariate normal. Inferred from 'suff_stat' if None.
-            pseudo_count (Optional[Tuple[Optional[float], Optional[float]]]): Regularize mean and/or covariance.
-            suff_stat (Optional[Tuple[Optional[np.ndarray], Optional[np.ndarray]]]): Mean and covariance estimated
+            dim (Optional[int]): Dimension of multivariate normal. Inferred from
+                'suff_stat' if None.
+            pseudo_count (Optional[Tuple[Optional[float], Optional[float]]]): Regularize
+                mean and/or covariance.
+            suff_stat (Optional[Tuple[Optional[np.ndarray], Optional[np.ndarray]]]):
+                Mean and covariance estimated
                 from previous data or used to regularize.
             name (Optional[str]): Set name for object instance.
             keys (Optional[str]): Set keys for estimator.
@@ -446,7 +456,8 @@ class MultivariateGaussianEstimator(ParameterEstimator):
 
 
 class MultivariateGaussianDataEncoder(DataSequenceEncoder):
-    """MultivariateGaussianDataEncoder object for sequence encoding iid mvn observations.
+    """MultivariateGaussianDataEncoder object for sequence encoding iid mvn
+    observations.
 
     Attributes:
         dim (Optional[int]): dimension of mvn.

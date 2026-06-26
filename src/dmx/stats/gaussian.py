@@ -1,6 +1,8 @@
-"""Evaluate, estimate, and sample from a Gaussian distribution with mean mu and variance sigma2.
+"""Evaluate, estimate, and sample from a Gaussian distribution with mean mu and variance
+sigma2.
 
-Defines the GaussianDistribution, GaussianSampler, GaussianAccumulatorFactory, GaussianAccumulator,
+Defines the GaussianDistribution, GaussianSampler, GaussianAccumulatorFactory,
+GaussianAccumulator,
 GaussianEstimator, and the GaussianDataEncoder classes for use with dmx-learn.
 
 Data type: float
@@ -11,7 +13,7 @@ from typing import Any, Callable, Dict, List, Optional, Tuple, Union
 import numpy as np
 from numpy.random import RandomState
 
-from dmx.arithmetic import *
+from dmx.arithmetic import exp, isinf, isnan, log, pi, sqrt
 from dmx.stats.pdist import (
     DataSequenceEncoder,
     DistributionSampler,
@@ -50,6 +52,7 @@ class GaussianDistribution(SequenceEncodableProbabilityDistribution):
             name (Optional[str], optional): Name for the object.
             keys (Optional[str], optional): Key for the distribution.
         """
+        super().__init__()
         self.mu = mu
         self.sigma2 = 1.0 if (sigma2 <= 0 or isnan(sigma2) or isinf(sigma2)) else sigma2
         self.log_const = -0.5 * log(2.0 * pi * self.sigma2)
@@ -100,8 +103,9 @@ class GaussianDistribution(SequenceEncodableProbabilityDistribution):
             np.ndarray: Log-density values.
         """
         if not isinstance(x, GaussianEncodedDataSequence):
-            raise Exception(
-                "GaussianDistribution.seq_log_density() requires GaussianEncodedDataSequence."
+            raise TypeError(
+                "GaussianDistribution.seq_log_density() requires "
+                "GaussianEncodedDataSequence."
             )
 
         rv = x.data - self.mu
@@ -139,8 +143,7 @@ class GaussianDistribution(SequenceEncodableProbabilityDistribution):
                 name=self.name,
                 keys=self.keys,
             )
-        else:
-            return GaussianEstimator(name=self.name, keys=self.keys)
+        return GaussianEstimator(name=self.name, keys=self.keys)
 
     def dist_to_encoder(self) -> "GaussianDataEncoder":
         """Return a GaussianDataEncoder for this distribution.
@@ -166,14 +169,14 @@ class GaussianSampler(DistributionSampler):
             dist (GaussianDistribution): GaussianDistribution instance to sample from.
             seed (Optional[int], optional): Seed for random number generator.
         """
-        self.rng = RandomState(seed)
-        self.dist = dist
+        super().__init__(dist, seed)
 
     def sample(self, size: Optional[int] = None) -> Union[float, np.ndarray]:
         """Draw iid samples from the Gaussian distribution.
 
         Args:
-            size (Optional[int], optional): Number of samples to draw. If None, returns a single sample.
+            size (Optional[int], optional): Number of samples to draw. If None, returns
+                a single sample.
 
         Returns:
             Union[float, np.ndarray]: Single sample or array of samples.
@@ -233,6 +236,7 @@ class GaussianAccumulator(SequenceEncodableStatisticAccumulator):
             weight (float): Weight for the observation.
             rng (Optional[RandomState]): Random number generator (not used).
         """
+        del rng
         self.update(x, weight, None)
 
     def seq_initialize(
@@ -275,7 +279,8 @@ class GaussianAccumulator(SequenceEncodableStatisticAccumulator):
         """Aggregate sufficient statistics with this accumulator.
 
         Args:
-            suff_stat (Tuple[float, float, float, float]): (sum, sum2, count, count2) to combine.
+            suff_stat (Tuple[float, float, float, float]): (sum, sum2, count, count2) to
+                combine.
 
         Returns:
             GaussianAccumulator: Self after combining.
@@ -375,8 +380,10 @@ class GaussianEstimator(ParameterEstimator):
     """Estimator for the Gaussian distribution from aggregated sufficient statistics.
 
     Attributes:
-        pseudo_count (Tuple[Optional[float], Optional[float]]): Weights for sufficient statistics.
-        suff_stat (Tuple[Optional[float], Optional[float]]): Tuple of mean (mu) and variance (sigma2).
+        pseudo_count (Tuple[Optional[float], Optional[float]]): Weights for sufficient
+            statistics.
+        suff_stat (Tuple[Optional[float], Optional[float]]): Tuple of mean (mu) and
+            variance (sigma2).
         name (Optional[str]): Name of the estimator.
         keys (Optional[str]): Key for mean and variance.
     """
@@ -391,8 +398,10 @@ class GaussianEstimator(ParameterEstimator):
         """Initialize GaussianEstimator.
 
         Args:
-            pseudo_count (Tuple[Optional[float], Optional[float]]): Tuple of two positive floats.
-            suff_stat (Tuple[Optional[float], Optional[float]]): Tuple of mean and variance.
+            pseudo_count (Tuple[Optional[float], Optional[float]]): Tuple of two
+                positive floats.
+            suff_stat (Tuple[Optional[float], Optional[float]]): Tuple of mean and
+                variance.
             name (Optional[str], optional): Name for the estimator.
             keys (Optional[str], optional): Key for mean and variance.
 
@@ -424,7 +433,8 @@ class GaussianEstimator(ParameterEstimator):
 
         Args:
             nobs (Optional[float]): Number of observations (not used).
-            suff_stat (Tuple[float, float, float, float]): (sum, sum2, count, count2) sufficient statistics.
+            suff_stat (Tuple[float, float, float, float]): (sum, sum2, count, count2)
+                sufficient statistics.
 
         Returns:
             GaussianDistribution: Estimated distribution.
@@ -490,7 +500,7 @@ class GaussianDataEncoder(DataSequenceEncoder):
         rv = np.asarray(x, dtype=float)
 
         if np.any(np.isnan(rv)) or np.any(np.isinf(rv)):
-            raise Exception("GaussianDistribution requires support x in (-inf, inf).")
+            raise ValueError("GaussianDistribution requires support x in (-inf, inf).")
 
         return GaussianEncodedDataSequence(data=rv)
 

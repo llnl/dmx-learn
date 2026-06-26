@@ -3,11 +3,10 @@ from typing import Any, Dict, List, Optional, Sequence, Tuple, TypeVar, Union
 import numpy as np
 from numpy.random import RandomState
 
-from dmx.arithmetic import *
+from dmx.arithmetic import exp, maxrandint
 from dmx.stats.null_dist import (
     NullAccumulator,
     NullAccumulatorFactory,
-    NullDataEncoder,
     NullDistribution,
     NullEstimator,
 )
@@ -37,6 +36,7 @@ class IntegerStepBernoulliEditDistribution(SequenceEncodableProbabilityDistribut
         name: Optional[str] = None,
         keys: Optional[str] = None,
     ) -> None:
+        super().__init__()
         num_vals = len(log_edit_pmat)
         self.name = name
         self.init_dist = init_dist if init_dist is not None else NullDistribution()
@@ -73,8 +73,8 @@ class IntegerStepBernoulliEditDistribution(SequenceEncodableProbabilityDistribut
         s4 = repr(self.keys)
 
         return (
-            "IntegerStepBernoulliEditDistribution(%s, init_dist=%s, name=%s, keys=%s)"
-            % (s1, s2, s3, s4)
+            f"IntegerStepBernoulliEditDistribution({s1}, init_dist={s2}, name={s3}, "
+            f"keys={s4})"
         )
 
     def density(self, x: T) -> float:
@@ -110,11 +110,12 @@ class IntegerStepBernoulliEditDistribution(SequenceEncodableProbabilityDistribut
         self, x: "IntegerStepBernoulliEncodedDataSequence"
     ) -> np.ndarray:
         if not isinstance(x, IntegerStepBernoulliEncodedDataSequence):
-            raise Exception(
-                "IntegerStepBernoulliEditEncodedDataSequence required for seq_log_density()."
+            raise TypeError(
+                "IntegerStepBernoulliEditEncodedDataSequence required for "
+                "seq_log_density()."
             )
 
-        sz, idx, xs, ys, ym, init_enc = x.data
+        sz, idx, xs, ys, _ym, init_enc = x.data
         rv = np.bincount(idx, weights=self.log_dvec[xs, ys], minlength=sz)
         rv += self.log_nsum
 
@@ -148,8 +149,7 @@ class IntegerStepBernoulliEditSampler(DistributionSampler):
     def __init__(
         self, dist: IntegerStepBernoulliEditDistribution, seed: Optional[int] = None
     ) -> None:
-        self.rng = np.random.RandomState(seed)
-        self.dist = dist
+        super().__init__(dist, seed)
         self.init_rng = dist.init_dist.sampler(self.rng.randint(0, maxrandint))
         self.next_rng = np.random.RandomState(self.rng.randint(0, maxrandint))
 
@@ -166,11 +166,10 @@ class IntegerStepBernoulliEditSampler(DistributionSampler):
             rv[prev_ob] = temp[prev_ob] <= self.dist.log_edit_pmat[prev_ob, 3]
 
             return list(prev_ob), list(np.flatnonzero(rv))
-        else:
-            rv = []
-            for i in range(size):
-                rv.append(self.sample())
-            return rv
+        rv = []
+        for _ in range(size):
+            rv.append(self.sample())
+        return rv
 
     def sample_given(self, x: Sequence[Sequence[int]]) -> Sequence[int]:
         temp = np.log(self.rng.rand(self.dist.num_vals))
@@ -256,7 +255,7 @@ class IntegerStepBernoulliEditAccumulator(SequenceEncodableStatisticAccumulator)
         estimate: Optional[IntegerStepBernoulliEditDistribution],
     ) -> None:
 
-        sz, idx, xs, ys, ym, init_enc = x.data
+        _sz, idx, xs, _ys, ym, init_enc = x.data
 
         agg_cnt0 = np.bincount(xs[ym[0]], weights=weights[idx[ym[0]]])
         agg_cnt1 = np.bincount(xs[ym[1]], weights=weights[idx[ym[1]]])
@@ -275,7 +274,7 @@ class IntegerStepBernoulliEditAccumulator(SequenceEncodableStatisticAccumulator)
         weights: np.ndarray,
         rng: RandomState,
     ) -> None:
-        sz, idx, xs, ys, ym, init_enc = x.data
+        _sz, idx, xs, _ys, ym, init_enc = x.data
 
         if not self._init_rng:
             self._rng_initialize(rng)
@@ -542,8 +541,7 @@ class IntegerStepBernoulliEditDataEncoder(DataSequenceEncoder):
     def __eq__(self, other: object) -> bool:
         if isinstance(other, IntegerStepBernoulliEditDataEncoder):
             return other.init_encoder == self.init_encoder
-        else:
-            return False
+        return False
 
     def seq_encode(self, x: Sequence[T]) -> "IntegerStepBernoulliEncodedDataSequence":
         idx = []

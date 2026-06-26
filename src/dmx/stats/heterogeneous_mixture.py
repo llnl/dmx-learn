@@ -1,7 +1,9 @@
 r"""Create, estimate, and sample from a heterogeneous mixture distribution.
 
-Defines the HeterogeneousMixtureDistribution, HeterogeneousMixtureSampler, HeterogeneousMixtureAccumulatorFactory,
-HeterogeneousMixtureAccumulator, HeterogeneousMixtureEstimator, and the HeterogeneousMixtureDataEncoder classes for use
+Defines the HeterogeneousMixtureDistribution, HeterogeneousMixtureSampler,
+HeterogeneousMixtureAccumulatorFactory,
+HeterogeneousMixtureAccumulator, HeterogeneousMixtureEstimator, and the
+HeterogeneousMixtureDataEncoder classes for use
 with dmx-learn.
 
 A heterogeneous mixture distribution with data type ``T`` is defined by the density:
@@ -10,25 +12,28 @@ A heterogeneous mixture distribution with data type ``T`` is defined by the dens
 
     p(Y) = \sum_{k=1}^{K} p(Y|Z=k) \cdot p(Z=k)
 
-where :math:`p(Z=k)` is the mixture weight for component :math:`k`, and :math:`p(Y|Z=k)` is the density of the
-:math:`k`-th component distribution. All component distributions must be compatible in data type ``T``.
+where :math:`p(Z=k)` is the mixture weight for component :math:`k`, and :math:`p(Y|Z=k)`
+is the density of the
+:math:`k`-th component distribution. All component distributions must be compatible in
+data type ``T``.
 
 **Example:**
-A heterogeneous mixture with weights ``[0.5, 0.5]`` and component distributions ``Exponential(beta)`` and ``Gamma(k, theta)``
+A heterogeneous mixture with weights ``[0.5, 0.5]`` and component distributions
+``Exponential(beta)`` and ``Gamma(k, theta)``
 has the form
 
 .. math::
 
     p(x) = 0.5 \cdot P_0(x; \beta) + 0.5 \cdot P_1(x; k, \theta), \quad x > 0
 
-where :math:`P_0(x; \beta)` is an exponential density and :math:`P_1(x; k, \theta)` is a gamma density.
+where :math:`P_0(x; \beta)` is an exponential density and :math:`P_1(x; k, \theta)` is a
+gamma density.
 """
 
 from math import exp
 from typing import Any, Dict, List, Optional, Sequence, Tuple, TypeVar, Union
 
 import numpy as np
-from numpy import ndarray
 from numpy.random import RandomState
 
 import dmx.utils.vector as vec
@@ -47,15 +52,19 @@ T = TypeVar("T")
 
 
 class HeterogeneousMixtureDistribution(SequenceEncodableProbabilityDistribution):
-    """HeterogeneousMixtureDistribution object defined by component distributions and weights.
+    """HeterogeneousMixtureDistribution object defined by component distributions and
+    weights.
 
     Attributes:
-        components (Sequence[SequenceEncodableProbabilityDistribution]): List of component distributions (data type T).
+        components (Sequence[SequenceEncodableProbabilityDistribution]): List of
+            component distributions (data type T).
         w (np.ndarray): Mixture weights assigned from args (w).
-        name (Optional[str]): String name for the HeterogeneousMixtureDistribution object.
+        name (Optional[str]): String name for the HeterogeneousMixtureDistribution
+            object.
         zw (np.ndarray): True if a weight is 0.0, else False.
         log_w (np.ndarray): Log of weights (w). Set to -np.inf where zw is True.
-        num_components (int): Number of components in HeterogeneousMixtureDistribution instance.
+        num_components (int): Number of components in HeterogeneousMixtureDistribution
+            instance.
         keys (Tuple[Optional[str], Optional[str]]): Keys for weights and components.
     """
 
@@ -69,17 +78,21 @@ class HeterogeneousMixtureDistribution(SequenceEncodableProbabilityDistribution)
         """Initialize HeterogeneousMixtureDistribution.
 
         Args:
-            components (Sequence[SequenceEncodableProbabilityDistribution]): Set component distributions.
+            components (Sequence[SequenceEncodableProbabilityDistribution]): Set
+                component distributions.
                 Must all be compatible with type T.
             w (Union[Sequence[float], np.ndarray]): Mixture weights, must sum to 1.0.
-            name (Optional[str], optional): Assign string name to HeterogeneousMixtureDistribution object.
-            keys (Tuple[Optional[str], Optional[str]], optional): Keys for weights and components.
+            name (Optional[str], optional): Assign string name to
+                HeterogeneousMixtureDistribution object.
+            keys (Tuple[Optional[str], Optional[str]], optional): Keys for weights and
+                components.
         """
         self.w = np.asarray(w, dtype=float)
         self.zw = self.w == 0.0
         self.log_w = np.log(self.w + self.zw)
         self.log_w[self.zw] = -np.inf
 
+        super().__init__()
         self.components = components
         self.num_components = len(components)
         self.name = name
@@ -91,13 +104,17 @@ class HeterogeneousMixtureDistribution(SequenceEncodableProbabilityDistribution)
         s2 = repr(list(self.w))
         s3 = repr(self.name)
         s4 = repr(self.keys)
-        return f"HeterogeneousMixtureDistribution(components=[{s1}], w={s2}, name={s3}, keys={s4})"
+        return (
+            f"HeterogeneousMixtureDistribution(components=[{s1}], w={s2}, name={s3}, "
+            f"keys={s4})"
+        )
 
     def density(self, x: T) -> float:
         """Evaluate density of heterogeneous mixture distribution at observation x.
 
         Args:
-            x (T): Single observation from heterogeneous mixture distribution. T is data type of components.
+            x (T): Single observation from heterogeneous mixture distribution. T is data
+                type of components.
 
         Returns:
             float: Density at x.
@@ -112,7 +129,8 @@ class HeterogeneousMixtureDistribution(SequenceEncodableProbabilityDistribution)
            \\log{f(x)} = \\log{\\left(\\sum_{k=1}^{K} f_k(x) \\pi_k\\right)}.
 
         Args:
-            x (T): Single observation from mixture distribution. T is data type of components.
+            x (T): Single observation from mixture distribution. T is data type of
+                components.
 
         Returns:
             float: Log-density at x.
@@ -122,12 +140,15 @@ class HeterogeneousMixtureDistribution(SequenceEncodableProbabilityDistribution)
         )
 
     def component_log_density(self, x: T) -> np.ndarray:
-        """Evaluate component-wise log-density of heterogeneous mixture distribution at observation x.
+        """Evaluate component-wise log-density of heterogeneous mixture distribution at
+        observation x.
 
-        Returns a num_components-dimensional array with :math:`\\log(f_k(x))` in each entry.
+        Returns a num_components-dimensional array with :math:`\\log(f_k(x))` in each
+        entry.
 
         Args:
-            x (T): Single observation from mixture distribution. T is data type of components.
+            x (T): Single observation from mixture distribution. T is data type of
+                components.
 
         Returns:
             np.ndarray: Component-wise log-density at x.
@@ -135,14 +156,16 @@ class HeterogeneousMixtureDistribution(SequenceEncodableProbabilityDistribution)
         return np.asarray([m.log_density(x) for m in self.components], dtype=np.float64)
 
     def posterior(self, x: T) -> np.ndarray:
-        """Obtain the posterior distribution for each heterogeneous mixture component at observation x.
+        """Obtain the posterior distribution for each heterogeneous mixture component at
+        observation x.
 
         .. math::
 
            f(z=k \\vert x ) = \\frac{f_k(x) \\pi_k}{\\sum_{k=1}^{K} f_k(x) \\pi_k}
 
         Args:
-            x (T): Single observation from mixture distribution. T is data type of components.
+            x (T): Single observation from mixture distribution. T is data type of
+                components.
 
         Returns:
             np.ndarray: Posterior distribution at observation x.
@@ -155,11 +178,10 @@ class HeterogeneousMixtureDistribution(SequenceEncodableProbabilityDistribution)
 
         if max_val == -np.inf:
             return self.w.copy()
-        else:
-            comp_log_density -= max_val
-            np.exp(comp_log_density, out=comp_log_density)
-            comp_log_density /= comp_log_density.sum()
-            return comp_log_density
+        comp_log_density -= max_val
+        np.exp(comp_log_density, out=comp_log_density)
+        comp_log_density /= comp_log_density.sum()
+        return comp_log_density
 
     def seq_log_density(
         self, x: "HeterogeneousMixtureEncodedDataSequence"
@@ -167,7 +189,8 @@ class HeterogeneousMixtureDistribution(SequenceEncodableProbabilityDistribution)
         """Vectorized evaluation of log-density for encoded sequence x.
 
         Args:
-            x (HeterogeneousMixtureEncodedDataSequence): EncodedDataSequence for Heterogeneous Mixture.
+            x (HeterogeneousMixtureEncodedDataSequence): EncodedDataSequence for
+                Heterogeneous Mixture.
 
         Returns:
             np.ndarray: log_density of each observation in encoded sequence.
@@ -196,18 +219,17 @@ class HeterogeneousMixtureDistribution(SequenceEncodableProbabilityDistribution)
             np.log(ll_sum, out=ll_sum)
             ll_sum += ll_max
             return ll_sum.flatten()
-        else:
-            ll_mat = ll_mat[good_rows, :]
-            ll_max = ll_max[good_rows]
-            ll_mat -= ll_max
-            np.exp(ll_mat, out=ll_mat)
-            ll_sum = np.sum(ll_mat, axis=1, keepdims=True)
-            np.log(ll_sum, out=ll_sum)
-            ll_sum += ll_max
-            rv = np.zeros(good_rows.shape, dtype=float)
-            rv[good_rows] = ll_sum.flatten()
-            rv[~good_rows] = -np.inf
-            return rv
+        ll_mat = ll_mat[good_rows, :]
+        ll_max = ll_max[good_rows]
+        ll_mat -= ll_max
+        np.exp(ll_mat, out=ll_mat)
+        ll_sum = np.sum(ll_mat, axis=1, keepdims=True)
+        np.log(ll_sum, out=ll_sum)
+        ll_sum += ll_max
+        rv = np.zeros(good_rows.shape, dtype=float)
+        rv[good_rows] = ll_sum.flatten()
+        rv[~good_rows] = -np.inf
+        return rv
 
     def seq_component_log_density(
         self, x: "HeterogeneousMixtureEncodedDataSequence"
@@ -215,7 +237,8 @@ class HeterogeneousMixtureDistribution(SequenceEncodableProbabilityDistribution)
         """Vectorized evaluation of component-wise log-density for encoded sequence x.
 
         Args:
-            x (HeterogeneousMixtureEncodedDataSequence): EncodedDataSequence for Heterogeneous Mixture.
+            x (HeterogeneousMixtureEncodedDataSequence): EncodedDataSequence for
+                Heterogeneous Mixture.
 
         Returns:
             np.ndarray: 2-d array of shape (n_samples, n_components).
@@ -236,16 +259,19 @@ class HeterogeneousMixtureDistribution(SequenceEncodableProbabilityDistribution)
         return ll_mat
 
     def seq_posterior(self, x: "HeterogeneousMixtureEncodedDataSequence") -> np.ndarray:
-        """Vectorized evaluation of posterior of HeterogeneousMixtureDistribution for encoded sequence x.
+        """Vectorized evaluation of posterior of HeterogeneousMixtureDistribution for
+        encoded sequence x.
 
         Args:
-            x (HeterogeneousMixtureEncodedDataSequence): EncodedDataSequence for Heterogeneous Mixture.
+            x (HeterogeneousMixtureEncodedDataSequence): EncodedDataSequence for
+                Heterogeneous Mixture.
 
         Returns:
-            np.ndarray: Posterior probabilities for each observation in encoded sequence.
+            np.ndarray: Posterior probabilities for each observation in encoded
+            sequence.
         """
         if not isinstance(x, HeterogeneousMixtureEncodedDataSequence):
-            raise Exception("Input must be HeterogeneousMixtureEncodedDataSequence.")
+            raise TypeError("Input must be HeterogeneousMixtureEncodedDataSequence.")
 
         tag_list, enc_data = x.data
         ll_mat_init = False
@@ -306,10 +332,9 @@ class HeterogeneousMixtureDistribution(SequenceEncodableProbabilityDistribution)
                 name=self.name,
                 keys=self.keys,
             )
-        else:
-            return HeterogeneousMixtureEstimator(
-                [u.estimator() for u in self.components], name=self.name, keys=self.keys
-            )
+        return HeterogeneousMixtureEstimator(
+            [u.estimator() for u in self.components], name=self.name, keys=self.keys
+        )
 
     def dist_to_encoder(self) -> "HeterogeneousMixtureDataEncoder":
         """Return a HeterogeneousMixtureDataEncoder for this distribution.
@@ -327,7 +352,8 @@ class HeterogeneousMixtureSampler(DistributionSampler):
     Attributes:
         dist (HeterogeneousMixtureDistribution): Distribution to sample from.
         rng (RandomState): Seeded RandomState for sampling.
-        comp_samplers (List[DistributionSampler]): List of DistributionSampler objects for each mixture component.
+        comp_samplers (List[DistributionSampler]): List of DistributionSampler objects
+            for each mixture component.
     """
 
     def __init__(
@@ -339,6 +365,7 @@ class HeterogeneousMixtureSampler(DistributionSampler):
             dist (HeterogeneousMixtureDistribution): Distribution to draw samples from.
             seed (Optional[int], optional): Seed for sampling with RandomState.
         """
+        super().__init__(dist, seed)
         rng_loc = np.random.RandomState(seed)
         self.rng = np.random.RandomState(rng_loc.randint(0, maxrandint))
         self.dist = dist
@@ -360,22 +387,23 @@ class HeterogeneousMixtureSampler(DistributionSampler):
         )
         if size is None:
             return self.comp_samplers[comp_state].sample()
-        else:
-            return [self.comp_samplers[i].sample() for i in comp_state]
+        return [self.comp_samplers[i].sample() for i in comp_state]
 
 
 class HeterogeneousMixtureAccumulator(SequenceEncodableStatisticAccumulator):
     """Accumulator for sufficient statistics of the heterogeneous mixture distribution.
 
     Attributes:
-        accumulators (Sequence[SequenceEncodableStatisticAccumulator]): Accumulators for the components.
+        accumulators (Sequence[SequenceEncodableStatisticAccumulator]): Accumulators for
+            the components.
         num_components (int): Number of mixture components.
         comp_counts (np.ndarray): Array for accumulating component weights.
         weight_key (Optional[str]): Key for weights of mixture.
         comp_key (Optional[str]): Key for components of mixture.
         name (Optional[str]): Name for object.
         _init_rng (bool): False if rng for accumulators has not been set.
-        _acc_rng (Optional[Sequence[RandomState]]): List of RandomState objects for accumulator initialization.
+        _acc_rng (Optional[Sequence[RandomState]]): List of RandomState objects for
+            accumulator initialization.
     """
 
     def __init__(
@@ -387,9 +415,11 @@ class HeterogeneousMixtureAccumulator(SequenceEncodableStatisticAccumulator):
         """Initialize HeterogeneousMixtureAccumulator.
 
         Args:
-            accumulators (Sequence[SequenceEncodableStatisticAccumulator]): Accumulators for the components.
+            accumulators (Sequence[SequenceEncodableStatisticAccumulator]): Accumulators
+                for the components.
             name (Optional[str], optional): Name for object.
-            keys (Tuple[Optional[str], Optional[str]], optional): Keys for weights and components.
+            keys (Tuple[Optional[str], Optional[str]], optional): Keys for weights and
+                components.
         """
         self.accumulators = accumulators
         self.num_components = len(accumulators)
@@ -408,7 +438,8 @@ class HeterogeneousMixtureAccumulator(SequenceEncodableStatisticAccumulator):
         Args:
             x (T): Observation.
             weight (float): Weight for the observation.
-            estimate (HeterogeneousMixtureDistribution): Distribution for posterior calculation.
+            estimate (HeterogeneousMixtureDistribution): Distribution for posterior
+                calculation.
         """
         posterior = estimate.posterior(x)
         posterior *= weight
@@ -498,7 +529,8 @@ class HeterogeneousMixtureAccumulator(SequenceEncodableStatisticAccumulator):
         Args:
             x (HeterogeneousMixtureEncodedDataSequence): Encoded data sequence.
             weights (np.ndarray): Weights for each observation.
-            estimate (HeterogeneousMixtureDistribution): Distribution for posterior calculation.
+            estimate (HeterogeneousMixtureDistribution): Distribution for posterior
+                calculation.
         """
         tag_list, enc_data = x.data
         ll_mat_init = False
@@ -541,7 +573,8 @@ class HeterogeneousMixtureAccumulator(SequenceEncodableStatisticAccumulator):
         """Aggregate sufficient statistics with this accumulator.
 
         Args:
-            suff_stat (Tuple[np.ndarray, Tuple[Any, ...]]): Sufficient statistics to combine.
+            suff_stat (Tuple[np.ndarray, Tuple[Any, ...]]): Sufficient statistics to
+                combine.
 
         Returns:
             HeterogeneousMixtureAccumulator: Self after combining.
@@ -555,9 +588,10 @@ class HeterogeneousMixtureAccumulator(SequenceEncodableStatisticAccumulator):
         """Return the sufficient statistics as a tuple.
 
         Returns:
-            Tuple[np.ndarray, Tuple[Any, ...]]: (component counts, tuple of component accumulator values)
+            Tuple[np.ndarray, Tuple[Any, ...]]: (component counts, tuple of component
+            accumulator values)
         """
-        return self.comp_counts, tuple([u.value() for u in self.accumulators])
+        return self.comp_counts, tuple(u.value() for u in self.accumulators)
 
     def from_value(
         self, x: Tuple[np.ndarray, Tuple[Any, ...]]
@@ -565,7 +599,8 @@ class HeterogeneousMixtureAccumulator(SequenceEncodableStatisticAccumulator):
         """Set the sufficient statistics from a tuple.
 
         Args:
-            x (Tuple[np.ndarray, Tuple[Any, ...]]): (component counts, tuple of component accumulator values)
+            x (Tuple[np.ndarray, Tuple[Any, ...]]): (component counts, tuple of
+                component accumulator values)
 
         Returns:
             HeterogeneousMixtureAccumulator: Self after setting values.
@@ -590,8 +625,8 @@ class HeterogeneousMixtureAccumulator(SequenceEncodableStatisticAccumulator):
         if self.comp_key is not None:
             if self.comp_key in stats_dict:
                 acc = stats_dict[self.comp_key]
-                for i in range(len(acc)):
-                    acc[i] = acc[i].combine(self.accumulators[i].value())
+                for i, acc_i in enumerate(acc):
+                    acc_i = acc_i.combine(self.accumulators[i].value())
             else:
                 stats_dict[self.comp_key] = self.accumulators
 
@@ -630,7 +665,8 @@ class HeterogeneousMixtureAccumulatorFactory(StatisticAccumulatorFactory):
     """Factory for creating HeterogeneousMixtureAccumulator objects.
 
     Attributes:
-        factories (Sequence[StatisticAccumulatorFactory]): Factories for the mixture components.
+        factories (Sequence[StatisticAccumulatorFactory]): Factories for the mixture
+            components.
         dim (int): Number of mixture components.
         keys (Tuple[Optional[str], Optional[str]]): Keys for weights and components.
         name (Optional[str]): Name for object.
@@ -645,8 +681,10 @@ class HeterogeneousMixtureAccumulatorFactory(StatisticAccumulatorFactory):
         """Initialize HeterogeneousMixtureAccumulatorFactory.
 
         Args:
-            factories (Sequence[StatisticAccumulatorFactory]): Factories for the mixture components.
-            keys (Tuple[Optional[str], Optional[str]], optional): Keys for weights and component aggregations.
+            factories (Sequence[StatisticAccumulatorFactory]): Factories for the mixture
+                components.
+            keys (Tuple[Optional[str], Optional[str]], optional): Keys for weights and
+                component aggregations.
             name (Optional[str], optional): Name for object.
         """
         self.factories = factories
@@ -668,15 +706,18 @@ class HeterogeneousMixtureAccumulatorFactory(StatisticAccumulatorFactory):
 
 
 class HeterogeneousMixtureEstimator(ParameterEstimator):
-    """Estimator for HeterogeneousMixtureDistribution from aggregated sufficient statistics.
+    """Estimator for HeterogeneousMixtureDistribution from aggregated sufficient
+    statistics.
 
     Attributes:
-        estimators (Sequence[ParameterEstimator]): Estimators for the mixture components.
+        estimators (Sequence[ParameterEstimator]): Estimators for the mixture
+            components.
         fixed_weights (Optional[np.ndarray]): Fixed weights for the mixture (if any).
         suff_stat (Optional[np.ndarray]): Sufficient statistics for the weights.
         pseudo_count (Optional[float]): Pseudo-count for regularization.
         name (Optional[str]): Name for the estimator.
-        keys (Tuple[Optional[str], Optional[str]]): Keys for the weights and component distributions.
+        keys (Tuple[Optional[str], Optional[str]]): Keys for the weights and component
+            distributions.
     """
 
     def __init__(
@@ -691,12 +732,16 @@ class HeterogeneousMixtureEstimator(ParameterEstimator):
         """Initialize HeterogeneousMixtureEstimator.
 
         Args:
-            estimators (Sequence[ParameterEstimator]): Estimators for the mixture components.
-            fixed_weights (Optional[np.ndarray], optional): Fixed weights for the mixture.
-            suff_stat (Optional[np.ndarray], optional): Sufficient statistics for the weights.
+            estimators (Sequence[ParameterEstimator]): Estimators for the mixture
+                components.
+            fixed_weights (Optional[np.ndarray], optional): Fixed weights for the
+                mixture.
+            suff_stat (Optional[np.ndarray], optional): Sufficient statistics for the
+                weights.
             pseudo_count (Optional[float], optional): Pseudo-count for regularization.
             name (Optional[str], optional): Name for the estimator.
-            keys (Tuple[Optional[str], Optional[str]], optional): Keys for the weights and component distributions.
+            keys (Tuple[Optional[str], Optional[str]], optional): Keys for the weights
+                and component distributions.
 
         Raises:
             TypeError: If keys is not a tuple of two strings or None.
@@ -709,7 +754,8 @@ class HeterogeneousMixtureEstimator(ParameterEstimator):
             self.keys = keys
         else:
             raise TypeError(
-                "HeterogeneousMixtureEstimator requires keys (Tuple[Optional[str], Optional[str]])."
+                "HeterogeneousMixtureEstimator requires keys (Tuple[Optional[str], "
+                "Optional[str]])."
             )
 
         self.num_components = len(estimators)
@@ -775,21 +821,25 @@ class HeterogeneousMixtureDataEncoder(DataSequenceEncoder):
     """Encoder for sequences of heterogeneous mixture observations.
 
     Attributes:
-        encoder_dict (Dict[str, DataSequenceEncoder]): Dictionary of distinct DataSequenceEncoder objects
-            found in encoders list. Value of encoder_dict is a list of ids for the components that are encoded by
+        encoder_dict (Dict[str, DataSequenceEncoder]): Dictionary of distinct
+            DataSequenceEncoder objects
+            found in encoders list. Value of encoder_dict is a list of ids for the
+            components that are encoded by
             the encoder_dict key.
-        idx_dict (Dict[str, Sequence[int]]): Dictionary mapping encoder string to component indices.
+        idx_dict (Dict[str, Sequence[int]]): Dictionary mapping encoder string to
+            component indices.
     """
 
     def __init__(self, encoders: Sequence[DataSequenceEncoder]) -> None:
         """Initialize HeterogeneousMixtureDataEncoder.
 
         Args:
-            encoders (Sequence[DataSequenceEncoder]): List of DataSequenceEncoder objects for each heterogeneous mixture
+            encoders (Sequence[DataSequenceEncoder]): List of DataSequenceEncoder
+                objects for each heterogeneous mixture
                 component.
         """
-        encoder_dict: Dict[str, DataSequenceEncoder] = dict()
-        idx_dict: Dict[str, Sequence[int]] = dict()
+        encoder_dict: Dict[str, DataSequenceEncoder] = {}
+        idx_dict: Dict[str, Sequence[int]] = {}
 
         for encoder_idx, encoder in enumerate(encoders):
             enc_str = str(encoder)
@@ -821,11 +871,9 @@ class HeterogeneousMixtureDataEncoder(DataSequenceEncoder):
         """
         if not isinstance(other, HeterogeneousMixtureDataEncoder):
             return False
-        else:
-            return (
-                other.idx_dict == self.idx_dict
-                and other.encoder_dict == self.encoder_dict
-            )
+        return (
+            other.idx_dict == self.idx_dict and other.encoder_dict == self.encoder_dict
+        )
 
     def seq_encode(self, x: Sequence[T]) -> "HeterogeneousMixtureEncodedDataSequence":
         """Encode a sequence of heterogeneous mixture observations.
@@ -850,7 +898,8 @@ class HeterogeneousMixtureEncodedDataSequence(EncodedDataSequence):
     """Encoded data sequence for use with vectorized function calls.
 
     Attributes:
-        data (Tuple[List[np.ndarray], List[EncodedDataSequence]]): Sequence encoding of component tags and data
+        data (Tuple[List[np.ndarray], List[EncodedDataSequence]]): Sequence encoding of
+            component tags and data
             encodings.
     """
 
@@ -860,7 +909,8 @@ class HeterogeneousMixtureEncodedDataSequence(EncodedDataSequence):
         """Initialize HeterogeneousMixtureEncodedDataSequence.
 
         Args:
-            data (Tuple[List[np.ndarray], List[EncodedDataSequence]]): Encoded tags and data.
+            data (Tuple[List[np.ndarray], List[EncodedDataSequence]]): Encoded tags and
+                data.
         """
         super().__init__(data)
 

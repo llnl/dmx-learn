@@ -1,23 +1,31 @@
-"""Create, estimate, and sample from a Markov chain with support on the integers (chain can include a lag).
+"""Create, estimate, and sample from a Markov chain with support on the integers (chain
+can include a lag).
 
-Defines the IntegerMarkovChainDistribution, IntegerMarkovChainSampler, IntegerMarkovChainAccumulatorFactory,
-IntegerMarkovChainAccumulator, IntegerMarkovChainEstimator, and the IntegerMarkovChainDataEncoder classes for use with
+Defines the IntegerMarkovChainDistribution, IntegerMarkovChainSampler,
+IntegerMarkovChainAccumulatorFactory,
+IntegerMarkovChainAccumulator, IntegerMarkovChainEstimator, and the
+IntegerMarkovChainDataEncoder classes for use with
 dmx-learn.
 
 The data type: Sequence[int].
 
-Consider a sequence of length n > 0 s.t. x = (x[0],x[1],...,x[n-1]). With lag > 0, we have the integer Markov chain
+Consider a sequence of length n > 0 s.t. x = (x[0],x[1],...,x[n-1]). With lag > 0, we
+have the integer Markov chain
 has a log-density given by:
 
-    log(P(x)) = log(P_init(x[0:lag]) + sum_{j=0}^{n-1} log(p_mat(x[j + lag] | x[j], x[j+1],..,x[j+lag-1])) +
+    log(P(x)) = log(P_init(x[0:lag]) + sum_{j=0}^{n-1} log(p_mat(x[j + lag] | x[j],
+    x[j+1],..,x[j+lag-1])) +
                     log(P_len(n)),
 
-where P_len(n) is the density for the length distribution evaluated for length 'n', and P_init() is the density
-for the initial distribution. If the sequence length is less than the lag, i.e. len(x) < lag, then
+where P_len(n) is the density for the length distribution evaluated for length 'n', and
+P_init() is the density
+for the initial distribution. If the sequence length is less than the lag, i.e. len(x) <
+lag, then
 
     log(P(x)) = log(P_len(n)).
 
-Note: P_len() should be compatible with non-negative integers. P_init() must be compatible with sequences of ints.
+Note: P_len() should be compatible with non-negative integers. P_init() must be
+    compatible with sequences of ints.
 
 """
 
@@ -53,15 +61,20 @@ class IntegerMarkovChainDistribution(SequenceEncodableProbabilityDistribution):
 
     Attributes:
         num_values (int): Total number of values in support.
-        cond_dist (Array-like): Should be num_vals ** lag by num_vals with transition probabilities for each
+        cond_dist (Array-like): Should be num_vals ** lag by num_vals with transition
+            probabilities for each
             lagged length tuple (v_0,v_1,..,v_{lag}).
         lag (int): Lag length for conditional density.
-        init_dist (Optional[SequenceEncodableProbabilityDistribution]): Optional distribution for initial states
-            of Markov chain (with length lag). Should be a distribution compatible with Sequences.
-        len_dist (Optional[SequenceEncodableProbabilityDistribution]): Optional distribution for the length of
+        init_dist (Optional[SequenceEncodableProbabilityDistribution]): Optional
+            distribution for initial states
+            of Markov chain (with length lag). Should be a distribution compatible with
+            Sequences.
+        len_dist (Optional[SequenceEncodableProbabilityDistribution]): Optional
+            distribution for the length of
             observations.
         name (Optional[str]): Set name for object instance.
-        keys (Optional[str]): Set keys for merging sufficient statistics, including the sufficient statistics of
+        keys (Optional[str]): Set keys for merging sufficient statistics, including the
+            sufficient statistics of
             init_dist and len_dist.
 
     """
@@ -85,18 +98,24 @@ class IntegerMarkovChainDistribution(SequenceEncodableProbabilityDistribution):
 
         Args:
             num_values (int): Total number of values in support.
-            cond_dist (Array-like): Should be num_vals ** lag by num_vals with transition probabilities for each
+            cond_dist (Array-like): Should be num_vals ** lag by num_vals with
+                transition probabilities for each
                 lagged length tuple (v_0,v_1,..,v_{lag}).
             lag (int): Lag length for conditional density.
-            init_dist (Optional[SequenceEncodableProbabilityDistribution]): Optional distribution for initial states
-                of Markov chain (with length lag). Should be a distribution compatible with Sequences.
-            len_dist (Optional[SequenceEncodableProbabilityDistribution]): Optional distribution for the length of
+            init_dist (Optional[SequenceEncodableProbabilityDistribution]): Optional
+                distribution for initial states
+                of Markov chain (with length lag). Should be a distribution compatible
+                with Sequences.
+            len_dist (Optional[SequenceEncodableProbabilityDistribution]): Optional
+                distribution for the length of
                 observations.
             name (Optional[str]): Set name for object instance.
-            keys (Optional[str]): Set keys for merging sufficient statistics, including the sufficient statistics of
+            keys (Optional[str]): Set keys for merging sufficient statistics, including
+                the sufficient statistics of
                 init_dist and len_dist.
 
         """
+        super().__init__()
         self.num_values = num_values
         self.cond_dist = np.asarray(cond_dist)
         self.lag = lag
@@ -116,8 +135,8 @@ class IntegerMarkovChainDistribution(SequenceEncodableProbabilityDistribution):
         s7 = repr(self.keys)
 
         return (
-            "IntegerMarkovChainDistribution(%s, %s, lag=%s, init_dist=%s, len_dist=%s, name=%s, keys=%s)"
-            % (s1, s2, s3, s4, s5, s6, s7)
+            f"IntegerMarkovChainDistribution({s1}, {s2}, lag={s3}, init_dist={s4}, "
+            f"len_dist={s5}, name={s6}, keys={s7})"
         )
 
     def density(self, x: Sequence[int]) -> float:
@@ -137,14 +156,18 @@ class IntegerMarkovChainDistribution(SequenceEncodableProbabilityDistribution):
     def log_density(self, x: Sequence[int]) -> float:
         """Log-density of integer Markov chain evaluated at x.
 
-        Consider a sequence of length n > 0 s.t. x = (x[0],x[1],...,x[n-1]). With lag > 0, we have log-density
+        Consider a sequence of length n > 0 s.t. x = (x[0],x[1],...,x[n-1]). With lag >
+        0, we have log-density
         given by:
 
-            log(P(x)) = log(P_init(x[0:lag]) + sum_{j=0}^{n-1} log(p_mat(x[j + lag] | x[j], x[j+1],..,x[j+lag-1])) +
+            log(P(x)) = log(P_init(x[0:lag]) + sum_{j=0}^{n-1} log(p_mat(x[j + lag] |
+            x[j], x[j+1],..,x[j+lag-1])) +
                 log(P_len(n)),
 
-        where P_len(n) is the density for the length distribution evaluated for length 'n', and P_init() is the density
-        for the initial distribution. If the sequence length is less than the lag, i.e. len(x) < lag, then
+        where P_len(n) is the density for the length distribution evaluated for length
+        'n', and P_init() is the density
+        for the initial distribution. If the sequence length is less than the lag, i.e.
+        len(x) < lag, then
 
             log(P(x)) = log(P_len(n)).
 
@@ -219,7 +242,8 @@ class IntegerMarkovChainDistribution(SequenceEncodableProbabilityDistribution):
 
 
 class IntegerMarkovChainSampler(DistributionSampler):
-    """IntegerMarkovChainSampler object for sampling from an instance of IntegerMarkovChainDistribution.
+    """IntegerMarkovChainSampler object for sampling from an instance of
+    IntegerMarkovChainDistribution.
 
     Attributes:
         dist (IntegerMarkovChainDistribution): Integer Markov chain to sample from.
@@ -238,7 +262,8 @@ class IntegerMarkovChainSampler(DistributionSampler):
             seed (Optional[int]): Set the seed for random sampling.
 
         """
-        rng = np.random.RandomState(seed)
+        super().__init__(dist, seed)
+        rng = self.rng
         seeds = rng.randint(0, maxrandint, size=3)
 
         self.dist = dist
@@ -246,18 +271,18 @@ class IntegerMarkovChainSampler(DistributionSampler):
         self.trans_sampler = np.random.RandomState(seeds[0])
 
         if isinstance(self.dist.init_dist, NullDistribution):
-            raise Exception(
-                "IntegerMarkovChainSampler requires init_dist for IntegerMarkovDistribution."
+            raise RuntimeError(
+                "IntegerMarkovChainSampler requires init_dist for "
+                "IntegerMarkovDistribution."
             )
-        else:
-            self.init_sampler = dist.init_dist.sampler(seeds[1])
+        self.init_sampler = dist.init_dist.sampler(seeds[1])
 
         if isinstance(dist.len_dist, NullDistribution):
-            raise Exception(
-                "IntegerMarkovChainSampler requires len_dist for IntegerMarkovDistribution."
+            raise RuntimeError(
+                "IntegerMarkovChainSampler requires len_dist for "
+                "IntegerMarkovDistribution."
             )
-        else:
-            self.len_sampler = dist.len_dist.sampler(seeds[2])
+        self.len_sampler = dist.len_dist.sampler(seeds[2])
 
     def single_sample(self) -> Sequence[int]:
         """Returns a single sample from the integer Markov chain distribution."""
@@ -268,14 +293,13 @@ class IntegerMarkovChainSampler(DistributionSampler):
 
         if cnt >= lag:
             rv = self.init_sampler.sample()  ## must return a list
-            for i in range(lag, cnt):
+            for _ in range(lag, cnt):
                 idx = np.ravel_multi_index(rv[-lag:], m_shape)
                 rv.append(
                     self.trans_sampler.choice(n_val, p=self.dist.cond_dist[idx, :])
                 )
             return rv
-        else:
-            return []
+        return []
 
     def sample(
         self, size: Optional[int] = None
@@ -286,13 +310,13 @@ class IntegerMarkovChainSampler(DistributionSampler):
             size (Optional[int]): If None, size is taken to be 0.
 
         Returns:
-            Sequence[int] if size is None, else List[Sequence[int]] with length equal to size.
+            Sequence[int] if size is None, else List[Sequence[int]] with length equal to
+            size.
 
         """
         if size is not None:
             return [self.single_sample() for i in range(size)]
-        else:
-            return self.single_sample()
+        return self.single_sample()
 
     def sample_given(self, x: Sequence[int]) -> int:
         """Sample from the Markov chain conditioned on a given value 'x'.
@@ -313,23 +337,34 @@ class IntegerMarkovChainSampler(DistributionSampler):
 
 
 class IntegerMarkovChainAccumulator(SequenceEncodableStatisticAccumulator):
-    """IntegerMarkovChainAccumulator object for aggregating sufficient statistics from observed data.
+    """IntegerMarkovChainAccumulator object for aggregating sufficient statistics from
+    observed data.
 
     Attributes:
         lag (int): The lag for the Markov chain.
-        trans_count_map (Dict[Tuple[Sequence[int], int], float]): Dictionary for tracking transition counts.
-        init_accumulator (SequenceEncodableStatisticAccumulator): Accumulator for the initial distribution. Should
-            be a sequence compatible accumulator with support on the integers. Defaults to the NullAccumulator.
-        len_accumulator (SequenceEncodableStatisticAccumulator): Accumulator for the length of the observed
-            sequences. Should be a sequence compatible accumulator with support on the non-negative integers.
+        trans_count_map (Dict[Tuple[Sequence[int], int], float]): Dictionary for
+            tracking transition counts.
+        init_accumulator (SequenceEncodableStatisticAccumulator): Accumulator for the
+            initial distribution. Should
+            be a sequence compatible accumulator with support on the integers. Defaults
+            to the NullAccumulator.
+        len_accumulator (SequenceEncodableStatisticAccumulator): Accumulator for the
+            length of the observed
+            sequences. Should be a sequence compatible accumulator with support on the
+            non-negative integers.
             Defaults to the NullAccumulator.
-        max_value (int): Largest value encountered when accumulating sufficient statistics.
-        keys (Optional[str]): Set key for merging sufficient statistics with objects possessing matching key.
+        max_value (int): Largest value encountered when accumulating sufficient
+            statistics.
+        keys (Optional[str]): Set key for merging sufficient statistics with objects
+            possessing matching key.
         name (Optional[str]): Set name for object.
 
-        _init_rng (bool): True if RandomState objects for accumulator have been initialized.
-        _acc_rng (Optional[RandomState]): RandomState object for initializing the init accumulator.
-        _len_rng (Optional[RandomState]): RandomState object for initializing the length accumulator.
+        _init_rng (bool): True if RandomState objects for accumulator have been
+            initialized.
+        _acc_rng (Optional[RandomState]): RandomState object for initializing the init
+            accumulator.
+        _len_rng (Optional[RandomState]): RandomState object for initializing the length
+            accumulator.
 
     """
 
@@ -349,16 +384,19 @@ class IntegerMarkovChainAccumulator(SequenceEncodableStatisticAccumulator):
 
         Args:
             lag (int): The lag for the Markov chain.
-            init_accumulator (Optional[SequenceEncodableStatisticAccumulator]): Optional accumulator for the initial
+            init_accumulator (Optional[SequenceEncodableStatisticAccumulator]): Optional
+                accumulator for the initial
                 distribution.
-            len_accumulator (Optional[SequenceEncodableStatisticAccumulator]): Optional accumulator for the length
+            len_accumulator (Optional[SequenceEncodableStatisticAccumulator]): Optional
+                accumulator for the length
                 of the observed sequences.
-            keys (Optional[str]): Set key for merging sufficient statistics with objects possessing matching key.
+            keys (Optional[str]): Set key for merging sufficient statistics with objects
+                possessing matching key.
             name (Optional[str]): Set name for object.
 
         """
         self.lag = lag
-        self.trans_count_map = dict()
+        self.trans_count_map = {}
         self.len_accumulator = (
             len_accumulator if len_accumulator is not None else NullAccumulator()
         )
@@ -366,6 +404,7 @@ class IntegerMarkovChainAccumulator(SequenceEncodableStatisticAccumulator):
             init_accumulator if init_accumulator is not None else NullAccumulator()
         )
         self.max_value = -1
+        del name
         self.keys = keys
 
         self._acc_rng = None
@@ -424,7 +463,7 @@ class IntegerMarkovChainAccumulator(SequenceEncodableStatisticAccumulator):
         estimate: Optional[IntegerMarkovChainDistribution],
     ) -> None:
 
-        seq_len, init_idx, seq_idx, u_seq_idx, u_seq_values, init_enc, len_enc = x.data
+        _seq_len, init_idx, seq_idx, u_seq_idx, u_seq_values, init_enc, len_enc = x.data
 
         seq_cnt = np.bincount(u_seq_idx, weights=weights[seq_idx])
 
@@ -454,7 +493,7 @@ class IntegerMarkovChainAccumulator(SequenceEncodableStatisticAccumulator):
         if not self._init_rng:
             self._rng_initialize(rng)
 
-        seq_len, init_idx, seq_idx, u_seq_idx, u_seq_values, init_enc, len_enc = x.data
+        _seq_len, init_idx, seq_idx, u_seq_idx, u_seq_values, init_enc, len_enc = x.data
 
         seq_cnt = np.bincount(u_seq_idx, weights=weights[seq_idx])
 
@@ -535,15 +574,21 @@ class IntegerMarkovChainAccumulator(SequenceEncodableStatisticAccumulator):
 
 
 class IntegerMarkovChainAccumulatorFactory(StatisticAccumulatorFactory):
-    """IntegerMarkovChainAccumulatorFactory object for creating IntegerMarkovChainAccumulator objects.
+    """IntegerMarkovChainAccumulatorFactory object for creating
+    IntegerMarkovChainAccumulator objects.
 
     Attributes:
         lag (int): Length of lag in Markov chain.
-        init_factory (StatisticAccumulatorFactory): StatisticAccumulatorFactory object for the init distribution.
-            Should be compatible with sequences of integers. Defaults to NullAccumulatorFactory if None.
-        len_factory (StatisticAccumulatorFactory): StatisticAccumulatorFactory object for the length of Markov
-            chain sequence. Requires support on non-negative integers. Defaults to NullAccumulatorFactory if None.
-        keys (Optional[str]): Set key for merging sufficient statistics, including the sufficient statistics of
+        init_factory (StatisticAccumulatorFactory): StatisticAccumulatorFactory object
+            for the init distribution.
+            Should be compatible with sequences of integers. Defaults to
+            NullAccumulatorFactory if None.
+        len_factory (StatisticAccumulatorFactory): StatisticAccumulatorFactory object
+            for the length of Markov
+            chain sequence. Requires support on non-negative integers. Defaults to
+            NullAccumulatorFactory if None.
+        keys (Optional[str]): Set key for merging sufficient statistics, including the
+            sufficient statistics of
             init_dist and len_dist.
         name (Optional[str]): Set name for object.
 
@@ -561,11 +606,15 @@ class IntegerMarkovChainAccumulatorFactory(StatisticAccumulatorFactory):
 
         Args:
             lag (int): Length of lag in Markov chain.
-            init_factory (Optional[StatisticAccumulatorFactory]): Optional StatisticAccumulatorFactory object for the
+            init_factory (Optional[StatisticAccumulatorFactory]): Optional
+                StatisticAccumulatorFactory object for the
                 init distribution. Should be compatible with sequences of integers.
-            len_factory (Optional[StatisticAccumulatorFactory]): Optional StatisticAccumulatorFactory object for the
-                length of Markov chain sequence. Should have support on non-negative integers.
-            keys (Optional[str]): Set keys for merging sufficient statistics, including the sufficient statistics of
+            len_factory (Optional[StatisticAccumulatorFactory]): Optional
+                StatisticAccumulatorFactory object for the
+                length of Markov chain sequence. Should have support on non-negative
+                integers.
+            keys (Optional[str]): Set keys for merging sufficient statistics, including
+                the sufficient statistics of
                 init_dist and len_dist.
             name (Optional[str]): Set name for object.
 
@@ -589,23 +638,30 @@ class IntegerMarkovChainAccumulatorFactory(StatisticAccumulatorFactory):
 
 
 class IntegerMarkovChainEstimator(ParameterEstimator):
-    """IntegerMarkovChainEstimator object for estimating integer Markov distribution from aggregated sufficient
+    """IntegerMarkovChainEstimator object for estimating integer Markov distribution
+    from aggregated sufficient
         statistics.
 
     Attributes:
         num_values (int): Number of values in Markov chain support.
         lag (int): Length of conditional dependence.
-        init_estimator (ParameterEstimator): Optional ParameterEstimator object compatible with
+        init_estimator (ParameterEstimator): Optional ParameterEstimator object
+            compatible with
             sequences of integers. Defaults to NullEstimator.
-        len_estimator (ParameterEstimator): ParameterEstimator object compatible with the non-negative integers.
+        len_estimator (ParameterEstimator): ParameterEstimator object compatible with
+            the non-negative integers.
             Defaults to the NullEstimator.
-        init_dist (Optional[SequenceEncodableProbabilityDistribution]): If passed, init_dist is fixed and not
+        init_dist (Optional[SequenceEncodableProbabilityDistribution]): If passed,
+            init_dist is fixed and not
             estimated. Must be compatible with sequences of integers.
-        len_dist (Optional[SequenceEncodableProbabilityDistribution]): If passed, len_dist is fixed and not
+        len_dist (Optional[SequenceEncodableProbabilityDistribution]): If passed,
+            len_dist is fixed and not
             estimated. Must be compatible with non-negative integers.
-        pseudo_count (Optional[float]): If passed sufficient statistics are re-weighted in estimation step.
+        pseudo_count (Optional[float]): If passed sufficient statistics are re-weighted
+            in estimation step.
         name (Optional[str]): Set name to object instance.
-        key (Optional[str]): Set key for merging sufficient statistics, including the sufficient statistics of
+        key (Optional[str]): Set key for merging sufficient statistics, including the
+            sufficient statistics of
             init_dist and len_dist.
 
     """
@@ -627,17 +683,23 @@ class IntegerMarkovChainEstimator(ParameterEstimator):
         Args:
             num_values (int): Number of values in Markov chain support.
             lag (int): Length of conditional dependence.
-            init_estimator (Optional[ParameterEstimator]): Optional ParameterEstimator object compatible with
+            init_estimator (Optional[ParameterEstimator]): Optional ParameterEstimator
+                object compatible with
                 sequences of integers.
-            len_estimator (Optional[ParameterEstimator]): Optional ParameterEstimator object compatible with the
+            len_estimator (Optional[ParameterEstimator]): Optional ParameterEstimator
+                object compatible with the
                 non-negative integers.
-            init_dist (Optional[SequenceEncodableProbabilityDistribution]): If passed, init_dist is fixed and not
+            init_dist (Optional[SequenceEncodableProbabilityDistribution]): If passed,
+                init_dist is fixed and not
                 estimated. Must be compatible with sequences of integers.
-            len_dist (Optional[SequenceEncodableProbabilityDistribution]): If passed, len_dist is fixed and not
+            len_dist (Optional[SequenceEncodableProbabilityDistribution]): If passed,
+                len_dist is fixed and not
                 estimated. Must be compatible with non-negative integers.
-            pseudo_count (Optional[float]): If passed sufficient statistics are re-weighted in estimation step.
+            pseudo_count (Optional[float]): If passed sufficient statistics are
+                re-weighted in estimation step.
             name (Optional[str]): Set name to object instance.
-            keys (Optional[str]): Set keys for merging sufficient statistics, including the sufficient statistics of
+            keys (Optional[str]): Set keys for merging sufficient statistics, including
+                the sufficient statistics of
                 init_dist and len_dist.
 
         """
@@ -679,7 +741,7 @@ class IntegerMarkovChainEstimator(ParameterEstimator):
             else self.init_estimator.estimate(None, init_ss)
         )
 
-        num_values = 1 + max([max(max(u[0]), u[1]) for u in trans_count_map.keys()])
+        num_values = 1 + max(max(u[0], u[1]) for u in trans_count_map.keys())
 
         cond_mat = np.zeros((num_values**lag, num_values), dtype=np.float32)
 
@@ -708,13 +770,16 @@ class IntegerMarkovChainEstimator(ParameterEstimator):
 
 
 class IntegerMarkovChainDataEncoder(DataSequenceEncoder):
-    """IntegerMarkovChainDataEncoder object for encoding sequences of iid integer markov chain observations.
+    """IntegerMarkovChainDataEncoder object for encoding sequences of iid integer markov
+    chain observations.
 
     Attributes:
         lag (int): Integer valued length of lag.
-        init_encoder (DataSequenceEncoder): DataSequenceEncoder object for initial lagged value. Should be a
+        init_encoder (DataSequenceEncoder): DataSequenceEncoder object for initial
+            lagged value. Should be a
             DataSequenceEncoder for a Sequence of distribution with support on integers.
-        len_encoder (DataSequenceEncoder): DataSequenceEncoder for the length of observed sequences. Should be
+        len_encoder (DataSequenceEncoder): DataSequenceEncoder for the length of
+            observed sequences. Should be
             a DataSequenceEncoder with support on the integers.
 
     """
@@ -729,8 +794,10 @@ class IntegerMarkovChainDataEncoder(DataSequenceEncoder):
 
         Args:
             lag (int): Integer valued length of lag.
-            init_encoder (DataSequenceEncoder): DataSequenceEncoder object for initial lagged value.
-            len_encoder (DataSequenceEncoder): DataSequenceEncoder for the length of observed sequences.
+            init_encoder (DataSequenceEncoder): DataSequenceEncoder object for initial
+                lagged value.
+            len_encoder (DataSequenceEncoder): DataSequenceEncoder for the length of
+                observed sequences.
 
         """
         self.lag = lag
@@ -749,10 +816,8 @@ class IntegerMarkovChainDataEncoder(DataSequenceEncoder):
             c2 = self.lag == other.lag
             if c0 and c1 and c2:
                 return True
-            else:
-                return False
-        else:
             return False
+        return False
 
     def seq_encode(
         self, x: List[Sequence[int]]
@@ -760,16 +825,21 @@ class IntegerMarkovChainDataEncoder(DataSequenceEncoder):
         """Encode sequence of iid observations from integer Markov chain.
 
         Returns a Tuple of length 7 containing:
-            seq_len (ndarray[int]): Lengths of chains - lag. If less than lag length is 0.
-            init_idx (ndarray[int]): Observed sequence index of chains with lengths >= lag.
+            seq_len (ndarray[int]): Lengths of chains - lag. If less than lag length is
+                0.
+            init_idx (ndarray[int]): Observed sequence index of chains with lengths >=
+                lag.
             seq_idx (ndarray[int]): Observed sequence index of chains with transitions.
-            u_seq_idx (ndarray[object]): Numpy array of tuples containing the unique transitions.
-            u_seq_values (ndarray[object]): Numpy array of tuples containing the transitions.
+            u_seq_idx (ndarray[object]): Numpy array of tuples containing the unique
+                transitions.
+            u_seq_values (ndarray[object]): Numpy array of tuples containing the
+                transitions.
             init_enc (Optional[E]): Sequence encoding of initial values (has type E).
             len_enc (Optional[E2]): Sequence encoding of length values (has type E2).
 
         Args:
-            x (List[Sequence[int]]): Sequence of iid observations from integer markov chain distribution.
+            x (List[Sequence[int]]): Sequence of iid observations from integer markov
+                chain distribution.
 
         Returns:
             See above for details.
@@ -778,7 +848,7 @@ class IntegerMarkovChainDataEncoder(DataSequenceEncoder):
         """
         lag = self.lag
 
-        cnt = len(x)
+        _cnt = len(x)
         lens = np.asarray([len(u) for u in x])
         lag_cnt = (lens >= lag).sum()
         step_cnt = np.maximum(lens - lag, 0).sum()
@@ -793,8 +863,8 @@ class IntegerMarkovChainDataEncoder(DataSequenceEncoder):
         i0 = 0
         i1 = 0
 
-        for i in range(len(x)):
-            xx = x[i]
+        for i, x_i in enumerate(x):
+            xx = x_i
             seq_len.append(max(len(xx) - lag + 1, 0))
 
             if len(xx) < lag:
@@ -835,7 +905,8 @@ class IntegerMarkovChainEncodedDataSequence(EncodedDataSequence):
     """IntegerMarkovChainEncodedDataSequence object.
 
     Notes:
-        E = Tuple[np.ndarray, np.ndarray, np.ndarray, np.ndarray, np.ndarray, EncodedDataSequence, EncodedDataSequence]
+        E = Tuple[np.ndarray, np.ndarray, np.ndarray, np.ndarray, np.ndarray,
+        EncodedDataSequence, EncodedDataSequence]
 
     Attributes:
         data (E): Encoded sequence of integer Markov chain observations.

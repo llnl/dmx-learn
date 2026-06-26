@@ -6,8 +6,8 @@
 
 ## Current Snapshot
 
-- Completed: Phase 1 tooling setup, Phase 2 baseline cleanup, and most CI/workflow setup.
-- Remaining: Phase 3 docs/docstrings work, Phase 4 Sphinx docs completion, repo-wide `mypy` enforcement, and `pylint` coverage for `src/dmx/stats/` and `src/dmx/bstats/`.
+- Completed: Phase 1 tooling setup, Phase 2 baseline cleanup, most CI/workflow setup, and all `pylint` issue cleanup outside `src/dmx/bstats/`.
+- Remaining: Phase 3 docs/docstrings work, Phase 4 Sphinx docs completion, repo-wide `mypy` enforcement, and `pylint` cleanup for `src/dmx/bstats/`.
 - Removed from plan: `PHASE_6`.
 
 ## Live Status Verified In Repo
@@ -27,9 +27,10 @@
 - Current `mypy` blockers include:
   - internal error in `src/dmx/stats/tree_hmm.py`
   - missing typing support for `umap` in `src/dmx/mpi4py/utils/humap.py`
-- Current `pylint` enforcement does not yet cover all source packages:
+- Current `pylint` issue cleanup is complete for all source packages except `src/dmx/bstats/`:
   - covered in CI: `src/dmx/torch_stats`, `src/dmx/mpi4py`, `src/dmx/utils`, `src/dmx/torch_utils`, examples, tests, and `src/dmx/stats/pdist.py`
-  - not yet covered repo-wide: `src/dmx/stats/` and `src/dmx/bstats/`
+  - completed outside CI target list: `src/dmx/stats/`
+  - remaining: `src/dmx/bstats/`
 
 ## Phase Tracker
 
@@ -39,7 +40,7 @@
 | Phase 2 | Baseline cleanup and initial fixes | Complete | Formatting and targeted quality fixes have already landed. |
 | Phase 3 | Documentation and docstring quality | Not Complete | This is still open. `pydocstyle` is configured but not yet enabled in pre-commit. |
 | Phase 4 | Sphinx docs structure and generation | Not Complete | Sphinx is configured and HTML build passes, but this phase is still open until docs coverage and generation workflow are fully finalized. |
-| Phase 5 | Automation and CI | Mostly Complete | CI workflows exist and run, but `mypy` and `pylint` are not yet enforced across the full repo. |
+| Phase 5 | Automation and CI | Mostly Complete | CI workflows exist and run, but `mypy` is not yet enforced across the full repo and `pylint` cleanup remains for `src/dmx/bstats/`. |
 
 ## Outstanding Work
 
@@ -66,15 +67,15 @@
 
 ### Remaining Lint Coverage
 
-- [ ] Add `pylint` coverage for `src/dmx/stats/` beyond `src/dmx/stats/pdist.py`.
-- [ ] Add `pylint` coverage for `src/dmx/bstats/`.
+- [x] Complete `pylint` cleanup for `src/dmx/stats/` beyond `src/dmx/stats/pdist.py`.
+- [ ] Complete `pylint` cleanup for `src/dmx/bstats/`.
 
 ## Recommended Completion Order
 
 1. Stabilize repo-wide `mypy` enough to run it on all source files in CI.
 2. Finish Phase 3 docstring cleanup so `pydocstyle` can become an active gate.
 3. Finish Phase 4 docs coverage and keep Sphinx HTML generation green.
-4. Expand `pylint` to `src/dmx/stats/` and `src/dmx/bstats/`.
+4. Finish remaining `pylint` cleanup for `src/dmx/bstats/`.
 5. Tighten any remaining CI gates after the codebase is clean enough to support them.
 
 ## Definition Of Done For This Tracker
@@ -82,5 +83,5 @@
 - [ ] Phase 3 marked complete.
 - [ ] Phase 4 marked complete.
 - [ ] `mypy` runs on all intended repo files in CI.
-- [ ] `pylint` runs on `src/dmx/stats/` and `src/dmx/bstats/`.
+- [ ] `pylint` runs on all intended files, including the remaining `src/dmx/bstats/` scope.
 - [ ] `pydocstyle` is enabled in pre-commit and CI at the desired scope.

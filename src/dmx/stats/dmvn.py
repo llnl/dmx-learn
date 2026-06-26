@@ -1,15 +1,21 @@
-r"""Create, estimate, and sample from a diagonal Gaussian distribution (independent-multivariate Gaussian).
+r"""Create, estimate, and sample from a diagonal Gaussian distribution
+(independent-multivariate Gaussian).
 
-Defines the DiagonalGaussianDistribution, DiagonalGaussianSampler, DiagonalGaussianAccumulatorFactory,
-DiagonalGaussianAccumulator, DiagonalGaussianEstimator, and the DiagonalGaussianDataEncoder classes for use with
+Defines the DiagonalGaussianDistribution, DiagonalGaussianSampler,
+DiagonalGaussianAccumulatorFactory,
+DiagonalGaussianAccumulator, DiagonalGaussianEstimator, and the
+DiagonalGaussianDataEncoder classes for use with
 dmx-learn.
 
-The log-density of an ``n``-dimensional diagonal Gaussian observation :math:`x = (x_1, x_2, ..., x_n)` with mean
-:math:`\mu = (m_1, m_2, ..., m_n)` and diagonal covariance matrix :math:`\mathrm{covar} = \mathrm{diag}(s^2_1, ..., s^2_n)` is:
+The log-density of an ``n``-dimensional diagonal Gaussian observation :math:`x = (x_1,
+x_2, ..., x_n)` with mean
+:math:`\mu = (m_1, m_2, ..., m_n)` and diagonal covariance matrix :math:`\mathrm{covar}
+= \mathrm{diag}(s^2_1, ..., s^2_n)` is:
 
 .. math::
 
-    \log p(x) = -0.5 \sum_{i=1}^n \frac{(x_i - m_i)^2}{s^2_i} - 0.5 \log(s^2_i) - \frac{n}{2} \log(2\pi)
+    \log p(x) = -0.5 \sum_{i=1}^n \frac{(x_i - m_i)^2}{s^2_i} - 0.5 \log(s^2_i) -
+    \frac{n}{2} \log(2\pi)
 
 Data type: ``x`` (List[float], np.ndarray).
 """
@@ -20,7 +26,6 @@ import numpy as np
 from numpy.random import RandomState
 
 import dmx.utils.vector as vec
-from dmx.arithmetic import *
 from dmx.stats.pdist import (
     DataSequenceEncoder,
     DistributionSampler,
@@ -33,7 +38,8 @@ from dmx.stats.pdist import (
 
 
 class DiagonalGaussianDistribution(SequenceEncodableProbabilityDistribution):
-    """Diagonal Gaussian distribution with mean ``mu`` and diagonal covariance ``covar``.
+    """Diagonal Gaussian distribution with mean ``mu`` and diagonal covariance
+    ``covar``.
 
     Attributes:
         dim (int): Dimension of the multivariate Gaussian.
@@ -60,8 +66,10 @@ class DiagonalGaussianDistribution(SequenceEncodableProbabilityDistribution):
             mu (Union[Sequence[float], np.ndarray]): Mean of Gaussian distribution.
             covar (Union[Sequence[float], np.ndarray]): Variance of each component.
             name (Optional[str], optional): Name for object instance.
-            keys (Tuple[Optional[str], Optional[str]], optional): Key for mean and covariance.
+            keys (Tuple[Optional[str], Optional[str]], optional): Key for mean and
+                covariance.
         """
+        super().__init__()
         self.dim = len(mu)
         self.mu = np.asarray(mu, dtype=float)
         self.covar = np.asarray(covar, dtype=float)
@@ -115,8 +123,9 @@ class DiagonalGaussianDistribution(SequenceEncodableProbabilityDistribution):
             np.ndarray: Log-density values.
         """
         if not isinstance(x, DiagonalGaussianEncodedDataSequence):
-            raise Exception(
-                "DiagonalGaussianDistribution.seq_log_density() requires DiagonalGaussianEncodedDataSequence."
+            raise TypeError(
+                "DiagonalGaussianDistribution.seq_log_density() requires "
+                "DiagonalGaussianEncodedDataSequence."
             )
 
         rv = np.dot(x.data * x.data, self.ca)
@@ -150,13 +159,12 @@ class DiagonalGaussianDistribution(SequenceEncodableProbabilityDistribution):
             return DiagonalGaussianEstimator(
                 dim=self.dim, name=self.name, keys=self.keys
             )
-        else:
-            return DiagonalGaussianEstimator(
-                dim=self.dim,
-                pseudo_count=(pseudo_count, pseudo_count),
-                name=self.name,
-                keys=self.keys,
-            )
+        return DiagonalGaussianEstimator(
+            dim=self.dim,
+            pseudo_count=(pseudo_count, pseudo_count),
+            name=self.name,
+            keys=self.keys,
+        )
 
     def dist_to_encoder(self) -> "DiagonalGaussianDataEncoder":
         """Return a DiagonalGaussianDataEncoder for this distribution.
@@ -184,8 +192,7 @@ class DiagonalGaussianSampler(DistributionSampler):
             dist (DiagonalGaussianDistribution): Object instance to sample from.
             seed (Optional[int], optional): Seed for random number generator.
         """
-        self.rng = RandomState(seed)
-        self.dist = dist
+        super().__init__(dist, seed)
 
     def sample(self, size: Optional[int] = None) -> Union[np.ndarray, List[np.ndarray]]:
         """Generate samples from Diagonal Gaussian distribution.
@@ -201,8 +208,7 @@ class DiagonalGaussianSampler(DistributionSampler):
             rv *= np.sqrt(self.dist.covar)
             rv += self.dist.mu
             return rv
-        else:
-            return [self.sample() for _ in range(size)]
+        return [self.sample() for _ in range(size)]
 
 
 class DiagonalGaussianAccumulator(SequenceEncodableStatisticAccumulator):
@@ -227,7 +233,8 @@ class DiagonalGaussianAccumulator(SequenceEncodableStatisticAccumulator):
 
         Args:
             dim (Optional[int], optional): Optional dimension of Gaussian.
-            keys (Tuple[Optional[str], Optional[str]], optional): Key for mean and covariance.
+            keys (Tuple[Optional[str], Optional[str]], optional): Key for mean and
+                covariance.
             name (Optional[str], optional): Name for object.
         """
         self.dim = dim
@@ -273,6 +280,7 @@ class DiagonalGaussianAccumulator(SequenceEncodableStatisticAccumulator):
             weight (float): Weight for the observation.
             rng (RandomState): Random number generator (not used).
         """
+        del rng
         self.update(x, weight, None)
 
     def seq_update(
@@ -321,7 +329,8 @@ class DiagonalGaussianAccumulator(SequenceEncodableStatisticAccumulator):
         """Combine another accumulator's sufficient statistics into this one.
 
         Args:
-            suff_stat (Tuple[np.ndarray, np.ndarray, float, float]): Sufficient statistics to combine.
+            suff_stat (Tuple[np.ndarray, np.ndarray, float, float]): Sufficient
+                statistics to combine.
 
         Returns:
             DiagonalGaussianAccumulator: Self after combining.
@@ -433,7 +442,8 @@ class DiagonalGaussianAccumulatorFactory(StatisticAccumulatorFactory):
 
         Args:
             dim (Optional[int], optional): Optional dimension of Gaussian.
-            keys (Tuple[Optional[str], Optional[str]], optional): Key for mean and covariance.
+            keys (Tuple[Optional[str], Optional[str]], optional): Key for mean and
+                covariance.
             name (Optional[str], optional): Name for object.
         """
         self.dim = dim
@@ -450,14 +460,16 @@ class DiagonalGaussianAccumulatorFactory(StatisticAccumulatorFactory):
 
 
 class DiagonalGaussianEstimator(ParameterEstimator):
-    """Estimator for diagonal Gaussian distributions from aggregated sufficient statistics.
+    """Estimator for diagonal Gaussian distributions from aggregated sufficient
+    statistics.
 
     Attributes:
         name (Optional[str]): Name for object instance.
         dim (int): Dimension of Gaussian, either set or determined from suff_stat arg.
         prior_mu (Optional[np.ndarray]): Set from suff_stat[0].
         prior_covar (Optional[np.ndarray]): Set from suff_stat[1].
-        pseudo_count (Tuple[Optional[float], Optional[float]]): Re-weight the sum of observations and sum of squared observations in estimation.
+        pseudo_count (Tuple[Optional[float], Optional[float]]): Re-weight the sum of
+            observations and sum of squared observations in estimation.
         keys (Tuple[Optional[str], Optional[str]]): Key for mean and covariance.
     """
 
@@ -473,10 +485,14 @@ class DiagonalGaussianEstimator(ParameterEstimator):
 
         Args:
             dim (Optional[int], optional): Optional dimension of Gaussian.
-            pseudo_count (Tuple[Optional[float], Optional[float]], optional): Re-weight the sum of observations and sum of squared observations in estimation.
-            suff_stat (Tuple[Optional[np.ndarray], Optional[np.ndarray]], optional): Sum of observations and sum of squared observations both having same dimension.
+            pseudo_count (Tuple[Optional[float], Optional[float]], optional): Re-weight
+                the sum of observations and sum of squared observations in estimation.
+            suff_stat (Tuple[Optional[np.ndarray], Optional[np.ndarray]], optional): Sum
+                of observations and sum of squared observations both having same
+                dimension.
             name (Optional[str], optional): Name for object instance.
-            keys (Tuple[Optional[str], Optional[str]], optional): Key for mean and covariance.
+            keys (Tuple[Optional[str], Optional[str]], optional): Key for mean and
+                covariance.
 
         Raises:
             TypeError: If keys is not a tuple of two strings or None.
@@ -489,7 +505,8 @@ class DiagonalGaussianEstimator(ParameterEstimator):
             self.keys = keys
         else:
             raise TypeError(
-                "DiagonalGaussianEstimator requires keys (Tuple[Optional[str], Optional[str]])."
+                "DiagonalGaussianEstimator requires keys (Tuple[Optional[str], "
+                "Optional[str]])."
             )
 
         dim_loc = (
@@ -583,8 +600,7 @@ class DiagonalGaussianDataEncoder(DataSequenceEncoder):
         """
         if isinstance(other, DiagonalGaussianDataEncoder):
             return self.dim == other.dim
-        else:
-            return False
+        return False
 
     def seq_encode(
         self, x: Sequence[Union[List[float], np.ndarray]]
@@ -592,7 +608,8 @@ class DiagonalGaussianDataEncoder(DataSequenceEncoder):
         """Create DiagonalGaussianEncodedDataSequence object.
 
         Args:
-            x (Sequence[Union[List[float], np.ndarray]]): Sequence of iid multivariate Gaussian observations.
+            x (Sequence[Union[List[float], np.ndarray]]): Sequence of iid multivariate
+                Gaussian observations.
 
         Returns:
             DiagonalGaussianEncodedDataSequence: Encoded data sequence.

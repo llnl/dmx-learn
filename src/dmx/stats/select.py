@@ -1,9 +1,11 @@
 """Create, estimate, and sample from a select distribution.
 
-Defines the SelectDistribution, SelectSampler, SelectAccumulatorFactory, SelectAccumulator,
+Defines the SelectDistribution, SelectSampler, SelectAccumulatorFactory,
+SelectAccumulator,
 SelectEstimator, and the SelectDataEncoder classes for use with dmx-learn.
 
-The SelectDistribution samples from a set of SequenceEncodableProbabilityDistribution objects. The a choice function
+The SelectDistribution samples from a set of SequenceEncodableProbabilityDistribution
+objects. The a choice function
 maps an observation a distribution from the set of distributions.
 
 """
@@ -13,7 +15,7 @@ from typing import Any, Callable, Dict, List, Optional, Sequence, Tuple, TypeVar
 import numpy as np
 from numpy.random import RandomState
 
-from dmx.arithmetic import *
+from dmx.arithmetic import maxint, maxrandint, zero
 from dmx.stats.pdist import (
     DataSequenceEncoder,
     DistributionSampler,
@@ -34,6 +36,7 @@ class SelectDistribution(SequenceEncodableProbabilityDistribution):
         dists: Sequence[SequenceEncodableProbabilityDistribution],
         choice_function: Callable[[T], int],
     ) -> None:
+        super().__init__()
         self.dists = dists
         self.choice_function = choice_function
         self.count = len(dists)
@@ -52,11 +55,11 @@ class SelectDistribution(SequenceEncodableProbabilityDistribution):
     def seq_log_density(self, x: "SelectEncodedDataSequence") -> np.ndarray:
 
         if not isinstance(x, SelectEncodedDataSequence):
-            raise Exception("Requires SelectEncodedDataSequence for `seq_` calls.")
+            raise TypeError("Requires SelectEncodedDataSequence for `seq_` calls.")
 
         xi, idx, enc_tuple = x.data
         rv = np.zeros(len(xi))
-        for i in range(len(idx)):
+        for i, _ in enumerate(idx):
             rv[xi[i]] = self.dists[i].seq_log_density(enc_tuple[i])
         return rv
 
@@ -78,8 +81,7 @@ class SelectDistribution(SequenceEncodableProbabilityDistribution):
 
 class SelectSampler(DistributionSampler):
     def __init__(self, dist: SelectDistribution, seed: Optional[int] = None) -> None:
-        self.dist = dist
-        self.rng = RandomState(seed)
+        super().__init__(dist, seed)
         self.dist_samplers = [
             d.sampler(seed=self.rng.randint(maxint)) for d in dist.dists
         ]
@@ -87,9 +89,8 @@ class SelectSampler(DistributionSampler):
     def sample(self, size: Optional[int] = None):
 
         if size is None:
-            return tuple([d.sample(size=size) for d in self.dist_samplers])
-        else:
-            return zip(*[d.sample(size=size) for d in self.dist_samplers])
+            return tuple(d.sample(size=size) for d in self.dist_samplers)
+        return zip(*[d.sample(size=size) for d in self.dist_samplers])
 
 
 class SelectEstimatorAccumulator(SequenceEncodableStatisticAccumulator):
@@ -135,7 +136,7 @@ class SelectEstimatorAccumulator(SequenceEncodableStatisticAccumulator):
         estimate: SelectDistribution,
     ) -> None:
         xi, idx, enc_tuple = x.data
-        for i in range(len(idx)):
+        for i, _ in enumerate(idx):
             w = weights[xi[i]]
             self.accumulators[i].seq_update(enc_tuple[i], w, estimate.dists[i])
             self.weights[i] += np.sum(w)
@@ -147,7 +148,7 @@ class SelectEstimatorAccumulator(SequenceEncodableStatisticAccumulator):
             self._rng_initialize(rng)
 
         xi, idx, enc_tuple = x.data
-        for i in range(len(idx)):
+        for i, _ in enumerate(idx):
             w = weights[xi[i]]
             self.accumulators[i].seq_initialize(enc_tuple[i], w, self._acc_rng[i])
             self.weights[i] += np.sum(w)
@@ -230,12 +231,11 @@ class SelectDataEncoder(DataSequenceEncoder):
 
             return True
 
-        else:
-            return False
+        return False
 
     def seq_encode(self, x: Sequence[T]) -> "SelectEncodedDataSequence":
         cnt = 0
-        idx_dict = dict()
+        idx_dict = {}
 
         for i, xx in enumerate(x):
             idx = self.choice_function(xx)

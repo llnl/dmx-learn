@@ -1,6 +1,7 @@
 """Dirichlet distribution: estimation, sampling, and sufficient statistics.
 
-This module defines the DirichletDistribution and related classes for use with dmx-learn:
+This module defines the DirichletDistribution and related classes for use with
+dmx-learn:
 
 - DirichletDistribution
 - DirichletSampler
@@ -9,7 +10,8 @@ This module defines the DirichletDistribution and related classes for use with d
 - DirichletEstimator
 - DirichletDataEncoder
 
-Provides methods for parameter estimation, sampling, and encoding of Dirichlet-distributed data.
+Provides methods for parameter estimation, sampling, and encoding of
+Dirichlet-distributed data.
 """
 
 import sys
@@ -17,7 +19,6 @@ from typing import Any, Callable, Dict, List, Optional, Sequence, Tuple, Union
 
 import numpy as np
 from numpy.random import RandomState
-from scipy.special import gammaln
 
 from dmx.stats.pdist import (
     DataSequenceEncoder,
@@ -28,7 +29,7 @@ from dmx.stats.pdist import (
     SequenceEncodableStatisticAccumulator,
     StatisticAccumulatorFactory,
 )
-from dmx.utils.special import digamma, digammainv
+from dmx.utils.special import digamma, digammainv, gammaln
 
 
 def dirichlet_param_solve(
@@ -37,8 +38,10 @@ def dirichlet_param_solve(
     """Iteratively solve for alpha of a Dirichlet distribution.
 
     Args:
-        alpha (np.ndarray): Numpy array of Dirichlet parameters (all entries should be non-negative).
-        mean_log_p (np.ndarray): Sufficient statistic (1/N) sum_{i=1}^{N} log(x_{i,k}), where N is the number of observations.
+        alpha (np.ndarray): Numpy array of Dirichlet parameters (all entries should be
+            non-negative).
+        mean_log_p (np.ndarray): Sufficient statistic (1/N) sum_{i=1}^{N} log(x_{i,k}),
+            where N is the number of observations.
         delta (float): Tolerance for convergence of Newton-Method.
 
     Returns:
@@ -147,7 +150,8 @@ def find_alpha(
 
 
 class DirichletDistribution(SequenceEncodableProbabilityDistribution):
-    """DirichletDistribution object defining Dirichlet distribution with parameter alpha.
+    """DirichletDistribution object defining Dirichlet distribution with parameter
+    alpha.
 
     Attributes:
         dim (int): Number of categories in Dirichlet.
@@ -168,10 +172,12 @@ class DirichletDistribution(SequenceEncodableProbabilityDistribution):
         """Initialize DirichletDistribution.
 
         Args:
-            alpha (Union[List[float], np.ndarray]): Array of alpha values. Determines size of Dirichlet distribution.
+            alpha (Union[List[float], np.ndarray]): Array of alpha values. Determines
+                size of Dirichlet distribution.
             name (Optional[str], optional): Name for distribution.
             keys (Optional[str], optional): Key for merging sufficient statistics.
         """
+        super().__init__()
         temp_alpha = np.asarray(alpha)
         temp_mask = temp_alpha <= 0
 
@@ -206,11 +212,13 @@ class DirichletDistribution(SequenceEncodableProbabilityDistribution):
 
         The log-density of a Dirichlet with dim = K, is given by
 
-            log(p_mat(x)) = -log(Const) + sum_{k=0}^{K-1} (alpha_k -1)*log(x_k), for sum_k x_k = 1.0,
+            log(p_mat(x)) = -log(Const) + sum_{k=0}^{K-1} (alpha_k -1)*log(x_k), for
+            sum_k x_k = 1.0,
 
         where
 
-            log(Const) = sum_{k=0}^{K-1} log(Gamma(alpha_k)) - log(Gamma(sum_{k=0}^{K-1} alpha_k)).
+            log(Const) = sum_{k=0}^{K-1} log(Gamma(alpha_k)) - log(Gamma(sum_{k=0}^{K-1}
+            alpha_k)).
 
         Args:
             x (Union[List[float], np.ndarray]): A single Dirichlet observation.
@@ -243,8 +251,9 @@ class DirichletDistribution(SequenceEncodableProbabilityDistribution):
             np.ndarray: Log-density values.
         """
         if not isinstance(x, DirichletEncodedDataSequence):
-            raise Exception(
-                "DirichletEncodedDataSequence required for DirichletDistribution.seq_log_density()."
+            raise TypeError(
+                "DirichletEncodedDataSequence required for "
+                "DirichletDistribution.seq_log_density()."
             )
 
         rv = np.dot(x.data[0], self.alpha - 1.0)
@@ -273,17 +282,17 @@ class DirichletDistribution(SequenceEncodableProbabilityDistribution):
         """
         if pseudo_count is None:
             return DirichletEstimator(dim=self.dim, name=self.name, keys=self.keys)
-        else:
-            return DirichletEstimator(
-                dim=self.dim,
-                pseudo_count=pseudo_count,
-                suff_stat=np.log(self.alpha / sum(self.alpha)),
-                name=self.name,
-                keys=self.keys,
-            )
+        return DirichletEstimator(
+            dim=self.dim,
+            pseudo_count=pseudo_count,
+            suff_stat=np.log(self.alpha / sum(self.alpha)),
+            name=self.name,
+            keys=self.keys,
+        )
 
     def dist_to_encoder(self) -> "DirichletDataEncoder":
-        """Create DirichletDataEncoder object for encoding sequences of iid Dirichlet observations.
+        """Create DirichletDataEncoder object for encoding sequences of iid Dirichlet
+        observations.
 
         Returns:
             DirichletDataEncoder: Encoder object.
@@ -303,11 +312,11 @@ class DirichletSampler(DistributionSampler):
         """Initialize DirichletSampler.
 
         Args:
-            dist (DirichletDistribution): DirichletDistribution object to draw samples from.
+            dist (DirichletDistribution): DirichletDistribution object to draw samples
+                from.
             seed (Optional[int], optional): Optional seed for sampler.
         """
-        self.rng = RandomState(seed)
-        self.dist = dist
+        super().__init__(dist, seed)
 
     def sample(self, size: Optional[int] = None) -> np.ndarray:
         """Draw samples from Dirichlet distribution.
@@ -330,8 +339,7 @@ class DirichletSampler(DistributionSampler):
                 rv = np.zeros((size, alpha.size))
                 rv[:, alpha_ma] = self.rng.dirichlet(alpha=alpha[alpha_ma], size=size)
             return rv
-        else:
-            return self.rng.dirichlet(alpha=self.dist.alpha, size=size)
+        return self.rng.dirichlet(alpha=self.dist.alpha, size=size)
 
 
 class DirichletAccumulator(SequenceEncodableStatisticAccumulator):
@@ -404,6 +412,7 @@ class DirichletAccumulator(SequenceEncodableStatisticAccumulator):
             weight (float): Weight for the observation.
             rng (Optional[RandomState]): Not used.
         """
+        del rng
         self.update(x, weight, None)
 
     def get_seq_lambda(self) -> List[Callable]:
@@ -453,7 +462,8 @@ class DirichletAccumulator(SequenceEncodableStatisticAccumulator):
         """Combine another accumulator's sufficient statistics into this one.
 
         Args:
-            suff_stat (Tuple[float, np.ndarray, np.ndarray, np.ndarray]): Sufficient statistics to combine.
+            suff_stat (Tuple[float, np.ndarray, np.ndarray, np.ndarray]): Sufficient
+                statistics to combine.
 
         Returns:
             DirichletAccumulator: Self after combining.
@@ -468,7 +478,8 @@ class DirichletAccumulator(SequenceEncodableStatisticAccumulator):
         """Return the sufficient statistics as a tuple.
 
         Returns:
-            Tuple[float, np.ndarray, np.ndarray, np.ndarray]: (counts, sum_of_logs, sum, sum2)
+            Tuple[float, np.ndarray, np.ndarray, np.ndarray]: (counts, sum_of_logs, sum,
+            sum2)
         """
         return self.counts, self.sum_of_logs, self.sum, self.sum2
 
@@ -558,7 +569,8 @@ class DirichletEstimator(ParameterEstimator):
     Attributes:
         dim (int): Dimension of Dirichlet distribution to estimate.
         pseudo_count (Optional[float]): Pseudo count for sufficient statistics.
-        delta (Optional[float]): Tolerance for shape estimation from sufficient statistics.
+        delta (Optional[float]): Tolerance for shape estimation from sufficient
+            statistics.
         suff_stat (Optional[np.ndarray]): Sufficient statistics.
         keys (Optional[str]): Optional key string for shape parameter.
         use_mpe (bool): If True, use max posterior estimate.
@@ -579,9 +591,11 @@ class DirichletEstimator(ParameterEstimator):
 
         Args:
             dim (int): Dimension of Dirichlet distribution to estimate.
-            pseudo_count (Optional[float], optional): Pseudo count for sufficient statistics.
+            pseudo_count (Optional[float], optional): Pseudo count for sufficient
+                statistics.
             suff_stat (Optional[np.ndarray], optional): Sufficient statistics.
-            delta (Optional[float], optional): Tolerance for shape estimation from sufficient statistics.
+            delta (Optional[float], optional): Tolerance for shape estimation from
+                sufficient statistics.
             keys (Optional[str], optional): Optional key string for shape parameter.
             use_mpe (bool, optional): If True, use max posterior estimate.
             name (Optional[str], optional): Name for object.
@@ -619,7 +633,8 @@ class DirichletEstimator(ParameterEstimator):
 
         Args:
             nobs (Optional[float]): Number of observations.
-            suff_stat (Tuple[float, np.ndarray, np.ndarray, np.ndarray]): Sufficient statistics.
+            suff_stat (Tuple[float, np.ndarray, np.ndarray, np.ndarray]): Sufficient
+                statistics.
 
         Returns:
             DirichletDistribution: Estimated distribution.
@@ -645,16 +660,15 @@ class DirichletEstimator(ParameterEstimator):
 
         if nobs == 1.0:
             return DirichletDistribution(initial_estimate, name=self.name)
+        if self.use_mpe:
+            alpha, _its_cnt = find_alpha(
+                np.asarray(initial_estimate), mean_log_p, self.delta
+            )
         else:
-            if self.use_mpe:
-                alpha, its_cnt = find_alpha(
-                    np.asarray(initial_estimate), mean_log_p, self.delta
-                )
-            else:
-                alpha, its_cnt = dirichlet_param_solve(
-                    np.asarray(initial_estimate), mean_log_p, self.delta
-                )
-            return DirichletDistribution(alpha, name=self.name)
+            alpha, _its_cnt = dirichlet_param_solve(
+                np.asarray(initial_estimate), mean_log_p, self.delta
+            )
+        return DirichletDistribution(alpha, name=self.name)
 
 
 class DirichletDataEncoder(DataSequenceEncoder):
@@ -699,7 +713,8 @@ class DirichletEncodedDataSequence(EncodedDataSequence):
     """DirichletEncodedDataSequence for vectorized function calls.
 
     Attributes:
-        data (Tuple[np.ndarray, np.ndarray, np.ndarray]): Log-max, sequence of values, and sequence values squared.
+        data (Tuple[np.ndarray, np.ndarray, np.ndarray]): Log-max, sequence of values,
+            and sequence values squared.
 
     """
 
@@ -707,7 +722,8 @@ class DirichletEncodedDataSequence(EncodedDataSequence):
         """DirichletEncodedDataSequence for vectorized function calls.
 
         Args:
-            data (Tuple[np.ndarray, np.ndarray, np.ndarray]): Log-max, sequence of values, and sequence values squared.
+            data (Tuple[np.ndarray, np.ndarray, np.ndarray]): Log-max, sequence of
+                values, and sequence values squared.
 
         """
         super().__init__(data=data)

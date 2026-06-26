@@ -1,32 +1,41 @@
 """Create, estimate, and sample from a hidden association model.
 
-Defines the HiddenAssociationDistribution, HiddenAssociationSampler, HiddenAssociationAccumulatorFactory,
-HiddenAssociationAccumulator, HiddenAssociationEstimator, and the HiddenAssociationDataEncoder classes for use with
+Defines the HiddenAssociationDistribution, HiddenAssociationSampler,
+HiddenAssociationAccumulatorFactory,
+HiddenAssociationAccumulator, HiddenAssociationEstimator, and the
+HiddenAssociationDataEncoder classes for use with
 dmx-learn.
 
-Consider a set of value V = {v_1,v_2,...,v_K} with data type T. Let the given density be discrete probability density
+Consider a set of value V = {v_1,v_2,...,v_K} with data type T. Let the given density be
+discrete probability density
 over the values in V,
 
         P_g(X_i = v_k) = p_g(k), for k = 1,2,....,K
 
-where sum_k p_g(k) = 1.0. Consider M samples from P_g() denoted x = (x_1,x_2,...,x_M). We then introduce the latent
+where sum_k p_g(k) = 1.0. Consider M samples from P_g() denoted x = (x_1,x_2,...,x_M).
+We then introduce the latent
 variable U, where
 
-    p_k(x) = p_mat(U = v_k | x) = (# of x_1,...,x_M that are = to v_k) / M, for k = 1,2,...,K.
+    p_k(x) = p_mat(U = v_k | x) = (# of x_1,...,x_M that are = to v_k) / M, for k =
+    1,2,...,K.
 
-We then draw N a positive integer N from distribution P_len(), then draw N samples from the density above to get
-z = (z_1, z_2, ...., z_N). Last we sample from the conditional distribution defined for P_c(Y = v_k | z_i) to obtain
+We then draw N a positive integer N from distribution P_len(), then draw N samples from
+the density above to get
+z = (z_1, z_2, ...., z_N). Last we sample from the conditional distribution defined for
+P_c(Y = v_k | z_i) to obtain
 y = (y_1,...,y_N).
 
 The log_density is given by,
 
-    log(p_mat(x,y)) = sum_{i=1}^{N} log(sum_{k=1}^{K} p_k(x)*P_c(y_i|v_k)) + log(P_g(x)) + log(P_len(N)).
+    log(p_mat(x,y)) = sum_{i=1}^{N} log(sum_{k=1}^{K} p_k(x)*P_c(y_i|v_k)) + log(P_g(x))
+    + log(P_len(N)).
 
 Note: That in this model we consider grouped-counts. So the given data type is
 
     x: Tuple[List[Tuple[T, float]], List[Tuple[T, float]]] = [x[0], x[1]],
 
-where x[0] = [(value, count)] for the unique values of x_mat = (X_1,X_2,...,X_M) in V, and x[1] = [(value, count)] for
+where x[0] = [(value, count)] for the unique values of x_mat = (X_1,X_2,...,X_M) in V,
+and x[1] = [(value, count)] for
 the unique values of Y = (Y_1,...,Y_N) in V as well.
 
 """
@@ -36,8 +45,7 @@ from typing import Any, Dict, List, Optional, Sequence, Tuple, TypeVar, Union
 
 import numpy as np
 
-from dmx.arithmetic import *
-from dmx.arithmetic import maxrandint
+from dmx.arithmetic import exp, maxrandint
 from dmx.stats.conditional import (
     ConditionalDistribution,
     ConditionalDistributionAccumulator,
@@ -47,7 +55,6 @@ from dmx.stats.conditional import (
 from dmx.stats.null_dist import (
     NullAccumulator,
     NullAccumulatorFactory,
-    NullDataEncoder,
     NullDistribution,
     NullEstimator,
 )
@@ -72,11 +79,14 @@ class HiddenAssociationDistribution(SequenceEncodableProbabilityDistribution):
     """HiddenAssociationDistribution object for specifying hidden association models.
 
     Attributes:
-        cond_dist (ConditionalDistribution): ConditionalDistribution defining distributions conditioned on the
+        cond_dist (ConditionalDistribution): ConditionalDistribution defining
+            distributions conditioned on the
             number of states.
-        given_dist (SequenceEncodableProbabilityDistribution): Distribution for the previous set. Defaults to
+        given_dist (SequenceEncodableProbabilityDistribution): Distribution for the
+            previous set. Defaults to
             NullDistribution.
-        len_dist (SequenceEncodableProbabilityDistribution): Distribution for the length of the observed emission.
+        len_dist (SequenceEncodableProbabilityDistribution): Distribution for the length
+            of the observed emission.
         name (Optional[str]): Name for object instance.
         keys (Tuple[Optional[str], Optional[str]]): Keys for weights and transitions.
 
@@ -97,16 +107,21 @@ class HiddenAssociationDistribution(SequenceEncodableProbabilityDistribution):
         """HiddenAssociationDistribution object.
 
         Args:
-            cond_dist (ConditionalDistribution): ConditionalDistribution defining distributions conditioned on the
+            cond_dist (ConditionalDistribution): ConditionalDistribution defining
+                distributions conditioned on the
                 number of states.
-            given_dist (Optional[SequenceEncodableProbabilityDistribution]): Distribution for the previous set. Must
+            given_dist (Optional[SequenceEncodableProbabilityDistribution]):
+                Distribution for the previous set. Must
                 be compatible with Tuple[T, float].
-            len_dist (Optional[SequenceEncodableProbabilityDistribution]): Distribution for the length of the observed
+            len_dist (Optional[SequenceEncodableProbabilityDistribution]): Distribution
+                for the length of the observed
                 emission. (Second set output).
             name (Optional[str]): Name for object instance.
-            keys (Optional[Tuple[Optional[str], Optional[str]]]): Keys for weights and transitions.
+            keys (Optional[Tuple[Optional[str], Optional[str]]]): Keys for weights and
+                transitions.
 
         """
+        super().__init__()
         self.cond_dist = cond_dist
         self.len_dist = len_dist if len_dist is not None else NullDistribution()
         self.given_dist = given_dist if given_dist is not None else NullDistribution()
@@ -121,8 +136,8 @@ class HiddenAssociationDistribution(SequenceEncodableProbabilityDistribution):
         s5 = repr(self.keys)
 
         return (
-            "HiddenAssociationDistribution(%s, given_dist=%s, len_dist=%s, name=%s, keys=%s)"
-            % (s1, s2, s3, s4, s5)
+            f"HiddenAssociationDistribution({s1}, given_dist={s2}, len_dist={s3}, "
+            f"name={s4}, keys={s5})"
         )
 
     def density(self, x: Tuple[List[Tuple[T, float]], List[Tuple[T, float]]]) -> float:
@@ -159,7 +174,7 @@ class HiddenAssociationDistribution(SequenceEncodableProbabilityDistribution):
 
     def seq_log_density(self, x: "HiddenAssociationEncodedDataSequence") -> np.ndarray:
         if not isinstance(x, HiddenAssociationEncodedDataSequence):
-            raise Exception("Requires HiddenAssociationEncodedDataSequence.")
+            raise TypeError("Requires HiddenAssociationEncodedDataSequence.")
 
         return np.asarray([self.log_density(xx) for xx in x.data])
 
@@ -187,16 +202,15 @@ class HiddenAssociationSampler(DistributionSampler):
         self, dist: HiddenAssociationDistribution, seed: Optional[int] = None
     ) -> None:
         if isinstance(dist.given_dist, NullDistribution):
-            raise Exception(
+            raise RuntimeError(
                 "HiddenAssociationSampler requires attribute dist.given_dist."
             )
         if isinstance(dist.len_dist, NullDistribution):
-            raise Exception(
+            raise RuntimeError(
                 "HiddenAssociationSampler requires attribute dist.len_dist."
             )
 
-        self.rng = np.random.RandomState(seed)
-        self.dist = dist
+        super().__init__(dist, seed)
 
         self.cond_sampler = dist.cond_dist.sampler(seed=self.rng.randint(0, maxrandint))
         self.idx_sampler = np.random.RandomState(seed=self.rng.randint(0, maxrandint))
@@ -226,8 +240,7 @@ class HiddenAssociationSampler(DistributionSampler):
 
             return prev_obs, rv
 
-        else:
-            return [self.sample() for i in range(size)]
+        return [self.sample() for i in range(size)]
 
     def sample_given(self, x: List[Tuple[T, float]]):
         cnt = self.len_sampler.sample()
@@ -317,7 +330,7 @@ class HiddenAssociationAccumulator(SequenceEncodableStatisticAccumulator):
         nn = 0
         for j, (x1, c1) in enumerate(x[1]):
             nn += c1
-            for i, (x0, c0) in enumerate(x[0]):
+            for i, (x0, _c0) in enumerate(x[0]):
                 self.cond_accumulator.initialize((x0, x1), w[j, i] * weight, rng)
 
         if self.given_accumulator is not None:
@@ -414,17 +427,22 @@ class HiddenAssociationAccumulatorFactory(StatisticAccumulatorFactory):
 
 
 class HiddenAssociationEstimator(ParameterEstimator):
-    """HiddenAssociationEstimator for estimating HiddenAssociationDistribution from sufficient statistics.
+    """HiddenAssociationEstimator for estimating HiddenAssociationDistribution from
+    sufficient statistics.
 
     Attributes:
-        cond_estimator (ConditionalDistributionEstimator): Estimator for the conditional emission of values in
+        cond_estimator (ConditionalDistributionEstimator): Estimator for the conditional
+            emission of values in
             set 2 given states.
-        given_estimator (ParameterEstimator): Estimator for the given values. Should be compatible with
+        given_estimator (ParameterEstimator): Estimator for the given values. Should be
+            compatible with
             Tuple[T, float] where T is the type for the values.
-        len_estimator (ParameterEstimator): Estimator for the length of the observed set 2 values.
+        len_estimator (ParameterEstimator): Estimator for the length of the observed set
+            2 values.
         pseudo_count (Optional[float]): Kept for consistency.
         name (Optional[str]): Set name for object instance.
-        keys (Optional[Tuple[Optional[str], Optional[str]]]): Set keys for weights and transitions.
+        keys (Optional[Tuple[Optional[str], Optional[str]]]): Set keys for weights and
+            transitions.
 
     """
 
@@ -440,14 +458,18 @@ class HiddenAssociationEstimator(ParameterEstimator):
         """HiddenAssociationEstimator object.
 
         Args:
-            cond_estimator (ConditionalDistributionEstimator): Estimator for the conditional emission of values in
+            cond_estimator (ConditionalDistributionEstimator): Estimator for the
+                conditional emission of values in
                 set 2 given states.
-            given_estimator (Optional[ParameterEstimator]): Estimator for the given values. Should be compatible with
+            given_estimator (Optional[ParameterEstimator]): Estimator for the given
+                values. Should be compatible with
                 Tuple[T, float] where T is the type for the values.
-            len_estimator (Optional[ParameterEstimator]): Estimator for the length of the observed set 2 values.
+            len_estimator (Optional[ParameterEstimator]): Estimator for the length of
+                the observed set 2 values.
             pseudo_count (Optional[float]): Kept for consistency.
             name (Optional[str]): Set name for object instance.
-            keys (Optional[Tuple[Optional[str], Optional[str]]]): Set keys for weights and transitions.
+            keys (Optional[Tuple[Optional[str], Optional[str]]]): Set keys for weights
+                and transitions.
 
         """
         if (
@@ -458,7 +480,8 @@ class HiddenAssociationEstimator(ParameterEstimator):
             self.keys = keys
         else:
             raise TypeError(
-                "HiddenAssociationEstimator requires keys (Tuple[Optional[str], Optional[str]])."
+                "HiddenAssociationEstimator requires keys (Tuple[Optional[str], "
+                "Optional[str]])."
             )
 
         self.keys = keys if keys is not None else (None, None)
@@ -531,7 +554,8 @@ class HiddenAssociationEncodedDataSequence(EncodedDataSequence):
         """HiddenAssociationEncodedDataSequence object.
 
         Args:
-            data (Sequence[Tuple[List[Tuple[T, float]], List[Tuple[T, float]]]]): iid obs.
+            data (Sequence[Tuple[List[Tuple[T, float]], List[Tuple[T, float]]]]): iid
+                obs.
 
         """
         super().__init__(data)

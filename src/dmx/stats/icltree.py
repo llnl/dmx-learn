@@ -1,10 +1,13 @@
 """Create, estimate, and sample from an integer Chow Liu Tree distribution.
 
-Defines the ICLTreeDistribution, ICLTreeSampler, ICLTreeAccumulatorFactory, ICLTreeAccumulator, ICLTreeEstimator, and
+Defines the ICLTreeDistribution, ICLTreeSampler, ICLTreeAccumulatorFactory,
+ICLTreeAccumulator, ICLTreeEstimator, and
 the ICLTreeDataEncoder classes for use with dmx-learn.
 
-dmx-learn supports Chow & Liu trees [1] through the ICLTree (Integer Chow Liu Tree) class of objects. ICLTrees model
-non-Markov conditional dependence for fixed-length sequences of integers with the likelihood functions of the form
+dmx-learn supports Chow & Liu trees [1] through the ICLTree (Integer Chow Liu Tree)
+class of objects. ICLTrees model
+non-Markov conditional dependence for fixed-length sequences of integers with the
+likelihood functions of the form
 
     P(x_1, x_2,..,x_n) = P(x_i1) P(x_{i_2}|x_{j_2})*...*P(x_{i_n}|x_{j_n}),
 
@@ -35,10 +38,13 @@ class ICLTreeDistribution(SequenceEncodableProbabilityDistribution):
     """ICLTreeDistribution object for integer Chow Liu tree distribution.
 
     Attributes:
-        feature_order (Sequence[int]): Ordering of features. If None, ordering is assumed as entered.
-        dependency_list (List[ Tuple[int, Tuple[int, Optional[int]]]]): List of Tuples containing features
+        feature_order (Sequence[int]): Ordering of features. If None, ordering is
+            assumed as entered.
+        dependency_list (List[ Tuple[int, Tuple[int, Optional[int]]]]): List of Tuples
+            containing features
             order id and Tuple of feature and feature dep.
-        conditional_log_densities (Union[Sequence[float], np.ndarray]): Conditional log densities for each features'
+        conditional_log_densities (Union[Sequence[float], np.ndarray]): Conditional log
+            densities for each features'
             dependency split.
         conditional_densities (np.ndarray): Conditional densities as numpy array.
         num_features (int): Total number of features.
@@ -58,21 +64,26 @@ class ICLTreeDistribution(SequenceEncodableProbabilityDistribution):
         """ICLTreeDistribution object.
 
         Args:
-            dependency_list (List[Tuple[int, Optional[int]]]): List of Tuples containing node id and parent dependence
+            dependency_list (List[Tuple[int, Optional[int]]]): List of Tuples containing
+                node id and parent dependence
                 if any dependence is present.
-            conditional_log_densities (Union[Sequence[float], np.ndarray]): Conditional log densities for each features'
+            conditional_log_densities (Union[Sequence[float], np.ndarray]): Conditional
+                log densities for each features'
                 dependency split.
-            feature_order (Optional[Sequence[int]]): Ordering of features. If None, ordering is assumed as entered.
+            feature_order (Optional[Sequence[int]]): Ordering of features. If None,
+                ordering is assumed as entered.
             name (Optional[str]): Set name to object.
             keys (Optional[str]): Keys for parameters of model.
 
         """
 
+        super().__init__()
         self.feature_order = (
             range(len(dependency_list)) if feature_order is None else feature_order
         )
         self.dependency_list = list(zip(self.feature_order, dependency_list))
-        # dependency_list[i] for i in self.feature_order] # list(zip(self.feature_order, dependency_list))
+        # dependency_list[i] for i in self.feature_order] # list(zip(self.feature_order,
+        # dependency_list))
         self.conditional_log_densities = conditional_log_densities
         self.conditional_densities = [np.exp(u) for u in conditional_log_densities]
         self.num_features = len(dependency_list)
@@ -89,8 +100,8 @@ class ICLTreeDistribution(SequenceEncodableProbabilityDistribution):
         f4 = repr(self.name)
         f5 = repr(self.keys)
         return (
-            "ICLTreeDistribution([%s], [%s], feature_order=[%s], name=%s, keys=%s)"
-            % (f1, f2, f3, f4, f5)
+            f"ICLTreeDistribution([{f1}], [{f2}], feature_order=[{f3}], name={f4}, "
+            f"keys={f5})"
         )
 
     def density(self, x: Union[Sequence[int], np.ndarray]) -> float:
@@ -108,7 +119,7 @@ class ICLTreeDistribution(SequenceEncodableProbabilityDistribution):
 
     def seq_log_density(self, x: "ICLTreeEncodedDataSequence") -> np.ndarray:
         if not isinstance(x, ICLTreeEncodedDataSequence):
-            raise Exception("Requires ICLTreeEncodedDataSequence.")
+            raise TypeError("Requires ICLTreeEncodedDataSequence.")
 
         rv = np.zeros(x.data.shape[0])
         for i, (j, k) in enumerate(self.dependency_list):
@@ -146,8 +157,7 @@ class ICLTreeSampler(DistributionSampler):
               seed (Optional[int]): Seed passed to random number generator.
 
         """
-        self.rng = RandomState(seed)
-        self.dist = dist
+        super().__init__(dist, seed)
 
     def sample(
         self, size: Optional[int] = None
@@ -164,8 +174,7 @@ class ICLTreeSampler(DistributionSampler):
                 rv[j] = self.rng.choice(len(pmat), p=pmat)
 
             return rv
-        else:
-            return [self.sample() for i in range(size)]
+        return [self.sample() for i in range(size)]
 
 
 class ICLTreeAccumulator(SequenceEncodableStatisticAccumulator):
@@ -268,6 +277,7 @@ class ICLTreeAccumulator(SequenceEncodableStatisticAccumulator):
         weight: float,
         rng: Optional[RandomState],
     ) -> None:
+        del rng
         self.update(x, weight, None)
 
     def seq_initialize(
@@ -287,7 +297,7 @@ class ICLTreeAccumulator(SequenceEncodableStatisticAccumulator):
         if self.counts is None and counts is None:
             return self
 
-        elif (self.counts is None) and (counts is not None):
+        if (self.counts is None) and (counts is not None):
             self.counts = counts
             self.marginal_counts = marginal_counts
             self.num_states = suff_stat.shape[-1]

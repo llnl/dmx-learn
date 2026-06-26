@@ -1,7 +1,9 @@
-""""WeightedDistribution class.
+""" "WeightedDistribution class.
 
-This Distribution simply allows from weights on observations. I.e. Data type D is observed and an associated
-score/weight is assigned to the data. This simply passes the weights and data downstream in aggregation.
+This Distribution simply allows from weights on observations. I.e. Data type D is
+observed and an associated
+score/weight is assigned to the data. This simply passes the weights and data downstream
+in aggregation.
 
 Likelihood evals are equivalent to normal likelihood calls to the base distribution.
 
@@ -10,9 +12,7 @@ Likelihood evals are equivalent to normal likelihood calls to the base distribut
 from typing import Any, Dict, Optional, Sequence, Tuple, TypeVar
 
 import numpy as np
-from numpy.random import RandomState
 
-from dmx.arithmetic import *
 from dmx.stats.pdist import (
     DataSequenceEncoder,
     DistributionSampler,
@@ -28,10 +28,12 @@ SS = TypeVar("SS")
 
 
 class WeightedDistribution(SequenceEncodableProbabilityDistribution):
-    """WeightedDistribution object for creating a distribution that acts on tuples of (value, counts).
+    """WeightedDistribution object for creating a distribution that acts on tuples of
+    (value, counts).
 
     Notes:
-        Distribution acts only on the value for likelihood calls and treats weight as number of replicates.
+        Distribution acts only on the value for likelihood calls and treats weight as
+        number of replicates.
 
     Attributes:
         dist (SequenceEncodableProbabilityDistribution): Distribution for values.
@@ -54,15 +56,15 @@ class WeightedDistribution(SequenceEncodableProbabilityDistribution):
             keys (Optional[str]): Keys for parameters of dist.
 
         """
+        super().__init__()
         self.dist = dist
         self.name = name
         self.keys = keys
 
     def __str__(self) -> str:
-        return "WeightedDistribution(dist=%s, name=%s, keys=%s)" % (
-            repr(self.dist),
-            repr(self.name),
-            repr(self.keys),
+        return (
+            f"WeightedDistribution(dist={repr(self.dist)}, name={repr(self.name)}, "
+            f"keys={repr(self.keys)})"
         )
 
     def density(self, x: Tuple[T, float]) -> float:
@@ -73,7 +75,7 @@ class WeightedDistribution(SequenceEncodableProbabilityDistribution):
 
     def seq_log_density(self, x: "WeightedEncodedDataSequence") -> np.ndarray:
         if not isinstance(x, WeightedEncodedDataSequence):
-            raise Exception(
+            raise TypeError(
                 "WeightedEncodedDataSequence required for seq_log_density()."
             )
 
@@ -89,10 +91,9 @@ class WeightedDistribution(SequenceEncodableProbabilityDistribution):
                 name=self.name,
                 keys=self.keys,
             )
-        else:
-            return WeightedEstimator(
-                estimator=self.dist.estimator(), name=self.name, keys=self.keys
-            )
+        return WeightedEstimator(
+            estimator=self.dist.estimator(), name=self.name, keys=self.keys
+        )
 
     def sampler(self, seed: Optional[int] = None) -> "DistributionSampler":
         return self.dist.sampler(seed)
@@ -102,7 +103,8 @@ class WeightedAccumulator(SequenceEncodableStatisticAccumulator):
     """WeightedAccumulator object for accumulating sufficient statistics.
 
     Attributes:
-        accumulator (SequenceEncodableStatisticAccumulator): Accumulator for base distribution.
+        accumulator (SequenceEncodableStatisticAccumulator): Accumulator for base
+            distribution.
         keys (Optional[str]): Key for sufficient statistics of base distribution.
         name (Optional[str]): Optional name for distribution.
 
@@ -117,7 +119,8 @@ class WeightedAccumulator(SequenceEncodableStatisticAccumulator):
         """WeightedAccumulator object.
 
         Args:
-            accumulator (SequenceEncodableStatisticAccumulator): Accumulator for base distribution.
+            accumulator (SequenceEncodableStatisticAccumulator): Accumulator for base
+                distribution.
             keys (Optional[str]): Key for sufficient statistics of base distribution.
             name (Optional[str]): Optional name for distribution.
 
@@ -266,19 +269,19 @@ class WeightedDataEncoder(DataSequenceEncoder):
         """WeightedDataEncoder object.
 
         Args:
-            encoder (DataSequenceEncoder): DataSequenceEncoder for the base distribution.
+            encoder (DataSequenceEncoder): DataSequenceEncoder for the base
+                distribution.
 
         """
         self.encoder = encoder
 
     def __str__(self) -> str:
-        return "WeightedDataEncoder(encoder=%s)" % (repr(self.encoder))
+        return f"WeightedDataEncoder(encoder={repr(self.encoder)})"
 
     def __eq__(self, other: object) -> bool:
         if isinstance(other, WeightedDataEncoder):
             return other.encoder == self.encoder
-        else:
-            return False
+        return False
 
     def seq_encode(self, x: Sequence[Tuple[T, float]]) -> "WeightedEncodedDataSequence":
         rv_enc = self.encoder.seq_encode([xx[0] for xx in x]), np.asarray(
@@ -292,7 +295,8 @@ class WeightedEncodedDataSequence(EncodedDataSequence):
     """WeightedEncodedDataSequence object for vectorized calls.
 
     Attributes:
-        data (Tuple[EncodedDataSequence, np.ndarray]): EncodedDataSequence for base distribution and array of counts.
+        data (Tuple[EncodedDataSequence, np.ndarray]): EncodedDataSequence for base
+            distribution and array of counts.
 
     """
 
@@ -300,7 +304,8 @@ class WeightedEncodedDataSequence(EncodedDataSequence):
         """WeightedEncodedDataSequence object.
 
         Args:
-            data (Tuple[EncodedDataSequence, np.ndarray]): EncodedDataSequence for base distribution and array of counts.
+            data (Tuple[EncodedDataSequence, np.ndarray]): EncodedDataSequence for base
+                distribution and array of counts.
 
         """
         super().__init__(data=data)
