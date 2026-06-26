@@ -2,6 +2,8 @@
 
 # pylint: disable=duplicate-code
 
+from typing import cast
+
 import numpy as np
 
 from dmx.stats import (
@@ -35,18 +37,23 @@ if __name__ == "__main__":
         [IntegerBernoulliEditEstimator(3, pseudo_count=1.0, init_estimator=est0)] * 2
     )
 
-    model = optimize(
-        data,
-        est,
-        max_its=100,
-        init_p=0.1,
-        rng=np.random.RandomState(1),
-        delta=None,
-        print_iter=1,
+    model = cast(
+        MixtureDistribution,
+        optimize(
+            data,
+            est,
+            max_its=100,
+            init_p=0.1,
+            rng=np.random.RandomState(1),
+            delta=None,
+            print_iter=1,
+        ),
     )
 
-    for i, m in enumerate(model.components):
-        print(str(np.exp(m.init_dist.log_pvec)))
+    for i, component in enumerate(model.components):
+        m = cast(IntegerBernoulliEditDistribution, component)
+        init_dist = cast(IntegerBernoulliSetDistribution, m.init_dist)
+        print(str(np.exp(init_dist.log_pvec)))
         print(f"P(Missing | Missing, Z={i}) = {np.exp(m.log_edit_pmat[:, 0])}")
         print(f"P(Missing | Present, Z={i}) = {np.exp(m.log_edit_pmat[:, 1])}")
         print(f"P(Present | Missing, Z={i}) = {np.exp(m.log_edit_pmat[:, 2])}")

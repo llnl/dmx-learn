@@ -110,7 +110,18 @@ __all__ = [
 ]
 
 import pickle
-from typing import Any, Dict, List, Optional, Sequence, Tuple, TypeVar, Union, cast
+from typing import (
+    Any,
+    Dict,
+    List,
+    Optional,
+    Sequence,
+    Tuple,
+    TypeVar,
+    Union,
+    cast,
+    overload,
+)
 
 ### imports
 import numpy as np
@@ -412,6 +423,28 @@ def estimate(
         return estimator.estimate(nobs, accumulator.value())
 
     return cast(SequenceEncodableProbabilityDistribution, None)
+
+
+@overload
+def seq_encode(
+    data: RDD,
+    encoder: Optional[DataSequenceEncoder] = None,
+    estimator: Optional[ParameterEstimator] = None,
+    model: Optional[SequenceEncodableProbabilityDistribution] = None,
+    num_chunks: int = 1,
+    chunk_size: Optional[int] = None,
+) -> RDD[Any]: ...
+
+
+@overload
+def seq_encode(
+    data: Sequence[T],
+    encoder: Optional[DataSequenceEncoder] = None,
+    estimator: Optional[ParameterEstimator] = None,
+    model: Optional[SequenceEncodableProbabilityDistribution] = None,
+    num_chunks: int = 1,
+    chunk_size: Optional[int] = None,
+) -> List[Tuple[int, EncodedDataSequence]]: ...
 
 
 def seq_encode(

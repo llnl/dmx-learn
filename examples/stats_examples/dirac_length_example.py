@@ -2,6 +2,8 @@
 
 # pylint: disable=duplicate-code
 
+from typing import Sequence, cast
+
 from numpy.random import RandomState
 
 from dmx.stats import (
@@ -21,7 +23,7 @@ if __name__ == "__main__":
     dist = DiracMixtureDistribution(dist=len_dist, p=0.80, v=0)
     # Generate data from sampler
     sampler = dist.sampler(seed=1)
-    data = sampler.sample(n)
+    data = cast(Sequence[int], sampler.sample(n))
     # Print out a few samples
     print(data[:5])
     # Define estimator

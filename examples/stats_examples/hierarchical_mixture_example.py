@@ -2,6 +2,8 @@
 
 # pylint: disable=duplicate-code
 
+from typing import Any, cast
+
 import numpy as np
 
 from dmx.stats import (
@@ -49,15 +51,16 @@ if __name__ == "__main__":
         [est0] * num_topics, num_mixtures, len_estimator=est1
     )
     # Fit model
-    model = optimize(
-        data, est, max_its=1000, print_iter=250, rng=np.random.RandomState(2)
+    model = cast(
+        HierarchicalMixtureDistribution,
+        optimize(data, est, max_its=1000, print_iter=250, rng=np.random.RandomState(2)),
     )
     print(str(model))
     # Evaluate the likelihood of one obs
     ll0 = model.log_density(data[0])
     print(f"Likelihood of model fit at {data[0]}: {ll0}")
     # Encode data for vectorized likelihood eval
-    enc_data = seq_encode(data[:5], model=model)[0][1]
+    enc_data = cast(Any, seq_encode(data[:5], model=model)[0][1])
     ll = model.seq_log_density(enc_data)
     for x, y in zip(data[:5], ll):
         print(f"Obs: {x}, Likelihood: {y}")

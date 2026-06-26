@@ -4,6 +4,7 @@
 
 import json
 import os
+from typing import Any, cast
 
 import numpy as np
 
@@ -11,6 +12,7 @@ from dmx.stats import (
     BernoulliSetEstimator,
     CategoricalEstimator,
     CompositeEstimator,
+    MixtureDistribution,
     MixtureEstimator,
     SequenceEstimator,
 )
@@ -44,12 +46,22 @@ if __name__ == "__main__":
     est3 = CompositeEstimator((est1, est2))
     est = MixtureEstimator([est3] * 10)
 
-    model = optimize(papers, est, init_p=0.10, rng=np.random.RandomState(1), max_its=10)
+    model = cast(
+        MixtureDistribution,
+        optimize(papers, est, init_p=0.10, rng=np.random.RandomState(1), max_its=10),
+    )
 
     for comp in model.components:
-        print(sorted(comp.dists[0].pmap.items(), key=lambda u: u[1], reverse=True)[:10])
+        comp_model = cast(Any, comp)
         print(
-            sorted(comp.dists[1].dist.pmap.items(), key=lambda u: u[1], reverse=True)[
+            sorted(comp_model.dists[0].pmap.items(), key=lambda u: u[1], reverse=True)[
                 :10
             ]
+        )
+        print(
+            sorted(
+                comp_model.dists[1].dist.pmap.items(),
+                key=lambda u: u[1],
+                reverse=True,
+            )[:10]
         )

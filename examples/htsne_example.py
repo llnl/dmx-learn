@@ -1,5 +1,7 @@
 """Build a composite mixture sample and embed it with h-SNE."""
 
+from typing import Any, Sequence
+
 import numpy as np
 
 from dmx.stats import (
@@ -11,7 +13,12 @@ from dmx.stats import (
 from dmx.utils.htsne import htsne
 
 
-def sample_with_labels(size, mixture_comps, mixture_weights, random_state):
+def sample_with_labels(
+    size: int,
+    mixture_comps: Sequence[Any],
+    mixture_weights: Sequence[float] | np.ndarray,
+    random_state: np.random.RandomState,
+) -> tuple[np.ndarray, list[Any]]:
     seeds = random_state.randint(low=0, high=2**32, size=len(mixture_comps))
 
     samplers = [comp.sampler(seed=s) for s, comp in zip(seeds, mixture_comps)]
@@ -23,7 +30,7 @@ def sample_with_labels(size, mixture_comps, mixture_weights, random_state):
 
     cnt = 0
     rv0 = np.zeros(size, dtype=int)
-    rv1 = []
+    rv1: list[Any] = []
     for component_idx, count in enumerate(label_counts):
         if count > 0:
             rv0[cnt : (cnt + count)] += component_idx

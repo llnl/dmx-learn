@@ -2,6 +2,8 @@
 
 # pylint: disable=duplicate-code
 
+from typing import Any, cast
+
 from numpy.random import RandomState
 
 from dmx.stats import (
@@ -22,7 +24,7 @@ if __name__ == "__main__":
     init_prob_map = dict(zip(vals, pi))
     print(f"Initial state map: {init_prob_map}")
     # Define the state transition map
-    trans_map = {v: {} for v in vals}
+    trans_map: dict[str, dict[str, float]] = {v: {} for v in vals}
     for x in vals:
         w = rng.dirichlet(alpha=[1.0] * len(vals)).tolist()
         trans_map[x] = dict(zip(vals, w))
@@ -39,9 +41,11 @@ if __name__ == "__main__":
     print(data[:5])
     # Define estimator
     len_est = CategoricalEstimator()
-    est = MarkovChainEstimator(len_estimator=len_est)
+    est: MarkovChainEstimator = MarkovChainEstimator(len_estimator=len_est)
     # Estimate model
-    model = optimize(data, est, max_its=100, rng=rng, print_iter=1)
+    model = cast(
+        MarkovChainDistribution, optimize(data, est, max_its=100, rng=rng, print_iter=1)
+    )
     print(str(model))
     print("\n")
     print(model.transition_map)
@@ -49,7 +53,7 @@ if __name__ == "__main__":
     ll0 = model.log_density(data[0])
     print(f"Likelihood of estimated model eval at {data[0]}: {ll0}")
     # Encode data for vectorized calls
-    enc_data = seq_encode(data, model=model)[0][1]
+    enc_data = cast(Any, seq_encode(data, model=model)[0][1])
     # Eval likleihood at all data points (fast)
     ll = model.seq_log_density(enc_data)
     for x, y in zip(data[:5], ll[:5]):

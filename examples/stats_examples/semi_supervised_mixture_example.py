@@ -2,6 +2,8 @@
 
 # pylint: disable=duplicate-code
 
+from typing import cast
+
 import numpy as np
 
 from dmx.stats import (
@@ -77,7 +79,10 @@ if __name__ == "__main__":
         pseudo_count=1.0e-6,
     )
 
-    _, model = best_of(data, data, est, 10, 1000, 0.05, 1.0e-8, rng, print_iter=1000)
+    _, raw_model = best_of(
+        data, data, est, 10, 1000, 0.05, 1.0e-8, rng, print_iter=1000
+    )
+    model = cast(SemiSupervisedMixtureDistribution, raw_model)
 
     print(str(model.w))
     print("\n".join(map(str, model.components)))

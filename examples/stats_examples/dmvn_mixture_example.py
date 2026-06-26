@@ -2,6 +2,9 @@
 
 # pylint: disable=duplicate-code
 
+from typing import Any, Sequence, cast
+
+import numpy as np
 from numpy.random import RandomState
 
 from dmx.stats import (
@@ -21,19 +24,22 @@ if __name__ == "__main__":
     dist = DiagonalGaussianMixtureDistribution(mu=mu, covar=covar, w=w)
     # Generate data from sampler
     sampler = dist.sampler(seed=1)
-    data = sampler.sample(n)
+    data = cast(Sequence[np.ndarray], sampler.sample(n))
     # Print out a few samples
     print(data[:5])
     # Define estimator
     est = DiagonalGaussianMixtureEstimator(num_components=3, dim=2, tied=True)
     # Estimate model
-    model = optimize(data, est, max_its=100, rng=rng, print_iter=1)
+    model = cast(
+        DiagonalGaussianMixtureDistribution,
+        optimize(data, est, max_its=100, rng=rng, print_iter=1),
+    )
     print(str(model))
     # Eval likelihood on a an observation
     ll0 = model.log_density(data[0])
     print(f"Likelihood of estimated model eval at {data[0]}: {ll0}")
     # Encode data for vectorized calls
-    enc_data = seq_encode(data, model=model)[0][1]
+    enc_data = cast(Any, seq_encode(data, model=model)[0][1])
     # Eval likleihood at all data points (fast)
     ll = model.seq_log_density(enc_data)
     print(f"Likelihood of estimated model on data: {ll}")

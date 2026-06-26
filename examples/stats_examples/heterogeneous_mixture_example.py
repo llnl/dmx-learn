@@ -2,6 +2,8 @@
 
 # pylint: disable=duplicate-code
 
+from typing import Any, cast
+
 from numpy.random import RandomState
 
 from dmx.stats import (
@@ -33,13 +35,16 @@ if __name__ == "__main__":
     est1 = BinomialEstimator()
     est = HeterogeneousMixtureEstimator(estimators=[est0, est1])
     # Estimate model
-    model = optimize(data, est, max_its=100, rng=rng, print_iter=1)
+    model = cast(
+        HeterogeneousMixtureDistribution,
+        optimize(data, est, max_its=100, rng=rng, print_iter=1),
+    )
     print(str(model))
     # Eval likelihood on a an observation
     ll0 = model.log_density(data[0])
     print(f"Likelihood of estimated model eval at {data[0]}: {ll0}")
     # Encode data for vectorized calls
-    enc_data = seq_encode(data, model=model)[0][1]
+    enc_data = cast(Any, seq_encode(data, model=model)[0][1])
     # Eval likleihood at all data points (fast)
     ll = model.seq_log_density(enc_data)
     print(f"Likelihood of estimated model on data: {ll}")

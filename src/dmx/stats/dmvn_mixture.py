@@ -49,7 +49,7 @@ class DiagonalGaussianMixtureDistribution(SequenceEncodableProbabilityDistributi
     def __init__(
         self,
         mu: Union[Sequence[Sequence[float]], np.ndarray],
-        covar: Union[Sequence[float], np.ndarray],
+        covar: Union[Sequence[float], Sequence[Sequence[float]], np.ndarray],
         w: Union[np.ndarray, List[float]],
         tied: bool = False,
         name: Optional[str] = None,
@@ -61,8 +61,8 @@ class DiagonalGaussianMixtureDistribution(SequenceEncodableProbabilityDistributi
         Args:
             mu (Union[Sequence[Sequence[float]], np.ndarray]): Means of the mixture
                 components (K x D).
-            covar (Union[Sequence[float], np.ndarray]): Covariances of the mixture
-                components (K x D).
+            covar (Union[Sequence[float], Sequence[Sequence[float]], np.ndarray]):
+                Covariances of the mixture components (K x D).
             w (Union[np.ndarray, List[float]]): Mixture weights (length K).
             tied (bool, optional): If True, the covariance of each mixture component is
                 tied. Defaults to False.

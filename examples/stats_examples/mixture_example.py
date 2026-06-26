@@ -2,6 +2,8 @@
 
 # pylint: disable=duplicate-code
 
+from typing import Any, cast
+
 import numpy as np
 
 from dmx.stats import (
@@ -91,7 +93,9 @@ if __name__ == "__main__":
     e1 = OptionalEstimator(
         CategoricalEstimator(pseudo_count=1.0), est_prob=False, pseudo_count=1.0
     )
-    e2 = MarkovChainEstimator(pseudo_count=1.0, len_estimator=PoissonEstimator())
+    e2: MarkovChainEstimator = MarkovChainEstimator(
+        pseudo_count=1.0, len_estimator=PoissonEstimator()
+    )
     e3 = BernoulliSetEstimator(keys="asdf")
     e4 = MultivariateGaussianEstimator()
     iest = MixtureEstimator(
@@ -112,13 +116,16 @@ if __name__ == "__main__":
     )
 
     # Estimate parameters
-    mm = optimize(
-        train_data,
-        est,
-        max_its=100,
-        print_iter=20,
-        init_estimator=iest,
-        rng=np.random.RandomState(1),
+    mm = cast(
+        MixtureDistribution,
+        optimize(
+            train_data,
+            est,
+            max_its=100,
+            print_iter=20,
+            init_estimator=iest,
+            rng=np.random.RandomState(1),
+        ),
     )
 
     #
@@ -126,15 +133,17 @@ if __name__ == "__main__":
     print(f"Mixture component 1: {mm.components[0]}")
     print(f"Mixture component 2: {mm.components[1]}")
 
+    comp0 = cast(CompositeDistribution, mm.components[0])
+    comp1 = cast(CompositeDistribution, mm.components[1])
     s0 = f"""Mixture component 1, Composite comp 1:
-    {mm.components[0].dists[0]}"""
+    {comp0.dists[0]}"""
     print(s0)
     s1 = f"""Mixture component 2, Composite comp 1:
-    {mm.components[1].dists[0]}"""
+    {comp1.dists[0]}"""
     print(s1)
     print("With the keys set, Only the weights differ!")
     # Encode data for vectorized function calls.
-    enc_data = seq_encode(train_data, model=mm)[0][1]
+    enc_data = cast(Any, seq_encode(train_data, model=mm)[0][1])
     # Evaluate the likleihood vectorized
     ll = mm.seq_log_density(enc_data)
     for x, y in zip(train_data[:5], ll[:5]):
