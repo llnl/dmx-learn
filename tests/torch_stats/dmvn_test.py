@@ -41,25 +41,25 @@ class DiagonalGaussianDistributionTestCase(TorchStatsTestClass):
         self.factories = self._factories
         self.accumulators = self._accs
 
-    def test_seq_log_density_type(self):
+    def test_seq_log_density_type(self) -> None:
         """seq_log_density must raise Exception when passed wrong encoded type."""
         for bad_input in [None, np.ones(10)]:
             with pytest.raises(Exception):
-                self._dists[0].seq_log_density(bad_input)
+                self._dists[0].seq_log_density(cast(Any, bad_input))
 
-    def test_encoder_type(self):
+    def test_encoder_type(self) -> None:
         """dist_to_encoder() must return a DiagonalGaussianDataEncoder."""
         for dist in self._dists:
             self.assertIsInstance(dist.dist_to_encoder(), DiagonalGaussianDataEncoder)
 
-    def test_accumulator_type(self):
+    def test_accumulator_type(self) -> None:
         """factory.make() must return a DiagonalGaussianAccumulator."""
         for f in self._factories:
             self.assertIsInstance(
                 f.make(device=self.device), DiagonalGaussianAccumulator
             )
 
-    def test_sample_shape(self):
+    def test_sample_shape(self) -> None:
         """Each sample must be a 1-D array/sequence of the correct dimension."""
         for dist in self._dists:
             data = dist.sampler(seed=1).sample(size=10)
@@ -67,7 +67,7 @@ class DiagonalGaussianDistributionTestCase(TorchStatsTestClass):
             for obs in data:
                 self.assertEqual(len(obs), dim, f"Expected dim {dim}, got {len(obs)}")
 
-    def test_sample_mean_approx(self):
+    def test_sample_mean_approx(self) -> None:
         """Column-wise mean of samples should be close to mu."""
         dist = DiagonalGaussianDistribution(mu=[1.0, -2.0], covar=[1.0, 1.0])
         data = np.array(dist.sampler(seed=1).sample(size=5000))

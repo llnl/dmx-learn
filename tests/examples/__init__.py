@@ -12,7 +12,7 @@ def run_example(
     script_name: str,
     examples_path: str = "examples",
     disable_numba_jit: bool = True,
-):
+) -> subprocess.CompletedProcess[str]:
     """Run an example script and assert that it exits successfully."""
     env = os.environ.copy()
 

@@ -10,7 +10,7 @@ from dmx.stats import *
 from dmx.stats.binomial import *
 from dmx.stats.categorical import *
 from dmx.stats.gaussian import *
-from dmx.stats.hidden_markov import *
+from dmx.stats.hidden_markov import *  # type: ignore[no-redef]  # module exports internal TypeVars
 from tests.stats.stats_tests import *
 
 
@@ -18,7 +18,7 @@ class HiddenMarkovDistributionTestCase(StatsTestClass):
 
     def setUp(self) -> None:
 
-        self._comps = [
+        self._comps: list[Any] = [
             [
                 CategoricalDistribution(pmap={"a": 0.1, "b": 0.3, "c": 0.6}),
                 CategoricalDistribution(pmap={"a": 0.6, "b": 0.1, "c": 0.3}),
@@ -26,15 +26,15 @@ class HiddenMarkovDistributionTestCase(StatsTestClass):
             ],
             [GaussianDistribution(mu=x, sigma2=1.0) for x in [0.0, 5.0, 10.0, 15.0]],
         ]
-        self._ests = [
+        self._ests: list[Any] = [
             [CategoricalEstimator()] * len(self._comps[0]),
             [GaussianEstimator()] * len(self._comps[1]),
         ]
-        self._accs = [
+        self._accs: list[Any] = [
             [CategoricalAccumulator()] * len(self._comps[0]),
             [GaussianAccumulator()] * len(self._comps[1]),
         ]
-        self._facts = [
+        self._facts: list[Any] = [
             [CategoricalAccumulatorFactory()] * len(self._comps[0]),
             [GaussianAccumulatorFactory()] * len(self._comps[1]),
         ]
@@ -253,7 +253,7 @@ class HiddenMarkovDistributionTestCase(StatsTestClass):
             (1, "keys", None),
         ]
 
-    def test_key_exceptions(self):
+    def test_key_exceptions(self) -> None:
         for x in self.type_check_keys:
             with pytest.raises(TypeError) as e:
                 HiddenMarkovEstimator([CategoricalEstimator()] * 5, keys=x)

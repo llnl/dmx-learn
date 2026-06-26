@@ -4,6 +4,7 @@ This conftest.py automatically skips all torch_stats tests if PyTorch is not ins
 """
 
 import os
+from typing import Any
 
 import pytest
 
@@ -15,13 +16,13 @@ try:
     import torch
 
     TORCH_AVAILABLE = True
-    TORCH_VERSION = torch.__version__
+    TORCH_VERSION: str | None = torch.__version__
 except ImportError:
     TORCH_AVAILABLE = False
     TORCH_VERSION = None
 
 
-def pytest_ignore_collect(collection_path, config):
+def pytest_ignore_collect(collection_path: Any, config: Any) -> bool:
     """Prevent collection of torch_stats tests if torch is not available."""
     del config
     if not TORCH_AVAILABLE:
@@ -31,7 +32,7 @@ def pytest_ignore_collect(collection_path, config):
     return False
 
 
-def pytest_collection_modifyitems(config, items):
+def pytest_collection_modifyitems(config: Any, items: list[Any]) -> None:
     """Add markers to torch_stats tests."""
     del config
     if not TORCH_AVAILABLE:
@@ -45,7 +46,7 @@ def pytest_collection_modifyitems(config, items):
                 item.add_marker(skip_torch)
 
 
-def pytest_configure(config):
+def pytest_configure(config: Any) -> None:
     """Register custom markers."""
     config.addinivalue_line(
         "markers",
@@ -53,7 +54,7 @@ def pytest_configure(config):
     )
 
 
-def pytest_report_header(config):
+def pytest_report_header(config: Any) -> list[str]:
     """Add torch availability info to pytest header."""
     del config
     if TORCH_AVAILABLE:

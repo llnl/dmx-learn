@@ -12,10 +12,10 @@ from dmx.stats.dmvn_mixture import *
 from tests.stats.stats_tests import *
 
 
-def component_log_density_test(dist, encoder):
+def component_log_density_test(dist: Any, encoder: Any) -> tuple[bool, str]:
     seeds = [1, 2, 3]
     sz = 20
-    rv = []
+    rv: list[Any] = []
     for seed in seeds:
         s = dist.sampler(seed)
         data = s.sample(size=sz)
@@ -32,13 +32,13 @@ def component_log_density_test(dist, encoder):
                 ) / np.abs(seq_comp_ll[i])
         rv.append(np.max(seq_comp_ll))
 
-    return max(rv) < 1.0e-14, "max(rv) test"
+    return bool(max(rv) < 1.0e-14), "max(rv) test"
 
 
-def posterior_test(dist, encoder):
+def posterior_test(dist: Any, encoder: Any) -> tuple[bool, str]:
     seeds = [1, 2, 3]
     sz = 20
-    rv = []
+    rv: list[Any] = []
     for seed in seeds:
         s = dist.sampler(seed)
         data = s.sample(size=sz)
@@ -57,13 +57,13 @@ def posterior_test(dist, encoder):
                 )
         rv.append(np.max(seq_post))
 
-    return max(rv) < 1.0e-14, "max(rv) test"
+    return bool(max(rv) < 1.0e-14), "max(rv) test"
 
 
-def fast_posterior_test(dist, encoder):
+def fast_posterior_test(dist: Any, encoder: Any) -> tuple[bool, str]:
     seeds = [1, 2, 3]
     sz = 20
-    rv = []
+    rv: list[Any] = []
     for seed in seeds:
         s = dist.sampler(seed)
         data = s.sample(size=sz)
@@ -81,7 +81,7 @@ def fast_posterior_test(dist, encoder):
             )
         )
 
-    return max(rv) < 1.0e-14, "max(rv) test"
+    return bool(max(rv) < 1.0e-14), "max(rv) test"
 
 
 class DiagonalGaussianMixtureDistributionTestCase(StatsTestClass):
@@ -177,15 +177,15 @@ class DiagonalGaussianMixtureDistributionTestCase(StatsTestClass):
         self.type_check_data = [None, np.ones((10, 10))]
         self.type_check_keys = [None, "keys", (None, None, None), (1, "keys")]
 
-    def test_component_log_density(self):
+    def test_component_log_density(self) -> None:
         for x in self.density_dist_encoder:
             self.assertTrue(component_log_density_test(*x)[0])
 
-    def test_posterior(self):
+    def test_posterior(self) -> None:
         for x in self.density_dist_encoder:
             self.assertTrue(posterior_test(*x)[0])
 
-    def test_seq_log_density_type(self):
+    def test_seq_log_density_type(self) -> None:
         for x in self.type_check_data:
             with pytest.raises(Exception) as e:
                 self.eval_dists[0].seq_log_density(x)
@@ -195,7 +195,7 @@ class DiagonalGaussianMixtureDistributionTestCase(StatsTestClass):
                 == "DiagonalGaussianMixtureEncodedDataSequence required for seq_log_density()."
             )
 
-    def test_seq_component_log_density_type(self):
+    def test_seq_component_log_density_type(self) -> None:
         for x in self.type_check_data:
             with pytest.raises(Exception) as e:
                 self.eval_dists[0].seq_component_log_density(x)
@@ -205,7 +205,7 @@ class DiagonalGaussianMixtureDistributionTestCase(StatsTestClass):
                 == "DiagonalGaussianMixtureEncodedDataSequence required for seq_component_log_density()."
             )
 
-    def test_seq_posterior_type(self):
+    def test_seq_posterior_type(self) -> None:
         for x in self.type_check_data:
             with pytest.raises(Exception) as e:
                 self.eval_dists[0].seq_posterior(x)
@@ -215,11 +215,11 @@ class DiagonalGaussianMixtureDistributionTestCase(StatsTestClass):
                 == "DiagonalGaussianMixtureEncodedDataSequence required for seq_posterior()."
             )
 
-    def test_fast_seq_posterior(self):
+    def test_fast_seq_posterior(self) -> None:
         for x in self.density_dist_encoder:
             self.assertTrue(fast_posterior_test(*x))
 
-    def test_key_exceptions(self):
+    def test_key_exceptions(self) -> None:
         for x in self.type_check_keys:
             with pytest.raises(TypeError) as e:
                 DiagonalGaussianMixtureEstimator(num_components=1, dim=1, keys=x)

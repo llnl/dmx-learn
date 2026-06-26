@@ -106,12 +106,12 @@ class IntegerPLSIDistributionTestCase(StatsTestClass):
     @pytest.mark.dependency(
         depends=["estimator", "log_density", "estimator_factory", "factory_make"]
     )
-    def test_09_seq_update(self):
+    def test_09_seq_update(self) -> None:
         for x in self.density_dist_encoder:
             res = seq_estimation_test(*x)
             self.assertTrue(res[0], str(res[1]))
 
-    def test_seq_log_density_type(self):
+    def test_seq_log_density_type(self) -> None:
         for x in self.type_check_data:
             with pytest.raises(Exception) as e:
                 self.eval_dists[0].seq_log_density(x)
@@ -120,7 +120,7 @@ class IntegerPLSIDistributionTestCase(StatsTestClass):
                 == "IntegerPLSIEncodedDataSequence required for seq_log_density()."
             )
 
-    def test_seq_component_log_density_type(self):
+    def test_seq_component_log_density_type(self) -> None:
         for x in self.type_check_data:
             with pytest.raises(Exception) as e:
                 self.eval_dists[0].seq_component_log_density(x)

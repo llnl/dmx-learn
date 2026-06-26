@@ -108,7 +108,7 @@ class IntegerStepBernoulliEditDistributionTestCase(StatsTestClass):
 
         self.type_check_data = [None, np.ones((10, 10))]
 
-    def test_seq_log_density_type(self):
+    def test_seq_log_density_type(self) -> None:
         for x in self.type_check_data:
             with pytest.raises(Exception) as e:
                 self.eval_dists[0].seq_log_density(x)

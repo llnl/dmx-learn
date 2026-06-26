@@ -79,7 +79,7 @@ class BinomialDistributionTestCase(StatsTestClass):
         self.type_check_data = [None, np.ones((10, 10))]
         self.type_check_keys = [(None, None), 1.0, ("keys", None)]
 
-    def test_seq_log_density_type(self):
+    def test_seq_log_density_type(self) -> None:
         for x in self.type_check_data:
             with pytest.raises(Exception) as e:
                 self.density_dist_encoder[0][0].seq_log_density(x)
@@ -88,7 +88,7 @@ class BinomialDistributionTestCase(StatsTestClass):
                 == "BinomialDistribution.seq_log_density() requires BinomialEncodedDataSequence."
             )
 
-    def test_key_exceptions(self):
+    def test_key_exceptions(self) -> None:
         for x in self.type_check_keys:
             with pytest.raises(TypeError) as e:
                 BinomialEstimator(keys=x)
@@ -100,7 +100,7 @@ class BinomialDistributionTestCase(StatsTestClass):
 
 # Test edge cases on initialize as needed
 @pytest.mark.parametrize("p", [-10.0, 0.0, 1.0, 2.0, np.inf, np.nan])
-def test_binomial_bad_p(p):
+def test_binomial_bad_p(p: Any) -> None:
     with pytest.raises(Exception) as e:
         BinomialDistribution(p=p, n=20)
 
@@ -108,7 +108,7 @@ def test_binomial_bad_p(p):
 
 
 @pytest.mark.parametrize("n", [-10, np.inf, np.nan])
-def test_binomial_bad_n(n):
+def test_binomial_bad_n(n: Any) -> None:
     with pytest.raises(Exception) as e:
         BinomialDistribution(p=0.50, n=n)
 

@@ -97,7 +97,7 @@ if __name__ == "__main__":
         pseudo_count=1.0, len_estimator=PoissonEstimator()
     )
     e3 = BernoulliSetEstimator(keys="asdf")
-    e4 = MultivariateGaussianEstimator()
+    e4 = MultivariateGaussianEstimator(dim=2)
     iest = MixtureEstimator(
         [CompositeEstimator((e0, e1, e2, e3, e4))] * 2,
         pseudo_count=1.0,
@@ -110,7 +110,7 @@ if __name__ == "__main__":
     e1 = OptionalEstimator(CategoricalEstimator(), est_prob=False)
     e2 = MarkovChainEstimator(len_estimator=PoissonEstimator())
     e3 = BernoulliSetEstimator(keys="asdf")
-    e4 = MultivariateGaussianEstimator()
+    e4 = MultivariateGaussianEstimator(dim=2)
     est = MixtureEstimator(
         [CompositeEstimator((e0, e1, e2, e3, e4))] * 2, fixed_weights=[0.2, 0.8]
     )

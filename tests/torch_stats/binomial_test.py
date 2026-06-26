@@ -41,32 +41,32 @@ class BinomialDistributionTestCase(TorchStatsTestClass):
         self.factories = self._factories
         self.accumulators = self._accs
 
-    def test_seq_log_density_type(self):
+    def test_seq_log_density_type(self) -> None:
         """seq_log_density must raise Exception when passed wrong encoded type."""
         for bad_input in [None, np.ones(10)]:
             with pytest.raises(Exception):
-                self._dists[0].seq_log_density(bad_input)
+                self._dists[0].seq_log_density(cast(Any, bad_input))
 
-    def test_encoder_type(self):
+    def test_encoder_type(self) -> None:
         """dist_to_encoder() must return a BinomialDataEncoder."""
         for dist in self._dists:
             self.assertIsInstance(dist.dist_to_encoder(), BinomialDataEncoder)
 
-    def test_accumulator_type(self):
+    def test_accumulator_type(self) -> None:
         """factory.make() must return a BinomialAccumulator."""
         for f in self._factories:
             self.assertIsInstance(f.make(device=self.device), BinomialAccumulator)
 
-    def test_sampler_range(self):
+    def test_sampler_range(self) -> None:
         """Sampled values must be in [0, n]."""
         for dist in self._dists:
-            data = dist.sampler(seed=1).sample(size=500)
+            data = cast(Any, dist.sampler(seed=1).sample(size=500))
             self.assertTrue(
                 all(0 <= x <= dist.n for x in data),
                 f"Binomial samples out of [0, {dist.n}]",
             )
 
-    def test_mean_approx(self):
+    def test_mean_approx(self) -> None:
         """Sample mean should be close to n * p."""
         for dist in self._dists:
             data = dist.sampler(seed=1).sample(size=5000)

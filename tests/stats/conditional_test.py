@@ -18,7 +18,7 @@ class ConditionalDistributionTestCase(StatsTestClass):
 
     def setUp(self) -> None:
 
-        self._dmaps = [
+        self._dmaps: list[Any] = [
             {
                 "a": GaussianDistribution(mu=0.0, sigma2=1.0),
                 "b": GaussianDistribution(mu=3.0, sigma2=1.0),
@@ -39,20 +39,20 @@ class ConditionalDistributionTestCase(StatsTestClass):
             CategoricalDistribution({"a": 0.2, "b": 0.3, "c": 0.3, "d": 0.1, "e": 0.1}),
             BinomialDistribution(p=0.5, n=10),
         ]
-        self._emaps = [
+        self._emaps: list[Any] = [
             {chr(97 + x): GaussianEstimator() for x in range(3)},
             {x: CategoricalEstimator() for x in range(2)},
         ]
         self._default_ests = [GaussianEstimator(), CategoricalEstimator()]
         self._given_ests = [CategoricalEstimator(), BinomialEstimator()]
-        self._encoder_map = [
+        self._encoder_map: list[Any] = [
             {chr(97 + x): GaussianDataEncoder() for x in range(3)},
             {x: CategoricalDataEncoder() for x in range(2)},
         ]
         self._default_encoders = [GaussianDataEncoder(), CategoricalDataEncoder()]
         self._given_encoders = [CategoricalDataEncoder(), BinomialDataEncoder()]
 
-        self._factory_map = [
+        self._factory_map: list[Any] = [
             {chr(97 + x): GaussianAccumulatorFactory() for x in range(3)},
             {x: CategoricalAccumulatorFactory() for x in range(2)},
         ]
@@ -65,7 +65,7 @@ class ConditionalDistributionTestCase(StatsTestClass):
             BinomialAccumulatorFactory(),
         ]
 
-        self._acc_map = [
+        self._acc_map: list[Any] = [
             {chr(97 + x): GaussianAccumulator() for x in range(3)},
             {x: CategoricalAccumulator() for x in range(2)},
         ]
@@ -185,7 +185,7 @@ class ConditionalDistributionTestCase(StatsTestClass):
         self.type_check_data = [None, np.ones((10, 10))]
         self.type_check_keys = [(None, None), 1.0, ("keys", None)]
 
-    def test_seq_log_density_type(self):
+    def test_seq_log_density_type(self) -> None:
         for x in self.type_check_data:
             with pytest.raises(Exception) as e:
                 self.density_dist_encoder[0][0].seq_log_density(x)
@@ -194,7 +194,7 @@ class ConditionalDistributionTestCase(StatsTestClass):
                 == "Requires ConditionalEncodedDataSequence for ConditionalDistribution.seq_log_density()"
             )
 
-    def test_key_exceptions(self):
+    def test_key_exceptions(self) -> None:
         for x in self.type_check_keys:
             with pytest.raises(TypeError) as e:
                 ConditionalDistributionEstimator(estimator_map=self._dmaps[0], keys=x)

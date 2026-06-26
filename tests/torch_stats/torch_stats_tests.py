@@ -61,6 +61,7 @@ self.device               : torch.device  (default: get_test_torch_device())
 import abc
 import os
 import unittest
+from typing import Any, cast
 
 import numpy as np
 import pytest
@@ -122,7 +123,7 @@ def _tol_for_device(device: torch.device) -> float:
 # ---------------------------------------------------------------------------
 
 
-def sampler_repeat_test(dist: TorchProbabilityDistribution):
+def sampler_repeat_test(dist: TorchProbabilityDistribution) -> tuple[bool, list[bool]]:
     """Verify that the same seed produces identical samples across two calls.
 
     Args:
@@ -146,7 +147,7 @@ def log_density_test(
     dist: TorchProbabilityDistribution,
     encoder: TorchSequenceEncoder,
     device: torch.device = torch.device("cpu"),
-):
+) -> tuple[bool, str]:
     """Verify that scalar log_density matches the corresponding element of seq_log_density.
 
     For each seed, samples are drawn and encoded; then for every observation the
@@ -189,7 +190,7 @@ def log_density_test(
     return passed, f"max relative discrepancy = {max_discrepancy:.3e} (tol={tol:.0e})"
 
 
-def dist_to_encoder_type_test(dist: TorchProbabilityDistribution):
+def dist_to_encoder_type_test(dist: TorchProbabilityDistribution) -> bool:
     """Verify that dist.dist_to_encoder() returns a TorchSequenceEncoder.
 
     Args:
@@ -202,7 +203,7 @@ def dist_to_encoder_type_test(dist: TorchProbabilityDistribution):
     return isinstance(enc, TorchSequenceEncoder)
 
 
-def estimator_type_test(dist: TorchProbabilityDistribution):
+def estimator_type_test(dist: TorchProbabilityDistribution) -> bool:
     """Verify that dist.estimator() returns a TorchParameterEstimator.
 
     Args:
@@ -215,7 +216,7 @@ def estimator_type_test(dist: TorchProbabilityDistribution):
     return isinstance(est, TorchParameterEstimator)
 
 
-def estimator_factory_type_test(estimator: TorchParameterEstimator):
+def estimator_factory_type_test(estimator: TorchParameterEstimator) -> bool:
     """Verify that estimator.accumulator_factory() returns a TorchStatisticAccumulatorFactory.
 
     Args:
@@ -231,7 +232,7 @@ def estimator_factory_type_test(estimator: TorchParameterEstimator):
 def factory_make_type_test(
     factory: TorchStatisticAccumulatorFactory,
     device: torch.device = torch.device("cpu"),
-):
+) -> bool:
     """Verify that factory.make() returns a TorchStatisticAccumulator.
 
     Args:
@@ -245,7 +246,7 @@ def factory_make_type_test(
     return isinstance(acc, TorchStatisticAccumulator)
 
 
-def acc_to_encoder_type_test(acc: TorchStatisticAccumulator):
+def acc_to_encoder_type_test(acc: TorchStatisticAccumulator) -> bool:
     """Verify that acc.acc_to_encoder() returns a TorchSequenceEncoder.
 
     Args:
@@ -262,7 +263,7 @@ def seq_update_test(
     dist: TorchProbabilityDistribution,
     encoder: TorchSequenceEncoder,
     device: torch.device = torch.device("cpu"),
-):
+) -> tuple[bool, list[bool]]:
     """Verify that one EM step (seq_estimate) does not decrease the log-likelihood.
 
     For each seed, data is sampled and encoded; a model is initialised with
@@ -305,7 +306,7 @@ def seq_initialize_test(
     dist: TorchProbabilityDistribution,
     encoder: TorchSequenceEncoder,
     device: torch.device = torch.device("cpu"),
-):
+) -> tuple[bool, list[float]]:
     """Verify that seq_initialize produces a model with a finite log-likelihood.
 
     Args:
@@ -339,7 +340,7 @@ def device_test(
     dist: TorchProbabilityDistribution,
     encoder: TorchSequenceEncoder,
     device: torch.device = torch.device("cpu"),
-):
+) -> tuple[bool, str]:
     """Verify that a fitted model can be moved to CPU without raising an error.
 
     Fits a small model with seq_initialize then calls model.to(torch.device('cpu')).
@@ -393,7 +394,7 @@ class TorchStatsTestClass(unittest.TestCase, metaclass=abc.ABCMeta):
     """
 
     @abc.abstractmethod
-    def setUp(self):
+    def setUp(self) -> None:
         """Populate the required test attributes.
 
         Subclasses must set:
@@ -417,7 +418,7 @@ class TorchStatsTestClass(unittest.TestCase, metaclass=abc.ABCMeta):
     # Test 01 – sampler repeatability
     # ------------------------------------------------------------------
     @pytest.mark.dependency(name="torch_sampler")
-    def test_01_sampler(self):
+    def test_01_sampler(self) -> None:
         """Same seed must produce identical samples on repeated calls."""
         passed, per_seed = sampler_repeat_test(self.sampler_dist)
         self.assertTrue(passed, f"Sampler not repeatable: {per_seed}")
@@ -426,7 +427,7 @@ class TorchStatsTestClass(unittest.TestCase, metaclass=abc.ABCMeta):
     # Test 02 – scalar vs vectorised log density
     # ------------------------------------------------------------------
     @pytest.mark.dependency(depends=["torch_sampler"], name="torch_log_density")
-    def test_02_log_density(self):
+    def test_02_log_density(self) -> None:
         """log_density(x) must match the corresponding element of seq_log_density."""
         for dist, encoder in self.density_dist_encoder:
             passed, msg = log_density_test(dist, encoder, device=self.device)
@@ -436,7 +437,7 @@ class TorchStatsTestClass(unittest.TestCase, metaclass=abc.ABCMeta):
     # Test 03 – dist_to_encoder return type
     # ------------------------------------------------------------------
     @pytest.mark.dependency(name="torch_dist_to_encoder")
-    def test_03_dist_to_encoder(self):
+    def test_03_dist_to_encoder(self) -> None:
         """dist.dist_to_encoder() must return a TorchSequenceEncoder."""
         for dist, _ in self.dist_encoder:
             self.assertTrue(
@@ -448,7 +449,7 @@ class TorchStatsTestClass(unittest.TestCase, metaclass=abc.ABCMeta):
     # Test 04 – estimator return type
     # ------------------------------------------------------------------
     @pytest.mark.dependency(name="torch_estimator")
-    def test_04_estimator(self):
+    def test_04_estimator(self) -> None:
         """dist.estimator() must return a TorchParameterEstimator."""
         for dist, _ in self.dist_encoder:
             self.assertTrue(
@@ -460,7 +461,7 @@ class TorchStatsTestClass(unittest.TestCase, metaclass=abc.ABCMeta):
     # Test 05 – accumulator factory return type
     # ------------------------------------------------------------------
     @pytest.mark.dependency(name="torch_estimator_factory")
-    def test_05_estimator_factory(self):
+    def test_05_estimator_factory(self) -> None:
         """est.accumulator_factory() must return a TorchStatisticAccumulatorFactory."""
         for est in self.estimators:
             self.assertTrue(
@@ -473,7 +474,7 @@ class TorchStatsTestClass(unittest.TestCase, metaclass=abc.ABCMeta):
     # Test 06 – factory.make() return type
     # ------------------------------------------------------------------
     @pytest.mark.dependency(name="torch_factory_make")
-    def test_06_factory_make(self):
+    def test_06_factory_make(self) -> None:
         """factory.make() must return a TorchStatisticAccumulator."""
         for factory in self.factories:
             self.assertTrue(
@@ -485,7 +486,7 @@ class TorchStatsTestClass(unittest.TestCase, metaclass=abc.ABCMeta):
     # Test 07 – acc_to_encoder return type
     # ------------------------------------------------------------------
     @pytest.mark.dependency(name="torch_acc_to_encoder")
-    def test_07_acc_to_encoder(self):
+    def test_07_acc_to_encoder(self) -> None:
         """acc.acc_to_encoder() must return a TorchSequenceEncoder."""
         for acc in self.accumulators:
             self.assertTrue(
@@ -505,7 +506,7 @@ class TorchStatsTestClass(unittest.TestCase, metaclass=abc.ABCMeta):
         ],
         name="torch_seq_update",
     )
-    def test_08_seq_update(self):
+    def test_08_seq_update(self) -> None:
         """One EM step must not decrease the total log-likelihood."""
         for dist, encoder in self.density_dist_encoder:
             passed, per_seed = seq_update_test(dist, encoder, device=self.device)
@@ -518,7 +519,7 @@ class TorchStatsTestClass(unittest.TestCase, metaclass=abc.ABCMeta):
         depends=["torch_sampler", "torch_estimator_factory"],
         name="torch_seq_initialize",
     )
-    def test_09_seq_initialize(self):
+    def test_09_seq_initialize(self) -> None:
         """seq_initialize must return a model whose total log-likelihood is finite."""
         for dist, encoder in self.density_dist_encoder:
             passed, lls = seq_initialize_test(dist, encoder, device=self.device)
@@ -528,7 +529,7 @@ class TorchStatsTestClass(unittest.TestCase, metaclass=abc.ABCMeta):
     # Test 10 – device movement
     # ------------------------------------------------------------------
     @pytest.mark.dependency(depends=["torch_seq_initialize"], name="torch_device")
-    def test_10_device(self):
+    def test_10_device(self) -> None:
         """A fitted model must be movable to CPU via model.to(torch.device('cpu'))."""
         for dist, encoder in self.density_dist_encoder:
             passed, msg = device_test(dist, encoder, device=self.device)

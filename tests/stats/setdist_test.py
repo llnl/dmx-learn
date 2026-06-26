@@ -53,9 +53,9 @@ class BernoulliSetDistributionTestCase(StatsTestClass):
         self.type_check_data = [None, np.ones((10, 10))]
         self.type_check_keys = [(None, None), 1.0, ("keys", None)]
 
-        self._init_ests = []
+        self._init_ests: list[Any] = []
 
-    def test_seq_log_density_type(self):
+    def test_seq_log_density_type(self) -> None:
         for x in self.type_check_data:
             with pytest.raises(Exception) as e:
                 self.eval_dists[0].seq_log_density(x)
@@ -64,7 +64,7 @@ class BernoulliSetDistributionTestCase(StatsTestClass):
                 == "BernoulliSetEncodedDataSequence required for seq_log_density()."
             )
 
-    def test_key_exceptions(self):
+    def test_key_exceptions(self) -> None:
         for x in self.type_check_keys:
             with pytest.raises(TypeError) as e:
                 BernoulliSetEstimator(keys=x)

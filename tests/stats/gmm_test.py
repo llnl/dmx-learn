@@ -12,10 +12,10 @@ from dmx.stats.gmm import *
 from tests.stats.stats_tests import *
 
 
-def component_log_density_test(dist, encoder):
+def component_log_density_test(dist: Any, encoder: Any) -> tuple[bool, str]:
     seeds = [1, 2, 3]
     sz = 20
-    rv = []
+    rv: list[Any] = []
     for seed in seeds:
         s = dist.sampler(seed)
         data = s.sample(size=sz)
@@ -32,13 +32,13 @@ def component_log_density_test(dist, encoder):
                 ) / np.abs(seq_comp_ll[i])
         rv.append(np.max(seq_comp_ll))
 
-    return max(rv) < 1.0e-14, "max(rv) test"
+    return bool(max(rv) < 1.0e-14), "max(rv) test"
 
 
-def posterior_test(dist, encoder):
+def posterior_test(dist: Any, encoder: Any) -> tuple[bool, str]:
     seeds = [1, 2, 3]
     sz = 20
-    rv = []
+    rv: list[Any] = []
     for seed in seeds:
         s = dist.sampler(seed)
         data = s.sample(size=sz)
@@ -55,7 +55,7 @@ def posterior_test(dist, encoder):
                 ) / np.abs(seq_post[i])
         rv.append(np.max(seq_post))
 
-    return max(rv) < 1.0e-14, "max(rv) test"
+    return bool(max(rv) < 1.0e-14), "max(rv) test"
 
 
 class GaussianMixtureDistributionTestCase(StatsTestClass):
@@ -67,7 +67,7 @@ class GaussianMixtureDistributionTestCase(StatsTestClass):
             [0, 5.0, 10.0, 20.0],
             [0.0, 5.0, -10.0, 20.0, 100.0],
         ]
-        sigma2 = [1.0, [1.0, 0.90], [1.0, 0.5, 0.25, 0.40], [1.0] * 5]
+        sigma2: list[Any] = [1.0, [1.0, 0.90], [1.0, 0.5, 0.25, 0.40], [1.0] * 5]
         sz = [len(x) for x in mu]
         w = [np.ones(x) / x for x in sz]
         keys = [("w", "comps"), ("w", None), (None, "comps"), (None, None)]
@@ -126,15 +126,15 @@ class GaussianMixtureDistributionTestCase(StatsTestClass):
         self.type_check_data = [None, np.ones((10, 10))]
         self.type_check_keys = [None, "keys", (None, None, None), (1, "keys")]
 
-    def test_component_log_density(self):
+    def test_component_log_density(self) -> None:
         for x in self.density_dist_encoder:
             self.assertTrue(component_log_density_test(*x))
 
-    def test_posterior(self):
+    def test_posterior(self) -> None:
         for x in self.density_dist_encoder:
             self.assertTrue(posterior_test(*x))
 
-    def test_seq_log_density_type(self):
+    def test_seq_log_density_type(self) -> None:
         for x in self.type_check_data:
             with pytest.raises(Exception) as e:
                 self.eval_dists[0].seq_log_density(x)
@@ -144,7 +144,7 @@ class GaussianMixtureDistributionTestCase(StatsTestClass):
                 == "GaussianMixtureEncodedDataSequence required for seq_log_density()."
             )
 
-    def test_seq_component_log_density_type(self):
+    def test_seq_component_log_density_type(self) -> None:
         for x in self.type_check_data:
             with pytest.raises(Exception) as e:
                 self.eval_dists[0].seq_component_log_density(x)
@@ -154,7 +154,7 @@ class GaussianMixtureDistributionTestCase(StatsTestClass):
                 == "GaussianMixtureEncodedDataSequence required for seq_component_log_density()."
             )
 
-    def test_seq_posterior_type(self):
+    def test_seq_posterior_type(self) -> None:
         for x in self.type_check_data:
             with pytest.raises(Exception) as e:
                 self.eval_dists[0].seq_posterior(x)
@@ -164,7 +164,7 @@ class GaussianMixtureDistributionTestCase(StatsTestClass):
                 == "GaussianMixtureEncodedDataSequence required for seq_posterior()."
             )
 
-    def test_key_exceptions(self):
+    def test_key_exceptions(self) -> None:
         for x in self.type_check_keys:
             with pytest.raises(TypeError) as e:
                 GaussianMixtureEstimator(num_components=1, keys=x)

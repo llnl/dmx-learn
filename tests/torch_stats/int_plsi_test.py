@@ -97,23 +97,23 @@ class IntegerPLSIDistributionTestCase(TorchStatsTestClass):
         self.factories = self._factories
         self.accumulators = self._accs
 
-    def test_seq_log_density_type(self):
+    def test_seq_log_density_type(self) -> None:
         """seq_log_density must raise Exception when passed wrong encoded type."""
         for bad_input in [None, np.ones(10)]:
             with pytest.raises(Exception):
-                self._dists[0].seq_log_density(bad_input)
+                self._dists[0].seq_log_density(cast(Any, bad_input))
 
-    def test_encoder_type(self):
+    def test_encoder_type(self) -> None:
         """dist_to_encoder() must return an IntegerPLSIDataEncoder."""
         for dist in self._dists:
             self.assertIsInstance(dist.dist_to_encoder(), IntegerPLSIDataEncoder)
 
-    def test_accumulator_type(self):
+    def test_accumulator_type(self) -> None:
         """factory.make() must return an IntegerPLSIAccumulator."""
         for f in self._factories:
             self.assertIsInstance(f.make(device=self.device), IntegerPLSIAccumulator)
 
-    def test_sample_structure(self):
+    def test_sample_structure(self) -> None:
         """Each sample must be a (doc_id, [(word_id, count), ...]) pair."""
         for dist in self._dists:
             data = dist.sampler(seed=1).sample(size=20)
@@ -131,7 +131,7 @@ class IntegerPLSIDistributionTestCase(TorchStatsTestClass):
                     doc_idx, num_docs, f"doc_id {doc_idx} out of [0, {num_docs - 1}]"
                 )
 
-    def test_word_range(self):
+    def test_word_range(self) -> None:
         """All word indices in samples must be in [0, num_vals - 1]."""
         for dist in self._dists:
             data = dist.sampler(seed=1).sample(size=50)
@@ -146,7 +146,7 @@ class IntegerPLSIDistributionTestCase(TorchStatsTestClass):
                     )
                     self.assertGreater(cnt, 0, "Count must be positive")
 
-    def test_log_density_finite(self):
+    def test_log_density_finite(self) -> None:
         """log_density must return finite values for sampled data."""
         for dist in self._dists:
             data = dist.sampler(seed=1).sample(size=20)
@@ -155,7 +155,7 @@ class IntegerPLSIDistributionTestCase(TorchStatsTestClass):
                 ll = dist.log_density(obs)
                 self.assertTrue(np.isfinite(ll), f"log_density returned {ll}")
 
-    def test_component_log_density_shape(self):
+    def test_component_log_density_shape(self) -> None:
         """component_log_density must return a tensor with one value per state."""
         for dist in self._dists:
             data = dist.sampler(seed=1).sample(size=1)
@@ -167,7 +167,7 @@ class IntegerPLSIDistributionTestCase(TorchStatsTestClass):
                 f"Expected {dist.num_states} component log densities",
             )
 
-    def test_component_log_density_values(self):
+    def test_component_log_density_values(self) -> None:
         """component_log_density must match the weighted log word probabilities per state."""
         obs = (0, [(0, 2.0), (1, 1.0), (3, 3.0)])
         expected = np.array(

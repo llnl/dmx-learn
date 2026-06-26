@@ -41,30 +41,30 @@ class PoissonDistributionTestCase(TorchStatsTestClass):
         self.factories = self._factories
         self.accumulators = self._accs
 
-    def test_seq_log_density_type(self):
+    def test_seq_log_density_type(self) -> None:
         """seq_log_density must raise Exception when passed wrong encoded type."""
         for bad_input in [None, np.ones(10)]:
             with pytest.raises(Exception):
-                self._dists[0].seq_log_density(bad_input)
+                self._dists[0].seq_log_density(cast(Any, bad_input))
 
-    def test_encoder_type(self):
+    def test_encoder_type(self) -> None:
         """dist_to_encoder() must return a PoissonDataEncoder."""
         for dist in self._dists:
             self.assertIsInstance(dist.dist_to_encoder(), PoissonDataEncoder)
 
-    def test_accumulator_type(self):
+    def test_accumulator_type(self) -> None:
         """factory.make() must return a PoissonAccumulator."""
         for f in self._factories:
             self.assertIsInstance(f.make(device=self.device), PoissonAccumulator)
 
-    def test_sampler_nonnegative(self):
+    def test_sampler_nonnegative(self) -> None:
         """All sampled values must be non-negative integers."""
-        data = self._dists[0].sampler(seed=1).sample(size=500)
+        data = cast(Any, self._dists[0].sampler(seed=1).sample(size=500))
         self.assertTrue(
             all(x >= 0 for x in data), "Poisson samples must be non-negative"
         )
 
-    def test_mean_approx(self):
+    def test_mean_approx(self) -> None:
         """Sample mean should be close to lambda."""
         for dist in self._dists:
             data = dist.sampler(seed=1).sample(size=5000)

@@ -170,7 +170,7 @@ class ICLTreeSampler(DistributionSampler):
 
         if size is None:
             rv: List[Optional[int]] = [None] * self.dist.num_features
-            for i, (j, k) in self.dist.dependency_list:
+            for i, (j, k) in enumerate(self.dist.dependency_list):
                 if k is None:
                     pmat = self.dist.conditional_densities[i]
                 else:

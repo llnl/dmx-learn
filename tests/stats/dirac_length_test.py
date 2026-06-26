@@ -15,13 +15,13 @@ from tests.stats.stats_tests import *
 
 def component_log_density_test(
     dist: DiracMixtureDistribution, encoder: DiracMixtureDataEncoder
-):
+) -> tuple[bool, str]:
     seeds = [1, 2, 3]
     sz = 20
-    rv = []
+    rv: list[Any] = []
     for seed in seeds:
         s = dist.sampler(seed)
-        data = s.sample(size=sz)
+        data = cast(list[int], s.sample(size=sz))
         enc_data = encoder.seq_encode(data)
         seq_comp_ll = dist.seq_component_log_density(enc_data)
         lower_bound = -1.0e32
@@ -32,18 +32,18 @@ def component_log_density_test(
             seq_comp_ll[i] = np.abs(seq_comp_ll[i] - tmp)
         rv.append(np.max(seq_comp_ll))
 
-    return max(rv) < 1.0e-14, "max(rv) test"
+    return bool(max(rv) < 1.0e-14), "max(rv) test"
 
 
 def posterior_test(
-    dist: DiracMixtureDistribution, encoder: DiracMixtureEncodedDataSequence
-):
+    dist: DiracMixtureDistribution, encoder: DiracMixtureDataEncoder
+) -> tuple[bool, str]:
     seeds = [1, 2, 3]
     sz = 20
-    rv = []
+    rv: list[Any] = []
     for seed in seeds:
         s = dist.sampler(seed)
-        data = s.sample(size=sz)
+        data = cast(list[int], s.sample(size=sz))
         enc_data = encoder.seq_encode(data)
         seq_post = dist.seq_posterior(enc_data)
 
@@ -56,7 +56,7 @@ def posterior_test(
                 ) / np.abs(seq_post[i])
         rv.append(np.max(seq_post))
 
-    return max(rv) < 1.0e-14, "max(rv) test"
+    return bool(max(rv) < 1.0e-14), "max(rv) test"
 
 
 class DiracMixtureDistributionTestCase(StatsTestClass):
@@ -183,18 +183,18 @@ class DiracMixtureDistributionTestCase(StatsTestClass):
         self.acc_encoder = [(a, e) for a, e in zip(self._accumulators, self._encoders)]
         self.type_check_keys = [None, "keys", (None, None, None), (1, "keys")]
 
-    def test_component_log_density(self):
+    def test_component_log_density(self) -> None:
         for x in self.density_dist_encoder:
             self.assertTrue(component_log_density_test(*x))
 
-    def test_posterior(self):
+    def test_posterior(self) -> None:
         for x in self.density_dist_encoder:
             self.assertTrue(posterior_test(*x))
 
-    def test_key_exceptions(self):
+    def test_key_exceptions(self) -> None:
         for x in self.type_check_keys:
             with pytest.raises(TypeError) as e:
-                DiracMixtureEstimator([CategoricalEstimator()] * 5, keys=x)
+                DiracMixtureEstimator(cast(Any, [CategoricalEstimator()] * 5), keys=x)
 
             assert (
                 str(e.value)

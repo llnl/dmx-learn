@@ -41,28 +41,28 @@ class GammaDistributionTestCase(TorchStatsTestClass):
         self.factories = self._factories
         self.accumulators = self._accs
 
-    def test_seq_log_density_type(self):
+    def test_seq_log_density_type(self) -> None:
         """seq_log_density must raise Exception when passed wrong encoded type."""
         for bad_input in [None, np.ones(10)]:
             with pytest.raises(Exception):
-                self._dists[0].seq_log_density(bad_input)
+                self._dists[0].seq_log_density(cast(Any, bad_input))
 
-    def test_encoder_type(self):
+    def test_encoder_type(self) -> None:
         """dist_to_encoder() must return a GammaDataEncoder."""
         for dist in self._dists:
             self.assertIsInstance(dist.dist_to_encoder(), GammaDataEncoder)
 
-    def test_accumulator_type(self):
+    def test_accumulator_type(self) -> None:
         """factory.make() must return a GammaAccumulator."""
         for f in self._factories:
             self.assertIsInstance(f.make(device=self.device), GammaAccumulator)
 
-    def test_sampler_positive(self):
+    def test_sampler_positive(self) -> None:
         """All sampled values must be positive (Gamma has support on (0, inf))."""
-        data = self._dists[0].sampler(seed=1).sample(size=500)
+        data = cast(Any, self._dists[0].sampler(seed=1).sample(size=500))
         self.assertTrue(all(x > 0 for x in data), "Gamma samples must be positive")
 
-    def test_mean_approx(self):
+    def test_mean_approx(self) -> None:
         """Sample mean should be close to k * theta."""
         dist = GammaDistribution(k=4.0, theta=2.0)
         data = dist.sampler(seed=1).sample(size=5000)

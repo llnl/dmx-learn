@@ -53,23 +53,23 @@ class MixtureDistributionTestCase(TorchStatsTestClass):
         self.factories = self._factories
         self.accumulators = self._accs
 
-    def test_seq_log_density_type(self):
+    def test_seq_log_density_type(self) -> None:
         """seq_log_density must raise Exception when passed wrong encoded type."""
         for bad_input in [None, np.ones(10)]:
             with pytest.raises(Exception):
-                self._dists[0].seq_log_density(bad_input)
+                self._dists[0].seq_log_density(cast(Any, bad_input))
 
-    def test_encoder_type(self):
+    def test_encoder_type(self) -> None:
         """dist_to_encoder() must return a MixtureDataEncoder."""
         for dist in self._dists:
             self.assertIsInstance(dist.dist_to_encoder(), MixtureDataEncoder)
 
-    def test_accumulator_type(self):
+    def test_accumulator_type(self) -> None:
         """factory.make() must return a MixtureAccumulator."""
         for f in self._factories:
             self.assertIsInstance(f.make(device=self.device), MixtureAccumulator)
 
-    def test_seq_posterior_sums_to_one(self):
+    def test_seq_posterior_sums_to_one(self) -> None:
         """Posterior probabilities must sum to 1 across components for each observation."""
         for dist, encoder in zip(self._dists, self._encoders):
             data = dist.sampler(seed=1).sample(size=100)
@@ -81,7 +81,7 @@ class MixtureDistributionTestCase(TorchStatsTestClass):
                 f"Posterior rows do not sum to 1: {row_sums[:5]}",
             )
 
-    def test_seq_component_log_density_consistency(self):
+    def test_seq_component_log_density_consistency(self) -> None:
         """seq_component_log_density should be consistent with seq_log_density.
 
         The log-sum-exp of (log_weights + component_log_densities) must equal
@@ -101,7 +101,7 @@ class MixtureDistributionTestCase(TorchStatsTestClass):
                 "seq_component_log_density inconsistent with seq_log_density",
             )
 
-    def test_num_components(self):
+    def test_num_components(self) -> None:
         """num_components must match the length of the component list."""
         for dist in self._dists:
             self.assertEqual(dist.num_components, len(dist.components))

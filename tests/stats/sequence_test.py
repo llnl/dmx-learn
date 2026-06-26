@@ -10,7 +10,7 @@ import pytest
 from dmx.stats import *
 from dmx.stats.categorical import *
 from dmx.stats.null_dist import *
-from dmx.stats.sequence import *
+from dmx.stats.sequence import *  # type: ignore[no-redef]  # module exports internal TypeVars
 from tests.stats.stats_tests import *
 
 
@@ -129,7 +129,9 @@ class SequenceDistributionTestCase(StatsTestClass):
             SequenceAccumulator(accumulator=self._accs, len_accumulator=self._len_accs),
         ]
         self._encoders = [
-            SequenceDataEncoder(encoders=[CategoricalDataEncoder()] * 2)
+            SequenceDataEncoder(
+                encoders=(CategoricalDataEncoder(), CategoricalDataEncoder())
+            )
         ] * len(self.eval_dists)
 
         # Define members for tests
@@ -144,7 +146,7 @@ class SequenceDistributionTestCase(StatsTestClass):
         self.type_check_data = [None, np.ones((10, 10))]
         self.type_check_keys = [(None, None), 1.0, ("keys", None)]
 
-    def test_seq_log_density_type(self):
+    def test_seq_log_density_type(self) -> None:
         for x in self.type_check_data:
             with pytest.raises(Exception) as e:
                 self.eval_dists[0].seq_log_density(x)
@@ -153,7 +155,7 @@ class SequenceDistributionTestCase(StatsTestClass):
                 == "SequenceEncodedDataSequence required for seq_log_density()."
             )
 
-    def test_none_estimator(self):
+    def test_none_estimator(self) -> None:
         dists = [
             SequenceDistribution(dist=self._dists[0], name="name", keys="keys"),
             SequenceDistribution(
@@ -192,7 +194,7 @@ class SequenceDistributionTestCase(StatsTestClass):
 
         assert all(rv), rv
 
-    def test_none_len_dist(self):
+    def test_none_len_dist(self) -> None:
         dists = [
             SequenceDistribution(dist=self._dists[0], name="name", keys="keys"),
             SequenceDistribution(
@@ -211,10 +213,10 @@ class SequenceDistributionTestCase(StatsTestClass):
 
         assert all(rv), rv
 
-    def test_key_exceptions(self):
+    def test_key_exceptions(self) -> None:
         for x in self.type_check_keys:
             with pytest.raises(TypeError) as e:
-                SequenceEstimator(estimator=ParameterEstimator(), keys=x)
+                SequenceEstimator(estimator=cast(Any, ParameterEstimator)(), keys=x)
 
             assert (
                 str(e.value) == "SequenceEstimator requires keys to be of type 'str'."
