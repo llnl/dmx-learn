@@ -73,7 +73,7 @@ class IntegerMultinomialDistribution(SequenceEncodableProbabilityDistribution):
     def __init__(
         self,
         min_val: int = 0,
-        p_vec: List[float] = None,
+        p_vec: Optional[Union[List[float], np.ndarray]] = None,
         len_dist: Optional[
             SequenceEncodableProbabilityDistribution
         ] = NullDistribution(),
@@ -129,7 +129,7 @@ class IntegerMultinomialDistribution(SequenceEncodableProbabilityDistribution):
             float: Density at x.
 
         """
-        return np.exp(self.log_density(x))
+        return float(np.exp(self.log_density(x)))
 
     def log_density(self, x: Sequence[Tuple[int, float]]) -> float:
         """Evaluate the log-density of IntegerMultinomialDistribution at observed value
@@ -187,7 +187,7 @@ class IntegerMultinomialDistribution(SequenceEncodableProbabilityDistribution):
         return IntegerMultinomialSampler(self, seed)
 
     def estimator(
-        self, pseudo_count: Optional[int] = None
+        self, pseudo_count: Optional[float] = None
     ) -> "IntegerMultinomialEstimator":
 
         len_est = (
@@ -258,20 +258,22 @@ class IntegerMultinomialSampler(DistributionSampler):
 
         """
         if size is None:
-            cnt = self.len_sampler.sample()
+            cnt = int(self.len_sampler.sample())
             entry = self.rng.multinomial(cnt, self.dist.p_vec)
-            rrv = []
-            for j in np.flatnonzero(entry).tolist():
+            rrv: List[Tuple[int, float]] = []
+            for raw_j in np.flatnonzero(entry):
+                j = int(raw_j)
                 rrv.append((j + self.dist.min_val, int(entry[j])))
             return rrv
 
         cnt = self.len_sampler.sample(size=size)
-        rv = []
+        rv: List[List[Tuple[int, float]]] = []
 
         for i in range(size):
             rrv = []
-            entry = self.rng.multinomial(cnt[i], self.dist.p_vec)
-            for j in np.flatnonzero(entry).tolist():
+            entry = self.rng.multinomial(int(cnt[i]), self.dist.p_vec)
+            for raw_j in np.flatnonzero(entry):
+                j = int(raw_j)
                 rrv.append((j + self.dist.min_val, int(entry[j])))
             rv.append(rrv)
         return rv
@@ -326,7 +328,7 @@ class IntegerMultinomialAccumulator(SequenceEncodableStatisticAccumulator):
         self.len_accumulator = (
             len_accumulator if len_accumulator is not None else NullAccumulator()
         )
-        self.count_vec = (
+        self.count_vec: Optional[np.ndarray] = (
             vec.zeros(max_val - min_val + 1)
             if min_val is not None and max_val is not None
             else None
@@ -340,14 +342,19 @@ class IntegerMultinomialAccumulator(SequenceEncodableStatisticAccumulator):
         estimate: Optional[IntegerMultinomialDistribution],
     ) -> None:
 
-        cc = 0
+        cc = 0.0
         for xx, cnt in x:
             cc += cnt
             if self.count_vec is None:
                 self.min_val = xx
                 self.max_val = xx
                 self.count_vec = vec.make([weight * cnt])
-            elif self.max_val < xx:
+                continue
+
+            assert self.min_val is not None
+            assert self.max_val is not None
+
+            if self.max_val < xx:
                 temp_vec = self.count_vec
                 self.max_val = xx
                 self.count_vec = vec.zeros(self.max_val - self.min_val + 1)
@@ -382,8 +389,8 @@ class IntegerMultinomialAccumulator(SequenceEncodableStatisticAccumulator):
     ) -> None:
         _sz, idx, cnt, val, tenc = x.data
 
-        min_x = val.min()
-        max_x = val.max()
+        min_x = int(val.min())
+        max_x = int(val.max())
 
         loc_cnt = np.bincount(val - min_x, weights=cnt * weights[idx])
 
@@ -391,6 +398,10 @@ class IntegerMultinomialAccumulator(SequenceEncodableStatisticAccumulator):
             self.count_vec = np.zeros(max_x - min_x + 1)
             self.min_val = min_x
             self.max_val = max_x
+
+        assert self.min_val is not None
+        assert self.max_val is not None
+        assert self.count_vec is not None
 
         if self.min_val > min_x or self.max_val < max_x:
             prev_min = self.min_val
@@ -427,6 +438,8 @@ class IntegerMultinomialAccumulator(SequenceEncodableStatisticAccumulator):
             self.count_vec = suff_stat[1]
 
         elif self.count_vec is not None and suff_stat[1] is not None:
+            assert self.min_val is not None
+            assert self.max_val is not None
 
             if self.min_val == suff_stat[0] and len(self.count_vec) == len(
                 suff_stat[1]
@@ -456,6 +469,8 @@ class IntegerMultinomialAccumulator(SequenceEncodableStatisticAccumulator):
         return self
 
     def value(self) -> Tuple[int, np.ndarray, Optional[Any]]:
+        assert self.min_val is not None
+        assert self.count_vec is not None
         return self.min_val, self.count_vec, self.len_accumulator.value()
 
     def from_value(
@@ -760,7 +775,9 @@ class IntegerMultinomialDataEncoder(DataSequenceEncoder):
             return self.len_encoder == other.len_encoder
         return False
 
-    def seq_encode(self, x: Sequence[Sequence[Tuple[int, float]]]):
+    def seq_encode(
+        self, x: Sequence[Sequence[Tuple[int, float]]]
+    ) -> "IntegerMultinomialEncodedDataSequence":
         """Encode a sequence of iid integer multinomial observations.
 
         Returns a Tuple of length 5 containing:
@@ -784,13 +801,13 @@ class IntegerMultinomialDataEncoder(DataSequenceEncoder):
             IntegerMultinomialEncodedDataSequence
 
         """
-        idx = []
-        cnt = []
-        val = []
-        tcnt = []
+        idx: List[int] = []
+        cnt: List[float] = []
+        val: List[int] = []
+        tcnt: List[float] = []
 
         for i, y in enumerate(x):
-            cc = 0
+            cc = 0.0
             for z in y:
                 idx.append(i)
                 cnt.append(z[1])
@@ -799,14 +816,16 @@ class IntegerMultinomialDataEncoder(DataSequenceEncoder):
             tcnt.append(cc)
 
         sz = len(x)
-        idx = np.asarray(idx, dtype=np.int32)
-        cnt = np.asarray(cnt, dtype=np.float64)
-        val = np.asarray(val, dtype=np.int32)
-        tcnt = np.asarray(tcnt, dtype=np.int32)
+        idx_arr = np.asarray(idx, dtype=np.int32)
+        cnt_arr = np.asarray(cnt, dtype=np.float64)
+        val_arr = np.asarray(val, dtype=np.int32)
+        tcnt_arr = np.asarray(tcnt, dtype=np.int32)
 
-        tcnt = self.len_encoder.seq_encode(tcnt)
+        tcnt_enc = self.len_encoder.seq_encode(tcnt_arr)
 
-        return IntegerMultinomialEncodedDataSequence(data=(sz, idx, cnt, val, tcnt))
+        return IntegerMultinomialEncodedDataSequence(
+            data=(sz, idx_arr, cnt_arr, val_arr, tcnt_enc)
+        )
 
 
 class IntegerMultinomialEncodedDataSequence(EncodedDataSequence):

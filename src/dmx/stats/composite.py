@@ -294,6 +294,7 @@ class CompositeAccumulator(SequenceEncodableStatisticAccumulator):
         """
         if not self._init_rng:
             self._rng_initialize(rng)
+        assert self._acc_rng is not None
         for i in range(self.count):
             self.accumulators[i].initialize(x[i], weight, self._acc_rng[i])
 
@@ -309,6 +310,7 @@ class CompositeAccumulator(SequenceEncodableStatisticAccumulator):
         """
         if not self._init_rng:
             self._rng_initialize(rng)
+        assert self._acc_rng is not None
         for i in range(self.count):
             self.accumulators[i].seq_initialize(x.data[i], weights, self._acc_rng[i])
 

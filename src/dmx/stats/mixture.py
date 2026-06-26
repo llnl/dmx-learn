@@ -108,7 +108,7 @@ class MixtureDistribution(SequenceEncodableProbabilityDistribution):
             float: Density at x.
 
         """
-        return np.exp(self.log_density(x))
+        return float(np.exp(self.log_density(x)))
 
     def log_density(self, x: T) -> float:
         """Evaluate log-density of Mixture distribution at observation x.
@@ -125,8 +125,10 @@ class MixtureDistribution(SequenceEncodableProbabilityDistribution):
             float: Log-density at x.
 
         """
-        return vec.log_sum(
-            np.asarray([u.log_density(x) for u in self.components]) + self.log_w
+        return float(
+            vec.log_sum(
+                np.asarray([u.log_density(x) for u in self.components]) + self.log_w
+            )
         )
 
     def component_log_density(self, x: T) -> np.ndarray:
@@ -168,12 +170,12 @@ class MixtureDistribution(SequenceEncodableProbabilityDistribution):
         max_val = np.max(comp_log_density)
 
         if max_val == -np.inf:
-            return self.w.copy()
+            return np.asarray(self.w.copy(), dtype=float)
         comp_log_density -= max_val
         np.exp(comp_log_density, out=comp_log_density)
         comp_log_density /= comp_log_density.sum()
 
-        return comp_log_density
+        return np.asarray(comp_log_density, dtype=float)
 
     def seq_component_log_density(self, x: "MixtureEncodedDataSequence") -> np.ndarray:
         """Vectorized evaluation of component_log_density.
@@ -237,7 +239,7 @@ class MixtureDistribution(SequenceEncodableProbabilityDistribution):
             np.log(ll_sum, out=ll_sum)
             ll_sum += ll_max
 
-            return ll_sum.flatten()
+            return np.asarray(ll_sum.flatten(), dtype=float)
 
         ll_mat = ll_mat[good_rows, :]
         ll_max = ll_max[good_rows]
@@ -293,7 +295,7 @@ class MixtureDistribution(SequenceEncodableProbabilityDistribution):
         np.sum(ll_mat, axis=1, keepdims=True, out=ll_max)
         ll_mat /= ll_max
 
-        return ll_mat
+        return np.asarray(ll_mat, dtype=float)
 
     def sampler(self, seed: Optional[int] = None) -> "MixtureSampler":
         return MixtureSampler(self, seed)
@@ -493,6 +495,9 @@ class MixtureAccumulator(SequenceEncodableStatisticAccumulator):
         if not self._init_rng:
             self._rng_initialize(rng)
 
+        assert self._acc_rng is not None
+        assert self._w_rng is not None
+
         if weight != 0:
             ww = self._w_rng.dirichlet(
                 np.ones(self.num_components)
@@ -514,6 +519,9 @@ class MixtureAccumulator(SequenceEncodableStatisticAccumulator):
     ) -> None:
         if not self._init_rng:
             self._rng_initialize(rng)
+
+        assert self._acc_rng is not None
+        assert self._w_rng is not None
 
         sz = len(weights)
         keep_idx = weights > 0

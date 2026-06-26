@@ -292,7 +292,7 @@ class NullDataEncoder(DataSequenceEncoder):
     def __str__(self) -> str:
         return "NullDataEncoder"
 
-    def __eq__(self, other) -> bool:
+    def __eq__(self, other: object) -> bool:
         return isinstance(other, NullDataEncoder)
 
     def seq_encode(self, x: Any) -> "NullEncodedDataSequence":
@@ -310,7 +310,7 @@ class NullEncodedDataSequence(EncodedDataSequence):
 
     """
 
-    def __init__(self, data: None):
+    def __init__(self, data: None) -> None:
         """NullEncodedDataSequence object..
 
         Args:

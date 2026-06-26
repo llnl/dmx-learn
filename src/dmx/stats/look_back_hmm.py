@@ -1,5 +1,5 @@
 import math
-from typing import List, Optional, Sequence, Tuple, TypeVar
+from typing import Any, Dict, List, Optional, Sequence, Tuple, TypeVar, Union, cast
 
 import numba
 import numpy as np
@@ -9,6 +9,7 @@ import dmx.utils.vector as vec
 from dmx.arithmetic import exp, log, maxrandint
 from dmx.stats.markovchain import MarkovChainDistribution
 from dmx.stats.null_dist import (
+    NullAccumulator,
     NullAccumulatorFactory,
     NullDataEncoder,
     NullDistribution,
@@ -35,7 +36,7 @@ class LookbackHiddenMarkovDistribution(SequenceEncodableProbabilityDistribution)
         self,
         topics: Sequence[SequenceEncodableProbabilityDistribution],
         w: np.ndarray,
-        transitions,
+        transitions: Union[Sequence[Sequence[float]], np.ndarray],
         lag: int = 0,
         init_dist: Optional[Sequence[SequenceEncodableProbabilityDistribution]] = None,
         len_dist: Optional[
@@ -75,13 +76,13 @@ class LookbackHiddenMarkovDistribution(SequenceEncodableProbabilityDistribution)
         )
 
     def density(self, x: Sequence[T]) -> float:
-        return exp(self.log_density(x))
+        return float(exp(self.log_density(x)))
 
     def log_density(self, x: Sequence[T]) -> float:
 
         if x is None or len(x) == 0:
             if self.len_dist is not None:
-                return self.len_dist.log_density(0)
+                return float(self.len_dist.log_density(0))
             return 0.0
 
         log_w = self.log_w
@@ -129,7 +130,7 @@ class LookbackHiddenMarkovDistribution(SequenceEncodableProbabilityDistribution)
         if self.len_dist is not None:
             retval += self.len_dist.log_density(len(x) - lag + 1)
 
-        return retval
+        return float(retval)
 
     def viterbi_sequence(self, x: Sequence[T]) -> np.ndarray:
 
@@ -275,6 +276,7 @@ class LookbackHiddenMarkovSampler(DistributionSampler):
         self, dist: LookbackHiddenMarkovDistribution, seed: Optional[int] = None
     ) -> None:
         super().__init__(dist, seed)
+        self.dist = dist
         self.num_states = dist.num_states
 
         self.init_samplers = [
@@ -297,37 +299,49 @@ class LookbackHiddenMarkovSampler(DistributionSampler):
             seed=self.rng.randint(0, maxrandint)
         )
 
-    def sample(self, size: Optional[int] = None):
+    def sample(self, size: Optional[int] = None) -> Union[List[T], List[List[T]]]:
 
         if size is None:
             lag = self.dist.lag
-            n = self.len_sampler.sample()
-            state_seq = self.state_sampler.sample_seq(n)
+            n = int(self.len_sampler.sample())
+            state_seq = cast(List[int], self.state_sampler.sample_seq(size=n))
 
-            rv = list(self.init_samplers[state_seq[0]].sample())  # [v_1, ..., v_lag]
+            rv = list(
+                cast(Sequence[T], self.init_samplers[state_seq[0]].sample())
+            )  # [v_1, ..., v_lag]
             for i in range(1, n):
-                rv.append(self.obs_samplers[state_seq[i]].sample_given(rv[-lag:]))
+                rv.append(
+                    cast(Any, self.obs_samplers[state_seq[i]]).sample_given(rv[-lag:])
+                )
             return rv
-        return [self.sample() for i in range(size)]
+        return [cast(List[T], self.sample()) for i in range(size)]
 
 
 class LookbackHiddenMarkovEstimatorAccumulator(SequenceEncodableStatisticAccumulator):
 
     def __init__(
         self,
-        seq_accumulators,
-        init_accumulators=None,
-        lag=0,
-        len_accumulator=None,
-        keys=(None, None, None),
-    ):
+        seq_accumulators: Sequence[SequenceEncodableStatisticAccumulator],
+        init_accumulators: Optional[
+            Sequence[SequenceEncodableStatisticAccumulator]
+        ] = None,
+        lag: int = 0,
+        len_accumulator: Optional[
+            SequenceEncodableStatisticAccumulator
+        ] = NullAccumulator(),
+        keys: Tuple[Optional[str], Optional[str], Optional[str]] = (None, None, None),
+    ) -> None:
         self.seq_accumulators = seq_accumulators
-        self.init_accumulators = init_accumulators
+        self.init_accumulators = (
+            init_accumulators if init_accumulators is not None else []
+        )
         self.num_states = len(seq_accumulators)
         self.init_counts = vec.zeros(self.num_states)
         self.trans_counts = vec.zeros((self.num_states, self.num_states))
         self.state_counts = vec.zeros(self.num_states)
-        self.len_accumulator = len_accumulator
+        self.len_accumulator = (
+            len_accumulator if len_accumulator is not None else NullAccumulator()
+        )
         self.lag = lag
 
         self.init_key = keys[0]
@@ -336,11 +350,11 @@ class LookbackHiddenMarkovEstimatorAccumulator(SequenceEncodableStatisticAccumul
 
     def update(
         self, x: Sequence[T], weight: float, estimate: LookbackHiddenMarkovDistribution
-    ):
+    ) -> None:
         x0 = estimate.dist_to_encoder().seq_encode([[x]])
         self.seq_update(x0, np.asarray([weight]), estimate)
 
-    def initialize(self, x: Sequence[T], weight: float, rng: RandomState):
+    def initialize(self, x: Sequence[T], weight: float, rng: RandomState) -> None:
 
         n = len(x) - self.lag + 1
         lag = self.lag
@@ -370,7 +384,7 @@ class LookbackHiddenMarkovEstimatorAccumulator(SequenceEncodableStatisticAccumul
 
     def seq_initialize(
         self, x: "LookBackHMMEncodedDataSequence", weights: np.ndarray, rng: RandomState
-    ):
+    ) -> None:
         for xx, ww in zip(x.data[-1], weights):
             self.initialize(xx, ww, rng)
 
@@ -379,7 +393,7 @@ class LookbackHiddenMarkovEstimatorAccumulator(SequenceEncodableStatisticAccumul
         x: "LookBackHMMEncodedDataSequence",
         weights: np.ndarray,
         estimate: "LookbackHiddenMarkovDistribution",
-    ):
+    ) -> None:
 
         (ids, idi, ims, imi, sz, enc_sdata, enc_idata), len_enc, _ = x.data
 
@@ -426,7 +440,7 @@ class LookbackHiddenMarkovEstimatorAccumulator(SequenceEncodableStatisticAccumul
         if self.len_accumulator is not None:
             self.len_accumulator.seq_update(len_enc, weights, estimate.len_dist)
 
-    def combine(self, suff_stat):
+    def combine(self, suff_stat: Any) -> "LookbackHiddenMarkovEstimatorAccumulator":
 
         (
             _lag,
@@ -452,7 +466,7 @@ class LookbackHiddenMarkovEstimatorAccumulator(SequenceEncodableStatisticAccumul
 
         return self
 
-    def value(self):
+    def value(self) -> Tuple[Any, ...]:
 
         if self.len_accumulator is not None:
             len_val = self.len_accumulator.value()
@@ -470,7 +484,7 @@ class LookbackHiddenMarkovEstimatorAccumulator(SequenceEncodableStatisticAccumul
             len_val,
         )
 
-    def from_value(self, x):
+    def from_value(self, x: Any) -> "LookbackHiddenMarkovEstimatorAccumulator":
         (
             lag,
             num_states,
@@ -499,7 +513,7 @@ class LookbackHiddenMarkovEstimatorAccumulator(SequenceEncodableStatisticAccumul
 
         return self
 
-    def key_merge(self, stats_dict):
+    def key_merge(self, stats_dict: Dict[str, Any]) -> None:
 
         if self.init_key is not None:
             if self.init_key in stats_dict:
@@ -530,7 +544,7 @@ class LookbackHiddenMarkovEstimatorAccumulator(SequenceEncodableStatisticAccumul
         if self.len_accumulator is not None:
             self.len_accumulator.key_merge(stats_dict)
 
-    def key_replace(self, stats_dict):
+    def key_replace(self, stats_dict: Dict[str, Any]) -> None:
 
         if self.init_key is not None:
             if self.init_key in stats_dict:
@@ -565,7 +579,7 @@ class LookbackHiddenMarkovEstimatorAccumulator(SequenceEncodableStatisticAccumul
         )
 
 
-class LookbackHiddenMarkovEstimatorAccumulatorFactory:
+class LookbackHiddenMarkovEstimatorAccumulatorFactory(StatisticAccumulatorFactory):
 
     def __init__(
         self,
@@ -578,7 +592,7 @@ class LookbackHiddenMarkovEstimatorAccumulatorFactory:
             None,
             None,
         ),
-    ):
+    ) -> None:
         self.seq_factories = seq_factories
         self.keys = keys if keys is not None else (None, None, None)
         self.len_factory = (
@@ -587,7 +601,7 @@ class LookbackHiddenMarkovEstimatorAccumulatorFactory:
         self.lag = lag
 
         if init_factories is None:
-            self.init_factories = [
+            self.init_factories: Sequence[StatisticAccumulatorFactory] = [
                 NullAccumulatorFactory() for j in range(len(seq_factories))
             ]
         else:
@@ -616,7 +630,7 @@ class LookbackHiddenMarkovEstimator(ParameterEstimator):
         lag: int = 0,
         init_estimators: Optional[Sequence[ParameterEstimator]] = None,
         len_estimator: Optional[ParameterEstimator] = NullEstimator(),
-        suff_stat=None,
+        suff_stat: Optional[Any] = None,
         pseudo_count: Optional[Tuple[Optional[float], Optional[float]]] = (None, None),
         name: Optional[str] = None,
         keys: Optional[Tuple[Optional[str], Optional[str], Optional[str]]] = (
@@ -624,22 +638,26 @@ class LookbackHiddenMarkovEstimator(ParameterEstimator):
             None,
             None,
         ),
-    ):
+    ) -> None:
         self.num_states = len(estimators)
         self.estimators = estimators
         self.pseudo_count = pseudo_count if pseudo_count is not None else (None, None)
         self.suff_stat = suff_stat
         self.keys = keys if keys is not None else (None, None, None)
-        self.len_estimator = len_estimator
+        self.len_estimator = (
+            len_estimator if len_estimator is not None else NullEstimator()
+        )
         self.name = name
         self.lag = lag
 
         if init_estimators is None:
-            self.init_estimators = [NullEstimator() for xx in range(self.num_states)]
+            self.init_estimators: Sequence[ParameterEstimator] = [
+                NullEstimator() for xx in range(self.num_states)
+            ]
         else:
             self.init_estimators = init_estimators
 
-    def accumulator_factory(self):
+    def accumulator_factory(self) -> LookbackHiddenMarkovEstimatorAccumulatorFactory:
         est_factories = [u.accumulator_factory() for u in self.estimators]
         iest_factories = [u.accumulator_factory() for u in self.init_estimators]
 
@@ -648,7 +666,9 @@ class LookbackHiddenMarkovEstimator(ParameterEstimator):
             self.lag, est_factories, iest_factories, len_factory, self.keys
         )
 
-    def estimate(self, nobs: Optional[float], suff_stat):
+    def estimate(
+        self, nobs: Optional[float], suff_stat: Any
+    ) -> LookbackHiddenMarkovDistribution:
 
         (
             lag,
@@ -743,13 +763,13 @@ class LookbackHiddenMarkovDataEncoder(DataSequenceEncoder):
 
     def seq_encode(self, x: Sequence[Sequence[T]]) -> "LookBackHMMEncodedDataSequence":
 
-        ids = []
-        idi = []
-        xss = []
-        sz = []
-        xsi = []
-        imi = []
-        ims = []
+        ids: List[int] = []
+        idi: List[int] = []
+        xss: List[Sequence[T]] = []
+        sz: List[int] = []
+        xsi: List[Sequence[T]] = []
+        imi: List[int] = []
+        ims: List[int] = []
 
         lag = self.lag
         cnt = 0
@@ -768,16 +788,20 @@ class LookbackHiddenMarkovDataEncoder(DataSequenceEncoder):
 
         len_enc = self.len_encoder.seq_encode(sz)
 
-        ids = np.asarray(ids, dtype=np.int32)
-        idi = np.asarray(idi, dtype=np.int32)
-        ims = np.asarray(ims, dtype=np.int32)
-        imi = np.asarray(imi, dtype=np.int32)
-        sz = np.asarray(sz, dtype=np.int32)
-        xss = self.encoder.seq_encode(xss)
-        xsi = self.init_encoder.seq_encode(xsi)
+        ids_arr = np.asarray(ids, dtype=np.int32)
+        idi_arr = np.asarray(idi, dtype=np.int32)
+        ims_arr = np.asarray(ims, dtype=np.int32)
+        imi_arr = np.asarray(imi, dtype=np.int32)
+        sz_arr = np.asarray(sz, dtype=np.int32)
+        xss_enc = self.encoder.seq_encode(xss)
+        xsi_enc = self.init_encoder.seq_encode(xsi)
 
         return LookBackHMMEncodedDataSequence(
-            data=((ids, idi, ims, imi, sz, xss, xsi), len_enc, x)
+            data=(
+                (ids_arr, idi_arr, ims_arr, imi_arr, sz_arr, xss_enc, xsi_enc),
+                len_enc,
+                x,
+            )
         )
 
 
@@ -798,7 +822,7 @@ class LookBackHMMEncodedDataSequence(EncodedDataSequence):
             EncodedDataSequence,
             Sequence[Sequence[T]],
         ],
-    ):
+    ) -> None:
         super().__init__(data=data)
 
     def __repr__(self) -> str:
@@ -812,16 +836,16 @@ class LookBackHMMEncodedDataSequence(EncodedDataSequence):
     fastmath=True,
 )
 def numba_seq_log_density(
-    num_states,
-    tz,
-    prob_mat,
-    init_pvec,
-    tran_mat,
-    max_ll,
-    next_alpha_mat,
-    alpha_buff_mat,
-    out,
-):
+    num_states: int,
+    tz: np.ndarray,
+    prob_mat: np.ndarray,
+    init_pvec: np.ndarray,
+    tran_mat: np.ndarray,
+    max_ll: np.ndarray,
+    next_alpha_mat: np.ndarray,
+    alpha_buff_mat: np.ndarray,
+    out: np.ndarray,
+) -> None:
     for n in numba.prange(len(tz) - 1):
 
         s0 = tz[n]
@@ -834,8 +858,8 @@ def numba_seq_log_density(
         next_alpha = next_alpha_mat[n, :]
         alpha_buff = alpha_buff_mat[n, :]
 
-        llsum = 0
-        alpha_sum = 0
+        llsum = 0.0
+        alpha_sum = 0.0
         for i in range(num_states):
             temp = init_pvec[i] * prob_mat[s0, i]
             next_alpha[i] = temp
@@ -849,7 +873,7 @@ def numba_seq_log_density(
             for i in range(num_states):
                 alpha_buff[i] = next_alpha[i] / alpha_sum
 
-            alpha_sum = 0
+            alpha_sum = 0.0
             for i in range(num_states):
                 temp = 0.0
                 for j in range(num_states):
@@ -869,18 +893,18 @@ def numba_seq_log_density(
     "float64[:,:], float64[:,:], float64[:], float64[:], float64[:,:])"
 )
 def numba_baum_welch(  # pylint: disable=too-many-positional-arguments
-    num_states,
-    tz,
-    prob_mat,
-    init_pvec,
-    tran_mat,
-    weights,
-    alpha_loc,
-    xi_acc,
-    pi_acc,
-    beta_buff,
-    xi_buff,
-):
+    num_states: int,
+    tz: np.ndarray,
+    prob_mat: np.ndarray,
+    init_pvec: np.ndarray,
+    tran_mat: np.ndarray,
+    weights: np.ndarray,
+    alpha_loc: np.ndarray,
+    xi_acc: np.ndarray,
+    pi_acc: np.ndarray,
+    beta_buff: np.ndarray,
+    xi_buff: np.ndarray,
+) -> None:
     for n in range(len(tz) - 1):
 
         s0 = tz[n]
@@ -890,7 +914,7 @@ def numba_baum_welch(  # pylint: disable=too-many-positional-arguments
             continue
 
         weight_loc = weights[n]
-        alpha_sum = 0
+        alpha_sum = 0.0
         for i in range(num_states):
             temp = init_pvec[i] * prob_mat[s0, i]
             alpha_loc[s0, i] = temp
@@ -902,7 +926,7 @@ def numba_baum_welch(  # pylint: disable=too-many-positional-arguments
         for s in range(s0 + 1, s1):
 
             sm1 = s - 1
-            alpha_sum = 0
+            alpha_sum = 0.0
             for i in range(num_states):
                 temp = 0.0
                 for j in range(num_states):
@@ -918,7 +942,7 @@ def numba_baum_welch(  # pylint: disable=too-many-positional-arguments
         for i in range(num_states):
             alpha_loc[s1 - 1, i] *= weight_loc
 
-        beta_sum = 1
+        beta_sum = 1.0
         # beta_sum = 1/num_states
         prev_beta = np.empty(num_states, dtype=np.float64)
         prev_beta.fill(1 / num_states)
@@ -930,12 +954,12 @@ def numba_baum_welch(  # pylint: disable=too-many-positional-arguments
             for j in range(num_states):
                 beta_buff[j] = prev_beta[j] * prob_mat[sp1, j] / beta_sum
 
-            xi_buff_sum = 0
-            gamma_buff = 0
-            beta_sum = 0
+            xi_buff_sum = 0.0
+            gamma_buff = 0.0
+            beta_sum = 0.0
             for i in range(num_states):
 
-                temp_beta = 0
+                temp_beta = 0.0
                 for j in range(num_states):
                     temp = tran_mat[i, j] * beta_buff[j]
                     temp_beta += temp
@@ -971,8 +995,16 @@ def numba_baum_welch(  # pylint: disable=too-many-positional-arguments
     fastmath=True,
 )
 def numba_baum_welch2(
-    num_states, tz, prob_mat, init_pvec, tran_mat, weights, alpha_loc, xi_acc, pi_acc
-):
+    num_states: int,
+    tz: np.ndarray,
+    prob_mat: np.ndarray,
+    init_pvec: np.ndarray,
+    tran_mat: np.ndarray,
+    weights: np.ndarray,
+    alpha_loc: np.ndarray,
+    xi_acc: np.ndarray,
+    pi_acc: np.ndarray,
+) -> None:
     for n in numba.prange(len(tz) - 1):
 
         s0 = tz[n]
@@ -985,7 +1017,7 @@ def numba_baum_welch2(
         xi_buff = np.zeros((num_states, num_states), dtype=np.float64)
 
         weight_loc = weights[n]
-        alpha_sum = 0
+        alpha_sum = 0.0
         for i in range(num_states):
             temp = init_pvec[i] * prob_mat[s0, i]
             alpha_loc[s0, i] = temp
@@ -997,7 +1029,7 @@ def numba_baum_welch2(
         for s in range(s0 + 1, s1):
 
             sm1 = s - 1
-            alpha_sum = 0
+            alpha_sum = 0.0
             for i in range(num_states):
                 temp = 0.0
                 for j in range(num_states):
@@ -1013,7 +1045,7 @@ def numba_baum_welch2(
         for i in range(num_states):
             alpha_loc[s1 - 1, i] *= weight_loc
 
-        beta_sum = 1
+        beta_sum = 1.0
         # beta_sum = 1/num_states
         prev_beta = np.empty(num_states, dtype=np.float64)
         prev_beta.fill(1 / num_states)
@@ -1025,12 +1057,12 @@ def numba_baum_welch2(
             for j in range(num_states):
                 beta_buff[j] = prev_beta[j] * prob_mat[sp1, j] / beta_sum
 
-            xi_buff_sum = 0
-            gamma_buff = 0
-            beta_sum = 0
+            xi_buff_sum = 0.0
+            gamma_buff = 0.0
+            beta_sum = 0.0
             for i in range(num_states):
 
-                temp_beta = 0
+                temp_beta = 0.0
                 for j in range(num_states):
                     temp = tran_mat[i, j] * beta_buff[j]
                     temp_beta += temp
@@ -1066,8 +1098,16 @@ def numba_baum_welch2(
     fastmath=True,
 )
 def numba_baum_welch_alphas(  # pylint: disable=unused-argument
-    num_states, tz, prob_mat, init_pvec, tran_mat, weights, alpha_loc, xi_acc, pi_acc
-):
+    num_states: int,
+    tz: np.ndarray,
+    prob_mat: np.ndarray,
+    init_pvec: np.ndarray,
+    tran_mat: np.ndarray,
+    weights: np.ndarray,
+    alpha_loc: np.ndarray,
+    xi_acc: np.ndarray,
+    pi_acc: np.ndarray,
+) -> None:
     for n in numba.prange(len(tz) - 1):
 
         s0 = tz[n]
@@ -1076,7 +1116,7 @@ def numba_baum_welch_alphas(  # pylint: disable=unused-argument
         if s0 == s1:
             continue
 
-        alpha_sum = 0
+        alpha_sum = 0.0
         for i in range(num_states):
             temp = init_pvec[i] * prob_mat[s0, i]
             alpha_loc[s0, i] = temp
@@ -1088,7 +1128,7 @@ def numba_baum_welch_alphas(  # pylint: disable=unused-argument
         for s in range(s0 + 1, s1):
 
             sm1 = s - 1
-            alpha_sum = 0
+            alpha_sum = 0.0
             for i in range(num_states):
                 temp = 0.0
                 for j in range(num_states):

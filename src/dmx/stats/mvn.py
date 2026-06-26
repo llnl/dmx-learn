@@ -77,8 +77,12 @@ class MultivariateGaussianDistribution(SequenceEncodableProbabilityDistribution)
                 "Cannot obtain Choleskey factorization for covariance matrix."
             )
         self.use_lstsq = False
-        self.chol_const = -0.5 * (
-            len(self.mu) * np.log(2.0 * pi) + 2.0 * np.log(vec.diag(self.chol)).sum()
+        self.chol_const = float(
+            -0.5
+            * (
+                len(self.mu) * np.log(2.0 * pi)
+                + 2.0 * np.log(vec.diag(self.chol)).sum()
+            )
         )
 
     def __str__(self) -> str:
@@ -101,7 +105,7 @@ class MultivariateGaussianDistribution(SequenceEncodableProbabilityDistribution)
             float: Density at x.
 
         """
-        return exp(self.log_density(x))
+        return float(exp(self.log_density(x)))
 
     def log_density(self, x: np.ndarray) -> float:
         """Evaluate the log-density at x.
@@ -119,7 +123,7 @@ class MultivariateGaussianDistribution(SequenceEncodableProbabilityDistribution)
             diff = self.mu - x
             soln = scipy.linalg.cho_solve((self.chol, self.lower), diff.T).T
             rv = self.chol_const - 0.5 * ((diff * soln).sum())
-            return rv
+            return float(rv)
         except Exception as e:
             raise e
 
@@ -138,20 +142,22 @@ class MultivariateGaussianDistribution(SequenceEncodableProbabilityDistribution)
         diff = self.mu - x.data
         soln = scipy.linalg.cho_solve((self.chol, self.lower), diff.T).T
         rv = self.chol_const - 0.5 * ((diff * soln).sum(axis=1))
-        return rv
+        return np.asarray(rv)
 
-    def sampler(self, seed: Optional[int] = None):
+    def sampler(self, seed: Optional[int] = None) -> "MultivariateGaussianSampler":
         return MultivariateGaussianSampler(self, seed)
 
-    def estimator(self, pseudo_count: Optional[float] = None):
+    def estimator(
+        self, pseudo_count: Optional[float] = None
+    ) -> "MultivariateGaussianEstimator":
         if pseudo_count is None:
             return MultivariateGaussianEstimator(
                 dim=self.dim, name=self.name, keys=self.keys
             )
-        pseudo_count = (pseudo_count, pseudo_count)
+        pseudo_counts = (pseudo_count, pseudo_count)
         return MultivariateGaussianEstimator(
             dim=self.dim,
-            pseudo_count=pseudo_count,
+            pseudo_count=pseudo_counts,
             suff_stat=(self.mu, self.covar),
             name=self.name,
             keys=self.keys,
@@ -231,6 +237,8 @@ class MultivariateGaussianAccumulator(SequenceEncodableStatisticAccumulator):
         self.count = 0.0
         self.key = keys
         self.name = name
+        self.sum: Optional[np.ndarray]
+        self.sum2: Optional[np.ndarray]
 
         if dim is not None:
             self.sum = vec.zeros(dim)
@@ -250,6 +258,8 @@ class MultivariateGaussianAccumulator(SequenceEncodableStatisticAccumulator):
             self.sum = vec.zeros(self.dim)
             self.sum2 = vec.zeros((self.dim, self.dim))
 
+        assert self.sum is not None
+        assert self.sum2 is not None
         x_weight = x * weight
         self.sum += x_weight
         self.sum2 += vec.outer(x, x_weight)
@@ -272,6 +282,8 @@ class MultivariateGaussianAccumulator(SequenceEncodableStatisticAccumulator):
             self.sum = vec.zeros(self.dim)
             self.sum2 = vec.zeros((self.dim, self.dim))
 
+        assert self.sum is not None
+        assert self.sum2 is not None
         x_weight = np.multiply(x.data.T, weights)
         self.count += weights.sum()
         self.sum += x_weight.sum(axis=1)
@@ -286,25 +298,27 @@ class MultivariateGaussianAccumulator(SequenceEncodableStatisticAccumulator):
         self.seq_update(x, weights, None)
 
     def combine(
-        self, suff_stat: Tuple[np.ndarray, np.ndarray, float]
+        self, suff_stat: Tuple[Optional[np.ndarray], Optional[np.ndarray], float]
     ) -> "MultivariateGaussianAccumulator":
         if suff_stat[0] is not None and self.sum is not None:
+            assert suff_stat[1] is not None
             self.sum += suff_stat[0]
             self.sum2 += suff_stat[1]
             self.count += suff_stat[2]
 
         elif suff_stat[0] is not None and self.sum is None:
+            assert suff_stat[1] is not None
             self.sum = suff_stat[0]
             self.sum2 = suff_stat[1]
             self.count = suff_stat[2]
 
         return self
 
-    def value(self) -> Tuple[np.ndarray, np.ndarray, float]:
+    def value(self) -> Tuple[Optional[np.ndarray], Optional[np.ndarray], float]:
         return self.sum, self.sum2, self.count
 
     def from_value(
-        self, x: Tuple[np.ndarray, np.ndarray, float]
+        self, x: Tuple[Optional[np.ndarray], Optional[np.ndarray], float]
     ) -> "MultivariateGaussianAccumulator":
         self.sum = x[0]
         self.sum2 = x[1]
@@ -377,7 +391,7 @@ class MultivariateGaussianEstimator(ParameterEstimator):
         self,
         dim: Optional[int] = None,
         pseudo_count: Optional[Tuple[Optional[float], Optional[float]]] = (None, None),
-        suff_stat: Optional[Tuple[Optional[np.ndarray], Optional[np.ndarray]]] = (
+        suff_stat: Tuple[Optional[np.ndarray], Optional[np.ndarray]] = (
             None,
             None,
         ),
@@ -414,16 +428,19 @@ class MultivariateGaussianEstimator(ParameterEstimator):
                 else len(suff_stat[0])
             )
         )
+        if dim_loc is None:
+            raise ValueError("Cannot infer multivariate Gaussian dimension.")
+        dim_int = int(dim_loc)
 
-        self.dim = dim_loc
-        self.pseudo_count = pseudo_count
+        self.dim = dim_int
+        self.pseudo_count = pseudo_count if pseudo_count is not None else (None, None)
         self.prior_mu = (
-            None if suff_stat[0] is None else np.reshape(suff_stat[0], dim_loc)
+            None if suff_stat[0] is None else np.reshape(suff_stat[0], dim_int)
         )
         self.prior_covar = (
             None
             if suff_stat[1] is None
-            else np.reshape(suff_stat[1], (dim_loc, dim_loc))
+            else np.reshape(suff_stat[1], (dim_int, dim_int))
         )
         self.name = name
         self.keys = keys
@@ -434,10 +451,14 @@ class MultivariateGaussianEstimator(ParameterEstimator):
         )
 
     def estimate(
-        self, nobs: Optional[float], suff_stat: Tuple[np.ndarray, np.ndarray, float]
+        self,
+        nobs: Optional[float],
+        suff_stat: Tuple[Optional[np.ndarray], Optional[np.ndarray], float],
     ) -> "MultivariateGaussianDistribution":
 
         nobs = suff_stat[2]
+        assert suff_stat[0] is not None
+        assert suff_stat[1] is not None
         pc1, pc2 = self.pseudo_count
 
         if pc1 is not None and self.prior_mu is not None:
@@ -486,10 +507,11 @@ class MultivariateGaussianDataEncoder(DataSequenceEncoder):
     def seq_encode(
         self, x: Union[Sequence[List[float]], Sequence[List[np.ndarray]], np.ndarray]
     ) -> "MultivariateGaussianEncodedDataSequence":
-        self.dim = len(x[0]) if self.dim is None else self.dim
+        dim = len(x[0]) if self.dim is None else self.dim
+        self.dim = dim
 
         return MultivariateGaussianEncodedDataSequence(
-            data=np.reshape(np.asarray(x), (-1, self.dim))
+            data=np.reshape(np.asarray(x), (-1, dim))
         )
 
 
@@ -501,7 +523,7 @@ class MultivariateGaussianEncodedDataSequence(EncodedDataSequence):
 
     """
 
-    def __init__(self, data: np.ndarray):
+    def __init__(self, data: np.ndarray) -> None:
         """MultivariateEncodedDataSequence object.
 
         Args:

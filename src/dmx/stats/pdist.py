@@ -135,12 +135,11 @@ class SequenceEncodableProbabilityDistribution(ProbabilityDistribution):
     """Extends the ProbabilityDistribution to handle vectorized calls."""
 
     @abstractmethod
-    def seq_log_density(self, x: "EncodedDataSequence") -> np.ndarray:
+    def seq_log_density(self, x: Any) -> np.ndarray:
         """Vectorized evaluation of the log density.
 
         Args:
-            x (EncodedDataSequence): Encoded sequence for the corresponding
-                probability distribution.
+            x: Encoded sequence for the corresponding probability distribution.
 
         Returns:
             np.ndarray
@@ -167,36 +166,33 @@ class SequenceEncodableProbabilityDistribution(ProbabilityDistribution):
         """
         return [self.seq_log_density]
 
-    def seq_ld_lambda(self) -> None:
+    def seq_ld_lambda(self) -> list[Any]:
         """Legacy method stub for compatibility.
 
-        This method exists for backward compatibility and does nothing.
+        Returns the vectorized log-density callable list used by older helpers.
 
         """
-        ...
+        return [self.seq_log_density]
 
 
 class DistributionSampler:
     """DistributionSampler is an Abstract class for distribution samplers.
 
     Attributes:
-        dist (SequenceEncodableProbabilityDistribution): Distribution to sample from.
+        dist: Distribution to sample from.
         rng (RandomState): Random number generator.
 
     """
 
-    def __init__(
-        self, dist: SequenceEncodableProbabilityDistribution, seed: Optional[int] = None
-    ) -> None:
+    def __init__(self, dist: Any, seed: Optional[int] = None) -> None:
         """Initialize DistributionSampler.
 
         Args:
-            dist (SequenceEncodableProbabilityDistribution): Distribution to
-                sample from.
+            dist: Distribution to sample from.
             seed (Optional[int]): Used to set seed on rng.
 
         """
-        self.dist = dist
+        self.dist: Any = dist
         self.rng = np.random.RandomState(seed)
 
     def new_seed(self) -> int:
@@ -270,7 +266,7 @@ class StatisticAccumulator(Generic[SS]):
         self,
         x: Any,
         weight: float,
-        estimate: Optional[SequenceEncodableProbabilityDistribution],
+        estimate: Any,
     ) -> None:
         """Accumulate sufficient statistics for a single data observation.
 
@@ -280,13 +276,12 @@ class StatisticAccumulator(Generic[SS]):
         Args:
             x (Any): Data type corresponding to StatisticAccumulator object.
             weight (float): Weight associated with single observation.
-            estimate (SequenceEncodableProbabilityDistribution): Previous
-                estimate of distribution.
+            estimate: Previous estimate of distribution.
 
         """
         ...
 
-    def initialize(self, x: Any, weight: float, _rng: np.random.RandomState) -> None:
+    def initialize(self, x: Any, weight: float, rng: Any) -> None:
         """Initialize sufficient statistics for a single data observation.
 
         Note:
@@ -295,10 +290,10 @@ class StatisticAccumulator(Generic[SS]):
         Args:
             x (Any): Data type corresponding to StatisticAccumulator object.
             weight (float): Weight associated with single observation.
-            _rng (np.random.RandomState): Seed for initialization. Unused in
-                the base implementation.
+            rng: Seed for initialization. Unused in the base implementation.
 
         """
+        del rng
         self.update(x, weight, estimate=None)
 
     @abstractmethod
@@ -364,45 +359,39 @@ class SequenceEncodableStatisticAccumulator(StatisticAccumulator[SS]):
 
     """
 
-    def get_seq_lambda(self) -> None:
+    def get_seq_lambda(self) -> list[Any]:
         """Legacy method stub for compatibility.
 
-        This method exists for backward compatibility and does nothing.
+        Returns the vectorized update callable list used by older helpers.
 
         """
-        ...
+        return [self.seq_update]
 
     @abstractmethod
     def seq_update(
         self,
-        x: "EncodedDataSequence",
+        x: Any,
         weights: np.ndarray,
-        estimate: Optional[SequenceEncodableProbabilityDistribution],
+        estimate: Any,
     ) -> None:
         """Vectorized accumulation of sufficient statistics for EM updates.
 
         Args:
-            x (EncodedDataSequence): Encoded sequence for this accumulator
-                type.
+            x: Encoded sequence for this accumulator type.
             weights (np.ndarray): weights for observations.
-            estimate (Optional[SequenceEncodableProbabilityDistribution]):
-                Optional previous estimate of distribution.
+            estimate: Optional previous estimate of distribution.
 
         """
         ...
 
     @abstractmethod
-    def seq_initialize(
-        self, x: "EncodedDataSequence", weights: np.ndarray, rng: np.random.RandomState
-    ) -> None:
+    def seq_initialize(self, x: Any, weights: np.ndarray, rng: Any) -> None:
         """Vectorized initialization of sufficient statistics.
 
         Args:
-            x (EncodedDataSequence): Encoded sequence for this accumulator
-                type.
+            x: Encoded sequence for this accumulator type.
             weights (np.ndarray): weights for observations.
-            rng (np.random.RandomState): RandomState used to set the
-                initialization seed.
+            rng: RandomState used to set the initialization seed.
 
         """
         ...

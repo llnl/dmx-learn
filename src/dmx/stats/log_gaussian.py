@@ -57,8 +57,8 @@ class LogGaussianDistribution(SequenceEncodableProbabilityDistribution):
         super().__init__()
         self.mu = mu
         self.sigma2 = 1.0 if (sigma2 <= 0 or isnan(sigma2) or isinf(sigma2)) else sigma2
-        self.log_const = -0.5 * log(2.0 * pi * self.sigma2)
-        self.const = 1.0 / sqrt(2.0 * pi * self.sigma2)
+        self.log_const = float(-0.5 * log(2.0 * pi * self.sigma2))
+        self.const = float(1.0 / sqrt(2.0 * pi * self.sigma2))
         self.name = name
         self.keys = keys
 
@@ -80,7 +80,9 @@ class LogGaussianDistribution(SequenceEncodableProbabilityDistribution):
             float: Density of Log-Gaussian at x.
 
         """
-        return self.const * exp(-0.5 * (np.log(x) - self.mu) ** 2 / self.sigma2) / x
+        return float(
+            self.const * exp(-0.5 * (np.log(x) - self.mu) ** 2 / self.sigma2) / x
+        )
 
     def log_density(self, x: float) -> float:
         """Log-density of log-Gaussian distribution at observation x.
@@ -92,7 +94,7 @@ class LogGaussianDistribution(SequenceEncodableProbabilityDistribution):
             float: Log-density at observation x.
 
         """
-        return (
+        return float(
             self.log_const - 0.5 * (np.log(x) - self.mu) ** 2 / self.sigma2 - np.log(x)
         )
 
@@ -112,7 +114,7 @@ class LogGaussianDistribution(SequenceEncodableProbabilityDistribution):
         rv += self.log_const
         rv -= x.data
 
-        return rv
+        return np.asarray(rv)
 
     def sampler(self, seed: Optional[int] = None) -> "LogGaussianSampler":
         return LogGaussianSampler(self, seed)
@@ -387,7 +389,7 @@ class LogGaussianDataEncoder(DataSequenceEncoder):
     def __str__(self) -> str:
         return "LogGaussianDataEncoder"
 
-    def __eq__(self, other) -> bool:
+    def __eq__(self, other: object) -> bool:
         return isinstance(other, LogGaussianDataEncoder)
 
     def seq_encode(

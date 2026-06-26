@@ -51,8 +51,8 @@ class GeometricDistribution(SequenceEncodableProbabilityDistribution):
         """
         super().__init__()
         self.p = max(0.0, min(p, 1.0))
-        self.log_p = np.log(self.p)
-        self.log_1p = np.log1p(-self.p)
+        self.log_p = float(np.log(self.p))
+        self.log_1p = float(np.log1p(-self.p))
         self.name = name
         self.keys = keys
 
@@ -75,7 +75,7 @@ class GeometricDistribution(SequenceEncodableProbabilityDistribution):
         Returns:
             float: Density of geometric distribution evaluated at x.
         """
-        return exp(self.log_density(x))
+        return float(exp(self.log_density(x)))
 
     def log_density(self, x: int) -> float:
         """Evaluate the log-density of the geometric distribution at x.
@@ -86,7 +86,7 @@ class GeometricDistribution(SequenceEncodableProbabilityDistribution):
         Returns:
             float: Log-density of geometric distribution evaluated at x.
         """
-        return (x - 1) * self.log_1p + self.log_p
+        return float((x - 1) * self.log_1p + self.log_p)
 
     def seq_log_density(self, x: "GeometricEncodedDataSequence") -> np.ndarray:
         """Vectorized log-density for encoded data.
@@ -106,7 +106,7 @@ class GeometricDistribution(SequenceEncodableProbabilityDistribution):
         rv *= self.log_1p
         rv += self.log_p
 
-        return rv
+        return np.asarray(rv)
 
     def sampler(self, seed: Optional[int] = None) -> "GeometricSampler":
         """Return a GeometricSampler for this distribution.

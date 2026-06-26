@@ -155,7 +155,7 @@ class JointMixtureDistribution(SequenceEncodableProbabilityDistribution):
         )
 
     def density(self, x: Tuple[T0, T1]) -> float:
-        return exp(self.log_density(x))
+        return float(exp(self.log_density(x)))
 
     def log_density(self, x: Tuple[T0, T1]) -> float:
         ll1 = np.zeros((1, self.num_components1))
@@ -179,7 +179,7 @@ class JointMixtureDistribution(SequenceEncodableProbabilityDistribution):
 
         rv = np.log(ll2.sum()) + max1 + max2
 
-        return rv
+        return float(rv)
 
     def seq_log_density(self, x: "JointMixtureEncodedDataSequence") -> np.ndarray:
 
@@ -212,7 +212,7 @@ class JointMixtureDistribution(SequenceEncodableProbabilityDistribution):
 
         rv = np.log(ll_mat2.sum(axis=1)) + ll_max1[:, 0] + ll_max2[:, 0]
 
-        return rv
+        return np.asarray(rv, dtype=float)
 
     def sampler(self, seed: Optional[int] = None) -> "JointMixtureSampler":
         return JointMixtureSampler(self, seed)
@@ -223,10 +223,13 @@ class JointMixtureDistribution(SequenceEncodableProbabilityDistribution):
         estimators1 = [comp1.estimator() for comp1 in self.components1]
         estimators2 = [comp2.estimator() for comp2 in self.components2]
 
+        pc = (
+            None if pseudo_count is None else (pseudo_count, pseudo_count, pseudo_count)
+        )
         return JointMixtureEstimator(
             estimators1=estimators1,
             estimators2=estimators2,
-            pseudo_count=pseudo_count,
+            pseudo_count=pc,
             keys=self.keys,
             name=self.name,
         )
@@ -287,7 +290,12 @@ class JointMixtureSampler(DistributionSampler):
             f2 = self.comp_sampler2[comp_state2].sample()
 
             return f1, f2
-        return [self.sample() for i in range(size)]
+        rv: List[Tuple[Any, Any]] = []
+        for _ in range(size):
+            sample = self.sample()
+            assert isinstance(sample, tuple)
+            rv.append(sample)
+        return rv
 
 
 class JointMixtureEstimatorAccumulator(SequenceEncodableStatisticAccumulator):
@@ -394,6 +402,10 @@ class JointMixtureEstimatorAccumulator(SequenceEncodableStatisticAccumulator):
         if not self._rng_init:
             self._rng_initialize(rng)
 
+        assert self._idx1_rng is not None
+        assert self._acc1_rng is not None
+        assert self._acc2_rng is not None
+
         # idx1 = self._idx1_rng.choice(self.num_components1)
         # idx2 = self._idx2_rng.choice(self.num_components2)
 
@@ -412,12 +424,19 @@ class JointMixtureEstimatorAccumulator(SequenceEncodableStatisticAccumulator):
             self.comp_counts2[i] += w
 
     def seq_initialize(
-        self, x: "JointMixtureEncodedDataSequence", weights, rng
+        self,
+        x: "JointMixtureEncodedDataSequence",
+        weights: np.ndarray,
+        rng: RandomState,
     ) -> None:
         sz, enc1, enc2 = x.data
 
         if not self._rng_init:
             self._rng_initialize(rng)
+
+        assert self._idx1_rng is not None
+        assert self._acc1_rng is not None
+        assert self._acc2_rng is not None
 
         # idx1 = self._idx1_rng.choice(self.num_components1, size=sz)
         # idx2 = self._idx2_rng.choice(self.num_components2, size=sz)
@@ -714,7 +733,7 @@ class JointMixtureEstimator(ParameterEstimator):
 
     def estimate(
         self,
-        nobs,
+        nobs: Optional[float],
         suff_stat: Tuple[
             np.ndarray, np.ndarray, np.ndarray, Tuple[E0, ...], Tuple[E1, ...]
         ],

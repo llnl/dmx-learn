@@ -74,7 +74,9 @@ class DiagonalGaussianDistribution(SequenceEncodableProbabilityDistribution):
         self.mu = np.asarray(mu, dtype=float)
         self.covar = np.asarray(covar, dtype=float)
         self.name = name
-        self.log_c = -0.5 * (np.log(2.0 * np.pi) * self.dim + np.log(self.covar).sum())
+        self.log_c = float(
+            -0.5 * (np.log(2.0 * np.pi) * self.dim + np.log(self.covar).sum())
+        )
         self.ca = -0.5 / self.covar
         self.cb = self.mu / self.covar
         self.cc = (-0.5 * self.mu * self.mu / self.covar).sum() + self.log_c
@@ -97,7 +99,7 @@ class DiagonalGaussianDistribution(SequenceEncodableProbabilityDistribution):
         Returns:
             float: Density at x.
         """
-        return np.exp(self.log_density(x))
+        return float(np.exp(self.log_density(x)))
 
     def log_density(self, x: Union[Sequence[float], np.ndarray]) -> float:
         """Evaluate the log-density of the DiagonalGaussianDistribution.
@@ -108,10 +110,11 @@ class DiagonalGaussianDistribution(SequenceEncodableProbabilityDistribution):
         Returns:
             float: Log-density at x.
         """
-        rv = np.dot(x * x, self.ca)
-        rv += np.dot(x, self.cb)
+        xx = np.asarray(x, dtype=float)
+        rv = np.dot(xx * xx, self.ca)
+        rv += np.dot(xx, self.cb)
         rv += self.cc
-        return rv
+        return float(rv)
 
     def seq_log_density(self, x: "DiagonalGaussianEncodedDataSequence") -> np.ndarray:
         """Vectorized log-density for encoded data.
@@ -131,7 +134,7 @@ class DiagonalGaussianDistribution(SequenceEncodableProbabilityDistribution):
         rv = np.dot(x.data * x.data, self.ca)
         rv += np.dot(x.data, self.cb)
         rv += self.cc
-        return rv
+        return np.asarray(rv)
 
     def sampler(self, seed: Optional[int] = None) -> "DiagonalGaussianSampler":
         """Return a DiagonalGaussianSampler for this distribution.
@@ -208,7 +211,10 @@ class DiagonalGaussianSampler(DistributionSampler):
             rv *= np.sqrt(self.dist.covar)
             rv += self.dist.mu
             return rv
-        return [self.sample() for _ in range(size)]
+        rv = self.rng.randn(size, self.dist.dim)
+        rv *= np.sqrt(self.dist.covar)
+        rv += self.dist.mu
+        return [np.asarray(row) for row in rv]
 
 
 class DiagonalGaussianAccumulator(SequenceEncodableStatisticAccumulator):
@@ -240,6 +246,8 @@ class DiagonalGaussianAccumulator(SequenceEncodableStatisticAccumulator):
         self.dim = dim
         self.count = 0.0
         self.count2 = 0.0
+        self.sum: Optional[np.ndarray]
+        self.sum2: Optional[np.ndarray]
         self.sum = vec.zeros(dim) if dim is not None else None
         self.sum2 = vec.zeros(dim) if dim is not None else None
         self.keys = keys
@@ -263,11 +271,14 @@ class DiagonalGaussianAccumulator(SequenceEncodableStatisticAccumulator):
             self.sum = vec.zeros(self.dim)
             self.sum2 = vec.zeros(self.dim)
 
-        x_weight = x * weight
+        assert self.sum is not None
+        assert self.sum2 is not None
+        xx = np.asarray(x, dtype=float)
+        x_weight = xx * weight
         self.count += weight
         self.count2 += weight
         self.sum += x_weight
-        x_weight *= x
+        x_weight *= xx
         self.sum2 += x_weight
 
     def initialize(
@@ -301,6 +312,8 @@ class DiagonalGaussianAccumulator(SequenceEncodableStatisticAccumulator):
             self.sum = vec.zeros(self.dim)
             self.sum2 = vec.zeros(self.dim)
 
+        assert self.sum is not None
+        assert self.sum2 is not None
         x_weight = np.multiply(x.data.T, weights)
         self.count += weights.sum()
         self.count2 += weights.sum()
@@ -324,7 +337,7 @@ class DiagonalGaussianAccumulator(SequenceEncodableStatisticAccumulator):
         self.seq_update(x, weights, None)
 
     def combine(
-        self, suff_stat: Tuple[np.ndarray, np.ndarray, float, float]
+        self, suff_stat: Tuple[Optional[np.ndarray], Optional[np.ndarray], float, float]
     ) -> "DiagonalGaussianAccumulator":
         """Combine another accumulator's sufficient statistics into this one.
 
@@ -336,18 +349,20 @@ class DiagonalGaussianAccumulator(SequenceEncodableStatisticAccumulator):
             DiagonalGaussianAccumulator: Self after combining.
         """
         if suff_stat[0] is not None and self.sum is not None:
+            assert suff_stat[1] is not None
             self.sum += suff_stat[0]
             self.sum2 += suff_stat[1]
             self.count += suff_stat[2]
             self.count2 += suff_stat[3]
         elif suff_stat[0] is not None and self.sum is None:
+            assert suff_stat[1] is not None
             self.sum = suff_stat[0]
             self.sum2 = suff_stat[1]
             self.count = suff_stat[2]
             self.count2 = suff_stat[3]
         return self
 
-    def value(self) -> Tuple[np.ndarray, np.ndarray, float, float]:
+    def value(self) -> Tuple[Optional[np.ndarray], Optional[np.ndarray], float, float]:
         """Return the sufficient statistics as a tuple.
 
         Returns:
@@ -356,7 +371,7 @@ class DiagonalGaussianAccumulator(SequenceEncodableStatisticAccumulator):
         return self.sum, self.sum2, self.count, self.count2
 
     def from_value(
-        self, x: Tuple[np.ndarray, np.ndarray, float, float]
+        self, x: Tuple[Optional[np.ndarray], Optional[np.ndarray], float, float]
     ) -> "DiagonalGaussianAccumulator":
         """Set the sufficient statistics from a tuple.
 
@@ -518,15 +533,18 @@ class DiagonalGaussianEstimator(ParameterEstimator):
                 else len(suff_stat[0])
             )
         )
+        if dim_loc is None:
+            raise ValueError("Cannot infer diagonal Gaussian dimension.")
+        dim_int = int(dim_loc)
 
         self.name = name
-        self.dim = dim_loc
+        self.dim = dim_int
         self.pseudo_count = pseudo_count
         self.prior_mu = (
-            None if suff_stat[0] is None else np.reshape(suff_stat[0], dim_loc)
+            None if suff_stat[0] is None else np.reshape(suff_stat[0], dim_int)
         )
         self.prior_covar = (
-            None if suff_stat[1] is None else np.reshape(suff_stat[1], dim_loc)
+            None if suff_stat[1] is None else np.reshape(suff_stat[1], dim_int)
         )
         self.keys = keys
 
@@ -541,7 +559,9 @@ class DiagonalGaussianEstimator(ParameterEstimator):
         )
 
     def estimate(
-        self, nobs: Optional[float], suff_stat: Tuple[np.ndarray, np.ndarray, float]
+        self,
+        nobs: Optional[float],
+        suff_stat: Tuple[Optional[np.ndarray], Optional[np.ndarray], float],
     ) -> "DiagonalGaussianDistribution":
         """Estimate a DiagonalGaussianDistribution from sufficient statistics.
 
@@ -553,6 +573,8 @@ class DiagonalGaussianEstimator(ParameterEstimator):
             DiagonalGaussianDistribution: Estimated distribution.
         """
         nobs = suff_stat[2]
+        assert suff_stat[0] is not None
+        assert suff_stat[1] is not None
         pc1, pc2 = self.pseudo_count
 
         if pc1 is not None and self.prior_mu is not None:
@@ -616,7 +638,8 @@ class DiagonalGaussianDataEncoder(DataSequenceEncoder):
         """
         if self.dim is None:
             self.dim = len(x[0])
-        xv = np.reshape(x, (-1, self.dim))
+        dim = self.dim
+        xv = np.reshape(np.asarray(x, dtype=float), (-1, dim))
         return DiagonalGaussianEncodedDataSequence(data=xv)
 
 
@@ -627,7 +650,7 @@ class DiagonalGaussianEncodedDataSequence(EncodedDataSequence):
         data (np.ndarray): Numpy array of observations.
     """
 
-    def __init__(self, data: np.ndarray):
+    def __init__(self, data: np.ndarray) -> None:
         """Initialize DiagonalGaussianEncodedDataSequence.
 
         Args:

@@ -32,7 +32,7 @@ class IntegerStepBernoulliEditDistribution(SequenceEncodableProbabilityDistribut
         log_edit_pmat: Union[Sequence[Tuple[float, float]], np.ndarray],
         init_dist: Optional[
             SequenceEncodableProbabilityDistribution
-        ] = NullDistribution,
+        ] = NullDistribution(),
         name: Optional[str] = None,
         keys: Optional[str] = None,
     ) -> None:
@@ -78,7 +78,7 @@ class IntegerStepBernoulliEditDistribution(SequenceEncodableProbabilityDistribut
         )
 
     def density(self, x: T) -> float:
-        return exp(self.log_density(x))
+        return float(exp(self.log_density(x)))
 
     def log_density(self, x: T) -> float:
         xx0 = np.asarray(x[0], dtype=int)
@@ -104,7 +104,7 @@ class IntegerStepBernoulliEditDistribution(SequenceEncodableProbabilityDistribut
         # rv = ln p_mat(x[1] | x[0]) + ln(p_mat(x[0]) = ln p_mat(x[0], x[1])
         rv += self.init_dist.log_density(x[0])
 
-        return rv
+        return float(rv)
 
     def seq_log_density(
         self, x: "IntegerStepBernoulliEncodedDataSequence"
@@ -121,7 +121,7 @@ class IntegerStepBernoulliEditDistribution(SequenceEncodableProbabilityDistribut
 
         rv += self.init_dist.seq_log_density(init_enc)
 
-        return rv
+        return np.asarray(rv, dtype=float)
 
     def sampler(self, seed: Optional[int] = None) -> "IntegerStepBernoulliEditSampler":
         return IntegerStepBernoulliEditSampler(self, seed)
@@ -159,16 +159,18 @@ class IntegerStepBernoulliEditSampler(DistributionSampler):
         if size is None:
 
             temp = np.log(self.rng.rand(self.dist.num_vals))
-            rv = np.zeros(self.dist.num_vals, dtype=bool)
+            mask = np.zeros(self.dist.num_vals, dtype=bool)
             prev_ob = np.asarray(self.init_rng.sample(), dtype=int)
 
-            rv[temp <= self.dist.log_edit_pmat[:, 2]] = True
-            rv[prev_ob] = temp[prev_ob] <= self.dist.log_edit_pmat[prev_ob, 3]
+            mask[temp <= self.dist.log_edit_pmat[:, 2]] = True
+            mask[prev_ob] = temp[prev_ob] <= self.dist.log_edit_pmat[prev_ob, 3]
 
-            return list(prev_ob), list(np.flatnonzero(rv))
-        rv = []
+            return list(prev_ob), list(np.flatnonzero(mask))
+        rv: List[Tuple[List[int], List[int]]] = []
         for _ in range(size):
-            rv.append(self.sample())
+            sample = self.sample()
+            assert isinstance(sample, tuple)
+            rv.append(sample)
         return rv
 
     def sample_given(self, x: Sequence[Sequence[int]]) -> Sequence[int]:
@@ -198,7 +200,7 @@ class IntegerStepBernoulliEditAccumulator(SequenceEncodableStatisticAccumulator)
         self.init_acc = init_acc if init_acc is not None else NullAccumulator()
         self.tot_sum = 0.0
 
-        self._acc_rng = None
+        self._acc_rng: Optional[RandomState] = None
         self._init_rng = False
 
     def update(
@@ -254,6 +256,7 @@ class IntegerStepBernoulliEditAccumulator(SequenceEncodableStatisticAccumulator)
         weights: np.ndarray,
         estimate: Optional[IntegerStepBernoulliEditDistribution],
     ) -> None:
+        assert estimate is not None
 
         _sz, idx, xs, _ys, ym, init_enc = x.data
 
@@ -339,7 +342,7 @@ class IntegerStepBernoulliEditAccumulatorFactory(StatisticAccumulatorFactory):
     def __init__(
         self,
         num_vals: int,
-        init_factory: Optional[StatisticAccumulatorFactory] = NullAccumulatorFactory,
+        init_factory: Optional[StatisticAccumulatorFactory] = NullAccumulatorFactory(),
         name: Optional[str] = None,
         keys: Optional[str] = None,
     ) -> None:
@@ -420,6 +423,7 @@ class IntegerStepBernoulliEditEstimator(ParameterEstimator):
                 max_params = (p, q, k - 1)
                 max_ll = ll
 
+        assert max_params is not None
         p, q, k = max_params
 
         arr = np.zeros(len(sidx))
@@ -544,10 +548,10 @@ class IntegerStepBernoulliEditDataEncoder(DataSequenceEncoder):
         return False
 
     def seq_encode(self, x: Sequence[T]) -> "IntegerStepBernoulliEncodedDataSequence":
-        idx = []
-        xs = []
-        ys = []
-        pre = []
+        idx: List[int] = []
+        xs: List[int] = []
+        ys: List[int] = []
+        pre: List[Union[Sequence[int], np.ndarray]] = []
 
         for i, xx in enumerate(x):
             pre.append(xx[0])
@@ -560,22 +564,30 @@ class IntegerStepBernoulliEditDataEncoder(DataSequenceEncoder):
 
             new_x = np.concatenate([xx0[to_rem], xx1[~to_add], xx1[to_add]])
             new_i = np.concatenate(
-                [[0] * np.sum(to_rem), [1] * np.sum(~to_add), [2] * np.sum(to_add)]
+                [
+                    np.full(int(np.sum(to_rem)), 0, dtype=np.int32),
+                    np.full(int(np.sum(~to_add)), 1, dtype=np.int32),
+                    np.full(int(np.sum(to_add)), 2, dtype=np.int32),
+                ]
             )
 
             idx.extend([i] * len(new_x))
             xs.extend(list(new_x))
             ys.extend(list(new_i))
 
-        idx = np.asarray(idx, dtype=np.int32)
-        xs = np.asarray(xs, dtype=np.int32)
-        ys = np.asarray(ys, dtype=np.int32)
-        ym = (np.flatnonzero(ys == 0), np.flatnonzero(ys == 1), np.flatnonzero(ys == 2))
+        idx_arr = np.asarray(idx, dtype=np.int32)
+        xs_arr = np.asarray(xs, dtype=np.int32)
+        ys_arr = np.asarray(ys, dtype=np.int32)
+        ym = (
+            np.flatnonzero(ys_arr == 0),
+            np.flatnonzero(ys_arr == 1),
+            np.flatnonzero(ys_arr == 2),
+        )
 
         init_enc = self.init_encoder.seq_encode(pre)
 
         return IntegerStepBernoulliEncodedDataSequence(
-            data=(len(x), idx, xs, ys, ym, init_enc)
+            data=(len(x), idx_arr, xs_arr, ys_arr, ym, init_enc)
         )
 
 

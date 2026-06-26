@@ -41,7 +41,7 @@ the unique values of Y = (Y_1,...,Y_N) in V as well.
 """
 
 import math
-from typing import Any, Dict, List, Optional, Sequence, Tuple, TypeVar, Union
+from typing import Any, Dict, List, Optional, Sequence, Tuple, TypeVar, Union, cast
 
 import numpy as np
 
@@ -141,15 +141,15 @@ class HiddenAssociationDistribution(SequenceEncodableProbabilityDistribution):
         )
 
     def density(self, x: Tuple[List[Tuple[T, float]], List[Tuple[T, float]]]) -> float:
-        return exp(self.log_density(x))
+        return float(exp(self.log_density(x)))
 
     def log_density(
         self, x: Tuple[List[Tuple[T, float]], List[Tuple[T, float]]]
     ) -> float:
-        rv = 0
-        nn = 0
+        rv = 0.0
+        nn = 0.0
         for x1, c1 in x[1]:
-            cc = 0  # count for counts in given
+            cc = 0.0  # count for counts in given
             nn += c1
             ll = -np.inf
             for x0, c0 in x[0]:
@@ -170,7 +170,7 @@ class HiddenAssociationDistribution(SequenceEncodableProbabilityDistribution):
         rv += self.given_dist.log_density(x[0])
         rv += self.len_dist.log_density(nn)
 
-        return rv
+        return float(rv)
 
     def seq_log_density(self, x: "HiddenAssociationEncodedDataSequence") -> np.ndarray:
         if not isinstance(x, HiddenAssociationEncodedDataSequence):
@@ -211,6 +211,7 @@ class HiddenAssociationSampler(DistributionSampler):
             )
 
         super().__init__(dist, seed)
+        self.dist = dist
 
         self.cond_sampler = dist.cond_dist.sampler(seed=self.rng.randint(0, maxrandint))
         self.idx_sampler = np.random.RandomState(seed=self.rng.randint(0, maxrandint))
@@ -221,40 +222,43 @@ class HiddenAssociationSampler(DistributionSampler):
             seed=self.rng.randint(0, maxrandint)
         )
 
+    def _sample_single(
+        self,
+    ) -> Tuple[List[Tuple[Any, float]], List[Tuple[Any, float]]]:
+        prev_obs = cast(List[Tuple[Any, float]], self.given_sampler.sample())
+        cnt = int(self.len_sampler.sample())
+        rng = np.random.RandomState(self.idx_sampler.randint(0, maxrandint))
+        rv: List[Any] = []
+        pp = np.asarray([u[1] for u in prev_obs], dtype=float)
+        pp /= pp.sum()
+
+        for i in rng.choice(len(prev_obs), p=pp, size=cnt):
+            rv.append(self.cond_sampler.sample_given(prev_obs[int(i)][0]))
+
+        counted = [(k, float(v)) for k, v in count_by_value(rv).items()]
+
+        return prev_obs, counted
+
     def sample(self, size: Optional[int] = None) -> Union[
         Sequence[Tuple[List[Tuple[Any, float]], List[Tuple[Any, float]]]],
         Tuple[List[Tuple[Any, float]], List[Tuple[Any, float]]],
     ]:
         if size is None:
-            prev_obs = self.given_sampler.sample()
-            cnt = self.len_sampler.sample()
-            rng = np.random.RandomState(self.idx_sampler.randint(0, maxrandint))
-            rv = []
-            pp = np.asarray([u[1] for u in prev_obs], dtype=float)
-            pp /= pp.sum()
+            return self._sample_single()
 
-            for i in rng.choice(len(prev_obs), p=pp, size=cnt):
-                rv.append(self.cond_sampler.sample_given(prev_obs[i][0]))
+        return [self._sample_single() for i in range(size)]
 
-            rv = list(count_by_value(rv).items())
-
-            return prev_obs, rv
-
-        return [self.sample() for i in range(size)]
-
-    def sample_given(self, x: List[Tuple[T, float]]):
-        cnt = self.len_sampler.sample()
+    def sample_given(self, x: List[Tuple[T, float]]) -> List[Tuple[Any, float]]:
+        cnt = int(self.len_sampler.sample())
         rng = np.random.RandomState(self.idx_sampler.randint(0, maxrandint))
-        rv = []
+        rv: List[Any] = []
         pp = np.asarray([u[1] for u in x], dtype=float)
         pp /= pp.sum()
 
         for i in rng.choice(len(x), p=pp, size=cnt):
-            rv.append(self.cond_sampler.sample_given(x[i][0]))
+            rv.append(self.cond_sampler.sample_given(x[int(i)][0]))
 
-        rv = list(count_by_value(rv).items())
-
-        return rv
+        return [(k, float(v)) for k, v in count_by_value(rv).items()]
 
 
 class HiddenAssociationAccumulator(SequenceEncodableStatisticAccumulator):
@@ -272,9 +276,8 @@ class HiddenAssociationAccumulator(SequenceEncodableStatisticAccumulator):
             given_acc if given_acc is not None else NullAccumulator()
         )
         self.size_accumulator = size_acc if size_acc is not None else NullAccumulator()
-        self.init_key, self.trans_key = keys[0], (
-            keys[1] if keys is not None else (None, None)
-        )
+        key_pair = keys if keys is not None else (None, None)
+        self.init_key, self.trans_key = key_pair
         self.name = name
 
     def update(
@@ -283,11 +286,11 @@ class HiddenAssociationAccumulator(SequenceEncodableStatisticAccumulator):
         weight: float,
         estimate: HiddenAssociationDistribution,
     ) -> None:
-        nn = 0
+        nn = 0.0
         pv = np.zeros(len(x[0]))
 
         for x1, c1 in x[1]:
-            cc = 0
+            cc = 0.0
             nn += c1
             ll = -np.inf
 
@@ -327,7 +330,7 @@ class HiddenAssociationAccumulator(SequenceEncodableStatisticAccumulator):
         rng: np.random.RandomState,
     ) -> None:
         w = rng.dirichlet(np.ones(len(x[0])), size=len(x[1]))
-        nn = 0
+        nn = 0.0
         for j, (x1, c1) in enumerate(x[1]):
             nn += c1
             for i, (x0, _c0) in enumerate(x[0]):
@@ -362,7 +365,7 @@ class HiddenAssociationAccumulator(SequenceEncodableStatisticAccumulator):
     ) -> "HiddenAssociationAccumulator":
         cond_acc, given_acc, size_acc = suff_stat
 
-        self.cond_accumulator.combine(cond_acc)
+        cast(Any, self.cond_accumulator).combine(cond_acc)
         self.given_accumulator.combine(given_acc)
         self.size_accumulator.combine(size_acc)
 
@@ -380,7 +383,7 @@ class HiddenAssociationAccumulator(SequenceEncodableStatisticAccumulator):
     ) -> "HiddenAssociationAccumulator":
         cond_acc, given_acc, size_acc = x
 
-        self.cond_accumulator.from_value(cond_acc)
+        cast(Any, self.cond_accumulator).from_value(cond_acc)
         self.given_accumulator.from_value(given_acc)
         self.size_accumulator.from_value(size_acc)
 
@@ -513,7 +516,7 @@ class HiddenAssociationEstimator(ParameterEstimator):
 
         cond_stats, given_stats, size_stats = suff_stat
 
-        cond_dist = self.cond_estimator.estimate(None, cond_stats)
+        cond_dist = cast(Any, self.cond_estimator).estimate(None, cond_stats)
         given_dist = self.given_estimator.estimate(nobs, given_stats)
         len_dist = self.len_estimator.estimate(nobs, size_stats)
 
@@ -531,7 +534,7 @@ class HiddenAssociationDataEncoder(DataSequenceEncoder):
     def __str__(self) -> str:
         return "HiddenAssociationDataEncoder"
 
-    def __eq__(self, other) -> bool:
+    def __eq__(self, other: object) -> bool:
         return isinstance(other, HiddenAssociationDataEncoder)
 
     def seq_encode(
@@ -550,7 +553,7 @@ class HiddenAssociationEncodedDataSequence(EncodedDataSequence):
 
     def __init__(
         self, data: Sequence[Tuple[List[Tuple[T, float]], List[Tuple[T, float]]]]
-    ):
+    ) -> None:
         """HiddenAssociationEncodedDataSequence object.
 
         Args:

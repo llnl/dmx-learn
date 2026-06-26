@@ -83,11 +83,11 @@ class SpearmanRankingDistribution(SequenceEncodableProbabilityDistribution):
         )
 
     def density(self, x: List[int]) -> float:
-        return np.exp(self.log_density(x))
+        return float(np.exp(self.log_density(x)))
 
     def log_density(self, x: List[int]) -> float:
         temp = np.subtract(x, self.sigma)
-        return -self.rho * np.dot(temp, temp) - self.log_const
+        return float(-self.rho * np.dot(temp, temp) - self.log_const)
 
     def seq_log_density(self, x: "SpearmanRankingEncodedDataSequence") -> np.ndarray:
 
@@ -100,7 +100,7 @@ class SpearmanRankingDistribution(SequenceEncodableProbabilityDistribution):
         temp *= temp
         rv = np.sum(temp, axis=1) * -self.rho
         rv -= self.log_const
-        return rv
+        return np.asarray(rv, dtype=float)
 
     def sampler(self, seed: Optional[int] = None) -> "SpearmanRankingSampler":
         return SpearmanRankingSampler(self, seed)
@@ -149,8 +149,8 @@ class SpearmanRankingSampler(DistributionSampler):
         idx = self.rng.choice(len(self.perms), p=self.probs, replace=True, size=size)
 
         if size is None:
-            return self.perms[idx]
-        return [self.perms[u] for u in idx]
+            return self.perms[int(idx)]
+        return [self.perms[int(u)] for u in np.asarray(idx, dtype=int)]
 
 
 class SpearmanRankingAccumulator(SequenceEncodableStatisticAccumulator):

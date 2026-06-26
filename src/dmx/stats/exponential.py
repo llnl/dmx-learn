@@ -45,7 +45,7 @@ class ExponentialDistribution(SequenceEncodableProbabilityDistribution):
         """
         super().__init__()
         self.beta = beta
-        self.log_beta = np.log(beta)
+        self.log_beta = float(np.log(beta))
         self.name = name
         self.keys = keys
 
@@ -65,7 +65,7 @@ class ExponentialDistribution(SequenceEncodableProbabilityDistribution):
         Returns:
             float: Density evaluated at x.
         """
-        return np.exp(self.log_density(x))
+        return float(np.exp(self.log_density(x)))
 
     def log_density(self, x: float) -> float:
         """Evaluate the log-density of the exponential distribution at x.
@@ -78,7 +78,7 @@ class ExponentialDistribution(SequenceEncodableProbabilityDistribution):
         """
         if x < 0:
             return -inf
-        return -x / self.beta - self.log_beta
+        return float(-x / self.beta - self.log_beta)
 
     def seq_log_density(self, x: "ExponentialEncodedDataSequence") -> np.ndarray:
         """Vectorized log-density for encoded data.
@@ -96,7 +96,7 @@ class ExponentialDistribution(SequenceEncodableProbabilityDistribution):
 
         rv = x.data * (-1.0 / self.beta)
         rv -= self.log_beta
-        return rv
+        return np.asarray(rv)
 
     def sampler(self, seed: Optional[int] = None) -> "ExponentialSampler":
         """Return an ExponentialSampler for this distribution.

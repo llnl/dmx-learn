@@ -124,7 +124,7 @@ class BernoulliSetDistribution(SequenceEncodableProbabilityDistribution):
         )
 
     def density(self, x: Sequence[Any]) -> float:
-        return np.exp(self.log_density(x))
+        return float(np.exp(self.log_density(x)))
 
     def log_density(self, x: Sequence[Any]) -> float:
 
@@ -147,11 +147,13 @@ class BernoulliSetDistribution(SequenceEncodableProbabilityDistribution):
 
         dlog_loc = np.asarray([self.log_dmap[u] for u in val_map_inv], dtype=np.float64)
 
-        rv = np.bincount(idx, weights=dlog_loc[xs], minlength=sz)
+        rv = np.asarray(
+            np.bincount(idx, weights=dlog_loc[xs], minlength=sz), dtype=float
+        )
         rv += self.nlog_sum
 
         if self.num_required != 0:
-            required_loc = np.isin(val_map_inv, self.required)
+            required_loc = np.isin(val_map_inv, list(self.required))
             req_cnt = np.bincount(idx, weights=required_loc[xs], minlength=sz)
             rv[req_cnt != self.num_required] = -np.inf
 
@@ -207,7 +209,7 @@ class BernoulliSetSampler(DistributionSampler):
     ) -> Union[Sequence[Any], List[Sequence[Any]]]:
 
         if size is not None:
-            retval = [[] for i in range(size)]
+            retval: List[List[Any]] = [[] for i in range(size)]
             for k, v in self.dist.pmap.items():
                 for i in np.flatnonzero(self.rng.rand(size) <= v):
                     retval[i].append(k)
@@ -241,7 +243,7 @@ class BernoulliSetAccumulator(SequenceEncodableStatisticAccumulator):
             name (Optional[str]): Name for object.
 
         """
-        self.pmap = defaultdict(float)
+        self.pmap: Dict[Any, float] = defaultdict(float)
         self.tot_sum = 0.0
         self.keys = keys
         self.name = name
@@ -435,19 +437,21 @@ class BernoulliSetDataEncoder(DataSequenceEncoder):
     def seq_encode(
         self, x: Sequence[Sequence[Any]]
     ) -> "BernoulliSetEncodedDataSequence":
-        idx = []
-        xs = []
+        idx: List[int] = []
+        xs: List[Any] = []
 
         for i, x_i in enumerate(x):
             idx.extend([i] * len(x_i))
             xs.extend(x_i)
 
-        val_map, xs = np.unique(xs, return_inverse=True)
+        val_map, xs_inverse = np.unique(
+            np.asarray(xs, dtype=object), return_inverse=True
+        )
 
-        idx = np.asarray(idx, dtype=np.int32)
-        xs = np.asarray(xs, dtype=np.int32)
+        idx_arr = np.asarray(idx, dtype=np.int32)
+        xs_arr = np.asarray(xs_inverse, dtype=np.int32)
 
-        return BernoulliSetEncodedDataSequence(data=(len(x), idx, val_map, xs))
+        return BernoulliSetEncodedDataSequence(data=(len(x), idx_arr, val_map, xs_arr))
 
 
 class BernoulliSetEncodedDataSequence(EncodedDataSequence):

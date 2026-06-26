@@ -47,7 +47,7 @@ class WeightedDistribution(SequenceEncodableProbabilityDistribution):
         dist: SequenceEncodableProbabilityDistribution,
         name: Optional[str] = None,
         keys: Optional[str] = None,
-    ):
+    ) -> None:
         """WeightedDistribution object.
 
         Args:
@@ -68,7 +68,7 @@ class WeightedDistribution(SequenceEncodableProbabilityDistribution):
         )
 
     def density(self, x: Tuple[T, float]) -> float:
-        return np.exp(self.log_density(x))
+        return float(np.exp(self.log_density(x)))
 
     def log_density(self, x: Tuple[T, float]) -> float:
         return self.dist.log_density(x[0]) * x[1]
@@ -79,7 +79,7 @@ class WeightedDistribution(SequenceEncodableProbabilityDistribution):
                 "WeightedEncodedDataSequence required for seq_log_density()."
             )
 
-        return self.dist.seq_log_density(x.data[0]) * x.data[1]
+        return np.asarray(self.dist.seq_log_density(x.data[0]) * x.data[1])
 
     def dist_to_encoder(self) -> "WeightedDataEncoder":
         return WeightedDataEncoder(encoder=self.dist.dist_to_encoder())
@@ -115,7 +115,7 @@ class WeightedAccumulator(SequenceEncodableStatisticAccumulator):
         accumulator: SequenceEncodableStatisticAccumulator,
         keys: Optional[str] = None,
         name: Optional[str] = None,
-    ):
+    ) -> None:
         """WeightedAccumulator object.
 
         Args:
@@ -156,7 +156,7 @@ class WeightedAccumulator(SequenceEncodableStatisticAccumulator):
         self.accumulator.seq_initialize(x.data[0], weights * x.data[1], rng)
 
     def combine(self, suff_stat: SS) -> "WeightedAccumulator":
-        self.accumulator.combine(SS)
+        self.accumulator.combine(suff_stat)
 
         return self
 
@@ -199,7 +199,7 @@ class WeightedAccumulatorFactory(StatisticAccumulatorFactory):
         factory: StatisticAccumulatorFactory,
         keys: Optional[str] = None,
         name: Optional[str] = None,
-    ):
+    ) -> None:
         """WeightedAccumulatorFactory object for creating WeightedAccumulator objects.
 
         Args:
@@ -233,7 +233,7 @@ class WeightedEstimator(ParameterEstimator):
         estimator: ParameterEstimator,
         keys: Optional[str] = None,
         name: Optional[str] = None,
-    ):
+    ) -> None:
         """WeightedEstimator object.
 
         Args:
@@ -300,7 +300,7 @@ class WeightedEncodedDataSequence(EncodedDataSequence):
 
     """
 
-    def __init__(self, data: Tuple[EncodedDataSequence, np.ndarray]):
+    def __init__(self, data: Tuple[EncodedDataSequence, np.ndarray]) -> None:
         """WeightedEncodedDataSequence object.
 
         Args:

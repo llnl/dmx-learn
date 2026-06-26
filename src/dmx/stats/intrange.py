@@ -100,7 +100,7 @@ class IntegerCategoricalDistribution(SequenceEncodableProbabilityDistribution):
         return (
             zero
             if x < self.min_val or x > self.max_val
-            else self.p_vec[x - self.min_val]
+            else float(self.p_vec[x - self.min_val])
         )
 
     def log_density(self, x: int) -> float:
@@ -116,7 +116,7 @@ class IntegerCategoricalDistribution(SequenceEncodableProbabilityDistribution):
         return (
             -inf
             if (x < self.min_val or x > self.max_val)
-            else self.log_p_vec[x - self.min_val]
+            else float(self.log_p_vec[x - self.min_val])
         )
 
     def seq_log_density(self, x: "IntegerCategoricalEncodedDataSequence") -> np.ndarray:
@@ -202,11 +202,12 @@ class IntegerCategoricalSampler(DistributionSampler):
                 )
             )
 
-        return self.rng.choice(
+        sample = self.rng.choice(
             range(self.dist.min_val, self.dist.max_val + 1),
             p=self.dist.p_vec,
             size=size,
-        ).tolist()
+        )
+        return [int(v) for v in sample]
 
 
 class IntegerCategoricalAccumulator(SequenceEncodableStatisticAccumulator):
@@ -252,6 +253,7 @@ class IntegerCategoricalAccumulator(SequenceEncodableStatisticAccumulator):
         """
         self.min_val = min_val
         self.max_val = max_val
+        self.count_vec: Optional[np.ndarray]
 
         if min_val is not None and max_val is not None:
             self.count_vec = vec.zeros(max_val - min_val + 1)
@@ -273,8 +275,12 @@ class IntegerCategoricalAccumulator(SequenceEncodableStatisticAccumulator):
             self.min_val = x
             self.max_val = x
             self.count_vec = np.asarray([weight])
+            return
 
-        elif self.max_val < x:
+        assert self.min_val is not None
+        assert self.max_val is not None
+
+        if self.max_val < x:
             temp_vec = self.count_vec
             self.max_val = x
             self.count_vec = np.zeros(self.max_val - self.min_val + 1)
@@ -310,8 +316,8 @@ class IntegerCategoricalAccumulator(SequenceEncodableStatisticAccumulator):
         weights: np.ndarray,
         estimate: Optional["IntegerCategoricalDistribution"],
     ) -> None:
-        min_x = np.min(x.data)
-        max_x = np.max(x.data)
+        min_x = int(np.min(x.data))
+        max_x = int(np.max(x.data))
 
         loc_cnt = np.bincount(x.data - min_x, weights=weights)
 
@@ -319,6 +325,10 @@ class IntegerCategoricalAccumulator(SequenceEncodableStatisticAccumulator):
             self.count_vec = np.zeros(max_x - min_x + 1)
             self.min_val = min_x
             self.max_val = max_x
+
+        assert self.min_val is not None
+        assert self.max_val is not None
+        assert self.count_vec is not None
 
         if self.min_val > min_x or self.max_val < max_x:
             prev_min = self.min_val
@@ -335,21 +345,24 @@ class IntegerCategoricalAccumulator(SequenceEncodableStatisticAccumulator):
     def combine(
         self, suff_stat: Tuple[Optional[int], Optional[np.ndarray]]
     ) -> "IntegerCategoricalAccumulator":
+        suff_min, suff_count = suff_stat
+        if suff_min is None or suff_count is None:
+            return self
 
-        if self.count_vec is None and suff_stat[1] is not None:
-            self.min_val = suff_stat[0]
-            self.max_val = suff_stat[0] + len(suff_stat[1]) - 1
-            self.count_vec = suff_stat[1]
+        if self.count_vec is None:
+            self.min_val = suff_min
+            self.max_val = suff_min + len(suff_count) - 1
+            self.count_vec = suff_count
 
-        elif self.count_vec is not None and suff_stat[1] is not None:
-            if self.min_val == suff_stat[0] and len(self.count_vec) == len(
-                suff_stat[1]
-            ):
-                self.count_vec += suff_stat[1]
+        elif self.count_vec is not None:
+            assert self.min_val is not None
+            assert self.max_val is not None
+            if self.min_val == suff_min and len(self.count_vec) == len(suff_count):
+                self.count_vec += suff_count
 
             else:
-                min_val = min(self.min_val, suff_stat[0])
-                max_val = max(self.max_val, suff_stat[0] + len(suff_stat[1]) - 1)
+                min_val = min(self.min_val, suff_min)
+                max_val = max(self.max_val, suff_min + len(suff_count) - 1)
 
                 count_vec = vec.zeros(max_val - min_val + 1)
 
@@ -357,9 +370,9 @@ class IntegerCategoricalAccumulator(SequenceEncodableStatisticAccumulator):
                 i1 = self.max_val - min_val + 1
                 count_vec[i0:i1] = self.count_vec
 
-                i0 = suff_stat[0] - min_val
-                i1 = (suff_stat[0] + len(suff_stat[1]) - 1) - min_val + 1
-                count_vec[i0:i1] += suff_stat[1]
+                i0 = suff_min - min_val
+                i1 = (suff_min + len(suff_count) - 1) - min_val + 1
+                count_vec[i0:i1] += suff_count
 
                 self.min_val = min_val
                 self.max_val = max_val
@@ -368,6 +381,8 @@ class IntegerCategoricalAccumulator(SequenceEncodableStatisticAccumulator):
         return self
 
     def value(self) -> Tuple[int, np.ndarray]:
+        assert self.min_val is not None
+        assert self.count_vec is not None
         return self.min_val, self.count_vec
 
     def from_value(self, x: Tuple[int, np.ndarray]) -> "IntegerCategoricalAccumulator":
@@ -511,6 +526,7 @@ class IntegerCategoricalEstimator(ParameterEstimator):
     def estimate(
         self, nobs: Optional[float], suff_stat: Optional[Tuple[int, np.ndarray]]
     ) -> "IntegerCategoricalDistribution":
+        assert suff_stat is not None
 
         if self.pseudo_count is not None and self.suff_stat is None:
             pseudo_count_per_level = self.pseudo_count / float(len(suff_stat[1]))

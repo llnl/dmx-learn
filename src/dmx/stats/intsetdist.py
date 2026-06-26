@@ -81,10 +81,10 @@ class IntegerBernoulliSetDistribution(SequenceEncodableProbabilityDistribution):
         self.keys = keys
 
         if log_nvec is None:
-            log_nvec = np.log1p(-np.exp(self.log_pvec))
+            log_nvec_arr = np.log1p(-np.exp(self.log_pvec))
             self.log_nvec = None
-            self.log_dvec = self.log_pvec - log_nvec
-            self.log_nsum = np.sum(log_nvec[np.isfinite(log_nvec)])
+            self.log_dvec = self.log_pvec - log_nvec_arr
+            self.log_nsum = np.sum(log_nvec_arr[np.isfinite(log_nvec_arr)])
         else:
             self.log_nvec = np.asarray(log_nvec, dtype=np.float64)
             self.log_dvec = self.log_pvec - self.log_nvec
@@ -101,11 +101,11 @@ class IntegerBernoulliSetDistribution(SequenceEncodableProbabilityDistribution):
         )
 
     def density(self, x: Union[Sequence[int], np.ndarray]) -> float:
-        return exp(self.log_density(x))
+        return float(exp(self.log_density(x)))
 
     def log_density(self, x: Union[Sequence[int], np.ndarray]) -> float:
         xx = np.asarray(x, dtype=int)
-        return np.sum(self.log_dvec[xx]) + self.log_nsum
+        return float(np.sum(self.log_dvec[xx]) + self.log_nsum)
 
     def seq_log_density(
         self, x: "IntegerBernoulliSetEncodedDataSequence"
@@ -163,11 +163,11 @@ class IntegerBernoulliSetSampler(DistributionSampler):
     ) -> Union[List[Sequence[int]], Sequence[int]]:
         if size is None:
             log_u = np.log(self.rng.rand(self.dist.num_vals))
-            return np.flatnonzero(log_u <= self.dist.log_pvec).tolist()
-        rv = []
+            return [int(v) for v in np.flatnonzero(log_u <= self.dist.log_pvec)]
+        rv: List[Sequence[int]] = []
         for _ in range(size):
             log_u = np.log(self.rng.rand(self.dist.num_vals))
-            rv.append(np.flatnonzero(log_u <= self.dist.log_pvec).tolist())
+            rv.append([int(v) for v in np.flatnonzero(log_u <= self.dist.log_pvec)])
         return rv
 
 
@@ -370,9 +370,10 @@ class IntegerBernoulliSetEstimator(ParameterEstimator):
     def estimate(
         self, nobs: Optional[float], suff_stat: Optional[np.ndarray] = None
     ) -> "IntegerBernoulliSetDistribution":
+        assert suff_stat is not None
         if self.pseudo_count is not None and self.suff_stat is not None:
-            p0 = np.product(self.suff_stat, self.pseudo_count)
-            p1 = np.product(np.subtract(1.0, self.suff_stat), self.pseudo_count)
+            p0 = self.suff_stat * self.pseudo_count
+            p1 = np.subtract(1.0, self.suff_stat) * self.pseudo_count
             pvec = np.log(suff_stat[0] + p0)
             nvec = np.log((suff_stat[1] - suff_stat[0]) + p1)
             tsum = np.log(suff_stat[1] + self.pseudo_count)
@@ -446,16 +447,16 @@ class IntegerBernoulliSetDataEncoder(DataSequenceEncoder):
             IntegerBernoulliEncodedDataSequence
 
         """
-        idx = []
-        xs = []
+        idx: List[int] = []
+        xs: List[int] = []
         for i, xx in enumerate(x):
             idx.extend([i] * len(xx))
             xs.extend(xx)
 
-        idx = np.asarray(idx, dtype=np.int32)
-        xs = np.asarray(xs, dtype=np.int32)
+        idx_arr = np.asarray(idx, dtype=np.int32)
+        xs_arr = np.asarray(xs, dtype=np.int32)
 
-        return IntegerBernoulliSetEncodedDataSequence(data=(len(x), idx, xs))
+        return IntegerBernoulliSetEncodedDataSequence(data=(len(x), idx_arr, xs_arr))
 
 
 class IntegerBernoulliSetEncodedDataSequence(EncodedDataSequence):

@@ -25,7 +25,7 @@ This model is great for problems where one set is given like translations.
 """
 
 import itertools
-from typing import Any, Dict, List, Optional, Sequence, Tuple, TypeVar, Union
+from typing import Any, Dict, List, Optional, Sequence, Tuple, TypeVar, Union, cast
 
 import numpy as np
 from scipy.sparse import csr_matrix, lil_matrix
@@ -133,7 +133,7 @@ class SparseMarkovAssociationDistribution(SequenceEncodableProbabilityDistributi
     def density(
         self, x: Tuple[List[Tuple[int, float]], List[Tuple[int, float]]]
     ) -> float:
-        return exp(self.log_density(x))
+        return float(exp(self.log_density(x)))
 
     def log_density(
         self, x: Tuple[List[Tuple[int, float]], List[Tuple[int, float]]]
@@ -239,40 +239,47 @@ class SparseMarkovAssociationSampler(DistributionSampler):
         self, dist: SparseMarkovAssociationDistribution, seed: Optional[int] = None
     ) -> None:
         super().__init__(dist, seed)
+        self.dist = dist
         self.size_sampler = self.dist.len_dist.sampler(
             seed=self.rng.randint(0, maxrandint)
         )
 
-    def sample(self, size: Optional[int] = None) -> Union[T, Sequence[T]]:
+    def _sample_single(self) -> T:
+        slens = cast(Sequence[int], self.size_sampler.sample())
+        rng = np.random.RandomState(self.rng.randint(0, maxrandint))
 
-        if size is None:
-            slens = self.size_sampler.sample()
-            rng = np.random.RandomState(self.rng.randint(0, maxrandint))
-
-            v1 = list(
-                rng.choice(
-                    len(self.dist.init_prob_vec),
-                    p=self.dist.init_prob_vec,
-                    replace=True,
-                    size=slens[0],
-                )
+        v1 = [
+            int(v)
+            for v in rng.choice(
+                len(self.dist.init_prob_vec),
+                p=self.dist.init_prob_vec,
+                replace=True,
+                size=int(slens[0]),
             )
-            v2 = []
+        ]
+        v2: List[int] = []
 
-            z1 = list(rng.choice(len(v1), replace=True, size=slens[1]))
-            nw = self.dist.num_vals
+        z1 = [int(v) for v in rng.choice(len(v1), replace=True, size=int(slens[1]))]
+        nw = self.dist.num_vals
 
-            for zz1 in z1:
+        for zz1 in z1:
 
-                if rng.rand() > self.dist.alpha:
-                    p = self.dist.cond_prob_mat[v1[zz1], :].toarray().flatten()
-                    v2.append(rng.choice(nw, p=p))
-                else:
-                    v2.append(rng.choice(nw))
+            if rng.rand() > self.dist.alpha:
+                p = self.dist.cond_prob_mat[v1[zz1], :].toarray().flatten()
+                v2.append(int(rng.choice(nw, p=p)))
+            else:
+                v2.append(int(rng.choice(nw)))
 
-            return list(count_by_value(v1).items()), list(count_by_value(v2).items())
+        return (
+            [(int(k), float(v)) for k, v in count_by_value(v1).items()],
+            [(int(k), float(v)) for k, v in count_by_value(v2).items()],
+        )
 
-        return [self.sample() for i in range(size)]
+    def sample(self, size: Optional[int] = None) -> Union[T, Sequence[T]]:
+        if size is None:
+            return self._sample_single()
+
+        return [self._sample_single() for i in range(size)]
 
 
 class SparseMarkovAssociationAccumulator(SequenceEncodableStatisticAccumulator):
@@ -293,7 +300,7 @@ class SparseMarkovAssociationAccumulator(SequenceEncodableStatisticAccumulator):
         self.low_memory = low_memory
 
         self._init_rng = False
-        self._size_rng = None
+        self._size_rng: Optional[np.random.RandomState] = None
 
     def update(
         self, x: T, weight: float, estimate: SparseMarkovAssociationDistribution
@@ -328,6 +335,7 @@ class SparseMarkovAssociationAccumulator(SequenceEncodableStatisticAccumulator):
 
         if not self._init_rng:
             self.initialize_rng(rng)
+        assert self._size_rng is not None
 
         if self.trans_count is None:
             num_vals = self.num_vals
@@ -352,10 +360,12 @@ class SparseMarkovAssociationAccumulator(SequenceEncodableStatisticAccumulator):
 
         if not self._init_rng:
             self.initialize_rng(rng)
+        assert self._size_rng is not None
 
         if self.trans_count is None:
             num_vals = self.num_vals
             self.trans_count = csr_matrix((num_vals, num_vals))
+        assert self.trans_count is not None
 
         nw = self.num_vals
 
@@ -411,6 +421,7 @@ class SparseMarkovAssociationAccumulator(SequenceEncodableStatisticAccumulator):
         if self.trans_count is None:
             num_vals = self.num_vals
             self.trans_count = csr_matrix((num_vals, num_vals))
+        assert self.trans_count is not None
 
         nw = self.num_vals
 
@@ -474,7 +485,11 @@ class SparseMarkovAssociationAccumulator(SequenceEncodableStatisticAccumulator):
 
         self.size_accumulator.combine(size_acc)
         self.init_count += init_count
-        self.trans_count += trans_count
+        if trans_count is not None:
+            if self.trans_count is None:
+                self.trans_count = trans_count.copy()
+            else:
+                self.trans_count += trans_count
 
         return self
 
@@ -621,6 +636,7 @@ class SparseMarkovAssociationEstimator(ParameterEstimator):
         init_count, trans_count, size_stats = suff_stat
         len_dist = self.len_estimator.estimate(nobs, size_stats)
 
+        assert trans_count is not None
         trans_count = trans_count.tocsr()
         row_sum = trans_count.sum(axis=1)
         row_sum = csr_matrix(row_sum)
@@ -664,9 +680,9 @@ class SparseMarkovAssociationDataEncoder(DataSequenceEncoder):
 
         if self.low_memory:
 
-            rv = []
-            nn = []
-            vset = set()
+            rv: E0 = []
+            nn: List[Tuple[float, float]] = []
+            vset: set[Tuple[int, int]] = set()
 
             for k, xx in enumerate(x):
 
@@ -676,34 +692,36 @@ class SparseMarkovAssociationDataEncoder(DataSequenceEncoder):
                 cy = np.asarray([u[1] for u in xx[1]], dtype=float)
                 nx = np.sum(cx)
 
-                vset.update(itertools.product(vx, vy))
+                vset.update(
+                    (int(vvx), int(vvy)) for vvx, vvy in itertools.product(vx, vy)
+                )
                 rv.append((vx, cx, vy, cy))
                 nn.append((cx.sum(), cy.sum()))
 
-            nn = self.len_encoder.seq_encode(nn)
+            nn_enc = self.len_encoder.seq_encode(nn)
 
-            vv = np.zeros((len(vset), 2), dtype=int)
+            vv = np.zeros((len(vset), 2), dtype=np.int32)
             for i, vvv in enumerate(vset):
                 vv[i, :] = vvv[:]
 
-            qq = None
+            qq: Optional[E1] = None
 
         else:
             rv = []
             nn = []
-            vmap = {}
+            vmap: Dict[Tuple[int, int], int] = {}
 
-            obsidx = []
-            pairidx = []
-            seqidx = []
-            cxvec = []
-            cyvec = []
+            obsidx: List[int] = []
+            pairidx: List[int] = []
+            seqidx: List[int] = []
+            cxvec: List[float] = []
+            cyvec: List[float] = []
 
-            fcyvec = []
-            fcxvec = []
-            fvxvec = []
-            fsqxvec = []
-            fsqyvec = []
+            fcyvec: List[float] = []
+            fcxvec: List[float] = []
+            fvxvec: List[int] = []
+            fsqxvec: List[int] = []
+            fsqyvec: List[int] = []
 
             ridx = -1
             for k, xx in enumerate(x):
@@ -724,9 +742,10 @@ class SparseMarkovAssociationDataEncoder(DataSequenceEncoder):
                     ridx += 1
                     for j, vvx in enumerate(vx):
 
-                        if (vvx, vvy) not in vmap:
-                            vmap[(vvx, vvy)] = len(vmap)
-                        widx = vmap[(vvx, vvy)]
+                        vv_key = (int(vvx), int(vvy))
+                        if vv_key not in vmap:
+                            vmap[vv_key] = len(vmap)
+                        widx = vmap[vv_key]
                         obsidx.append(k)
                         seqidx.append(ridx)
                         pairidx.append(widx)
@@ -736,38 +755,38 @@ class SparseMarkovAssociationDataEncoder(DataSequenceEncoder):
                 rv.append((vx, cx, vy, cy))
                 nn.append((cx.sum(), cy.sum()))
 
-            nn = self.len_encoder.seq_encode(nn)
+            nn_enc = self.len_encoder.seq_encode(nn)
 
-            vv = np.zeros((len(vmap), 2), dtype=int)
+            vv = np.zeros((len(vmap), 2), dtype=np.int32)
             for vvv, i in vmap.items():
                 vv[i, :] = vvv[:]
 
-            obsidx = np.asarray(obsidx, dtype=int)
-            seqidx = np.asarray(seqidx, dtype=int)
-            cxvec = np.asarray(cxvec, dtype=float)
-            cyvec = np.asarray(cyvec, dtype=float)
-            pairidx = np.asarray(pairidx, dtype=int)
+            obsidx_arr = np.asarray(obsidx, dtype=np.int32)
+            seqidx_arr = np.asarray(seqidx, dtype=np.int32)
+            cxvec_arr = np.asarray(cxvec, dtype=np.float64)
+            cyvec_arr = np.asarray(cyvec, dtype=np.float64)
+            pairidx_arr = np.asarray(pairidx, dtype=np.int32)
 
-            fcxvec = np.asarray(fcxvec, dtype=float)
-            fcyvec = np.asarray(fcyvec, dtype=float)
-            fvxvec = np.asarray(fvxvec, dtype=int)
-            fsqxvec = np.asarray(fsqxvec, dtype=int)
-            fsqyvec = np.asarray(fsqyvec, dtype=int)
+            fcxvec_arr = np.asarray(fcxvec, dtype=np.float64)
+            fcyvec_arr = np.asarray(fcyvec, dtype=np.float64)
+            fvxvec_arr = np.asarray(fvxvec, dtype=np.int32)
+            fsqxvec_arr = np.asarray(fsqxvec, dtype=np.int32)
+            fsqyvec_arr = np.asarray(fsqyvec, dtype=np.int32)
 
             qq = (
-                obsidx,
-                seqidx,
-                pairidx,
-                cxvec,
-                cyvec,
-                fsqxvec,
-                fvxvec,
-                fcxvec,
-                fsqyvec,
-                fcyvec,
+                obsidx_arr,
+                seqidx_arr,
+                pairidx_arr,
+                cxvec_arr,
+                cyvec_arr,
+                fsqxvec_arr,
+                fvxvec_arr,
+                fcxvec_arr,
+                fsqyvec_arr,
+                fcyvec_arr,
             )
 
-        return SparseMarkovAssociationEncodedDataSequence(data=(rv, nn, vv, qq))
+        return SparseMarkovAssociationEncodedDataSequence(data=(rv, nn_enc, vv, qq))
 
 
 class SparseMarkovAssociationEncodedDataSequence(EncodedDataSequence):

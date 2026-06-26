@@ -44,7 +44,7 @@ class IgnoredDistribution(SequenceEncodableProbabilityDistribution):
         dist: Optional[SequenceEncodableProbabilityDistribution],
         name: Optional[str] = None,
         keys: Optional[str] = None,
-    ):
+    ) -> None:
         """IgnoredDistribution object.
 
         Args:
@@ -76,9 +76,9 @@ class IgnoredDistribution(SequenceEncodableProbabilityDistribution):
             float: Density of attribute 'dist' at x
 
         """
-        return np.exp(self.log_density(x))
+        return float(np.exp(self.log_density(x)))
 
-    def log_density(self, x: T):
+    def log_density(self, x: T) -> float:
         """Evaluate the log-density of the IgnoredDistribution at x.
 
         Args:
@@ -135,7 +135,7 @@ class IgnoredSampler(DistributionSampler):
         self.dist_sampler = dist.dist.sampler(seed)
         self.null_sampler = isinstance(self.dist_sampler, NullSampler)
 
-    def sample(self, size: Optional[int] = None):
+    def sample(self, size: Optional[int] = None) -> Any:
         if self.null_sampler:
             if size is None:
                 return None
@@ -230,7 +230,7 @@ class IgnoredAccumulatorFactory(StatisticAccumulatorFactory):
         encoder: Optional[DataSequenceEncoder] = NullDataEncoder(),
         name: Optional[str] = None,
         keys: Optional[str] = None,
-    ):
+    ) -> None:
         """IgnoredAccumulatorFactory object.
 
         Args:
@@ -284,13 +284,13 @@ class IgnoredEstimator(ParameterEstimator):
         else:
             raise TypeError("IgnoredEstimator requires keys to be of type 'str'.")
 
-        self.dist = dist if dist is not None else NullDistribution
+        self.dist = dist if dist is not None else NullDistribution()
         self.pseudo_count = pseudo_count
         self.suff_stat = suff_stat
         self.keys = keys
         self.name = name
 
-    def accumulator_factory(self):
+    def accumulator_factory(self) -> "IgnoredAccumulatorFactory":
         return IgnoredAccumulatorFactory(
             self.dist.dist_to_encoder(), name=self.name, keys=self.keys
         )
