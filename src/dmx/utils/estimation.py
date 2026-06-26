@@ -45,7 +45,7 @@ EncodedChunks = Union[List[Tuple[int, EncodedDataSequence]], RDD[Any]]
 def empirical_kl_divergence(
     dist1: SequenceEncodableProbabilityDistribution,
     dist2: SequenceEncodableProbabilityDistribution,
-    enc_data: List[Tuple[int, Any]],
+    enc_data: EncodedChunks,
 ) -> Tuple[float, float, float]:
     """Computes the emirical KL-divergence between two densities.
 
@@ -57,8 +57,8 @@ def empirical_kl_divergence(
             compatible with enc_data.
         dist2 (SequenceEncodableProbabilityDistribution): Distribution
             compatible with enc_data.
-        enc_data (List[Tuple[int, Any]]): List of Tuple containing chunk size
-            and encoded sequence for chunked data.
+        enc_data (EncodedChunks): Encoded local chunks or Spark RDD chunks
+            containing chunk size and encoded sequence for chunked data.
 
     Returns:
         Tuple of KL-div estiamte, number of 'bad' likelihood values for dist1,
