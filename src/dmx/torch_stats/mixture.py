@@ -52,9 +52,9 @@ class MixtureDistribution(TorchProbabilityDistribution):
     MixtureDistribution object defining mixture distribution with torch tensors.
 
         Attributes:
-            w (tn.tensor): Mixture weights.
-            zw (tn.tensor): True where weights are 0.0.
-            log_w (tn.tensor): Log of mixture weights.
+            w (tn.Tensor): Mixture weights.
+            zw (tn.Tensor): True where weights are 0.0.
+            log_w (tn.Tensor): Log of mixture weights.
             components (Sequence[TorchProbabilityDistribution]): Mixture components, all
             TorchProbabilityDistributions of
                 the same type.
@@ -88,15 +88,17 @@ class MixtureDistribution(TorchProbabilityDistribution):
         self.components = components
         self.num_components = len(components)
 
-    def to(self, device: tn.device) -> None:
-        self._device = device
-        self.w = self.w.to(device)
+    def to(self, device: vec.DeviceLike) -> "MixtureDistribution":
+        target_device = self._resolve_device_arg(device)
+        self._device = target_device
+        self.w = self.w.to(target_device)
         self.zw = self.w == 0.0
         self.log_w = tn.log(self.w + self.zw)
         self.log_w[self.zw] = -tn.inf
 
         for comp in self.components:
-            comp.to(device)
+            comp.to(target_device)
+        return self
 
     def __str__(self) -> str:
         s1 = ",".join([str(u) for u in self.components])
@@ -119,7 +121,7 @@ class MixtureDistribution(TorchProbabilityDistribution):
                     float: Density at x.
 
         """
-        return np.exp(self.log_density(x))
+        return float(np.exp(self.log_density(x)))
 
     def log_density(self, x: T) -> float:
         """

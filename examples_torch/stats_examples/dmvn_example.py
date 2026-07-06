@@ -6,6 +6,9 @@ and evaluate log densities.
 
 # pylint: disable=duplicate-code
 
+from typing import Sequence, cast
+
+import numpy as np
 import torch
 
 from dmx.torch_stats import (
@@ -24,7 +27,7 @@ if __name__ == "__main__":
     dist = DiagonalGaussianDistribution(mu=[0.0, 0.0], covar=[1.0, 1.0])
     # Generate data from sampler
     sampler = dist.sampler(seed=1)
-    data = sampler.sample(n)
+    data = cast(Sequence[np.ndarray], sampler.sample(n))
     # Print out a few samples
     print(data[:5])
     # Define estimator

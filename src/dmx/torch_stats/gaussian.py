@@ -1,6 +1,6 @@
 # pylint: disable=too-many-positional-arguments,duplicate-code
 
-from typing import Any, Dict, List, Optional, Tuple, Union
+from typing import Any, Dict, List, Optional, Tuple, Union, cast
 
 import numpy as np
 import torch as tn
@@ -27,8 +27,9 @@ class GaussianDistribution(TorchProbabilityDistribution):
         self.log_const = -0.5 * log(2.0 * pi * self.sigma2)
         self.const = 1.0 / sqrt(2.0 * pi * self.sigma2)
 
-    def to(self, device: tn.device) -> None:
-        self._device = device
+    def to(self, device: vec.DeviceLike) -> "GaussianDistribution":
+        self._device = self._resolve_device_arg(device)
+        return self
 
     def __repr__(self) -> str:
         s0, s1 = repr(float(self.mu)), repr(float(self.sigma2))
@@ -44,7 +45,9 @@ class GaussianDistribution(TorchProbabilityDistribution):
             float: Density of Gaussian at x.
 
         """
-        return self.const * exp(-0.5 * (x - self.mu) * (x - self.mu) / self.sigma2)
+        return float(
+            self.const * exp(-0.5 * (x - self.mu) * (x - self.mu) / self.sigma2)
+        )
 
     def log_density(self, x: float) -> float:
         """Log-density of Gaussian distribution at observation x.
@@ -56,7 +59,7 @@ class GaussianDistribution(TorchProbabilityDistribution):
             float: Log-density at observation x.
 
         """
-        return self.log_const - 0.5 * (x - self.mu) * (x - self.mu) / self.sigma2
+        return float(self.log_const - 0.5 * (x - self.mu) * (x - self.mu) / self.sigma2)
 
     def seq_log_density(self, x: "GaussianTorchEncodedSequence") -> tn.Tensor:
         if not isinstance(x, GaussianTorchEncodedSequence):
@@ -67,7 +70,7 @@ class GaussianDistribution(TorchProbabilityDistribution):
         rv *= -0.5
         rv += self.log_const
 
-        return rv
+        return cast(tn.Tensor, rv)
 
     def sampler(self, seed: Optional[int] = None) -> "GaussianSampler":
 
@@ -125,7 +128,8 @@ class GaussianSampler(DistributionSampler):
             'size' iid samples from Gaussian distribution.
 
         """
-        return self.dist.mu + np.sqrt(self.dist.sigma2) * self.rng.normal(size=size)
+        sample = self.dist.mu + np.sqrt(self.dist.sigma2) * self.rng.normal(size=size)
+        return float(sample) if size is None else np.asarray(sample)
 
 
 class GaussianAccumulator(TorchStatisticAccumulator):
@@ -298,7 +302,7 @@ class GaussianDataEncoder(TorchSequenceEncoder):
     def __str__(self) -> str:
         return "GaussianDataEncoder"
 
-    def __eq__(self, other) -> bool:
+    def __eq__(self, other: object) -> bool:
         return isinstance(other, GaussianDataEncoder)
 
     def seq_encode(
@@ -318,16 +322,18 @@ class GaussianTorchEncodedSequence(TorchEncodedSequence):
     """GaussianTorchEncodedSequence object for use with `seq_` function calls.
 
     Attributes:
-        data (tn.tensor): iid observations of Gaussian
+        data (tn.Tensor): iid observations of Gaussian
         device (Optional[tn.device]): Device that data lives on.
 
     """
 
-    def __init__(self, data: tn.tensor, device: Optional[tn.device] = None):
+    data: tn.Tensor
+
+    def __init__(self, data: tn.Tensor, device: Optional[tn.device] = None) -> None:
         """GaussianTorchEncodedSequence object.
 
         Args:
-            data (tn.tensor): iid observations of Gaussian
+            data (tn.Tensor): iid observations of Gaussian
             device (Optional[tn.device]): Device that data lives on.
 
         """

@@ -31,7 +31,7 @@ data type of the 'categories'.
 
 from __future__ import annotations
 
-from typing import Any, Dict, Optional, Sequence, Tuple, TypeVar, Union
+from typing import Any, Dict, Optional, Sequence, Tuple, TypeVar, Union, cast
 
 import numpy as np
 from numpy.random import RandomState
@@ -139,7 +139,7 @@ class MultinomialDistribution(SequenceEncodableProbabilityDistribution):
         Returns:
             float: Density evaluated at x.
         """
-        return np.exp(self.log_density(x))
+        return float(np.exp(self.log_density(x)))
 
     def log_density(self, x: Sequence[Tuple[T, float]]) -> float:
         """Returns the log-density of multinomial evaluated at observation x.
@@ -298,16 +298,13 @@ class MultinomialSampler(DistributionSampler):
         """
         if size is None:
             n = self.len_sampler.sample()
-            rv = {}
-            for i in range(n):
+            rv: Dict[Any, float] = {}
+            for _ in range(n):
                 v = self.dist_sampler.sample()
-                if v in rv:
-                    rv[v] += 1
-                else:
-                    rv[v] = 1
+                rv[v] = rv.get(v, 0.0) + 1.0
             return list(rv.items())
 
-        return [self.sample() for i in range(size)]
+        return [cast(Sequence[Tuple[Any, float]], self.sample()) for _i in range(size)]
 
 
 class MultinomialAccumulator(SequenceEncodableStatisticAccumulator):
@@ -641,7 +638,7 @@ class MultinomialEstimator(ParameterEstimator):
         len_estimator: Optional[ParameterEstimator] = NullEstimator(),
         pseudo_count: Optional[float] = None,
         len_dist: Optional[SequenceEncodableProbabilityDistribution] = None,
-        len_normalized: Optional[bool] = False,
+        len_normalized: bool = False,
         name: Optional[str] = None,
         keys: Optional[str] = None,
     ) -> None:
@@ -655,7 +652,7 @@ class MultinomialEstimator(ParameterEstimator):
             pseudo_count (Optional[float]): Regularizer estimator and len_estimator.
             len_dist (Optional[SequenceEncodableProbabilityDistribution]): Set
                 distribution for the number of trials.
-            len_normalized (Optional[bool]): Take geometric mean of density.
+            len_normalized (bool): Take geometric mean of density.
             name (Optional[str]): Set name to object instance.
             keys (Optional[str]): Set keys to object instance for merging sufficient
                 statistics.
@@ -791,7 +788,7 @@ class MultinomialDataEncoder(DataSequenceEncoder):
 
         for i, x_i in enumerate(x):
             nx.append(len(x_i))
-            aa = 0
+            aa = 0.0
             for _j, x_i_j in enumerate(x_i):
                 tidx.append(i)
                 tx.append(x_i_j[0])

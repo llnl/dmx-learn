@@ -29,7 +29,7 @@ from dmx.stats.rdd_sampler import sample_rdd
 from dmx.utils.estimation import best_of
 
 
-def create_spark_context():
+def create_spark_context() -> SparkContext:
     """Create a Spark context with reduced log verbosity."""
     spark_conf = SparkConf().setAppName("hidden_markov_example")
     spark_context = SparkContext(conf=spark_conf)

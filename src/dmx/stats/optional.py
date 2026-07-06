@@ -110,7 +110,7 @@ class OptionalDistribution(SequenceEncodableProbabilityDistribution):
             float: Log-density at x.
 
         """
-        return np.exp(self.log_density(x))
+        return float(np.exp(self.log_density(x)))
 
     def log_density(self, x: T) -> float:
         """Evaluate the log density of the Optional distribution at x.
@@ -210,7 +210,7 @@ class OptionalSampler(DistributionSampler):
         self.dist = dist
         self.sampler = self.dist.dist.sampler(self.new_seed())
 
-    def sample(self, size: Optional[int] = None):
+    def sample(self, size: Optional[int] = None) -> Any:
         """Generate samples from OptionalDistribution.
 
         Notes:
@@ -491,6 +491,7 @@ class OptionalEstimator(ParameterEstimator):
     def estimate(
         self, nobs: Optional[float], suff_stat: Optional[Tuple[List[float], SS]]
     ) -> "OptionalDistribution":
+        assert suff_stat is not None
         dist = self.estimator.estimate(suff_stat[0][1], suff_stat[1])
 
         if self.pseudo_count is not None and self.est_prob:
@@ -585,10 +586,12 @@ class OptionalDataEncoder(DataSequenceEncoder):
 
         enc_data = self.encoder.seq_encode(nz_val)
 
-        nz_idx = np.asarray(nz_idx, dtype=int)
-        z_idx = np.asarray(z_idx, dtype=int)
+        nz_idx_arr = np.asarray(nz_idx, dtype=int)
+        z_idx_arr = np.asarray(z_idx, dtype=int)
 
-        return OptionalEncodedDataSequence(data=(len(x), z_idx, nz_idx, enc_data))
+        return OptionalEncodedDataSequence(
+            data=(len(x), z_idx_arr, nz_idx_arr, enc_data)
+        )
 
 
 class OptionalEncodedDataSequence(EncodedDataSequence):

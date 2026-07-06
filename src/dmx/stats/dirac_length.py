@@ -105,7 +105,7 @@ class DiracMixtureDistribution(SequenceEncodableProbabilityDistribution):
         Returns:
             float: Density at x.
         """
-        return np.exp(self.log_density(x))
+        return float(np.exp(self.log_density(x)))
 
     def log_density(self, x: int) -> float:
         """Evaluate the log-density of Dirac mixture distribution at observation x.
@@ -129,7 +129,7 @@ class DiracMixtureDistribution(SequenceEncodableProbabilityDistribution):
         else:
             rv = rv0
 
-        return rv
+        return float(rv)
 
     def component_log_density(self, x: int) -> np.ndarray:
         """Evaluate the log density for the components of the Dirac mixture.
@@ -230,7 +230,7 @@ class DiracMixtureDistribution(SequenceEncodableProbabilityDistribution):
             ll_sum = np.sum(ll_mat, axis=1, keepdims=True)
             np.log(ll_sum, out=ll_sum)
             ll_sum += ll_max
-            return ll_sum.flatten()
+            return np.asarray(ll_sum.flatten(), dtype=float)
         ll_mat = ll_mat[good_rows, :]
         ll_max = ll_max[good_rows]
         ll_mat -= ll_max
@@ -367,7 +367,7 @@ class DiracMixtureSampler(DistributionSampler):
         if size is None:
             if comp_state == 0:
                 return self.v
-            return self.dist_sampler.sample()
+            return int(self.dist_sampler.sample())
         rv = np.zeros(size, dtype=np.int32)
         rv.fill(self.v)
         idx = np.flatnonzero(comp_state == 1)
@@ -375,7 +375,7 @@ class DiracMixtureSampler(DistributionSampler):
             rv[idx] = np.asarray(
                 self.dist_sampler.sample(size=len(idx)), dtype=np.int32
             )
-        return list(rv)
+        return [int(v) for v in rv]
 
 
 class DiracMixtureAccumulator(SequenceEncodableStatisticAccumulator):
@@ -502,6 +502,9 @@ class DiracMixtureAccumulator(SequenceEncodableStatisticAccumulator):
         if not self._init_rng:
             self._rng_initialize(rng)
 
+        assert self._acc_rng is not None
+        assert self._w_rng is not None
+
         if x == self.v:
             ww = self._w_rng.dirichlet(np.ones(2) / 4)
             self.accumulator.initialize(x, weight * ww[0], rng=self._acc_rng)
@@ -527,6 +530,9 @@ class DiracMixtureAccumulator(SequenceEncodableStatisticAccumulator):
 
         if not self._init_rng:
             self._rng_initialize(rng)
+
+        assert self._acc_rng is not None
+        assert self._w_rng is not None
 
         sz = len(weights)
         keep_len = len(xi_v)
@@ -835,11 +841,11 @@ class DiracMixtureDataEncoder(DataSequenceEncoder):
         Returns:
             DiracMixtureEncodedDataSequence: Encoded data sequence.
         """
-        x = np.asarray(x, dtype=np.int32)
-        xi_v = np.flatnonzero(x == self.v).astype(np.int32)
-        xi_nv = np.flatnonzero(x != self.v).astype(np.int32)
+        x_arr = np.asarray(x, dtype=np.int32)
+        xi_v = np.flatnonzero(x_arr == self.v).astype(np.int32)
+        xi_nv = np.flatnonzero(x_arr != self.v).astype(np.int32)
         return DiracMixtureEncodedDataSequence(
-            data=(len(x), xi_v, xi_nv, self.encoder.seq_encode(x))
+            data=(len(x_arr), xi_v, xi_nv, self.encoder.seq_encode(x_arr))
         )
 
 

@@ -41,30 +41,30 @@ class GeometricDistributionTestCase(TorchStatsTestClass):
         self.factories = self._factories
         self.accumulators = self._accs
 
-    def test_seq_log_density_type(self):
+    def test_seq_log_density_type(self) -> None:
         """seq_log_density must raise Exception when passed wrong encoded type."""
         for bad_input in [None, np.ones(10)]:
             with pytest.raises(Exception):
-                self._dists[0].seq_log_density(bad_input)
+                self._dists[0].seq_log_density(cast(Any, bad_input))
 
-    def test_encoder_type(self):
+    def test_encoder_type(self) -> None:
         """dist_to_encoder() must return a GeometricDataEncoder."""
         for dist in self._dists:
             self.assertIsInstance(dist.dist_to_encoder(), GeometricDataEncoder)
 
-    def test_accumulator_type(self):
+    def test_accumulator_type(self) -> None:
         """factory.make() must return a GeometricAccumulator."""
         for f in self._factories:
             self.assertIsInstance(f.make(device=self.device), GeometricAccumulator)
 
-    def test_sampler_nonnegative(self):
+    def test_sampler_nonnegative(self) -> None:
         """Sampled values must be non-negative integers."""
-        data = self._dists[0].sampler(seed=1).sample(size=500)
+        data = cast(Any, self._dists[0].sampler(seed=1).sample(size=500))
         self.assertTrue(
             all(x >= 0 for x in data), "Geometric samples must be non-negative"
         )
 
-    def test_mean_approx(self):
+    def test_mean_approx(self) -> None:
         """Sample mean should be close to 1/p (support starts at 1)."""
         dist = GeometricDistribution(p=0.5)
         data = dist.sampler(seed=1).sample(size=5000)

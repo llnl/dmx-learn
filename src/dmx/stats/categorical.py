@@ -113,7 +113,9 @@ class CategoricalDistribution(SequenceEncodableProbabilityDistribution):
         Returns:
             float: Log-density of Categorical distribution evaluated at x.
         """
-        return np.log(self.pmap.get(x, self.default_value)) - self.log1p_default_value
+        return float(
+            np.log(self.pmap.get(x, self.default_value)) - self.log1p_default_value
+        )
 
     def seq_log_density(self, x: "CategoricalEncodedDataSequence") -> np.ndarray:
         """Vectorized log-density evaluation for a sequence of encoded categorical data.
@@ -140,7 +142,7 @@ class CategoricalDistribution(SequenceEncodableProbabilityDistribution):
             mapped_log_prob -= self.log1p_default_value
             rv = mapped_log_prob[xs]
 
-        return rv
+        return np.asarray(rv)
 
     def sampler(self, seed: Optional[int] = None) -> "CategoricalSampler":
         """Creates a CategoricalSampler for sampling from the CategoricalDistribution.
@@ -254,7 +256,7 @@ class CategoricalAccumulator(SequenceEncodableStatisticAccumulator):
             keys (Optional[str], optional): All CategoricalAccumulators with same keys
                 will have suff-stats merged. Defaults to None.
         """
-        self.count_map = {}
+        self.count_map: Dict[Any, float] = {}
         self.name = name
         self.key = keys
 
@@ -527,6 +529,8 @@ class CategoricalEstimator(ParameterEstimator):
             p_map = suff_stat
 
         else:
+            assert self.pseudo_count is not None
+            assert self.suff_stat is not None
             suff_stat_sum = sum(self.suff_stat.values())
 
             levels = set(suff_stat.keys()).union(self.suff_stat.keys())

@@ -93,7 +93,7 @@ class BinomialDistribution(SequenceEncodableProbabilityDistribution):
         Returns:
             float: Probability mass at x. 0.0 if x is not in support.
         """
-        return np.exp(self.log_density(x))
+        return float(np.exp(self.log_density(x)))
 
     def log_density(self, x: int) -> float:
         """Return the log-probability mass at integer value x.
@@ -110,7 +110,7 @@ class BinomialDistribution(SequenceEncodableProbabilityDistribution):
         else:
             xx = x
 
-        return (
+        return float(
             gammaln(n + 1)
             - gammaln(xx + 1)
             - gammaln(n - xx + 1)
@@ -149,7 +149,7 @@ class BinomialDistribution(SequenceEncodableProbabilityDistribution):
             + self.log_1p * (n - xx)
             + self.log_p * xx
         )
-        return cc[ix]
+        return np.asarray(cc[ix])
 
     def sampler(self, seed: Optional[int] = None) -> "BinomialSampler":
         """Return a BinomialSampler for this distribution.
@@ -218,11 +218,12 @@ class BinomialSampler(DistributionSampler):
 
         if size is None:
             if self.dist.min_val is not None:
-                return int(rv) + self.dist.min_val
+                return int(rv) + int(self.dist.min_val)
             return int(rv)
+        rv_arr = np.asarray(rv, dtype=int)
         if self.dist.min_val is not None:
-            return list(rv + self.dist.min_val)
-        return list(rv)
+            return list(map(int, rv_arr + int(self.dist.min_val)))
+        return list(map(int, rv_arr))
 
 
 class BinomialAccumulator(SequenceEncodableStatisticAccumulator):

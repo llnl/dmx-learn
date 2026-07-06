@@ -5,7 +5,7 @@ Create, estimate, and sample from a hidden markov model with K emission distribu
 # pylint: disable=too-many-positional-arguments,duplicate-code
 
 from math import exp
-from typing import Any, Dict, List, Optional, Sequence, Set, Tuple, TypeVar, Union
+from typing import Any, Dict, List, Optional, Sequence, Set, Tuple, TypeVar, Union, cast
 
 import numpy as np
 import torch as tn
@@ -39,11 +39,11 @@ E = Tuple[
     Tuple[
         int,
         int,
-        tn.tensor,
-        List[tn.tensor],
-        tn.tensor,
-        tn.tensor,
-        tn.tensor,
+        tn.Tensor,
+        List[tn.Tensor],
+        tn.Tensor,
+        tn.Tensor,
+        tn.Tensor,
         TorchEncodedSequence,
     ],
     TorchEncodedSequence,
@@ -66,23 +66,23 @@ class HiddenMarkovModelDistribution(TorchProbabilityDistribution):
         HiddenMarkovModelDistribution object defining HMM compatible with data type T.
         """
         super().__init__(device)
-        self.topics = topics
+        self.topics: Sequence[TorchProbabilityDistribution] = topics
         self.n_topics = len(topics)
         self.n_states = len(w)
-        self.w = vec.tensor(w, device=self._device)
-        self.log_w = tn.log(self.w)
+        self.w: tn.Tensor = vec.tensor(w, device=self._device)
+        self.log_w: tn.Tensor = tn.log(self.w)
 
-        if not isinstance(transitions, np.ndarray):
-            transitions = np.asarray(transitions, dtype=float)
+        transitions_arr = np.asarray(transitions, dtype=float)
+        transitions_arr = np.reshape(transitions_arr, (self.n_states, self.n_states))
+        self.transitions: tn.Tensor = vec.tensor(transitions_arr, device=self._device)
+        self.log_transitions: tn.Tensor = tn.log(self.transitions)
+        self.terminal_values: Optional[Set[T]] = terminal_values
 
-        self.transitions = np.reshape(transitions, (self.n_states, self.n_states))
-        self.transitions = vec.tensor(self.transitions, device=self._device)
-        self.log_transitions = tn.log(self.transitions)
-        self.terminal_values = terminal_values
-
-        self.len_dist = (
+        self.len_dist: TorchProbabilityDistribution = (
             len_dist if len_dist is not None else NullDistribution(device=self._device)
         )
+        self.taus: Optional[tn.Tensor]
+        self.log_taus: Optional[tn.Tensor]
 
         if taus is not None:
             self.taus = vec.tensor(taus, device=self._device)
@@ -90,23 +90,26 @@ class HiddenMarkovModelDistribution(TorchProbabilityDistribution):
             self.has_topics = True
         else:
             self.taus = None
+            self.log_taus = None
             self.has_topics = False
 
-    def to(self, device: tn.device) -> None:
+    def to(self, device: vec.DeviceLike) -> "HiddenMarkovModelDistribution":
+        target_device = self._resolve_device_arg(device)
         for dist in self.topics:
-            dist.to(device)
+            dist.to(target_device)
 
-        self.w = self.w.to(device)
-        self.transitions = self.transitions.to(device)
+        self.w = self.w.to(target_device)
+        self.transitions = self.transitions.to(target_device)
 
         self.log_w = tn.log(self.w)
         self.log_transitions = tn.log(self.transitions)
 
         if self.taus is not None:
-            self.taus = self.taus.to(device)
+            self.taus = self.taus.to(target_device)
             self.log_taus = tn.log(self.taus)
 
-        self._device = device
+        self._device = target_device
+        return self
 
     def __repr__(self) -> str:
         """Returns string representation of HiddenMarkovDistribution instance."""
@@ -297,8 +300,9 @@ class HiddenMarkovSampler(DistributionSampler):
         self.rng = RandomState(seed)
 
         if dist.has_topics:
+            assert dist.taus is not None
             taus = dist.taus.data.cpu().numpy()
-            self.obs_samplers = [
+            self.obs_samplers: List[DistributionSampler] = [
                 MixtureDistribution(dist.topics, taus[i, :]).sampler(
                     seed=self.rng.randint(0, maxrandint)
                 )
@@ -311,7 +315,7 @@ class HiddenMarkovSampler(DistributionSampler):
             ]
 
         if dist.len_dist is not None:
-            self.len_sampler = dist.len_dist.sampler(
+            self.len_sampler: Optional[DistributionSampler] = dist.len_dist.sampler(
                 seed=self.rng.randint(0, maxrandint)
             )
         else:
@@ -350,16 +354,19 @@ class HiddenMarkovSampler(DistributionSampler):
         self, size: Optional[int] = None
     ) -> Union[List[Any], List[List[Any]]]:
         """Sample iid HMM sequences."""
+        assert self.len_sampler is not None
         if size is None:
-            n = self.len_sampler.sample()
-            state_seq = self.state_sampler.sample_seq(n)
+            n = int(self.len_sampler.sample())
+            state_seq = cast(List[int], self.state_sampler.sample_seq(size=n))
             obs_seq = [self.obs_samplers[state_seq[i]].sample() for i in range(n)]
 
             return obs_seq
 
-        n = self.len_sampler.sample(size=size)
-        state_seq = [self.state_sampler.sample_seq(size=nn) for nn in n]
-        obs_seq = [[self.obs_samplers[j].sample() for j in nn] for nn in state_seq]
+        n_values = [int(nn) for nn in self.len_sampler.sample(size=size)]
+        state_seqs = [
+            cast(List[int], self.state_sampler.sample_seq(size=nn)) for nn in n_values
+        ]
+        obs_seq = [[self.obs_samplers[j].sample() for j in nn] for nn in state_seqs]
 
         return obs_seq
 
@@ -367,16 +374,16 @@ class HiddenMarkovSampler(DistributionSampler):
         """
         Sample an HMM sequence, until a terminal value is samples from the emission.
         """
-        z = self.state_sampler.sample_seq()
-        rv = [self.obs_samplers[z].sample()]
+        z = cast(int, self.state_sampler.sample_seq())
+        rv: List[T] = [self.obs_samplers[z].sample()]
 
         while rv[-1] not in terminal_set:
-            z = self.state_sampler.sample_seq(v0=z)
+            z = cast(int, self.state_sampler.sample_seq(v0=z))
             rv.append(self.obs_samplers[z].sample())
 
         return rv
 
-    def sample(self, size: Optional[int] = None):
+    def sample(self, size: Optional[int] = None) -> Union[List[Any], List[List[Any]]]:
         """Draw iid samples from HMM."""
         if self.len_sampler is not None:
             return self.sample_seq(size=size)
@@ -409,8 +416,10 @@ class HiddenMarkovAccumulator(TorchStatisticAccumulator):
             (self.num_states, self.num_states), dtype=np.float64
         )
         self.state_counts = np.zeros(self.num_states, dtype=np.float64)
-        self.len_accumulator = (
-            len_accumulator if len_accumulator is not None else NullAccumulator(device)
+        self.len_accumulator: TorchStatisticAccumulator = (
+            len_accumulator
+            if len_accumulator is not None
+            else NullAccumulator(device=device)
         )
 
         self.init_key = keys[0]
@@ -453,8 +462,8 @@ class HiddenMarkovAccumulator(TorchStatisticAccumulator):
         tmp = tn.bincount(
             idx[b0:b1], weights=weights_loc[b0:b1], minlength=self.num_states
         )
-        tmp = tmp.cpu().detach().numpy()
-        self.init_counts += tmp
+        tmp_np = tmp.cpu().detach().numpy()
+        self.init_counts += tmp_np
 
         # Vectorized alpha pass
         idx_prev = idx[b0:b1]
@@ -762,7 +771,7 @@ class HiddenMarkovAccumulatorFactory(TorchStatisticAccumulatorFactory):
         HiddenMarkovEstimatorAccumulator.
         """
         self.factories = factories
-        self.keys = keys if keys is None else (None, None, None)
+        self.keys = keys if keys is not None else (None, None, None)
         self.len_factory = len_factory
 
     def make(self, device: Optional[tn.device] = None) -> "HiddenMarkovAccumulator":
@@ -801,7 +810,7 @@ class HiddenMarkovEstimator(TorchParameterEstimator):
             len_estimator if len_estimator is not None else NullEstimator()
         )
 
-    def accumulator_factory(self):
+    def accumulator_factory(self) -> "HiddenMarkovAccumulatorFactory":
         """Returns an HiddenMarkovAccumulatorFactory object."""
         est_factories = [u.accumulator_factory() for u in self.estimators]
         len_factory = self.len_estimator.accumulator_factory()
@@ -902,39 +911,39 @@ class HiddenMarkovDataEncoder(TorchSequenceEncoder):
         self, x: List[List[T]], device: Optional[tn.device] = None
     ) -> "HiddenMarkovTorchSequence":
         cnt = len(x)
-        len_vec = [len(u) for u in x]
-        len_enc = self.len_encoder.seq_encode(len_vec, device=device)
+        len_values = [len(u) for u in x]
+        len_enc = self.len_encoder.seq_encode(len_values, device=device)
 
-        len_vec = vec.int_tensor(len_vec, device=device)
-        max_len = int(tn.max(len_vec))
+        len_vec = vec.int_tensor(len_values, device=device)
+        max_len = max(len_values) if len_values else 0
         # len_cnt = np.bincount(len_vec)
 
-        seq_x = []
+        seq_x: List[T] = []
         idx_loc = 0
         idx_mat = vec.int_vec((cnt, max_len), device=device) - 1
-        idx_bands = []
-        has_next = []
-        idx_vec = []
+        idx_bands_list: List[List[int]] = []
+        has_next: List[tn.Tensor] = []
+        idx_vec_list: List[int] = []
 
         for i in range(max_len):
             i0 = idx_loc
-            has_next_loc = []
+            has_next_loc: List[int] = []
             for j in range(cnt):
-                if i < len_vec[j]:
-                    if i < (len_vec[j] - 1):
+                if i < len_values[j]:
+                    if i < (len_values[j] - 1):
                         has_next_loc.append(idx_loc - i0)
-                    idx_vec.append(j)
+                    idx_vec_list.append(j)
                     seq_x.append(x[j][i])
                     idx_mat[j, i] = idx_loc
                     idx_loc += 1
 
             has_next.append(vec.int_tensor(has_next_loc, device=device))
-            idx_bands.append([i0, idx_loc])
+            idx_bands_list.append([i0, idx_loc])
 
-        idx_bands = vec.int_tensor(idx_bands, device=device)
+        idx_bands = vec.int_tensor(idx_bands_list, device=device)
         tot_cnt = len(seq_x)
         enc_data = self.emission_encoder.seq_encode(seq_x, device=device)
-        idx_vec = vec.int_tensor(idx_vec, device=device)
+        idx_vec = vec.int_tensor(idx_vec_list, device=device)
 
         return HiddenMarkovTorchSequence(
             data=(
@@ -962,11 +971,11 @@ class HiddenMarkovTorchSequence(TorchEncodedSequence):
             Tuple[
                 int,
                 int,
-                tn.tensor,
-                List[tn.tensor],
-                tn.tensor,
-                tn.tensor,
-                tn.tensor,
+                tn.Tensor,
+                List[tn.Tensor],
+                tn.Tensor,
+                tn.Tensor,
+                tn.Tensor,
                 TorchEncodedSequence,
             ],
             TorchEncodedSequence,

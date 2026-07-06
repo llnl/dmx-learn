@@ -1,12 +1,11 @@
 """Heterogenous TSNE for embedding tuples of heterogenous data in lower-dimensions."""
 
-from typing import Optional, Sequence, Tuple, TypeVar, Union
+from typing import Any, Optional, Sequence, Tuple, TypeVar, Union
 
 import numpy as np
 from numpy.random import RandomState
 
 from dmx.bstats import MixtureDistribution as BstatsMixtureDistribution
-from dmx.bstats.pdist import ParameterEstimator
 from dmx.stats.mixture import MixtureDistribution as StatsMixtureDistribution
 from dmx.utils.automatic import prepare_mixture_model
 
@@ -144,7 +143,7 @@ def get_pmat_vlen(
             p_ij = fix_row_perplexity(p_ij, targ_perplexity)
 
         p_ij /= n
-        return p_ij
+        return np.asarray(p_ij)
 
 
 def get_pmat(
@@ -189,7 +188,7 @@ def get_pmat(
             p_ij = fix_row_perplexity(p_ij, targ_perplexity)
 
         p_ij /= n
-        return p_ij
+        return np.asarray(p_ij)
 
 
 def t_cond_prob_mat(tx: np.ndarray, alpha: float) -> Tuple[np.ndarray, np.ndarray]:
@@ -391,12 +390,12 @@ def htsne(
     min_alpha: float = 1.0e-6,
     max_alpha_its: int = 3,
     seed: Optional[int] = None,
-    comp_estimator: Optional[ParameterEstimator] = None,
+    comp_estimator: Optional[Any] = None,
     mix_model: Optional[
         Union[StatsMixtureDistribution, BstatsMixtureDistribution]
     ] = None,
     variable_length: bool = False,
-):
+) -> np.ndarray:
     """Performs Heterogeneous t-SNE embedding.
 
     Args:
@@ -516,21 +515,21 @@ def htsne(
 # Keep the current public call signature stable for now.
 # pylint: disable-next=too-many-positional-arguments
 def dpmsne(
-    P=None,
-    emb_dim=2,
-    alpha=1.0,
-    Y=None,
-    max_its=1000,
-    print_iter=100,
-    eta=500,
-    momentum=0.8,
-    min_gain=0.01,
-    min_value=1.0e-128,
-    optimize_alpha=False,
-    min_alpha=1.0e-6,
-    max_alpha_its=3,
-    seed=None,
-):
+    P: Optional[np.ndarray] = None,
+    emb_dim: int = 2,
+    alpha: float = 1.0,
+    Y: Optional[np.ndarray] = None,
+    max_its: int = 1000,
+    print_iter: int = 100,
+    eta: int = 500,
+    momentum: float = 0.8,
+    min_gain: float = 0.01,
+    min_value: float = 1.0e-128,
+    optimize_alpha: bool = False,
+    min_alpha: float = 1.0e-6,
+    max_alpha_its: int = 3,
+    seed: Optional[int] = None,
+) -> np.ndarray:
     """Performs DPM-based het-SNE embedding.
 
     Args:

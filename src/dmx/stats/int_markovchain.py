@@ -151,7 +151,7 @@ class IntegerMarkovChainDistribution(SequenceEncodableProbabilityDistribution):
             float: Density evaluated at x.
 
         """
-        return np.exp(self.log_density(x))
+        return float(np.exp(self.log_density(x)))
 
     def log_density(self, x: Sequence[int]) -> float:
         """Log-density of integer Markov chain evaluated at x.
@@ -219,7 +219,9 @@ class IntegerMarkovChainDistribution(SequenceEncodableProbabilityDistribution):
     def sampler(self, seed: Optional[int] = None) -> "IntegerMarkovChainSampler":
         return IntegerMarkovChainSampler(self, seed)
 
-    def estimator(self, pseudo_count: Optional[float] = None):
+    def estimator(
+        self, pseudo_count: Optional[float] = None
+    ) -> "IntegerMarkovChainEstimator":
         init_est = self.init_dist.estimator()
         len_est = self.len_dist.estimator()
 
@@ -286,17 +288,17 @@ class IntegerMarkovChainSampler(DistributionSampler):
 
     def single_sample(self) -> Sequence[int]:
         """Returns a single sample from the integer Markov chain distribution."""
-        cnt = self.len_sampler.sample()
+        cnt = int(self.len_sampler.sample())
         lag = self.dist.lag
         n_val = self.dist.num_values
         m_shape = [n_val] * lag
 
         if cnt >= lag:
-            rv = self.init_sampler.sample()  ## must return a list
+            rv = [int(v) for v in self.init_sampler.sample()]  ## must return a list
             for _ in range(lag, cnt):
                 idx = np.ravel_multi_index(rv[-lag:], m_shape)
                 rv.append(
-                    self.trans_sampler.choice(n_val, p=self.dist.cond_dist[idx, :])
+                    int(self.trans_sampler.choice(n_val, p=self.dist.cond_dist[idx, :]))
                 )
             return rv
         return []
@@ -333,7 +335,7 @@ class IntegerMarkovChainSampler(DistributionSampler):
         m_shape = [n_val] * lag
         idx = np.ravel_multi_index(x[-lag:], m_shape)
 
-        return self.trans_sampler.choice(n_val, p=self.dist.cond_dist[idx, :])
+        return int(self.trans_sampler.choice(n_val, p=self.dist.cond_dist[idx, :]))
 
 
 class IntegerMarkovChainAccumulator(SequenceEncodableStatisticAccumulator):
@@ -396,7 +398,7 @@ class IntegerMarkovChainAccumulator(SequenceEncodableStatisticAccumulator):
 
         """
         self.lag = lag
-        self.trans_count_map = {}
+        self.trans_count_map: Dict[Tuple[Tuple[int, ...], int], float] = {}
         self.len_accumulator = (
             len_accumulator if len_accumulator is not None else NullAccumulator()
         )
@@ -407,8 +409,8 @@ class IntegerMarkovChainAccumulator(SequenceEncodableStatisticAccumulator):
         del name
         self.keys = keys
 
-        self._acc_rng = None
-        self._len_rng = None
+        self._acc_rng: Optional[RandomState] = None
+        self._len_rng: Optional[RandomState] = None
         self._init_rng = False
 
     def update(
@@ -445,6 +447,9 @@ class IntegerMarkovChainAccumulator(SequenceEncodableStatisticAccumulator):
 
         if not self._init_rng:
             self._rng_initialize(rng)
+
+        assert self._acc_rng is not None
+        assert self._len_rng is not None
 
         lag = self.lag
 
@@ -493,6 +498,9 @@ class IntegerMarkovChainAccumulator(SequenceEncodableStatisticAccumulator):
         if not self._init_rng:
             self._rng_initialize(rng)
 
+        assert self._acc_rng is not None
+        assert self._len_rng is not None
+
         _seq_len, init_idx, seq_idx, u_seq_idx, u_seq_values, init_enc, len_enc = x.data
 
         seq_cnt = np.bincount(u_seq_idx, weights=weights[seq_idx])
@@ -516,10 +524,10 @@ class IntegerMarkovChainAccumulator(SequenceEncodableStatisticAccumulator):
             self.trans_count_map[k] = self.trans_count_map.get(k, 0) + v
 
         if suff_stat[1] is not None:
-            self.init_accumulator = self.init_accumulator.combine(suff_stat[1])
+            self.init_accumulator.combine(suff_stat[1])
 
         if suff_stat[2] is not None:
-            self.len_accumulator = self.len_accumulator.combine(suff_stat[2])
+            self.len_accumulator.combine(suff_stat[2])
 
         return self
 
@@ -705,8 +713,12 @@ class IntegerMarkovChainEstimator(ParameterEstimator):
         """
         self.num_values = num_values
         self.lag = lag
-        self.init_estimator = init_estimator
-        self.len_estimator = len_estimator
+        self.init_estimator = (
+            init_estimator if init_estimator is not None else NullEstimator()
+        )
+        self.len_estimator = (
+            len_estimator if len_estimator is not None else NullEstimator()
+        )
         self.init_dist = init_dist
         self.len_dist = len_dist
         self.pseudo_count = pseudo_count
@@ -741,7 +753,11 @@ class IntegerMarkovChainEstimator(ParameterEstimator):
             else self.init_estimator.estimate(None, init_ss)
         )
 
-        num_values = 1 + max(max(u[0], u[1]) for u in trans_count_map.keys())
+        num_values = 1 + max(
+            observed_value
+            for context, value in trans_count_map.keys()
+            for observed_value in (*context, value)
+        )
 
         cond_mat = np.zeros((num_values**lag, num_values), dtype=np.float32)
 
@@ -856,9 +872,9 @@ class IntegerMarkovChainDataEncoder(DataSequenceEncoder):
         init_entries = np.zeros(lag_cnt, dtype=object)
         seq_entries = np.zeros(step_cnt, dtype=object)
 
-        init_idx = []
-        seq_idx = []
-        seq_len = []
+        init_idx: List[int] = []
+        seq_idx: List[int] = []
+        seq_len: List[int] = []
 
         i0 = 0
         i1 = 0
@@ -881,17 +897,17 @@ class IntegerMarkovChainDataEncoder(DataSequenceEncoder):
 
         u_seq_values, u_seq_idx = np.unique(seq_entries, return_inverse=True)
 
-        init_idx = np.asarray(init_idx, dtype=np.int32)
-        seq_idx = np.asarray(seq_idx, dtype=np.int32)
-        seq_len = np.asarray(seq_len, dtype=np.int32)
+        init_idx_arr = np.asarray(init_idx, dtype=np.int32)
+        seq_idx_arr = np.asarray(seq_idx, dtype=np.int32)
+        seq_len_arr = np.asarray(seq_len, dtype=np.int32)
 
-        len_enc = self.len_encoder.seq_encode(seq_len)
+        len_enc = self.len_encoder.seq_encode(seq_len_arr)
         init_enc = self.init_encoder.seq_encode(init_entries)
 
         rv_enc = (
-            seq_len,
-            init_idx,
-            seq_idx,
+            seq_len_arr,
+            init_idx_arr,
+            seq_idx_arr,
             u_seq_idx,
             u_seq_values,
             init_enc,

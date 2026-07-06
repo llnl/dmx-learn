@@ -63,7 +63,7 @@ def dirichlet_param_solve(
         da_sum = digamma(a_sum)
         old_alpha = alpha
         adj_alpha = mlp + da_sum
-        alpha = digammainv(adj_alpha)
+        alpha = np.asarray(digammainv(adj_alpha), dtype=float)
         a_sum = np.sum(alpha)
         d_alpha = np.abs(alpha - old_alpha).sum()
         d_alpha /= a_sum
@@ -127,7 +127,9 @@ def alpha_seq_lambda(mean_log_p: np.ndarray) -> Callable[[np.ndarray], np.ndarra
     """
 
     def next_alpha(current_alpha: np.ndarray) -> np.ndarray:
-        return digammainv(mean_log_p + digamma(current_alpha.sum()))
+        return np.asarray(
+            digammainv(mean_log_p + digamma(current_alpha.sum())), dtype=float
+        )
 
     return next_alpha
 
@@ -184,8 +186,8 @@ class DirichletDistribution(SequenceEncodableProbabilityDistribution):
         self.dim: int = len(alpha)
         self.alpha: np.ndarray = temp_alpha
         self.alpha_ma: np.ndarray = ~temp_mask
-        self.log_const: float = sum(gammaln(alpha)) - gammaln(sum(alpha))
-        self.has_invalid: bool = np.any(temp_mask)
+        self.log_const: float = float(sum(gammaln(alpha)) - gammaln(sum(alpha)))
+        self.has_invalid: bool = bool(np.any(temp_mask))
         self.name: Optional[str] = name
         self.keys: Optional[str] = keys
 
@@ -205,7 +207,7 @@ class DirichletDistribution(SequenceEncodableProbabilityDistribution):
         Returns:
             float: Density evaluated at x.
         """
-        return np.exp(self.log_density(x))
+        return float(np.exp(self.log_density(x)))
 
     def log_density(self, x: Union[List[float], np.ndarray]) -> float:
         """Evaluate the log-density of a Dirichlet observation.
@@ -239,7 +241,7 @@ class DirichletDistribution(SequenceEncodableProbabilityDistribution):
             rv = np.dot(np.log(xx[zz]), self.alpha[zz] - 1.0)
             rv -= self.log_const
 
-        return rv
+        return float(rv)
 
     def seq_log_density(self, x: "DirichletEncodedDataSequence") -> np.ndarray:
         """Vectorized log-density for encoded data.
@@ -258,7 +260,7 @@ class DirichletDistribution(SequenceEncodableProbabilityDistribution):
 
         rv = np.dot(x.data[0], self.alpha - 1.0)
         rv -= self.log_const
-        return rv
+        return np.asarray(rv)
 
     def sampler(self, seed: Optional[int] = None) -> "DirichletSampler":
         """Return a DirichletSampler for this distribution.
@@ -369,7 +371,7 @@ class DirichletAccumulator(SequenceEncodableStatisticAccumulator):
         self.sum_of_logs = np.zeros(dim)
         self.sum = np.zeros(dim)
         self.sum2 = np.zeros(dim)
-        self.counts = 0
+        self.counts = 0.0
         self.keys = keys
         self.name = name
 
@@ -610,7 +612,7 @@ class DirichletEstimator(ParameterEstimator):
 
         self.dim = dim
         self.pseudo_count = pseudo_count
-        self.delta = delta
+        self.delta = delta if delta is not None else 1.0e-8
         self.suff_stat = suff_stat
         self.keys = keys
         self.use_mpe = use_mpe

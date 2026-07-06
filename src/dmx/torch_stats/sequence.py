@@ -73,10 +73,12 @@ class SequenceDistribution(TorchProbabilityDistribution):
             f"len_normalized={s3}, device=tn.device({s4}))"
         )
 
-    def to(self, device: tn.device) -> None:
-        self.dist.to(device)
-        self.len_dist.to(device)
-        self._device = device
+    def to(self, device: vec.DeviceLike) -> "SequenceDistribution":
+        target_device = self._resolve_device_arg(device)
+        self.dist.to(target_device)
+        self.len_dist.to(target_device)
+        self._device = target_device
+        return self
 
     def density(self, x: Sequence[T]) -> float:
         """Evaluate the density of SequenceDistribution at observed sequence x."""
@@ -191,7 +193,7 @@ class SequenceAccumulator(TorchStatisticAccumulator):
         len_accumulator: TorchStatisticAccumulator = NullAccumulator(),
         len_normalized: Optional[bool] = False,
         keys: Optional[str] = None,
-        device: Optional[str] = None,
+        device: vec.DeviceLike = None,
     ) -> None:
         """SequenceAccumulator object."""
         super().__init__(device)
@@ -431,7 +433,7 @@ class SequenceTorchEncodedSequence(TorchEncodedSequence):
     def __init__(
         self,
         data: Tuple[
-            tn.tensor, tn.tensor, tn.tensor, TorchEncodedSequence, TorchEncodedSequence
+            tn.Tensor, tn.Tensor, tn.Tensor, TorchEncodedSequence, TorchEncodedSequence
         ],
         device: Optional[tn.device] = None,
     ):

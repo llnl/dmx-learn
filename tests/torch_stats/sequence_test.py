@@ -53,23 +53,23 @@ class SequenceDistributionTestCase(TorchStatsTestClass):
         self.factories = self._factories
         self.accumulators = self._accs
 
-    def test_seq_log_density_type(self):
+    def test_seq_log_density_type(self) -> None:
         """seq_log_density must raise Exception when passed wrong encoded type."""
         for bad_input in [None, np.ones(10)]:
             with pytest.raises(Exception):
-                self._dists[0].seq_log_density(bad_input)
+                self._dists[0].seq_log_density(cast(Any, bad_input))
 
-    def test_encoder_type(self):
+    def test_encoder_type(self) -> None:
         """dist_to_encoder() must return a SequenceDataEncoder."""
         for dist in self._dists:
             self.assertIsInstance(dist.dist_to_encoder(), SequenceDataEncoder)
 
-    def test_accumulator_type(self):
+    def test_accumulator_type(self) -> None:
         """factory.make() must return a SequenceAccumulator."""
         for f in self._factories:
             self.assertIsInstance(f.make(device=self.device), SequenceAccumulator)
 
-    def test_sample_is_list(self):
+    def test_sample_is_list(self) -> None:
         """Each sample must be a list/sequence of observations."""
         for dist in self._dists:
             data = dist.sampler(seed=1).sample(size=20)
@@ -78,7 +78,7 @@ class SequenceDistributionTestCase(TorchStatsTestClass):
                     seq, (list, np.ndarray), f"Expected sequence, got {type(seq)}"
                 )
 
-    def test_sample_length_distribution(self):
+    def test_sample_length_distribution(self) -> None:
         """Sample lengths should follow the specified length distribution (approx)."""
         # dist1 has support on {3, 5} only
         data = self._dist1.sampler(seed=1).sample(size=1000)
@@ -87,7 +87,7 @@ class SequenceDistributionTestCase(TorchStatsTestClass):
         for l in valid_lengths:
             self.assertIn(l, {3, 5}, f"Unexpected sequence length {l}")
 
-    def test_log_density_finite(self):
+    def test_log_density_finite(self) -> None:
         """log_density must return finite values for sampled data."""
         for dist in self._dists:
             data = dist.sampler(seed=1).sample(size=20)

@@ -13,17 +13,17 @@ from dmx.stats.weighted import *
 from tests.stats.stats_tests import *
 
 
-def weighted_log_density_test(dist, encoder):
+def weighted_log_density_test(dist: Any, encoder: Any) -> tuple[bool, str]:
     seeds = [1, 2, 3]
     sz = 20
-    rv = []
+    rv: list[Any] = []
     for seed in seeds:
         s = dist.sampler(seed)
         data = s.sample(size=sz)
-        count_data = {}
+        count_map: dict[Any, int] = {}
         for x in data:
-            count_data[x] = count_data.get(x, 0) + 1
-        count_data = list(count_data.items())
+            count_map[x] = count_map.get(x, 0) + 1
+        count_data = list(count_map.items())
 
         try:
             enc_data = encoder.seq_encode(count_data)
@@ -40,19 +40,21 @@ def weighted_log_density_test(dist, encoder):
                 )
 
         rv.append(max(seq_ll))
-    return max(rv) < 1.0e-14, "max(rv) test"
+    return bool(max(rv) < 1.0e-14), "max(rv) test"
 
 
-def weighted_seq_update_test(dist, estimator, encoder):
+def weighted_seq_update_test(
+    dist: Any, estimator: Any, encoder: Any
+) -> tuple[bool, list[bool]]:
     seeds = [1, 2, 3]
     sz = 1000
-    rv = []
+    rv: list[bool] = []
     for seed in seeds:
         data = dist.sampler(seed=seed).sample(sz)
-        count_data = {}
+        count_map: dict[Any, int] = {}
         for x in data:
-            count_data[x] = count_data.get(x, 0) + 1
-        count_data = list(count_data.items())
+            count_map[x] = count_map.get(x, 0) + 1
+        count_data = list(count_map.items())
 
         enc_data = [(len(count_data), encoder.seq_encode(count_data))]
 
@@ -65,7 +67,7 @@ def weighted_seq_update_test(dist, estimator, encoder):
         log_diff = ll - ll_prev
         rv.append(log_diff >= 0)
 
-    return np.all(rv), rv
+    return bool(np.all(rv)), rv
 
 
 class WeightedDistributionTestCase(StatsTestClass):
@@ -116,7 +118,7 @@ class WeightedDistributionTestCase(StatsTestClass):
                 ),
                 WeightedEstimator(
                     IntegerCategoricalEstimator(
-                        suff_stat=[0, np.ones(20)], pseudo_count=1.0e-6
+                        suff_stat=cast(Any, [0, np.ones(20)]), pseudo_count=1.0e-6
                     )
                 ),
                 WeightedDataEncoder(encoder=enc),
@@ -124,7 +126,7 @@ class WeightedDistributionTestCase(StatsTestClass):
         ]
 
     @pytest.mark.dependency(depends=["sampler"], name="log_density")
-    def test_05_log_density(self):
+    def test_05_log_density(self) -> None:
         for x in self.density_dist_encoder:
             res = weighted_log_density_test(*x)
             self.assertTrue(res[0], str(res[1]))
@@ -132,12 +134,12 @@ class WeightedDistributionTestCase(StatsTestClass):
     @pytest.mark.dependency(
         depends=["estimator", "log_density", "estimator_factory", "factory_make"]
     )
-    def test_09_seq_update(self):
+    def test_09_seq_update(self) -> None:
         for x in self.seq_update_configs:
             res = weighted_seq_update_test(*x)
             self.assertTrue(res[0], str(res[1]))
 
-    def test_seq_log_density_type(self):
+    def test_seq_log_density_type(self) -> None:
         for x in self.type_check_data:
             with pytest.raises(Exception) as e:
                 self.eval_dists[0].seq_log_density(x)

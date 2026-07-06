@@ -1,5 +1,5 @@
 import math
-from typing import Any, Dict, List, Optional, Sequence, Tuple, TypeVar, Union
+from typing import Any, Dict, List, Optional, Sequence, Tuple, TypeVar, Union, cast
 
 import numba
 import numpy as np
@@ -41,13 +41,14 @@ E = Tuple[
     np.ndarray,
 ]
 N3 = Tuple[np.ndarray, np.ndarray, np.ndarray]
+N4 = Tuple[int, np.ndarray, np.ndarray, np.ndarray]
 N7 = Tuple[
     np.ndarray, np.ndarray, np.ndarray, np.ndarray, np.ndarray, np.ndarray, np.ndarray
 ]
 E0 = Tuple[
     bool,
     Tuple[
-        np.ndarray, N3, N7, EncodedDataSequence, Tuple[np.ndarray, EncodedDataSequence]
+        np.ndarray, N4, N7, EncodedDataSequence, Tuple[np.ndarray, EncodedDataSequence]
     ],
 ]  # numba
 E1 = Tuple[
@@ -182,11 +183,11 @@ class TreeHiddenMarkovModelDistribution(SequenceEncodableProbabilityDistribution
         )
 
     def density(self, x: Sequence[Tuple[D, T]]) -> float:
-        return exp(self.log_density(x))
+        return float(exp(self.log_density(x)))
 
     def log_density(self, x: Sequence[Tuple[D, T]]) -> float:
         enc_x = self.dist_to_encoder().seq_encode([x])
-        return self.seq_log_density(enc_x)[0]
+        return float(self.seq_log_density(enc_x)[0])
 
     def seq_log_density(self, x: "TreeHiddenMarkovEncodedDataSequence") -> np.ndarray:
 
@@ -630,13 +631,18 @@ class TreeHiddenMarkovSampler(DistributionSampler):
             self.num_states, p=self.transitions[given_state, :], replace=True, size=size
         )
 
-    def sample_tree(self, size: Optional[int] = None):
+    def sample_tree(self, size: Optional[int] = None) -> Union[
+        List[Tuple[D, Any]],
+        List[List[Tuple[D, Any]]],
+    ]:
         if size is None:
+            if self.len_sampler is None:
+                raise RuntimeError("Length sampler is required for sample_tree().")
 
-            seq = []
+            seq: List[Tuple[D, Any]] = []
             xi = 0
-            zi = self.rng.choice(self.num_states, p=self.init_w)
-            ni = self.len_sampler.sample()
+            zi = int(self.rng.choice(self.num_states, p=self.init_w))
+            ni = int(self.len_sampler.sample())
             nodes = [(xi, zi, ni)]
             y0 = self.obs_samplers[zi].sample()
 
@@ -651,13 +657,17 @@ class TreeHiddenMarkovSampler(DistributionSampler):
                 for node in nodes:
                     xi, zi, ni = node
 
-                    zj = self.sample_state(given_state=zi, size=ni)
-                    nj = self.len_sampler.sample(size=ni)
+                    zj = np.asarray(
+                        self.sample_state(given_state=zi, size=ni), dtype=np.int32
+                    )
+                    nj = np.asarray(self.len_sampler.sample(size=ni), dtype=np.int32)
 
                     for j in range(ni):
                         if nj[j] > 0:
-                            nodes_next.append((cnt + j, zj[j], nj[j]))
-                        seq.append(((cnt + j, xi), self.obs_samplers[zj[j]].sample()))
+                            nodes_next.append((cnt + j, int(zj[j]), int(nj[j])))
+                        seq.append(
+                            ((cnt + j, xi), self.obs_samplers[int(zj[j])].sample())
+                        )
                     cnt += ni
                 if len(nodes_next) == 0:
                     iter_cond = False
@@ -668,9 +678,14 @@ class TreeHiddenMarkovSampler(DistributionSampler):
 
             return seq
 
-        return [self.sample_tree() for xx in range(size)]
+        return cast(
+            List[List[Tuple[D, Any]]],
+            [self.sample_tree() for xx in range(size)],
+        )
 
-    def sample(self, size: Optional[int] = None):
+    def sample(
+        self, size: Optional[int] = None
+    ) -> Union[List[Tuple[D, Any]], List[List[Tuple[D, Any]]]]:
         if self.len_sampler is not None:
             return self.sample_tree(size=size)
         raise RuntimeError(
@@ -756,6 +771,9 @@ class TreeHiddenMarkovAccumulator(  # pylint: disable=too-many-instance-attribut
 
         if not self._init_rng:
             self._rng_initialize(rng)
+        assert self._idx_rng is not None
+        assert self._acc_rng is not None
+        assert self._len_rng is not None
 
         if x.data[0]:
 
@@ -1159,7 +1177,7 @@ class TreeHiddenMarkovAccumulatorFactory(StatisticAccumulatorFactory):
         use_numba: bool = True,
     ) -> None:
         self.factories = factories
-        self.keys = keys if keys is None else (None, None, None)
+        self.keys = keys if keys is not None else (None, None, None)
         self.len_factory = len_factory
         self.name = name
         self.use_numba = use_numba
@@ -1293,22 +1311,22 @@ class TreeHiddenMarkovDataEncoder(DataSequenceEncoder):
 
     def _seq_encode(self, x: Sequence[Sequence[Tuple[D, T]]]) -> E1:
 
-        xs = []  # flattened values of nodes in order encoded
-        obs_idx = []  #  tree seq idx for observed flattened nodes
-        idx = []  # idx for node observation by tree in seq used in betas
-        tz = [0]  #  Track entries in beta by observation.
+        xs: List[T] = []  # flattened values of nodes in order encoded
+        obs_idx: List[int] = []  #  tree seq idx for observed flattened nodes
+        idx: List[int] = []  # idx for node observation by tree in seq used in betas
+        tz: List[int] = [0]  #  Track entries in beta by observation.
         #  Encodings for the beta pass
-        xln = []  # leaf nodes
-        xlnl = []  # levels for the leaf nodes
-        xlni = []
-        root_id = []
+        xln: List[int] = []  # leaf nodes
+        xlnl: List[int] = []  # levels for the leaf nodes
+        xlni: List[int] = []
+        root_id: List[int] = []
 
-        xbi = []  # Use this to track beta_j(p(u), u)
-        xp = []  # parents, repeated for each child
-        xl = []  # level of xc below
-        xc = []  # children of xp
+        xbi: List[int] = []  # Use this to track beta_j(p(u), u)
+        xp: List[int] = []  # parents, repeated for each child
+        xl: List[int] = []  # level of xc below
+        xc: List[int] = []  # children of xp
 
-        nc = []  # number of children for a given node.
+        nc: List[int] = []  # number of children for a given node.
 
         cnt = 0
         eta_cnt = 0
@@ -1359,51 +1377,53 @@ class TreeHiddenMarkovDataEncoder(DataSequenceEncoder):
 
             cnt += n
 
-        idx = np.asarray(idx, dtype=np.int32)
-        xbi = np.asarray(xbi, dtype=np.int32)
-        xp = np.asarray(xp, dtype=np.int32)
-        xc = np.asarray(xc, dtype=np.int32)
-        xl = np.asarray(xl, dtype=np.int32)
-        xln = np.asarray(xln, dtype=np.int32)
-        xlnl = np.asarray(xlnl, dtype=np.int32)
-        xlni = np.asarray(xlni, dtype=np.int32)
+        idx_arr = np.asarray(idx, dtype=np.int32)
+        xbi_arr = np.asarray(xbi, dtype=np.int32)
+        xp_arr = np.asarray(xp, dtype=np.int32)
+        xc_arr = np.asarray(xc, dtype=np.int32)
+        xl_arr = np.asarray(xl, dtype=np.int32)
+        xln_arr = np.asarray(xln, dtype=np.int32)
+        xlnl_arr = np.asarray(xlnl, dtype=np.int32)
+        xlni_arr = np.asarray(xlni, dtype=np.int32)
         root_idx = np.asarray(root_id, dtype=np.int32)
 
-        level_idx = []
-        eta_p = []
-        p_nxt = []
+        level_idx: List[np.ndarray] = []
+        eta_p: List[np.ndarray] = []
+        p_nxt: List[np.ndarray] = []
         i_nxt = [root_idx]
 
-        for level in range(1, np.max(xl) + 1):
+        for level in range(1, int(np.max(xl_arr)) + 1):
 
-            level_idx.append(np.flatnonzero(xl == level))
-            u0, u1 = np.unique(xp[level_idx[-1]], return_counts=True)
+            level_idx.append(np.flatnonzero(xl_arr == level))
+            unique_counts = np.unique(xp_arr[level_idx[-1]], return_counts=True)
+            u0 = unique_counts[0]
+            u1 = unique_counts[1]
             eta_p.append(np.cumsum(np.append([0], u1)))
             p_nxt.append(u0)
-            i_nxt.append(idx[level_idx[-1]])
+            i_nxt.append(idx_arr[level_idx[-1]])
 
-        rns = np.unique(xp[level_idx[0]])  # root nodes
+        rns = np.unique(xp_arr[level_idx[0]])  # root nodes
 
         enc_x = self.emission_encoder.seq_encode(xs)
         len_enc = self.len_encoder.seq_encode(nc)
 
-        tz = np.cumsum(tz).astype(np.int32)
-        obs_idx = np.asarray(obs_idx, dtype=np.int32)
+        tz_arr = np.cumsum(tz).astype(np.int32)
+        obs_idx_arr = np.asarray(obs_idx, dtype=np.int32)
 
         if len_enc is not None:
             return False, (
                 cnt,
-                tz,
-                (xln, xlnl, xlni),
-                (idx, xbi, xp, xc, level_idx, p_nxt, eta_p, i_nxt, rns),
+                tz_arr,
+                (xln_arr, xlnl_arr, xlni_arr),
+                (idx_arr, xbi_arr, xp_arr, xc_arr, level_idx, p_nxt, eta_p, i_nxt, rns),
                 enc_x,
-                (obs_idx, len_enc),
+                (obs_idx_arr, len_enc),
             )
         return False, (
             cnt,
-            tz,
-            (xln, xlnl, xlni),
-            (idx, xbi, xp, xc, level_idx, p_nxt, eta_p, i_nxt, rns),
+            tz_arr,
+            (xln_arr, xlnl_arr, xlni_arr),
+            (idx_arr, xbi_arr, xp_arr, xc_arr, level_idx, p_nxt, eta_p, i_nxt, rns),
             enc_x,
             None,
         )
@@ -1412,23 +1432,25 @@ class TreeHiddenMarkovDataEncoder(DataSequenceEncoder):
         self, x: Sequence[Sequence[Tuple[D, T]]]
     ) -> "TreeHiddenMarkovEncodedDataSequence":
         if self.use_numba:
-            xs = []  # flattened values of nodes in order encoded
-            idx = []  # idx corresponding to weight
+            xs: List[T] = []  # flattened values of nodes in order encoded
+            idx: List[int] = []  # idx corresponding to weight
             tz = [0]  # slice entries for a given observed tree
 
             #  Encodings for the beta pass
-            xln = []  # leaf nodes
-            xlnl = []  # levels for the leaf nodes
+            xln: List[int] = []  # leaf nodes
+            xlnl: List[int] = []  # levels for the leaf nodes
             tlnz = [0]  # slice leaf nodes for given tree observation
-            xbi = []  # Use this to track beta_j(p(u), u)
-            xp = []  # parents, repeated for each child
-            xl = []  # level of xc below
-            xc = []  # children of xp
+            xbi: List[int] = []  # Use this to track beta_j(p(u), u)
+            xp: List[int] = []  # parents, repeated for each child
+            xl: List[int] = []  # level of xc below
+            xc: List[int] = []  # children of xp
             txz = [0]  # slice xp, xc, and xl for observed tree
-            tp = []  # partition couples of (p, c) for all of a parents children.
+            tp: List[int] = (
+                []
+            )  # partition couples of (p, c) for all of a parents children.
             tpz = [0]  # slice tp for an observed tree
 
-            nc = []  # number of children for a given node.
+            nc: List[int] = []  # number of children for a given node.
 
             for i, xx in enumerate(x):
 
@@ -1453,8 +1475,8 @@ class TreeHiddenMarkovDataEncoder(DataSequenceEncoder):
                         xp.extend([u0[j]] * u1_j)
                         xc.extend(xc0[np.flatnonzero(xp0[1:] == u0[j])])
 
-                    txz.append(np.sum(u1))
-                    tp.extend(np.cumsum([0] + list(u1)))
+                    txz.append(int(np.sum(u1)))
+                    tp.extend([int(v) for v in np.cumsum([0] + list(u1))])
                     tpz.append(len(u1) + 1)
 
                 else:
@@ -1486,32 +1508,32 @@ class TreeHiddenMarkovDataEncoder(DataSequenceEncoder):
                 nc_temp[u0] = u1
                 nc.extend(nc_temp)
 
-            tz = np.cumsum(tz).astype(np.int32)
+            tz_arr = np.cumsum(tz).astype(np.int32)
 
-            xln = np.asarray(xln, dtype=np.int32)
-            xlnl = np.asarray(xlnl, dtype=np.int32)
-            tlnz = np.cumsum(tlnz).astype(np.int32)
+            xln_arr = np.asarray(xln, dtype=np.int32)
+            xlnl_arr = np.asarray(xlnl, dtype=np.int32)
+            tlnz_arr = np.cumsum(tlnz).astype(np.int32)
 
-            xbi = np.asarray(xbi, dtype=np.int32)
-            xp = np.asarray(xp, dtype=np.int32)
-            xc = np.asarray(xc, dtype=np.int32)
-            xl = np.asarray(xl, dtype=np.int32)
-            txz = np.cumsum(txz).astype(np.int32)
-            tp = np.asarray(tp, dtype=np.int32)
-            tpz = np.cumsum(tpz).astype(np.int32)
+            xbi_arr = np.asarray(xbi, dtype=np.int32)
+            xp_arr = np.asarray(xp, dtype=np.int32)
+            xc_arr = np.asarray(xc, dtype=np.int32)
+            xl_arr = np.asarray(xl, dtype=np.int32)
+            txz_arr = np.cumsum(txz).astype(np.int32)
+            tp_arr = np.asarray(tp, dtype=np.int32)
+            tpz_arr = np.cumsum(tpz).astype(np.int32)
 
             enc_x = self.emission_encoder.seq_encode(xs)
             len_enc = self.len_encoder.seq_encode(nc)
 
             # if len_enc is not None:
-            len_enc = tuple([np.asarray(idx, np.int32), len_enc])
+            len_enc_tuple = (np.asarray(idx, np.int32), len_enc)
 
             rv_enc = (
-                tz,
-                (np.max(xln), xln, xlnl, tlnz),
-                (xbi, xp, xc, xl, txz, tp, tpz),
+                tz_arr,
+                (int(np.max(xln_arr)), xln_arr, xlnl_arr, tlnz_arr),
+                (xbi_arr, xp_arr, xc_arr, xl_arr, txz_arr, tp_arr, tpz_arr),
                 enc_x,
-                len_enc,
+                len_enc_tuple,
             )
 
             return TreeHiddenMarkovEncodedDataSequence(data=(True, rv_enc))
@@ -1521,7 +1543,7 @@ class TreeHiddenMarkovDataEncoder(DataSequenceEncoder):
 
 class TreeHiddenMarkovEncodedDataSequence(EncodedDataSequence):
 
-    def __init__(self, data: Union[E0, E1]):
+    def __init__(self, data: Union[E0, E1]) -> None:
         super().__init__(data=data)
 
     def __repr__(self) -> str:
@@ -1537,26 +1559,26 @@ class TreeHiddenMarkovEncodedDataSequence(EncodedDataSequence):
     parallel=True,
 )
 def numba_seq_log_density(  # pylint: disable=too-many-positional-arguments
-    num_states,
-    tz,
-    txz,
-    tp,
-    tpz,
-    tlnz,
-    xp,
-    xc,
-    xl,
-    xbi,
-    xln,
-    xlnl,
-    pr_obs,
-    p_level,
-    tr_mat,
-    pr_max0,
-    betas,
-    etas,
-    out,
-):
+    num_states: int,
+    tz: np.ndarray,
+    txz: np.ndarray,
+    tp: np.ndarray,
+    tpz: np.ndarray,
+    tlnz: np.ndarray,
+    xp: np.ndarray,
+    xc: np.ndarray,
+    xl: np.ndarray,
+    xbi: np.ndarray,
+    xln: np.ndarray,
+    xlnl: np.ndarray,
+    pr_obs: np.ndarray,
+    p_level: np.ndarray,
+    tr_mat: np.ndarray,
+    pr_max0: np.ndarray,
+    betas: np.ndarray,
+    etas: np.ndarray,
+    out: np.ndarray,
+) -> None:
     for n in numba.prange(len(tz) - 1):
         #  Observed value slice (xs)
         s0, s1 = tz[n], tz[n + 1]
@@ -1648,28 +1670,28 @@ def numba_seq_log_density(  # pylint: disable=too-many-positional-arguments
     parallel=True,
 )
 def numba_baum_welch(  # pylint: disable=too-many-positional-arguments
-    num_states,
-    tz,
-    txz,
-    tp,
-    tpz,
-    tlnz,
-    xp,
-    xc,
-    xl,
-    xbi,
-    xln,
-    xlnl,
-    pr_obs,
-    p_level,
-    tr_mat,
-    weights,
-    betas,
-    etas,
-    alphas,
-    xi_acc,
-    pi_acc,
-):
+    num_states: int,
+    tz: np.ndarray,
+    txz: np.ndarray,
+    tp: np.ndarray,
+    tpz: np.ndarray,
+    tlnz: np.ndarray,
+    xp: np.ndarray,
+    xc: np.ndarray,
+    xl: np.ndarray,
+    xbi: np.ndarray,
+    xln: np.ndarray,
+    xlnl: np.ndarray,
+    pr_obs: np.ndarray,
+    p_level: np.ndarray,
+    tr_mat: np.ndarray,
+    weights: np.ndarray,
+    betas: np.ndarray,
+    etas: np.ndarray,
+    alphas: np.ndarray,
+    xi_acc: np.ndarray,
+    pi_acc: np.ndarray,
+) -> None:
     for n in numba.prange(len(tz) - 1):
 
         #  Observed value slice (xs)
@@ -1809,24 +1831,24 @@ def numba_baum_welch(  # pylint: disable=too-many-positional-arguments
     parallel=True,
 )
 def numba_posteriors(  # pylint: disable=too-many-positional-arguments
-    num_states,
-    tz,
-    txz,
-    tp,
-    tpz,
-    tlnz,
-    xp,
-    xc,
-    xl,
-    xbi,
-    xln,
-    xlnl,
-    pr_obs,
-    p_level,
-    tr_mat,
-    betas,
-    etas,
-):
+    num_states: int,
+    tz: np.ndarray,
+    txz: np.ndarray,
+    tp: np.ndarray,
+    tpz: np.ndarray,
+    tlnz: np.ndarray,
+    xp: np.ndarray,
+    xc: np.ndarray,
+    xl: np.ndarray,
+    xbi: np.ndarray,
+    xln: np.ndarray,
+    xlnl: np.ndarray,
+    pr_obs: np.ndarray,
+    p_level: np.ndarray,
+    tr_mat: np.ndarray,
+    betas: np.ndarray,
+    etas: np.ndarray,
+) -> None:
     for n in numba.prange(len(tz) - 1):
 
         #  Observed value slice (xs)
@@ -1915,8 +1937,18 @@ def numba_posteriors(  # pylint: disable=too-many-positional-arguments
     nopython=True,
 )
 def numba_initialize(  # pylint: disable=too-many-positional-arguments
-    tz, txz, tp, tpz, xp, xc, states, weights, init_counts, state_counts, trans_counts
-):
+    tz: np.ndarray,
+    txz: np.ndarray,
+    tp: np.ndarray,
+    tpz: np.ndarray,
+    xp: np.ndarray,
+    xc: np.ndarray,
+    states: np.ndarray,
+    weights: np.ndarray,
+    init_counts: np.ndarray,
+    state_counts: np.ndarray,
+    trans_counts: np.ndarray,
+) -> None:
     for n in numba.prange(len(tz) - 1):
         s0, s1 = tz[n], tz[n + 1]
 
@@ -1955,24 +1987,24 @@ def numba_initialize(  # pylint: disable=too-many-positional-arguments
 )
 # pylint: disable-next=too-many-positional-arguments
 def numba_viterbi(
-    num_states,
-    tz,
-    txz,
-    tp,
-    tpz,
-    tlnz,
-    xp,
-    xc,
-    xl,
-    xbi,
-    xln,
-    log_pr_obs,
-    log_init_p,
-    log_tr_mat,
-    betas,
-    etas,
-    out,
-):
+    num_states: int,
+    tz: np.ndarray,
+    txz: np.ndarray,
+    tp: np.ndarray,
+    tpz: np.ndarray,
+    tlnz: np.ndarray,
+    xp: np.ndarray,
+    xc: np.ndarray,
+    xl: np.ndarray,
+    xbi: np.ndarray,
+    xln: np.ndarray,
+    log_pr_obs: np.ndarray,
+    log_init_p: np.ndarray,
+    log_tr_mat: np.ndarray,
+    betas: np.ndarray,
+    etas: np.ndarray,
+    out: np.ndarray,
+) -> None:
     # Keep the numba kernel in a single function to preserve compilation behavior.
     # pylint: disable=too-many-nested-blocks
     for n in numba.prange(len(tz) - 1):
@@ -2040,8 +2072,8 @@ def numba_viterbi(
         for nn in range(len(tps) - 2, -1, -1):
             t0, t1 = tps[nn], tps[nn + 1]
             p, _level = xps[t0], xls[t0]
-            beta_max_v = None
-            beta_max_i = None
+            beta_max_v = -np.inf
+            beta_max_i = 0
             #  Get eta(p, u)_i and sum then get beta_i(p)
             for i in range(0, num_states):
 
@@ -2056,26 +2088,28 @@ def numba_viterbi(
 
                     eta_mat[eta_idx, i] += eta_max
                     beta_mat[p, i] += log_b[p, i]
-                    if beta_max_v is None:
+                    if beta_max_v < beta_mat[p, i]:
                         beta_max_v = beta_mat[p, i]
                         beta_max_i = i
-                    else:
-                        if beta_max_v < beta_mat[p, i]:
-                            beta_max_v = beta_mat[p, i]
-                            beta_max_i = i
 
             outs[p] = beta_max_i
 
 
 @numba.njit("float64[:](int32[:], float64[:], float64[:])", parallel=True)
-def vec_bincount(idx, ll, out):
+def vec_bincount(idx: np.ndarray, ll: np.ndarray, out: np.ndarray) -> np.ndarray:
     for i in numba.prange(len(idx)):
         out[idx[i]] += ll[i]
     return out
 
 
 @numba.njit("void(int32, int32, float64[:, :], float64[:], float64[:, :])")
-def level_state_prob(levels, num_states, tr_mat, init_prob, out):
+def level_state_prob(
+    levels: int,
+    num_states: int,
+    tr_mat: np.ndarray,
+    init_prob: np.ndarray,
+    out: np.ndarray,
+) -> None:
 
     for i in range(num_states):
         out[0, i] = init_prob[i]

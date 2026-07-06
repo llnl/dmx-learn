@@ -2,6 +2,8 @@
 
 # pylint: disable=duplicate-code
 
+from typing import Sequence, cast
+
 import numpy as np
 
 from dmx.stats import SpikeAndSlabDistribution, SpikeAndSlabEstimator, seq_encode
@@ -14,7 +16,7 @@ if __name__ == "__main__":
     dist = SpikeAndSlabDistribution(p=0.90, min_val=0, num_vals=50, k=1)
     # Generate data from sampler
     sampler = dist.sampler(seed=1)
-    data = sampler.sample(n)
+    data = cast(Sequence[int], sampler.sample(n))
     # Define estimator
     est = SpikeAndSlabEstimator(min_val=0, max_val=49)
     # Estimate model

@@ -110,7 +110,18 @@ __all__ = [
 ]
 
 import pickle
-from typing import Any, List, Optional, Sequence, Tuple, TypeVar, Union
+from typing import (
+    Any,
+    Dict,
+    List,
+    Optional,
+    Sequence,
+    Tuple,
+    TypeVar,
+    Union,
+    cast,
+    overload,
+)
 
 ### imports
 import numpy as np
@@ -253,7 +264,10 @@ def load_models(x: str) -> SequenceEncodableProbabilityDistribution:
         SequenceEncodableProbabilityDistribution: Loaded model.
     """
     # Existing model strings are constructor expressions from distribution __repr__.
-    return eval(x)  # pylint: disable=eval-used
+    return cast(
+        SequenceEncodableProbabilityDistribution,
+        eval(x),  # pylint: disable=eval-used
+    )
 
 
 def dump_models(x: SequenceEncodableProbabilityDistribution) -> str:
@@ -299,8 +313,7 @@ def initialize(
         estimator_broadcast = sc.broadcast(estimator)
         seeds_broadcast = sc.broadcast(seeds)
 
-        def acc(split_index, itr):
-            del split_index
+        def acc(split_index: int, itr: Any) -> Any:
             accumulator_for_split = (
                 estimator_broadcast.value.accumulator_factory().make()
             )
@@ -321,9 +334,9 @@ def initialize(
             nobs = nobs + nobs_for_split
             accumulator.combine(stats_for_split)
 
-        stats_dict = {}
-        accumulator.key_merge(stats_dict)
-        accumulator.key_replace(stats_dict)
+        local_stats_dict: Dict[str, Any] = {}
+        accumulator.key_merge(local_stats_dict)
+        accumulator.key_replace(local_stats_dict)
 
         return estimator.estimate(nobs, accumulator.value())
 
@@ -338,13 +351,13 @@ def initialize(
             nobs += w
             accumulator.initialize(x, w, rng)
 
-        stats_dict = {}
+        stats_dict: Dict[str, Any] = {}
         accumulator.key_merge(stats_dict)
         accumulator.key_replace(stats_dict)
 
         return estimator.estimate(nobs, accumulator.value())
 
-    return None
+    return cast(SequenceEncodableProbabilityDistribution, None)
 
 
 def estimate(
@@ -374,7 +387,7 @@ def estimate(
         temp_estimate = pickle.dumps(prev_estimate, protocol=0)
         temp_estimate_b = sc.broadcast(temp_estimate)
 
-        def acc(split_index, itr):
+        def acc(split_index: int, itr: Any) -> Any:
             del split_index
             accumulator_for_split = (
                 estimator_broadcast.value.accumulator_factory().make()
@@ -409,7 +422,29 @@ def estimate(
 
         return estimator.estimate(nobs, accumulator.value())
 
-    return None
+    return cast(SequenceEncodableProbabilityDistribution, None)
+
+
+@overload
+def seq_encode(
+    data: RDD,
+    encoder: Optional[DataSequenceEncoder] = None,
+    estimator: Optional[ParameterEstimator] = None,
+    model: Optional[SequenceEncodableProbabilityDistribution] = None,
+    num_chunks: int = 1,
+    chunk_size: Optional[int] = None,
+) -> RDD[Any]: ...
+
+
+@overload
+def seq_encode(
+    data: Sequence[T],
+    encoder: Optional[DataSequenceEncoder] = None,
+    estimator: Optional[ParameterEstimator] = None,
+    model: Optional[SequenceEncodableProbabilityDistribution] = None,
+    num_chunks: int = 1,
+    chunk_size: Optional[int] = None,
+) -> List[Tuple[int, EncodedDataSequence]]: ...
 
 
 def seq_encode(
@@ -464,7 +499,7 @@ def seq_encode(
             )
         )
 
-        return enc_data
+        return cast(RDD[Any], enc_data)
 
     sz = len(data)
     if chunk_size is not None:
@@ -472,11 +507,11 @@ def seq_encode(
     else:
         num_chunks_loc = num_chunks
 
-    rv = []
+    rv: List[Tuple[int, EncodedDataSequence]] = []
     for i in range(num_chunks_loc):
         data_loc = [data[i] for i in range(i, sz, num_chunks_loc)]
-        enc_data = encoder.seq_encode(data_loc)
-        rv.append((len(data_loc), enc_data))
+        encoded_chunk = encoder.seq_encode(data_loc)
+        rv.append((len(data_loc), encoded_chunk))
 
     return rv
 
@@ -511,7 +546,7 @@ def seq_log_density_sum(
         sc = enc_data.context
         estimate_broadcast = sc.broadcast(pickle.dumps(estimate, protocol=0))
 
-        def acc(itr):
+        def acc(itr: Any) -> List[Tuple[float, float]]:
 
             rv = 0.0
             cnt = 0.0
@@ -563,14 +598,14 @@ def seq_log_density(  # pylint: disable=redefined-outer-name
         Union[List[np.ndarray[float]], List[float]]
 
     """
-    is_list = issubclass(type(estimate), Sequence)
+    is_list = isinstance(estimate, Sequence)
 
     if isinstance(enc_data, RDD):
         sc = enc_data.context
         temp_estimate = pickle.dumps(estimate, protocol=0)
         estimate_broadcast = sc.broadcast(temp_estimate)
 
-        def acc(itr):
+        def acc(itr: Any) -> List[np.ndarray]:
             loc_estimate = pickle.loads(estimate_broadcast.value)
             if is_list:
                 return [
@@ -581,7 +616,7 @@ def seq_log_density(  # pylint: disable=redefined-outer-name
 
         return enc_data.mapPartitions(acc).collect()
 
-    if is_list:
+    if isinstance(estimate, Sequence):
         return [
             np.asarray([ee.seq_log_density(u[1]) for ee in estimate]) for u in enc_data
         ]
@@ -627,7 +662,7 @@ def seq_estimate(
         estimator_broadcast = sc.broadcast(estimator)
         estimate_broadcast = sc.broadcast(pickle.dumps(prev_estimate, protocol=0))
 
-        def acc(split_index, itr):
+        def acc(split_index: int, itr: Any) -> List[bytes]:
             del split_index
             accumulator_for_split = (
                 estimator_broadcast.value.accumulator_factory().make()
@@ -655,7 +690,7 @@ def seq_estimate(
             nobs = nobs + nobs_for_split
             accumulator.combine(stats_for_split)
 
-        stats_dict = {}
+        stats_dict: Dict[str, Any] = {}
         accumulator.key_merge(stats_dict)
         accumulator.key_replace(stats_dict)
 
@@ -664,7 +699,7 @@ def seq_estimate(
         temp.unpersist()
         enc_data.localCheckpoint()
 
-        return estimator.estimate(nobs, accumulator.value())
+        return cast(T_D, estimator.estimate(nobs, accumulator.value()))
 
     accumulator = estimator.accumulator_factory().make()
     nobs = 0.0
@@ -673,15 +708,15 @@ def seq_estimate(
         nobs += sz
         accumulator.seq_update(x, np.ones(sz), prev_estimate)
 
-    stats_dict = {}
-    accumulator.key_merge(stats_dict)
-    accumulator.key_replace(stats_dict)
+    local_stats_dict: Dict[str, Any] = {}
+    accumulator.key_merge(local_stats_dict)
+    accumulator.key_replace(local_stats_dict)
 
-    return estimator.estimate(nobs, accumulator.value())
+    return cast(T_D, estimator.estimate(nobs, accumulator.value()))
 
 
 def seq_initialize(
-    enc_data: Union[List[Tuple[int, T]], RDD],
+    enc_data: Union[List[Tuple[int, EncodedDataSequence]], RDD],
     estimator: ParameterEstimator,
     rng: np.random.RandomState,
     p: float = 0.1,
@@ -728,7 +763,7 @@ def seq_initialize(
         estimator_broadcast = sc.broadcast(estimator)
         seeds_broadcast = sc.broadcast(pickle.dumps(seeds, protocol=0))
 
-        def acc(split_index, itr):
+        def acc(split_index: int, itr: Any) -> List[bytes]:
             accumulator_for_split = (
                 estimator_broadcast.value.accumulator_factory().make()
             )
@@ -759,7 +794,7 @@ def seq_initialize(
             nobs = nobs + nobs_for_split
             accumulator.combine(stats_for_split)
 
-        stats_dict = {}
+        stats_dict: Dict[str, Any] = {}
         accumulator.key_merge(stats_dict)
         accumulator.key_replace(stats_dict)
 
@@ -779,8 +814,8 @@ def seq_initialize(
         accumulator.seq_initialize(enc_x, w, rng)
         nobs += sz
 
-    stats_dict = {}
-    accumulator.key_merge(stats_dict)
-    accumulator.key_replace(stats_dict)
+    local_stats_dict: Dict[str, Any] = {}
+    accumulator.key_merge(local_stats_dict)
+    accumulator.key_replace(local_stats_dict)
 
     return estimator.estimate(nobs, accumulator.value())

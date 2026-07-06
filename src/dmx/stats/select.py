@@ -10,7 +10,7 @@ maps an observation a distribution from the set of distributions.
 
 """
 
-from typing import Any, Callable, Dict, List, Optional, Sequence, Tuple, TypeVar
+from typing import Any, Callable, Dict, List, Optional, Sequence, Tuple
 
 import numpy as np
 from numpy.random import RandomState
@@ -26,29 +26,27 @@ from dmx.stats.pdist import (
     StatisticAccumulatorFactory,
 )
 
-T = TypeVar("T")
-
 
 class SelectDistribution(SequenceEncodableProbabilityDistribution):
 
     def __init__(
         self,
         dists: Sequence[SequenceEncodableProbabilityDistribution],
-        choice_function: Callable[[T], int],
+        choice_function: Callable[[Any], int],
     ) -> None:
         super().__init__()
         self.dists = dists
         self.choice_function = choice_function
         self.count = len(dists)
 
-    def __str__(self):
+    def __str__(self) -> str:
         return "SelectDistribution(" + ",".join([str(u) for u in self.dists]) + ")"
 
-    def density(self, x: T) -> float:
+    def density(self, x: Any) -> float:
         idx = self.choice_function(x)
         return self.dists[idx].density(x)
 
-    def log_density(self, x: T) -> float:
+    def log_density(self, x: Any) -> float:
         idx = self.choice_function(x)
         return self.dists[idx].log_density(x)
 
@@ -86,7 +84,7 @@ class SelectSampler(DistributionSampler):
             d.sampler(seed=self.rng.randint(maxint)) for d in dist.dists
         ]
 
-    def sample(self, size: Optional[int] = None):
+    def sample(self, size: Optional[int] = None) -> Any:
 
         if size is None:
             return tuple(d.sample(size=size) for d in self.dist_samplers)
@@ -97,7 +95,7 @@ class SelectEstimatorAccumulator(SequenceEncodableStatisticAccumulator):
     def __init__(
         self,
         accumulators: Sequence[SequenceEncodableStatisticAccumulator],
-        choice_function: Callable[[T], int],
+        choice_function: Callable[[Any], int],
     ) -> None:
         self.accumulators = accumulators
         self.choice_function = choice_function
@@ -108,7 +106,7 @@ class SelectEstimatorAccumulator(SequenceEncodableStatisticAccumulator):
         self._acc_rng: Optional[List[RandomState]] = None
 
     def update(
-        self, x: T, weight: float, estimate: Optional[SelectDistribution]
+        self, x: Any, weight: float, estimate: Optional[SelectDistribution]
     ) -> None:
         # cf  = pickle.loads(self.choice_function)
         idx = self.choice_function(x)
@@ -121,10 +119,11 @@ class SelectEstimatorAccumulator(SequenceEncodableStatisticAccumulator):
         ]
         self._rng_init = True
 
-    def initialize(self, x: T, weight: float, rng: RandomState) -> None:
+    def initialize(self, x: Any, weight: float, rng: RandomState) -> None:
         if not self._rng_init:
             self._rng_initialize(rng)
 
+        assert self._acc_rng is not None
         idx = self.choice_function(x)
         self.accumulators[idx].initialize(x, weight, self._acc_rng[idx])
         self.weights[idx] += weight
@@ -147,23 +146,24 @@ class SelectEstimatorAccumulator(SequenceEncodableStatisticAccumulator):
         if not self._rng_init:
             self._rng_initialize(rng)
 
+        assert self._acc_rng is not None
         xi, idx, enc_tuple = x.data
         for i, _ in enumerate(idx):
             w = weights[xi[i]]
             self.accumulators[i].seq_initialize(enc_tuple[i], w, self._acc_rng[i])
             self.weights[i] += np.sum(w)
 
-    def combine(self, suff_stat) -> "SelectEstimatorAccumulator":
+    def combine(self, suff_stat: Any) -> "SelectEstimatorAccumulator":
         for i in range(0, self.count):
             self.weights[i] += suff_stat[i][0]
             self.accumulators[i].combine(suff_stat[i][1])
 
         return self
 
-    def value(self):
+    def value(self) -> Any:
         return zip(self.weights, [x.value() for x in self.accumulators])
 
-    def from_value(self, x) -> "SelectEstimatorAccumulator":
+    def from_value(self, x: Any) -> "SelectEstimatorAccumulator":
         for i, u in enumerate(x):
             self.weights[i] = u[0]
             self.accumulators[i].from_value(u[1])
@@ -185,27 +185,35 @@ class SelectEstimatorAccumulator(SequenceEncodableStatisticAccumulator):
 
 class SelectEstimatorAccumulatorFactory(StatisticAccumulatorFactory):
 
-    def __init__(self, estimators, choice_function):
+    def __init__(
+        self,
+        estimators: Sequence[ParameterEstimator[Any]],
+        choice_function: Callable[[Any], int],
+    ) -> None:
         self.estimators = estimators
         self.choice_function = choice_function
 
-    def make(self):
+    def make(self) -> "SelectEstimatorAccumulator":
         return SelectEstimatorAccumulator(
-            [x.accumulatorFactory().make() for x in self.estimators],
+            [x.accumulator_factory().make() for x in self.estimators],
             self.choice_function,
         )
 
 
 class SelectEstimator(ParameterEstimator):
-    def __init__(self, estimators, choice_function):
+    def __init__(
+        self,
+        estimators: Sequence[ParameterEstimator[Any]],
+        choice_function: Callable[[Any], int],
+    ) -> None:
         self.estimators = estimators
         self.choice_function = choice_function
         self.count = len(estimators)
 
-    def accumulator_factory(self):
+    def accumulator_factory(self) -> "SelectEstimatorAccumulatorFactory":
         return SelectEstimatorAccumulatorFactory(self.estimators, self.choice_function)
 
-    def estimate(self, nobs, suff_stat):
+    def estimate(self, nobs: Optional[float], suff_stat: Any) -> "SelectDistribution":
         return SelectDistribution(
             [est.estimate(ss[0], ss[1]) for est, ss in zip(self.estimators, suff_stat)],
             self.choice_function,
@@ -217,7 +225,7 @@ class SelectDataEncoder(DataSequenceEncoder):
     def __init__(
         self,
         encoders: Sequence[DataSequenceEncoder],
-        choice_function: Callable[[T], int],
+        choice_function: Callable[[Any], int],
     ) -> None:
         self.encoders = encoders
         self.choice_function = choice_function
@@ -233,14 +241,14 @@ class SelectDataEncoder(DataSequenceEncoder):
 
         return False
 
-    def seq_encode(self, x: Sequence[T]) -> "SelectEncodedDataSequence":
+    def seq_encode(self, x: Sequence[Any]) -> "SelectEncodedDataSequence":
         cnt = 0
-        idx_dict = {}
+        idx_dict: Dict[int, Tuple[List[int], List[Any]]] = {}
 
         for i, xx in enumerate(x):
             idx = self.choice_function(xx)
             if idx not in idx_dict:
-                idx_dict[idx] = [[], []]
+                idx_dict[idx] = ([], [])
             idx_dict[idx][1].append(xx)
             idx_dict[idx][0].append(i)
             cnt += 1

@@ -219,7 +219,7 @@ class MultinomialDistributionTestCase(StatsTestClass):
         self.type_check_data = [None, np.ones((10, 10))]
         self.type_check_keys = [(None, None), 1.0, ("keys", None)]
 
-    def test_seq_log_density_type(self):
+    def test_seq_log_density_type(self) -> None:
         for x in self.type_check_data:
             with pytest.raises(Exception) as e:
                 self.density_dist_encoder[0][0].seq_log_density(x)
@@ -228,10 +228,10 @@ class MultinomialDistributionTestCase(StatsTestClass):
                 == "MultinomialDistribution.seq_log_density() requires MultinomialEncodedDataSequence."
             )
 
-    def test_key_exceptions(self):
+    def test_key_exceptions(self) -> None:
         for x in self.type_check_keys:
             with pytest.raises(TypeError) as e:
-                MultinomialEstimator(estimator=ParameterEstimator(), keys=x)
+                MultinomialEstimator(estimator=cast(Any, ParameterEstimator)(), keys=x)
 
             assert (
                 str(e.value)

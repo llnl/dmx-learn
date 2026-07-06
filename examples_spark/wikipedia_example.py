@@ -11,13 +11,16 @@ Run from the repository root with:
 import os
 import sys
 import time
+from typing import cast
 
 import numpy as np
 from pyspark import SparkConf, SparkContext
 
 import dmx.utils.optsutil as ops
 from dmx.stats import (
+    IntegerCategoricalDistribution,
     IntegerCategoricalEstimator,
+    LDADistribution,
     LDAEstimator,
     initialize,
     seq_encode,
@@ -28,7 +31,7 @@ from dmx.stats import (
 data_loc = os.path.join(os.path.dirname(os.path.realpath(__file__)), "../data")
 
 
-def load_wiki_data():
+def load_wiki_data() -> tuple[list[list[str]], list[str]]:
 
     sword_loc = os.path.join(data_loc, "stop_words")
     sword = {""}
@@ -61,7 +64,7 @@ def load_wiki_data():
     return documents, vocabulary
 
 
-def create_spark_context():
+def create_spark_context() -> SparkContext:
     """Create a Spark context with reduced log verbosity."""
     wiki_context = SparkContext(conf=SparkConf().setAppName("wikipedia_example"))
     wiki_context.setLogLevel("ERROR")
@@ -86,9 +89,9 @@ if __name__ == "__main__":
         f"#words = {len(words)} / #docs = {len(data)} / avg w/doc = {avg_size:f}\n"
     )
 
-    word_map = {}
-    data = [ops.map_to_integers(u, word_map) for u in data]
-    data_cnt = [list(ops.count_by_value(u).items()) for u in data]
+    word_map: dict[str, int] = {}
+    int_data = [ops.map_to_integers(u, word_map) for u in data]
+    data_cnt = [list(ops.count_by_value(u).items()) for u in int_data]
     word_map_inv = ops.get_inv_map(word_map)
 
     estimator0 = IntegerCategoricalEstimator(
@@ -101,11 +104,11 @@ if __name__ == "__main__":
     estimator = estimator1
 
     # The local and Spark versions differ mainly in the parallelized data.
-    data_cnt = sc.parallelize(data_cnt, 4)
+    spark_data_cnt = sc.parallelize(data_cnt, 4)
 
-    imm = initialize(data_cnt, estimator, rng, 0.1)
+    imm = initialize(spark_data_cnt, estimator, rng, 0.1)
 
-    enc_data = seq_encode(data_cnt, model=imm)
+    enc_data = seq_encode(spark_data_cnt, model=imm)
     prev_model = imm
 
     dcnt, lob_sum = seq_log_density_sum(enc_data, imm)
@@ -129,9 +132,10 @@ if __name__ == "__main__":
 
         if (kk + 1) % print_cnt == 0:
 
-            topics = mm.topics
+            lda_model = cast(LDADistribution, mm)
+            topics = [cast(IntegerCategoricalDistribution, u) for u in lda_model.topics]
 
-            for i in np.argsort(-mm.alpha):
+            for i in np.argsort(-lda_model.alpha):
                 sidx = np.argsort(-topics[i].log_p_vec)
                 top_words = ", ".join(
                     [
@@ -139,6 +143,6 @@ if __name__ == "__main__":
                         for j in sidx[:10]
                     ]
                 )
-                out.write(f"Topic {i} [{mm.alpha[i]:f}]: {top_words}\n")
+                out.write(f"Topic {i} [{lda_model.alpha[i]:f}]: {top_words}\n")
 
         out.flush()

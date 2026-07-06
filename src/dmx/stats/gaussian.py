@@ -55,8 +55,8 @@ class GaussianDistribution(SequenceEncodableProbabilityDistribution):
         super().__init__()
         self.mu = mu
         self.sigma2 = 1.0 if (sigma2 <= 0 or isnan(sigma2) or isinf(sigma2)) else sigma2
-        self.log_const = -0.5 * log(2.0 * pi * self.sigma2)
-        self.const = 1.0 / sqrt(2.0 * pi * self.sigma2)
+        self.log_const = float(-0.5 * log(2.0 * pi * self.sigma2))
+        self.const = float(1.0 / sqrt(2.0 * pi * self.sigma2))
         self.name = name
         self.keys = keys
 
@@ -76,7 +76,9 @@ class GaussianDistribution(SequenceEncodableProbabilityDistribution):
         Returns:
             float: Density at x.
         """
-        return self.const * exp(-0.5 * (x - self.mu) * (x - self.mu) / self.sigma2)
+        return float(
+            self.const * exp(-0.5 * (x - self.mu) * (x - self.mu) / self.sigma2)
+        )
 
     def log_density(self, x: float) -> float:
         """Evaluate the log-density of the Gaussian distribution at x.
@@ -87,7 +89,7 @@ class GaussianDistribution(SequenceEncodableProbabilityDistribution):
         Returns:
             float: Log-density at x.
         """
-        return self.log_const - 0.5 * (x - self.mu) * (x - self.mu) / self.sigma2
+        return float(self.log_const - 0.5 * (x - self.mu) * (x - self.mu) / self.sigma2)
 
     def seq_ld_lambda(self) -> List[Callable]:
         """Return a list containing the seq_log_density method."""
@@ -113,7 +115,7 @@ class GaussianDistribution(SequenceEncodableProbabilityDistribution):
         rv *= -0.5 / self.sigma2
         rv += self.log_const
 
-        return rv
+        return np.asarray(rv)
 
     def sampler(self, seed: Optional[int] = None) -> "GaussianSampler":
         """Return a GaussianSampler for this distribution.
@@ -338,7 +340,9 @@ class GaussianAccumulator(SequenceEncodableStatisticAccumulator):
         """
         if self.keys is not None:
             if self.keys in stats_dict:
-                self.sum, self.sum2, self.count, self.count2 = stats_dict[self.keys]
+                self.sum, self.sum2, self.count, self.count2 = stats_dict[
+                    self.keys
+                ].value()
 
     def acc_to_encoder(self) -> "GaussianDataEncoder":
         """Return a GaussianDataEncoder for this accumulator.

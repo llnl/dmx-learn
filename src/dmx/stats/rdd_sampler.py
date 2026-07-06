@@ -1,5 +1,5 @@
 import pickle
-from typing import Optional
+from typing import Any, Optional
 
 import numpy as np
 from numpy.random import RandomState
@@ -10,11 +10,11 @@ from dmx.stats.pdist import SequenceEncodableProbabilityDistribution
 
 
 def take_sample(
-    rdd: SparkContext.parallelize,
+    rdd: Any,
     with_replacement: bool,
     n: int,
     seed: Optional[int] = None,
-) -> list:
+) -> list[Any]:
     """
     Takes a sample from an RDD.
 
@@ -44,7 +44,7 @@ def sample_seq_as_rdd(
     count_per_split: int,
     num_splits: int,
     seed: Optional[int] = None,
-) -> SparkContext.parallelize:
+) -> Any:
     """
     Samples sequences from a distribution and returns them as an RDD.
 
@@ -63,9 +63,9 @@ def sample_seq_as_rdd(
     distB = sc.broadcast(dist)
     seeds = RandomState(seed).randint(0, maxrandint, size=num_splits)
 
-    def fmap(u):
+    def fmap(u: Any) -> Any:
         ddist = distB.value
-        sampler = [ddist.sampler(seed=h) for h in u]
+        sampler: list[Any] = [ddist.sampler(seed=h) for h in u]
         return iter(
             [v for h in sampler for v in h.sample_seq(seq_len, size=count_per_split)]
         )
@@ -79,7 +79,7 @@ def sample_rdd(
     count_per_split: int,
     num_splits: int,
     seed: Optional[int] = None,
-) -> SparkContext.parallelize:
+) -> Any:
     """
     Samples data from a distribution and returns it as an RDD.
 
@@ -98,9 +98,9 @@ def sample_rdd(
     distB = sc.broadcast(dd)
     seeds = RandomState(seed).randint(0, maxrandint, size=num_splits)
 
-    def fmap(u):
+    def fmap(u: Any) -> Any:
         ddist = pickle.loads(distB.value)
-        sampler = [ddist.sampler(seed=h) for h in u]
+        sampler: list[Any] = [ddist.sampler(seed=h) for h in u]
         return iter([v for h in sampler for v in h.sample(size=count_per_split)])
 
     return sc.parallelize(seeds, num_splits).mapPartitions(fmap, True)

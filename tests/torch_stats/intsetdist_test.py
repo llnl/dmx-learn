@@ -41,39 +41,39 @@ class IntegerBernoulliSetDistributionTestCase(TorchStatsTestClass):
         self.factories = self._factories
         self.accumulators = self._accs
 
-    def test_seq_log_density_type(self):
+    def test_seq_log_density_type(self) -> None:
         """seq_log_density must raise Exception when passed wrong encoded type."""
         for bad_input in [None, np.ones(10)]:
             with pytest.raises(Exception):
-                self._dists[0].seq_log_density(bad_input)
+                self._dists[0].seq_log_density(cast(Any, bad_input))
 
-    def test_encoder_type(self):
+    def test_encoder_type(self) -> None:
         """dist_to_encoder() must return an IntegerBernoulliSetDataEncoder."""
         for dist in self._dists:
             self.assertIsInstance(
                 dist.dist_to_encoder(), IntegerBernoulliSetDataEncoder
             )
 
-    def test_accumulator_type(self):
+    def test_accumulator_type(self) -> None:
         """factory.make() must return an IntegerBernoulliSetAccumulator."""
         for f in self._factories:
             self.assertIsInstance(
                 f.make(device=self.device), IntegerBernoulliSetAccumulator
             )
 
-    def test_sampler_returns_sets(self):
+    def test_sampler_returns_sets(self) -> None:
         """Each sample must be a set-like collection of non-negative integers."""
-        data = self._dists[0].sampler(seed=1).sample(size=50)
+        data = cast(Any, self._dists[0].sampler(seed=1).sample(size=50))
         num_vals = len(self._dists[0].log_pvec)
         for obs in data:
             for elem in obs:
                 self.assertGreaterEqual(elem, 0)
                 self.assertLess(elem, num_vals)
 
-    def test_inclusion_frequency(self):
+    def test_inclusion_frequency(self) -> None:
         """Empirical inclusion frequency of each element should match its probability."""
         dist = IntegerBernoulliSetDistribution(log_pvec=np.log([0.7, 0.3, 0.5]))
-        data = dist.sampler(seed=1).sample(size=5000)
+        data = cast(Any, dist.sampler(seed=1).sample(size=5000))
         pvec = [0.7, 0.3, 0.5]
         for i, p in enumerate(pvec):
             freq = sum(1 for obs in data if i in obs) / len(data)

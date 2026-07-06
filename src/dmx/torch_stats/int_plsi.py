@@ -53,13 +53,15 @@ class IntegerPLSIDistribution(TorchProbabilityDistribution):
         self.num_docs = self.state_mat.shape[0]
         self.len_dist = len_dist if len_dist is not None else NullDistribution()
 
-    def to(self, device: tn.device) -> None:
-        self._device = device
-        self.prob_mat = self.prob_mat.to(device)
-        self.state_mat = self.state_mat.to(device)
-        self.doc_vec = self.doc_vec.to(device)
+    def to(self, device: vec.DeviceLike) -> "IntegerPLSIDistribution":
+        target_device = self._resolve_device_arg(device)
+        self._device = target_device
+        self.prob_mat = self.prob_mat.to(target_device)
+        self.state_mat = self.state_mat.to(target_device)
+        self.doc_vec = self.doc_vec.to(target_device)
         self.log_doc_vec = tn.log(self.doc_vec)
-        self.len_dist.to(device)
+        self.len_dist.to(target_device)
+        return self
 
     def __repr__(self) -> str:
         """Return string representation of object instance."""
@@ -85,7 +87,7 @@ class IntegerPLSIDistribution(TorchProbabilityDistribution):
 
     def density(self, x: Tuple[int, Sequence[Tuple[int, float]]]) -> float:
         """Evaluate the density of PLSI model for an observation x."""
-        return np.exp(self.log_density(x))
+        return float(np.exp(self.log_density(x)))
 
     def log_density(self, x: Tuple[int, Sequence[Tuple[int, float]]]) -> float:
         """Evaluate the log-density of PLSI model for an observation of x."""
@@ -94,8 +96,7 @@ class IntegerPLSIDistribution(TorchProbabilityDistribution):
         xv = vec.int_tensor([u[0] for u in x[1]], device=self._device)
         xc = vec.tensor([u[1] for u in x[1]], device=self._device)
 
-        rv = 0.0
-        rv += tn.matmul(
+        rv = tn.matmul(
             tn.log(tn.matmul(self.prob_mat[xv, :], self.state_mat[d_id, :])), xc
         )
         rv += tn.log(self.doc_vec[d_id])
@@ -154,13 +155,17 @@ class IntegerPLSIDistribution(TorchProbabilityDistribution):
                 num_docs=self.num_docs,
                 len_estimator=self.len_dist.estimator(),
             )
-        pseudo_count = (pseudo_count, pseudo_count, pseudo_count)
+        pseudo_counts = (pseudo_count, pseudo_count, pseudo_count)
         return IntegerPLSIEstimator(
             num_vals=self.num_vals,
             num_states=self.num_states,
             num_docs=self.num_docs,
-            pseudo_count=pseudo_count,
-            suff_stat=(self.prob_mat.T, self.state_mat, self.doc_vec),
+            pseudo_count=pseudo_counts,
+            suff_stat=(
+                self.prob_mat.T.detach().cpu().numpy(),
+                self.state_mat.detach().cpu().numpy(),
+                self.doc_vec.detach().cpu().numpy(),
+            ),
             len_estimator=self.len_dist.estimator(),
         )
 
@@ -204,7 +209,12 @@ class IntegerPLSISampler(DistributionSampler):
 
             return d_id, list(count_by_value(rv).items())
 
-        return [self.sample() for _ in range(size)]
+        samples: List[Tuple[int, Sequence[Tuple[int, float]]]] = []
+        for _ in range(size):
+            sample = self.sample()
+            assert isinstance(sample, tuple)
+            samples.append(sample)
+        return samples
 
 
 class IntegerPLSIAccumulator(TorchStatisticAccumulator):
@@ -220,7 +230,7 @@ class IntegerPLSIAccumulator(TorchStatisticAccumulator):
             None,
             None,
         ),
-        device: Optional[str] = None,
+        device: vec.DeviceLike = None,
     ) -> None:
         """
         IntegerPLSIAccumulator object for aggregating sufficient statistics from
@@ -426,7 +436,7 @@ class IntegerPLSIEstimator(TorchParameterEstimator):
             Tuple[Optional[float], Optional[float], Optional[float]]
         ] = (None, None, None),
         suff_stat: Optional[
-            Tuple[Optional[np.ndarray], Optional[np.ndarray], Optional[tn.Tensor]]
+            Tuple[Optional[np.ndarray], Optional[np.ndarray], Optional[np.ndarray]]
         ] = (None, None, None),
         keys: Optional[Tuple[Optional[str], Optional[str], Optional[str]]] = (
             None,
@@ -498,13 +508,17 @@ class IntegerPLSIEstimator(TorchParameterEstimator):
             state_prob_mat = comp_count / ssum
 
         if self.pseudo_count[2] is not None and self.suff_stat[2] is not None:
-            adj_cnt = self.pseudo_count[1] / len(doc_count)
-            doc_prob_vec = doc_count + adj_cnt * self.suff_stat[2]
+            doc_pc = self.pseudo_count[2]
+            assert doc_pc is not None
+            doc_adj_cnt = doc_pc / len(doc_count)
+            doc_prob_vec = doc_count + doc_adj_cnt * self.suff_stat[2]
             doc_prob_vec /= np.sum(doc_prob_vec)
 
         elif self.pseudo_count[2] is not None and self.suff_stat[2] is None:
-            adj_cnt = self.pseudo_count[1] / len(doc_count)
-            doc_prob_vec = doc_count + adj_cnt
+            doc_pc = self.pseudo_count[2]
+            assert doc_pc is not None
+            doc_adj_cnt = doc_pc / len(doc_count)
+            doc_prob_vec = doc_count + doc_adj_cnt
             doc_prob_vec /= np.sum(doc_prob_vec)
 
         else:
@@ -527,12 +541,12 @@ class IntegerPLSIDataEncoder(TorchSequenceEncoder):
         self,
         len_encoder: Optional[TorchSequenceEncoder] = NullDataEncoder(),
         _device: Optional[str] = None,
-    ):
+    ) -> None:
         """
         IntegerPLSIDataEncoder object for encoding sequences of iid observations from a
         PLSI.
         """
-        self.len_encoder = len_encoder
+        self.len_encoder = len_encoder if len_encoder is not None else NullDataEncoder()
 
     def __str__(self) -> str:
         """Returns a string representation of object instance."""
@@ -552,12 +566,12 @@ class IntegerPLSIDataEncoder(TorchSequenceEncoder):
         """
         Encode a sequence of iid PLSI observations for use with vectorized functions.
         """
-        xv = []
-        xc = []
-        xd = []
-        xi = []
-        xn = []
-        xm = []
+        xv: List[int] = []
+        xc: List[float] = []
+        xd: List[int] = []
+        xi: List[int] = []
+        xn: List[float] = []
+        xm: List[int] = []
 
         for i, (d_id, xx) in enumerate(x):
 
@@ -571,30 +585,38 @@ class IntegerPLSIDataEncoder(TorchSequenceEncoder):
             xn.append(np.sum(c))
             xm.append(d_id)
 
-        xv = vec.int_tensor(xv, device=device)
-        xc = vec.tensor(xc, device=device)
-        xd = vec.int_tensor(xd, device=device)
-        xi = vec.int_tensor(xi, device=device)
-        xn = vec.tensor(xn, device=device)
-        xm = vec.int_tensor(xm, device=device)
+        xv_tensor = vec.int_tensor(xv, device=device)
+        xc_tensor = vec.tensor(xc, device=device)
+        xd_tensor = vec.int_tensor(xd, device=device)
+        xi_tensor = vec.int_tensor(xi, device=device)
+        xn_tensor = vec.tensor(xn, device=device)
+        xm_tensor = vec.int_tensor(xm, device=device)
 
         nn = self.len_encoder.seq_encode(xn, device=device)
 
         return IntegerPLSITorchSequence(
-            data=(nn, (xv, xc, xd, xi, xn, xm)), device=device
+            data=(
+                nn,
+                (xv_tensor, xc_tensor, xd_tensor, xi_tensor, xn_tensor, xm_tensor),
+            ),
+            device=device,
         )
 
 
 class IntegerPLSITorchSequence(TorchEncodedSequence):
+    data: Tuple[
+        TorchEncodedSequence,
+        Tuple[tn.Tensor, tn.Tensor, tn.Tensor, tn.Tensor, tn.Tensor, tn.Tensor],
+    ]
 
     def __init__(
         self,
         data: Tuple[
             TorchEncodedSequence,
-            Tuple[tn.tensor, tn.tensor, tn.tensor, tn.tensor, tn.tensor, tn.tensor],
+            Tuple[tn.Tensor, tn.Tensor, tn.Tensor, tn.Tensor, tn.Tensor, tn.Tensor],
         ],
         device: Optional[tn.device] = None,
-    ):
+    ) -> None:
         super().__init__(data=data, device=device)
 
     def __str__(self) -> str:

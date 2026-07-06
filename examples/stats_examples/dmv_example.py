@@ -2,6 +2,9 @@
 
 # pylint: disable=duplicate-code
 
+from typing import Sequence, cast
+
+import numpy as np
 from numpy.random import RandomState
 
 from dmx.stats import (
@@ -20,7 +23,7 @@ if __name__ == "__main__":
     dist = DiagonalGaussianDistribution(mu=mu, covar=covar)
     # Generate data from sampler
     sampler = dist.sampler(seed=1)
-    data = sampler.sample(n)
+    data = cast(Sequence[np.ndarray], sampler.sample(n))
     # Print out a few samples
     print(data[:5])
     # Define estimator

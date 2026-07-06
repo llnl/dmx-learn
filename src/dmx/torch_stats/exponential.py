@@ -1,6 +1,6 @@
 # pylint: disable=too-many-positional-arguments,duplicate-code
 
-from typing import Any, Dict, List, Optional, Tuple, Union, cast
+from typing import Any, Dict, List, Optional, Tuple, Union
 
 import numpy as np
 import torch as tn
@@ -38,10 +38,11 @@ class ExponentialDistribution(TorchProbabilityDistribution):
         """
         super().__init__(device)
         self.beta = beta
-        self.log_beta = np.log(beta)
+        self.log_beta = float(np.log(beta))
 
-    def to(self, device: TorchDevice) -> None:
-        self._device = device
+    def to(self, device: vec.DeviceLike) -> "ExponentialDistribution":
+        self._device = self._resolve_device_arg(device)
+        return self
 
     def __repr__(self) -> str:
         return f"ExponentialDistribution(beta={repr(self.beta)})"
@@ -58,7 +59,7 @@ class ExponentialDistribution(TorchProbabilityDistribution):
             float: Density of Exponential at x.
 
         """
-        return np.exp(self.log_density(x))
+        return float(np.exp(self.log_density(x)))
 
     def log_density(self, x: float) -> float:
         """Log-density of Exponential distribution at observation x.
@@ -77,7 +78,7 @@ class ExponentialDistribution(TorchProbabilityDistribution):
         if x < 0:
             return -inf
 
-        return -x / self.beta - self.log_beta
+        return float(-x / self.beta - self.log_beta)
 
     def seq_log_density(self, x: "ExponentialTorchEncodedSequence") -> tn.Tensor:
 
@@ -166,7 +167,7 @@ class ExponentialAccumulator(TorchStatisticAccumulator):
             device: Optional[device]: Sets device for GPU calculations
 
         """
-        super().__init__(cast(Optional[str], device))
+        super().__init__(device)
         self.sum = 0.0
         self.count = 0.0
         self.key = keys
@@ -304,8 +305,9 @@ class ExponentialDataEncoder(TorchSequenceEncoder):
 
 
 class ExponentialTorchEncodedSequence(TorchEncodedSequence):
+    data: tn.Tensor
 
-    def __init__(self, data: tn.Tensor, device: Optional[TorchDevice] = None):
+    def __init__(self, data: tn.Tensor, device: Optional[TorchDevice] = None) -> None:
         super().__init__(data=data, device=device)
 
     def __str__(self) -> str:

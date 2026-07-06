@@ -51,7 +51,7 @@ if __name__ == "__main__":
         "random_state": 42,  # Set your desired seed here
     }
 
-    embeddings, _, _, _ = humap(data, seed=10, umap_kwargs=umap_kwargs)
+    embeddings = humap(data, seed=10, umap_kwargs=umap_kwargs)[0]
 
     np.save("tests/answerkeys/testOutput_humap.npy", embeddings)
 
@@ -60,15 +60,15 @@ if __name__ == "__main__":
         pickle.dump(dist, f)
 
     # Generate bestimation data for tests
-    comps = []
+    b_comps = []
 
     for i in range(3):
         pmap = {v: p[(i + j) % 3].item() for v, j in zip(vals, range(3))}
-        d0 = BCategoricalDistribution(prob_map=pmap)
-        d1 = BGaussianDistribution(mu=mu[i], sigma2=1.0)
+        bd0 = BCategoricalDistribution(prob_map=pmap)
+        bd1 = BGaussianDistribution(mu=mu[i], sigma2=1.0)
 
-        comps.append(BCompositeDistribution(dists=[d0, d1]))
+        b_comps.append(BCompositeDistribution(dists=[bd0, bd1]))
 
-    dist = BMixtureDistribution(comps, w=np.ones(3) / 3.0)
+    bdist = BMixtureDistribution(b_comps, w=np.ones(3) / 3.0)
     with open("tests/data/testInput_mpi_b_optimize.pkl", "wb") as f:
-        pickle.dump(dist, f)
+        pickle.dump(bdist, f)

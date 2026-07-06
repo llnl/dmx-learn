@@ -41,8 +41,7 @@ from dmx.stats.pdist import (
 )
 
 T0 = TypeVar("T0")  # Data type
-T1 = TypeVar("T1")  # Prior type
-T = Sequence[Tuple[T0, Optional[Sequence[Tuple[int, T1]]]]]
+T = Sequence[Tuple[T0, Optional[Sequence[Tuple[int, float]]]]]
 
 E0 = TypeVar("E0")  # Encoded data type components
 E1 = Tuple[np.ndarray, np.ndarray, np.ndarray, np.ndarray]  # Encoded prior type
@@ -85,7 +84,7 @@ class SemiSupervisedMixtureDistribution(SequenceEncodableProbabilityDistribution
         self.num_components = len(components)
         self.w = np.asarray(w)
         self.zw = self.w == 0.0
-        self.log_w = np.log(w + self.zw)
+        self.log_w = np.log(self.w + self.zw)
         self.log_w[self.zw] = -np.inf
         self.name = name
 
@@ -98,15 +97,18 @@ class SemiSupervisedMixtureDistribution(SequenceEncodableProbabilityDistribution
             f"[{weights}], name={name})"
         )
 
-    def density(self, x: Tuple[T0, Optional[Sequence[Tuple[int, T1]]]]) -> float:
-        return exp(self.log_density(x))
+    def density(self, x: Tuple[T0, Optional[Sequence[Tuple[int, float]]]]) -> float:
+        return float(exp(self.log_density(x)))
 
-    def log_density(self, x: Tuple[T0, Optional[Sequence[Tuple[int, T1]]]]) -> float:
+    def log_density(self, x: Tuple[T0, Optional[Sequence[Tuple[int, float]]]]) -> float:
 
         datum, prior = x
         if prior is None:
-            return vec.log_sum(
-                np.asarray([u.log_density(datum) for u in self.components]) + self.log_w
+            return float(
+                vec.log_sum(
+                    np.asarray([u.log_density(datum) for u in self.components])
+                    + self.log_w
+                )
             )
         w_loc = np.zeros(self.num_components)
         h_loc = np.zeros(self.num_components, dtype=bool)
@@ -120,14 +122,21 @@ class SemiSupervisedMixtureDistribution(SequenceEncodableProbabilityDistribution
         w_loc[h_loc] += self.log_w[h_loc]
         w_loc = vec.log_posterior(w_loc[h_loc])
 
-        return vec.log_sum(
-            np.asarray(
-                [self.components[i].log_density(datum) for i in np.flatnonzero(h_loc)]
+        return float(
+            vec.log_sum(
+                np.asarray(
+                    [
+                        self.components[i].log_density(datum)
+                        for i in np.flatnonzero(h_loc)
+                    ]
+                )
+                + w_loc
             )
-            + w_loc
         )
 
-    def posterior(self, x: Tuple[T0, Optional[Sequence[Tuple[int, T1]]]]) -> np.ndarray:
+    def posterior(
+        self, x: Tuple[T0, Optional[Sequence[Tuple[int, float]]]]
+    ) -> np.ndarray:
         datum, prior = x
 
         if prior is None:
@@ -150,7 +159,7 @@ class SemiSupervisedMixtureDistribution(SequenceEncodableProbabilityDistribution
             w_loc[h_loc] = vec.posterior(w_loc[h_loc])
             rv = w_loc
 
-        return rv
+        return np.asarray(rv, dtype=float)
 
     def seq_log_density(
         self, x: "SemiSupervisedMixtureEncodedDataSequence"
@@ -189,7 +198,7 @@ class SemiSupervisedMixtureDistribution(SequenceEncodableProbabilityDistribution
             np.log(ll_sum, out=ll_sum)
             ll_sum += ll_max
 
-            return ll_sum.flatten()
+            return np.asarray(ll_sum.flatten(), dtype=float)
 
         ll_mat = ll_mat[good_rows, :]
         ll_max = ll_max[good_rows]
@@ -203,7 +212,7 @@ class SemiSupervisedMixtureDistribution(SequenceEncodableProbabilityDistribution
         rv[good_rows] = ll_sum.flatten()
         rv[~good_rows] = -np.inf
 
-        return rv
+        return np.asarray(rv, dtype=float)
 
     def seq_posterior(
         self, x: "SemiSupervisedMixtureEncodedDataSequence"
@@ -244,7 +253,7 @@ class SemiSupervisedMixtureDistribution(SequenceEncodableProbabilityDistribution
         ll_sum = np.sum(ll_mat, axis=1, keepdims=True)
         ll_mat /= ll_sum
 
-        return ll_mat
+        return np.asarray(ll_mat, dtype=float)
 
     def sampler(self, seed: Optional[int] = None) -> "SemiSupervisedMixtureSampler":
         return SemiSupervisedMixtureSampler(self, seed)
@@ -309,13 +318,13 @@ class SemiSupervisedMixtureEstimatorAccumulator(SequenceEncodableStatisticAccumu
         self.name = name
 
         self._init_rng = False
-        self._acc_rng = None
-        self._w_rng = None
-        self._prior_rng = None
+        self._acc_rng: Optional[List[RandomState]] = None
+        self._w_rng: Optional[RandomState] = None
+        self._prior_rng: Optional[RandomState] = None
 
     def update(
         self,
-        x: Tuple[T0, Optional[Sequence[Tuple[int, T1]]]],
+        x: Tuple[T0, Optional[Sequence[Tuple[int, float]]]],
         weight: float,
         estimate: SemiSupervisedMixtureDistribution,
     ) -> None:
@@ -345,7 +354,7 @@ class SemiSupervisedMixtureEstimatorAccumulator(SequenceEncodableStatisticAccumu
 
     def initialize(
         self,
-        x: Tuple[T0, Optional[Sequence[Tuple[int, T1]]]],
+        x: Tuple[T0, Optional[Sequence[Tuple[int, float]]]],
         weight: float,
         rng: RandomState,
     ) -> None:
@@ -353,6 +362,9 @@ class SemiSupervisedMixtureEstimatorAccumulator(SequenceEncodableStatisticAccumu
 
         if not self._init_rng:
             self._rng_initialize(rng)
+
+        assert self._prior_rng is not None
+        assert self._acc_rng is not None
 
         if prior is None:
             idx = self._prior_rng.choice(self.num_components)
@@ -606,13 +618,13 @@ class SemiSupervisedMixtureDataEncoder(DataSequenceEncoder):
         return False
 
     def seq_encode(
-        self, x: Sequence[Tuple[T0, Optional[Sequence[Tuple[int, T1]]]]]
+        self, x: Sequence[Tuple[T0, Optional[Sequence[Tuple[int, float]]]]]
     ) -> "SemiSupervisedMixtureEncodedDataSequence":
 
-        prior_comp = []
-        prior_idx = []
-        prior_val = []
-        data = []
+        prior_comp: List[int] = []
+        prior_idx: List[int] = []
+        prior_val: List[float] = []
+        data: List[T0] = []
 
         for i, xi in enumerate(x):
             datum, prior = xi
@@ -623,13 +635,18 @@ class SemiSupervisedMixtureDataEncoder(DataSequenceEncoder):
                     prior_comp.append(prior_entry[0])
                     prior_val.append(prior_entry[1])
 
-        prior_comp = np.asarray(prior_comp, dtype=int)
-        prior_idx = np.asarray(prior_idx, dtype=int)
-        prior_val = np.asarray(prior_val, dtype=float)
+        prior_comp_arr = np.asarray(prior_comp, dtype=int)
+        prior_idx_arr = np.asarray(prior_idx, dtype=int)
+        prior_val_arr = np.asarray(prior_val, dtype=float)
 
-        prior_mat = (prior_idx, prior_comp, prior_val, np.log(prior_val))
+        prior_mat = (
+            prior_idx_arr,
+            prior_comp_arr,
+            prior_val_arr,
+            np.log(prior_val_arr),
+        )
 
-        prior_sum = np.bincount(prior_idx, weights=prior_val, minlength=len(x))
+        prior_sum = np.bincount(prior_idx_arr, weights=prior_val_arr, minlength=len(x))
         has_prior = prior_sum != 0
 
         rv_enc = (

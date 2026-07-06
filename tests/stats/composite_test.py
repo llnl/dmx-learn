@@ -149,11 +149,15 @@ class CompositeDistributionTestCase(StatsTestClass):
         self.type_check_data = [None, np.ones((10, 10))]
         self.type_check_keys = [(None, None), 1.0, ("keys", None)]
 
-    def test_key_exceptions(self):
+    def test_key_exceptions(self) -> None:
         for x in self.type_check_keys:
             with pytest.raises(TypeError) as e:
                 CompositeEstimator(
-                    estimators=[ParameterEstimator(), ParameterEstimator()], keys=x
+                    estimators=[
+                        cast(Any, ParameterEstimator)(),
+                        cast(Any, ParameterEstimator)(),
+                    ],
+                    keys=x,
                 )
 
             assert (

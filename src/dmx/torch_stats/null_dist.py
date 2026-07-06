@@ -34,8 +34,9 @@ from dmx.torch_stats.pdist import (
 
 class NullDistribution(TorchProbabilityDistribution):
 
-    def to(self, device: tn.device) -> None:
-        self._device = device
+    def to(self, device: vec.DeviceLike) -> "NullDistribution":
+        self._device = self._resolve_device_arg(device)
+        return self
 
     def __repr__(self) -> str:
         return "NullDistribution()"
@@ -159,7 +160,7 @@ class NullDataEncoder(TorchSequenceEncoder):
     def __str__(self) -> str:
         return "NullDataEncoder"
 
-    def __eq__(self, other) -> bool:
+    def __eq__(self, other: object) -> bool:
         return isinstance(other, NullDataEncoder)
 
     def seq_encode(
@@ -169,8 +170,9 @@ class NullDataEncoder(TorchSequenceEncoder):
 
 
 class NullTorchEncodedSequence(TorchEncodedSequence):
+    data: Optional[Any]
 
-    def __init__(self, data: Optional[Any], device: Optional[tn.device]):
+    def __init__(self, data: Optional[Any], device: Optional[tn.device]) -> None:
         super().__init__(data=data, device=device)
 
     def __str__(self) -> str:

@@ -12,7 +12,7 @@ from dmx.stats.mvn import *
 from tests.stats.stats_tests import *
 
 
-def gen_covar(seed, sz):
+def gen_covar(seed: int, sz: int) -> Any:
     x = np.random.RandomState(seed).rand(sz, sz)
     return x.T @ x
 
@@ -21,7 +21,7 @@ class MultivariateGaussianDistributionTestCase(StatsTestClass):
 
     def setUp(self) -> None:
 
-        self.mu = [
+        self.mu: list[Any] = [
             [0.0, 5.0, 15.0],
             np.arange(0, 20, 4),
             [0.0, 3.0],
@@ -76,7 +76,7 @@ class MultivariateGaussianDistributionTestCase(StatsTestClass):
         self.type_check_data = [None, np.ones((10, 10))]
         self.type_check_keys = [(None, None), 1.0, ("keys", None)]
 
-    def test_seq_log_density_type(self):
+    def test_seq_log_density_type(self) -> None:
         for x in self.type_check_data:
             with pytest.raises(Exception) as e:
                 self.eval_dists[0].seq_log_density(x)
@@ -85,7 +85,7 @@ class MultivariateGaussianDistributionTestCase(StatsTestClass):
                 "seq_log_density()."
             )
 
-    def test_key_exceptions(self):
+    def test_key_exceptions(self) -> None:
         for x in self.type_check_keys:
             with pytest.raises(TypeError) as e:
                 MultivariateGaussianEstimator(keys=x)

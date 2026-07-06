@@ -3,7 +3,7 @@
 from typing import Any, Dict, Optional, Sequence, Tuple, TypeVar, Union
 
 import numpy as np
-import umap
+import umap  # type: ignore[import-untyped]
 from numpy.random import RandomState
 from umap import UMAP
 
@@ -73,12 +73,15 @@ def humap_mpi(
             print_iter=print_iter,
             mix_threshold_count=mix_threshold_count,
         )
+    if mix_model is None:
+        raise RuntimeError("DPM mixture fitting did not return a model.")
 
     # Mixture must have at least one comp!
     if mix_model.num_components == 0:
         raise ValueError("Something is broken. Mixture model has zero components.")
 
     if world_rank == 0:
+        assert data is not None
         # This is until all bstats is updated!
         if isinstance(mix_model, BMixtureDistribution):
             enc_data = mix_model.seq_encode(data)
@@ -90,6 +93,8 @@ def humap_mpi(
         posteriors = mix_model.seq_posterior(enc_data)
 
         # Currently only take hellinger
+        if umap_kwargs is None:
+            umap_kwargs = {}
         umap_kwargs["metric"] = "hellinger"
 
         fit = umap.UMAP(**umap_kwargs)

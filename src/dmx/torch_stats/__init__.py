@@ -82,7 +82,7 @@ For more information, see the README.md file.
 # If torch is not available, raise a helpful error when trying to import
 if not TORCH_AVAILABLE:
 
-    def _raise_torch_error(*args, **kwargs):
+    def _raise_torch_error(*args: object, **kwargs: object) -> None:
         raise ImportError(_TORCH_IMPORT_ERROR)
 
     # Create placeholder for all exports
@@ -91,7 +91,8 @@ if not TORCH_AVAILABLE:
 
 else:
     # Torch is available, proceed with normal imports
-    from typing import Any, List, Optional, Sequence, Tuple, TypeVar, Union
+    from collections.abc import Sequence as SequenceABC
+    from typing import Any, Dict, List, Optional, Sequence, Tuple, TypeVar, Union, cast
 
     import numpy as np
 
@@ -177,6 +178,9 @@ else:
         # set device for GPU if nccl
         device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
 
+        local_encoder: List[Optional[TorchSequenceEncoder]] = [None]
+        data_scatter: List[Optional[List[T]]] = [None] * world_size
+
         # create TorchSequenceEncoder on CPU. Broadcast this object to all workers
         # chunks of data are sent to each worker.
         if world_rank == 0:
@@ -184,13 +188,15 @@ else:
                 raise ValueError(f"Data cannot be None on device id {world_rank}.")
             if encoder is None:
                 if model is not None:
-                    local_encoder = [model.dist_to_encoder()]
+                    local_encoder[0] = model.dist_to_encoder()
                 else:
-                    local_encoder = [
+                    if estimator is None:
+                        raise ValueError("estimator or model is required.")
+                    local_encoder[0] = (
                         estimator.accumulator_factory().make().acc_to_encoder()
-                    ]
+                    )
             else:
-                local_encoder = [encoder]
+                local_encoder[0] = encoder
 
             data_scatter = [
                 [data[i] for i in range(r, len(data), world_size)]
@@ -198,15 +204,12 @@ else:
             ]
             # data_scatter = [(len(xx), xx) for xx in data_scatter]
 
-        else:
-
-            local_encoder: List[Optional[TorchSequenceEncoder]] = [None]
-            data_scatter = [None] * world_size
-
-        data_loc: List[Optional[Any]] = [None]
+        data_loc: List[Optional[List[T]]] = [None]
 
         tn.distributed.broadcast_object_list(local_encoder, src=0)
         tn.distributed.scatter_object_list(data_loc, data_scatter, src=0)
+        if local_encoder[0] is None or data_loc[0] is None:
+            raise RuntimeError("Distributed sequence encoding did not receive data.")
 
         # Sequence-encode the data on the worker so the encoded data now
         # lives on the GPU device.
@@ -273,8 +276,8 @@ else:
             local_acc.seq_initialize(enc_x, w, tng_local)
             nobs += sz
 
-        suff_stats = [None] * world_size
-        nobs_list = [None] * world_size
+        suff_stats: List[Any] = [None] * world_size
+        nobs_list: List[Optional[float]] = [None] * world_size
 
         # gather suff stats, all are on cpu devices (i.e. to tensors)
         tn.distributed.gather_object(
@@ -289,9 +292,9 @@ else:
 
             for ss in suff_stats[1:]:
                 local_acc.combine(ss)
-            nobs = sum(nobs_list)
+            nobs = sum(cast(List[float], nobs_list))
 
-            stats_dict = {}
+            stats_dict: Dict[str, Any] = {}
             local_acc.key_merge(stats_dict)
             local_acc.key_replace(stats_dict)
 
@@ -321,7 +324,7 @@ else:
         local_acc = estimator.accumulator_factory().make(device=device)
 
         # accumulate sufficient statistics with tensor calcs, result on local node cpu.
-        nobs = vec.zeros(1, device=device)
+        nobs = 0.0
 
         for sz, enc_x in enc_data:
             w = vec.ones(sz, device=device)
@@ -329,8 +332,8 @@ else:
             nobs += sz
 
         # gather sufficient statistics on master (no tensors in suff stats)
-        suff_stats = [None] * world_size
-        nobs_list = [None] * world_size
+        suff_stats: List[Any] = [None] * world_size
+        nobs_list: List[Optional[float]] = [None] * world_size
         tn.distributed.gather_object(
             local_acc.value(), suff_stats if world_rank == 0 else None, dst=0
         )
@@ -343,9 +346,9 @@ else:
 
             for ss in suff_stats[1:]:
                 local_acc.combine(ss)
-            nobs = sum(nobs_list)
+            nobs = sum(cast(List[float], nobs_list))
 
-            stats_dict = {}
+            stats_dict: Dict[str, Any] = {}
             local_acc.key_merge(stats_dict)
             local_acc.key_replace(stats_dict)
 
@@ -437,9 +440,7 @@ else:
         ],
     ) -> List[tn.Tensor]:
 
-        is_list = issubclass(type(estimate), Sequence)
-
-        if is_list:
+        if isinstance(estimate, SequenceABC):
             return [
                 tn.concatenate([ee.seq_log_density(u[1]) for ee in estimate], 0)
                 for u in enc_data
@@ -461,7 +462,7 @@ else:
             nobs += sz
             accumulator.seq_update(x, vec.ones(sz, device=device), prev_estimate)
 
-        stats_dict = {}
+        stats_dict: Dict[str, Any] = {}
         accumulator.key_merge(stats_dict)
         accumulator.key_replace(stats_dict)
 
@@ -487,7 +488,7 @@ else:
             accumulator.seq_initialize(enc_x, w, tng)
             nobs += sz
 
-        stats_dict = {}
+        stats_dict: Dict[str, Any] = {}
         accumulator.key_merge(stats_dict)
         accumulator.key_replace(stats_dict)
 

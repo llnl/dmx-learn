@@ -3,6 +3,7 @@
 # pylint: disable=duplicate-code
 
 import sys
+from typing import Sequence, cast
 
 import numpy as np
 
@@ -23,7 +24,7 @@ from dmx.stats import (
 
 def make_fake_data(
     topic_count: int, doc_count: int, snr: float, p_alpha: float, seed: int
-):
+) -> tuple[Sequence[Sequence[str]], Sequence[str], MixtureDistribution]:
     word_per_doc = 100
     num_words = 10
     random_state = np.random.RandomState(seed)
@@ -111,7 +112,10 @@ if __name__ == "__main__":
     # Encode Data for vectorized calls
     enc_data = seq_encode(data_cnt, estimator=estimator)
     # Vectorized initialization of model
-    imm = seq_initialize(enc_data, estimator, rng=np.random.RandomState(1), p=0.10)
+    imm = cast(
+        MixtureDistribution,
+        seq_initialize(enc_data, estimator, rng=np.random.RandomState(1), p=0.10),
+    )
     prev_model = imm
 
     # find best fitting model
@@ -137,9 +141,11 @@ if __name__ == "__main__":
         if (kk + 1) % print_cnt == 0:
 
             out.write(f"Weights = {','.join(map(str, mm.w))}\n")
-            out.write(f"Alpha_2 = {','.join(map(str, mm.components[0].alpha))}\n")
-            out.write(f"Alpha_1 = {','.join(map(str, mm.components[1].alpha))}\n")
-            topic_models = mm.components[0].topics
+            lda0 = cast(LDADistribution, mm.components[0])
+            lda1 = cast(LDADistribution, mm.components[1])
+            out.write(f"Alpha_2 = {','.join(map(str, lda0.alpha))}\n")
+            out.write(f"Alpha_1 = {','.join(map(str, lda1.alpha))}\n")
+            topic_models = [cast(CategoricalDistribution, u) for u in lda0.topics]
 
             for i in range(num_topics):
                 log_prob_vec = np.asarray(list(topic_models[i].pmap.values()))

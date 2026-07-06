@@ -1,5 +1,7 @@
 """Estimate a composite mixture model and track validation likelihood over time."""
 
+from typing import cast
+
 import numpy as np
 
 from dmx.stats import (
@@ -78,9 +80,11 @@ if __name__ == "__main__":
     e1 = OptionalEstimator(
         CategoricalEstimator(pseudo_count=1.0), est_prob=False, pseudo_count=1.0
     )
-    e2 = MarkovChainEstimator(pseudo_count=1.0, len_estimator=PoissonEstimator())
+    e2: MarkovChainEstimator = MarkovChainEstimator(
+        pseudo_count=1.0, len_estimator=PoissonEstimator()
+    )
     e3 = BernoulliSetEstimator()
-    e4 = MultivariateGaussianEstimator()
+    e4 = MultivariateGaussianEstimator(dim=2)
     iest = MixtureEstimator(
         [CompositeEstimator((e0, e1, e2, e3, e4))] * 2, pseudo_count=1.0
     )
@@ -89,13 +93,13 @@ if __name__ == "__main__":
     e1 = OptionalEstimator(CategoricalEstimator(), est_prob=False)
     e2 = MarkovChainEstimator(len_estimator=PoissonEstimator())
     e3 = BernoulliSetEstimator()
-    e4 = MultivariateGaussianEstimator()
+    e4 = MultivariateGaussianEstimator(dim=2)
     est = MixtureEstimator([CompositeEstimator((e0, e1, e2, e3, e4))] * 2)
 
     # Estimate parameters
     # Note: See dmx.utils.estimation.best_of/optimize for helpers that automate this.
 
-    mm = initialize(train_data, iest, rng, 0.01)
+    mm = cast(MixtureDistribution, initialize(train_data, iest, rng, 0.01))
 
     encoder = mm.dist_to_encoder()
     enc_data = seq_encode(train_data, encoder)

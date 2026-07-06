@@ -7,10 +7,10 @@
 from dmx.stats import *
 from dmx.stats.binomial import *
 from dmx.stats.categorical import *
-from dmx.stats.catmultinomial import *
-from dmx.stats.conditional import *
+from dmx.stats.catmultinomial import *  # type: ignore[no-redef]  # module exports internal TypeVars
+from dmx.stats.conditional import *  # type: ignore[no-redef]  # module exports internal TypeVars
 from dmx.stats.gaussian import *
-from dmx.stats.hidden_association import *
+from dmx.stats.hidden_association import *  # type: ignore[no-redef]  # module exports internal TypeVars
 from tests.stats.stats_tests import *
 
 
@@ -254,8 +254,10 @@ class HiddenAssociationDistributionTestCase(StatsTestClass):
         self.acc_encoder = [(a, e) for a, e in zip(self._accumulators, self._encoders)]
         self.type_check_keys = [None, "keys", (None, None, None), (1, "keys")]
 
-    def test_key_exceptions(self):
-        est_map = {0: CategoricalDistribution({"a": 0.2, "b": 0.3, "c": 0.5})}
+    def test_key_exceptions(self) -> None:
+        est_map = cast(
+            Any, {0: CategoricalDistribution({"a": 0.2, "b": 0.3, "c": 0.5})}
+        )
         cond_estimator = ConditionalDistributionEstimator(est_map)
         for x in self.type_check_keys:
             with pytest.raises(TypeError) as e:

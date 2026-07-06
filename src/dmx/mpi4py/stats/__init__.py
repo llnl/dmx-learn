@@ -23,7 +23,7 @@ __all__ = [
     "seq_log_density_sum_mpi",
 ]
 
-from typing import Any, List, Optional, Sequence, Tuple
+from typing import Any, Dict, List, Optional, Sequence, Tuple, Union, cast
 
 import numpy as np
 
@@ -79,6 +79,8 @@ def seq_encode_mpi(
     world_size = comm.Get_size()
 
     if world_rank == 0:
+        if data is None:
+            raise ValueError("Rank 0 must have data for seq_encode_mpi.")
         # world rank 0 needs at least one of the following
         if encoder is None:
             if model is not None:
@@ -108,17 +110,17 @@ def seq_encode_mpi(
         encoder_loc = None
 
     # Broadcast the model and number of chunks to all processes
-    encoder_loc = comm.bcast(encoder_loc, root=0)
-    data_loc = comm.scatter(data_loc, root=0)
-    num_chunks_loc = comm.bcast(num_chunks_loc, root=0)
+    encoder_final = cast(DataSequenceEncoder, comm.bcast(encoder_loc, root=0))
+    data_final = cast(List[Any], comm.scatter(data_loc, root=0))
+    num_chunks_final = cast(int, comm.bcast(num_chunks_loc, root=0))
 
-    nn = len(data_loc)
-    rv = []
+    nn = len(data_final)
+    rv: List[Tuple[int, Any]] = []
 
     # Process data chunks locally and return on worker
-    for i in range(num_chunks_loc):
-        data_chunk = [data_loc[j] for j in range(i, nn, num_chunks_loc)]
-        enc_data = encoder_loc.seq_encode(data_chunk)
+    for i in range(num_chunks_final):
+        data_chunk = [data_final[j] for j in range(i, nn, num_chunks_final)]
+        enc_data = encoder_final.seq_encode(data_chunk)
         rv.append((len(data_chunk), enc_data))
 
     return rv
@@ -170,7 +172,7 @@ def seq_initialize_mpi(
         local_accumulator.seq_initialize(x, w, rng)
 
     # Merge keys for local accumulators
-    stats_dict = {}
+    stats_dict: Dict[str, Any] = {}
     local_accumulator.key_merge(stats_dict)
     local_accumulator.key_replace(stats_dict)
     suff_stats = comm.gather((nobs, local_accumulator.value()), root=0)
@@ -179,13 +181,14 @@ def seq_initialize_mpi(
     if world_rank == 0:
         total_obs = 0.0
         accumulator = factory.make()
-        for nn, ss in suff_stats:
+        gathered_stats = cast(List[Tuple[float, Any]], suff_stats)
+        for nn, ss in gathered_stats:
             accumulator.combine(ss)
             total_obs += nn
 
-        stats_dict = {}
-        accumulator.key_merge(stats_dict)
-        accumulator.key_replace(stats_dict)
+        merged_stats_dict: Dict[str, Any] = {}
+        accumulator.key_merge(merged_stats_dict)
+        accumulator.key_replace(merged_stats_dict)
 
         return estimator.estimate(total_obs, accumulator.value())
 
@@ -232,18 +235,21 @@ def seq_estimate_mpi(
         factory = None
 
     # Broadcast prev_estimate and factory
+    active_estimator = cast(ParameterEstimator, comm.bcast(estimator, root=0))
     factory = comm.bcast(factory, root=0)
-    prev_estimate = comm.bcast(prev_estimate, root=0)
+    active_prev_estimate = cast(
+        SequenceEncodableProbabilityDistribution, comm.bcast(prev_estimate, root=0)
+    )
     local_accumulator = factory.make()
     nobs = 0.0
 
     # update locally
     for sz, x in enc_data:
         nobs += sz
-        local_accumulator.seq_update(x, np.ones(sz), prev_estimate)
+        local_accumulator.seq_update(x, np.ones(sz), active_prev_estimate)
 
     # Merge keys for local accumulators and gather suff_stats to master
-    stats_dict = {}
+    stats_dict: Dict[str, Any] = {}
     local_accumulator.key_merge(stats_dict)
     local_accumulator.key_replace(stats_dict)
     suff_stats = comm.gather((nobs, local_accumulator.value()), root=0)
@@ -252,22 +258,28 @@ def seq_estimate_mpi(
     if world_rank == 0:
         total_obs = 0.0
         accumulator = factory.make()
-        for nn, ss in suff_stats:
+        gathered_stats = cast(List[Tuple[float, Any]], suff_stats)
+        for nn, ss in gathered_stats:
             total_obs += nn
             accumulator.combine(ss)
 
-        stats_dict = {}
-        accumulator.key_merge(stats_dict)
-        accumulator.key_replace(stats_dict)
+        merged_stats_dict: Dict[str, Any] = {}
+        accumulator.key_merge(merged_stats_dict)
+        accumulator.key_replace(merged_stats_dict)
 
-        return estimator.estimate(total_obs, accumulator.value())
+        return active_estimator.estimate(total_obs, accumulator.value())
 
     return None
 
 
 def seq_log_density_mpi(
     enc_data: Sequence[Tuple[int, EncodedDataSequence]],
-    estimate: Optional[SequenceEncodableProbabilityDistribution] = None,
+    estimate: Optional[
+        Union[
+            SequenceEncodableProbabilityDistribution,
+            Sequence[SequenceEncodableProbabilityDistribution],
+        ]
+    ] = None,
     is_list: bool = False,
 ) -> List[np.ndarray]:
     """Computes log densities of encoded data in parallel.
@@ -299,11 +311,13 @@ def seq_log_density_mpi(
 
     # evaluate likelihood on worker data chunks, might rearrange later for use
     if is_list:
+        estimates = cast(Sequence[SequenceEncodableProbabilityDistribution], estimate)
         return [
-            np.asarray([ee.seq_log_density(u[1]) for ee in estimate]) for u in enc_data
+            np.asarray([ee.seq_log_density(u[1]) for ee in estimates]) for u in enc_data
         ]
 
-    return [estimate.seq_log_density(u[1]) for u in enc_data]
+    single_estimate = cast(SequenceEncodableProbabilityDistribution, estimate)
+    return [single_estimate.seq_log_density(u[1]) for u in enc_data]
 
 
 def seq_log_density_sum_mpi(
@@ -333,7 +347,9 @@ def seq_log_density_sum_mpi(
     if world_rank == 0 and estimate is None:
         raise ValueError("Rank 0 must have estimate for seq_log_density_mpi.")
 
-    estimate = comm.bcast(estimate, root=0)
+    estimate = cast(
+        SequenceEncodableProbabilityDistribution, comm.bcast(estimate, root=0)
+    )
     rv0 = sum(u[0] for u in enc_data)
     rv1 = sum(estimate.seq_log_density(u[1]).sum() for u in enc_data)
 

@@ -12,10 +12,10 @@ from dmx.stats.int_spike import *
 from tests.stats.stats_tests import *
 
 
-def spike_seq_update_test(dist, encoder, est):
+def spike_seq_update_test(dist: Any, encoder: Any, est: Any) -> tuple[bool, list[bool]]:
     seeds = [1, 2, 3]
     sz = 1000
-    rv = []
+    rv: list[bool] = []
     for seed in seeds:
         data = dist.sampler(seed=seed).sample(sz)
         enc_data = [(sz, encoder.seq_encode(data))]
@@ -28,7 +28,7 @@ def spike_seq_update_test(dist, encoder, est):
         log_diff = ll - ll_prev
         rv.append(log_diff > 0)
 
-    return np.all(rv), rv
+    return bool(np.all(rv)), rv
 
 
 class SpikeAndSlabDistributionTestCase(StatsTestClass):
@@ -86,12 +86,12 @@ class SpikeAndSlabDistributionTestCase(StatsTestClass):
     @pytest.mark.dependency(
         depends=["estimator", "log_density", "estimator_factory", "factory_make"]
     )
-    def test_09_seq_update(self):
+    def test_09_seq_update(self) -> None:
         for x in zip(self.eval_dists, self._encoders, self._init_ests):
             res = spike_seq_update_test(*x)
             self.assertTrue(res[0], str(res[1]))
 
-    def test_seq_log_density_type(self):
+    def test_seq_log_density_type(self) -> None:
         for x in self.type_check_data:
             with pytest.raises(Exception) as e:
                 self.eval_dists[0].seq_log_density(x)
@@ -100,7 +100,7 @@ class SpikeAndSlabDistributionTestCase(StatsTestClass):
                 == "SpikeAndSlabEncodedDataSequence required for seq_log_density()."
             )
 
-    def test_key_exceptions(self):
+    def test_key_exceptions(self) -> None:
         for x in self.type_check_keys:
             with pytest.raises(TypeError) as e:
                 SpikeAndSlabEstimator(keys=x)

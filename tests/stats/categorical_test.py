@@ -91,7 +91,7 @@ class CategoricalDistributionTestCase(StatsTestClass):
         self.type_check_data = [None, np.ones((10, 10))]
         self.type_check_keys = [(None, None), 1.0, ("keys", None)]
 
-    def test_seq_log_density_type(self):
+    def test_seq_log_density_type(self) -> None:
         for x in self.type_check_data:
             with pytest.raises(Exception) as e:
                 self.eval_dists[0].seq_log_density(x)
@@ -100,7 +100,7 @@ class CategoricalDistributionTestCase(StatsTestClass):
                 == "CategoricalDistribution.seq_log_density() requires CategoricalEncodedDataSequence."
             )
 
-    def test_key_exceptions(self):
+    def test_key_exceptions(self) -> None:
         for x in self.type_check_keys:
             with pytest.raises(TypeError) as e:
                 CategoricalEstimator(keys=x)
@@ -113,7 +113,7 @@ class CategoricalDistributionTestCase(StatsTestClass):
 
 # Test edge cases on initialize as needed
 @pytest.mark.parametrize("default_value", [2.0])
-def test_categorical_bad_default_value(default_value):
+def test_categorical_bad_default_value(default_value: float) -> None:
     dist = CategoricalDistribution(
         pmap={"a": 0.1, "b": 0.3, "c": 0.6}, default_value=default_value, name="cat"
     )

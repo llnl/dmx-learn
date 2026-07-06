@@ -40,37 +40,37 @@ class ExponentialDistributionTestCase(TorchStatsTestClass):
         self.factories = self._factories
         self.accumulators = self._accs
 
-    def test_seq_log_density_type(self):
+    def test_seq_log_density_type(self) -> None:
         """seq_log_density must raise Exception when passed wrong encoded type."""
         for bad_input in [None, np.ones(10)]:
             with self.assertRaises(Exception):
-                self._dists[0].seq_log_density(bad_input)
+                self._dists[0].seq_log_density(cast(Any, bad_input))
 
-    def test_encoder_type(self):
+    def test_encoder_type(self) -> None:
         """dist_to_encoder() must return an ExponentialDataEncoder."""
         for dist in self._dists:
             self.assertIsInstance(dist.dist_to_encoder(), ExponentialDataEncoder)
 
-    def test_accumulator_type(self):
+    def test_accumulator_type(self) -> None:
         """factory.make() must return an ExponentialAccumulator."""
         for f in self._factories:
             self.assertIsInstance(f.make(device=self.device), ExponentialAccumulator)
 
-    def test_sampler_positive(self):
+    def test_sampler_positive(self) -> None:
         """All sampled values must be positive (exponential has support on (0, inf))."""
         data = self._dists[0].sampler(seed=1).sample(size=500)
         self.assertTrue(
             np.all(np.asarray(data) > 0), "Exponential samples must be positive"
         )
 
-    def test_beta_effect(self):
+    def test_beta_effect(self) -> None:
         """Larger beta must yield larger mean sample value."""
         n = 2000
         mean1 = float(np.mean(self._dists[1].sampler(seed=42).sample(n)))  # beta=0.5
         mean2 = float(np.mean(self._dists[2].sampler(seed=42).sample(n)))  # beta=2.0
         self.assertLess(mean1, mean2)
 
-    def test_estimator_uses_mean_parameterization(self):
+    def test_estimator_uses_mean_parameterization(self) -> None:
         """Estimator must recover beta as weighted sum divided by weighted count."""
         est = ExponentialEstimator()
         model = est.estimate(nobs=None, suff_stat=(6.0, 3.0), device=self.device)

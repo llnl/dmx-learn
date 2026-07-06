@@ -61,9 +61,9 @@ class HeterogeneousMixtureDistribution(TorchProbabilityDistribution):
     components.
 
         Attributes:
-            w (tn.tensor): Weights for the mixture.
-            zw (tn.tensor): Boolean tensor, true if a weight is 0.
-            log_w (tn.tensor): Log of the mixture weights.
+            w (tn.Tensor): Weights for the mixture.
+            zw (tn.Tensor): Boolean tensor, true if a weight is 0.
+            log_w (tn.Tensor): Log of the mixture weights.
             components (Sequence[TorchProbabilityDistribution]): Mixture components.
             num_components (int): Number of mixture components.
 
@@ -81,7 +81,7 @@ class HeterogeneousMixtureDistribution(TorchProbabilityDistribution):
                 Args:
                     components (Sequence[TorchProbabilityDistribution]):
                     Mixture components.
-                    w (tn.tensor): Weights for the mixture.
+                    w (tn.Tensor): Weights for the mixture.
                     device (Optional[tn.device]): Device to declare model on.
 
         """
@@ -95,15 +95,17 @@ class HeterogeneousMixtureDistribution(TorchProbabilityDistribution):
         self.components = components
         self.num_components = len(components)
 
-    def to(self, device: tn.device) -> None:
-        self._device = device
-        self.w = self.w.to(device)
+    def to(self, device: vec.DeviceLike) -> "HeterogeneousMixtureDistribution":
+        target_device = self._resolve_device_arg(device)
+        self._device = target_device
+        self.w = self.w.to(target_device)
         self.zw = self.w == 0.0
         self.log_w = tn.log(self.w + self.zw)
         self.log_w[self.zw] = -tn.inf
 
         for comp in self.components:
-            comp.to(device)
+            comp.to(target_device)
+        return self
 
     def __repr__(self) -> str:
         s1 = ",".join([str(u) for u in self.components])
@@ -123,7 +125,7 @@ class HeterogeneousMixtureDistribution(TorchProbabilityDistribution):
                     float: Density at x.
 
         """
-        return np.exp(self.log_density(x))
+        return float(np.exp(self.log_density(x)))
 
     def log_density(self, x: T) -> float:
         """
@@ -175,7 +177,7 @@ class HeterogeneousMixtureDistribution(TorchProbabilityDistribution):
                     HeterogeneousMixture.
 
                 Returns:
-                    tn.tensor: log-density of mixture components evaluated at
+                    tn.Tensor: log-density of mixture components evaluated at
                     each observation.
 
         """
@@ -267,7 +269,7 @@ class HeterogeneousMixtureDistribution(TorchProbabilityDistribution):
                     HeterogeneousMixture.
 
                 Returns:
-                    tn.tensor: Tensor containing the posterior of each
+                    tn.Tensor: Tensor containing the posterior of each
                     observation in encoded sequence.
 
         """

@@ -81,7 +81,7 @@ class PoissonDistribution(SequenceEncodableProbabilityDistribution):
             float: Density of Poisson distribution evaluated at x.
 
         """
-        return np.exp(self.log_density(x))
+        return float(np.exp(self.log_density(x)))
 
     def log_density(self, x: int) -> float:
         """Log-density of Poisson distribution evaluated at x.
@@ -98,7 +98,7 @@ class PoissonDistribution(SequenceEncodableProbabilityDistribution):
         """
         if x < 0:
             return -np.inf
-        return x * self.log_lambda - gammaln(x + 1.0) - self.lam
+        return float(x * self.log_lambda - gammaln(x + 1.0) - self.lam)
 
     def seq_log_density(self, x: "PoissonEncodedDataSequence") -> np.ndarray:
 
@@ -110,7 +110,7 @@ class PoissonDistribution(SequenceEncodableProbabilityDistribution):
         rv = x.data[0] * self.log_lambda
         rv -= x.data[1]
         rv -= self.lam
-        return rv
+        return np.asarray(rv)
 
     def sampler(self, seed: Optional[int] = None) -> "PoissonSampler":
         return PoissonSampler(self, seed)
@@ -165,7 +165,7 @@ class PoissonSampler(DistributionSampler):
 
         """
         if size:
-            return self.rng.poisson(lam=self.dist.lam, size=size).tolist()
+            return list(map(int, self.rng.poisson(lam=self.dist.lam, size=size)))
         return int(self.rng.poisson(lam=self.dist.lam))
 
 
@@ -351,7 +351,7 @@ class PoissonDataEncoder(DataSequenceEncoder):
     def __str__(self) -> str:
         return "PoissonDataEncoder"
 
-    def __eq__(self, other) -> bool:
+    def __eq__(self, other: object) -> bool:
         return isinstance(other, PoissonDataEncoder)
 
     def seq_encode(

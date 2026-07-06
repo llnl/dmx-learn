@@ -119,7 +119,7 @@ class HeterogeneousMixtureDistribution(SequenceEncodableProbabilityDistribution)
         Returns:
             float: Density at x.
         """
-        return exp(self.log_density(x))
+        return float(exp(self.log_density(x)))
 
     def log_density(self, x: T) -> float:
         """Evaluate log-density of heterogeneous mixture distribution at observation x.
@@ -135,8 +135,10 @@ class HeterogeneousMixtureDistribution(SequenceEncodableProbabilityDistribution)
         Returns:
             float: Log-density at x.
         """
-        return vec.log_sum(
-            np.asarray([u.log_density(x) for u in self.components]) + self.log_w
+        return float(
+            vec.log_sum(
+                np.asarray([u.log_density(x) for u in self.components]) + self.log_w
+            )
         )
 
     def component_log_density(self, x: T) -> np.ndarray:
@@ -177,11 +179,11 @@ class HeterogeneousMixtureDistribution(SequenceEncodableProbabilityDistribution)
         max_val = np.max(comp_log_density)
 
         if max_val == -np.inf:
-            return self.w.copy()
+            return np.asarray(self.w.copy(), dtype=float)
         comp_log_density -= max_val
         np.exp(comp_log_density, out=comp_log_density)
         comp_log_density /= comp_log_density.sum()
-        return comp_log_density
+        return np.asarray(comp_log_density, dtype=float)
 
     def seq_log_density(
         self, x: "HeterogeneousMixtureEncodedDataSequence"
@@ -218,7 +220,7 @@ class HeterogeneousMixtureDistribution(SequenceEncodableProbabilityDistribution)
             ll_sum = np.sum(ll_mat, axis=1, keepdims=True)
             np.log(ll_sum, out=ll_sum)
             ll_sum += ll_max
-            return ll_sum.flatten()
+            return np.asarray(ll_sum.flatten(), dtype=float)
         ll_mat = ll_mat[good_rows, :]
         ll_max = ll_max[good_rows]
         ll_mat -= ll_max
@@ -256,7 +258,7 @@ class HeterogeneousMixtureDistribution(SequenceEncodableProbabilityDistribution)
                         ll_mat_init = True
                     ll_mat[:, i] = temp
 
-        return ll_mat
+        return np.asarray(ll_mat, dtype=float)
 
     def seq_posterior(self, x: "HeterogeneousMixtureEncodedDataSequence") -> np.ndarray:
         """Vectorized evaluation of posterior of HeterogeneousMixtureDistribution for
@@ -298,7 +300,7 @@ class HeterogeneousMixtureDistribution(SequenceEncodableProbabilityDistribution)
         np.sum(ll_mat, axis=1, keepdims=True, out=ll_max)
         ll_mat /= ll_max
 
-        return ll_mat
+        return np.asarray(ll_mat, dtype=float)
 
     def sampler(self, seed: Optional[int] = None) -> "HeterogeneousMixtureSampler":
         """Return a HeterogeneousMixtureSampler for this distribution.
@@ -468,6 +470,8 @@ class HeterogeneousMixtureAccumulator(SequenceEncodableStatisticAccumulator):
         if not self._init_rng:
             self._rng_initialize(rng)
 
+        assert self._acc_rng is not None
+
         if weight != 0:
             ww = rng.dirichlet(
                 np.ones(self.num_components)
@@ -497,11 +501,13 @@ class HeterogeneousMixtureAccumulator(SequenceEncodableStatisticAccumulator):
         if not self._init_rng:
             self._rng_initialize(rng)
 
+        assert self._acc_rng is not None
+
         tag_list, enc_data = x.data
         sz = len(weights)
 
         keep_idx = weights > 0.0
-        keep_len = np.sum(keep_idx)
+        keep_len = int(np.count_nonzero(keep_idx))
         ww = np.zeros((sz, self.num_components))
 
         if keep_len > 0:
@@ -839,7 +845,7 @@ class HeterogeneousMixtureDataEncoder(DataSequenceEncoder):
                 component.
         """
         encoder_dict: Dict[str, DataSequenceEncoder] = {}
-        idx_dict: Dict[str, Sequence[int]] = {}
+        idx_dict: Dict[str, List[int]] = {}
 
         for encoder_idx, encoder in enumerate(encoders):
             enc_str = str(encoder)
@@ -849,7 +855,7 @@ class HeterogeneousMixtureDataEncoder(DataSequenceEncoder):
             idx_dict[enc_str].append(encoder_idx)
 
         self.encoder_dict: Dict[str, DataSequenceEncoder] = encoder_dict
-        self.idx_dict: Dict[str, Sequence[int]] = idx_dict
+        self.idx_dict: Dict[str, List[int]] = idx_dict
 
     def __str__(self) -> str:
         """Return string representation."""

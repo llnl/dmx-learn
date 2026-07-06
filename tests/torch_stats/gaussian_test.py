@@ -41,18 +41,18 @@ class GaussianDistributionTestCase(TorchStatsTestClass):
         self.factories = self._factories
         self.accumulators = self._accs
 
-    def test_seq_log_density_type(self):
+    def test_seq_log_density_type(self) -> None:
         """seq_log_density must raise Exception when passed wrong encoded type."""
         for bad_input in [None, np.ones(10)]:
             with pytest.raises(Exception):
-                self._dists[0].seq_log_density(bad_input)
+                self._dists[0].seq_log_density(cast(Any, bad_input))
 
-    def test_encoder_type(self):
+    def test_encoder_type(self) -> None:
         """dist_to_encoder() must return a GaussianDataEncoder."""
         for dist in self._dists:
             self.assertIsInstance(dist.dist_to_encoder(), GaussianDataEncoder)
 
-    def test_accumulator_type(self):
+    def test_accumulator_type(self) -> None:
         """factory.make() must return a GaussianAccumulator."""
         for f in self._factories:
             self.assertIsInstance(f.make(device=self.device), GaussianAccumulator)

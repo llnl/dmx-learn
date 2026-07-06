@@ -68,8 +68,8 @@ class SpikeAndSlabDistribution(SequenceEncodableProbabilityDistribution):
         """
         super().__init__()
         self.p = p
-        self.min_val = min_val
-        self.max_val = min_val + num_vals
+        self.min_val = 0 if min_val is None else min_val
+        self.max_val = self.min_val + num_vals
 
         if not self.min_val <= k <= self.max_val:
             raise ValueError(
@@ -98,11 +98,11 @@ class SpikeAndSlabDistribution(SequenceEncodableProbabilityDistribution):
         )
 
     def density(self, x: int) -> float:
-        return np.exp(self.log_density(x))
+        return float(np.exp(self.log_density(x)))
 
     def log_density(self, x: int) -> float:
         if self.max_val >= x >= self.min_val:
-            return self.log_p if x == self.k else self.log_1p
+            return float(self.log_p if x == self.k else self.log_1p)
         return -np.inf
 
     def seq_log_density(self, x: "SpikeAndSlabEncodedDataSequence") -> np.ndarray:
@@ -176,13 +176,13 @@ class SpikeAndSlabSampler(DistributionSampler):
             np.arange(self.dist.min_val, self.dist.max_val), self.dist.k
         )
 
-    def sample(self, size: Optional[int] = None) -> Union[int, np.array]:
+    def sample(self, size: Optional[int] = None) -> Union[int, np.ndarray]:
 
         if size is None:
             z = self.rng.binomial(n=1, p=self.dist.p)
             if z == 1:
-                return self.dist.k
-            return self.rng.choice(self.non_k)
+                return int(self.dist.k)
+            return int(self.rng.choice(self.non_k))
 
         rv = np.zeros(size, dtype=int)
         rv.fill(self.dist.k)
@@ -227,6 +227,7 @@ class SpikeAndSlabAccumulator(SequenceEncodableStatisticAccumulator):
         """
         self.min_val = min_val
         self.max_val = max_val
+        self.count_vec: Optional[np.ndarray]
 
         if self.min_val is not None and self.max_val is not None:
             self.count_vec = np.zeros(self.max_val - self.min_val + 1, dtype=float)
@@ -245,8 +246,12 @@ class SpikeAndSlabAccumulator(SequenceEncodableStatisticAccumulator):
             self.min_val = x
             self.max_val = x
             self.count_vec = np.asarray([weight])
+            return
 
-        elif self.max_val < x:
+        assert self.min_val is not None
+        assert self.max_val is not None
+
+        if self.max_val < x:
             temp_vec = self.count_vec
             self.max_val = x
             self.count_vec = np.zeros(self.max_val - self.min_val + 1)
@@ -283,8 +288,8 @@ class SpikeAndSlabAccumulator(SequenceEncodableStatisticAccumulator):
         estimate: Optional["SpikeAndSlabDistribution"],
     ) -> None:
 
-        min_x = np.min(x.data)
-        max_x = np.max(x.data)
+        min_x = int(np.min(x.data))
+        max_x = int(np.max(x.data))
 
         loc_cnt = np.bincount(x.data - min_x, weights=weights)
 
@@ -292,6 +297,10 @@ class SpikeAndSlabAccumulator(SequenceEncodableStatisticAccumulator):
             self.count_vec = np.zeros(max_x - min_x + 1)
             self.min_val = min_x
             self.max_val = max_x
+
+        assert self.min_val is not None
+        assert self.max_val is not None
+        assert self.count_vec is not None
 
         if self.min_val > min_x or self.max_val < max_x:
             prev_min = self.min_val
@@ -312,6 +321,8 @@ class SpikeAndSlabAccumulator(SequenceEncodableStatisticAccumulator):
             self.count_vec = suff_stat[1]
 
         elif self.count_vec is not None and suff_stat[1] is not None:
+            assert self.min_val is not None
+            assert self.max_val is not None
             if self.min_val == suff_stat[0] and len(self.count_vec) == len(
                 suff_stat[1]
             ):
@@ -338,6 +349,8 @@ class SpikeAndSlabAccumulator(SequenceEncodableStatisticAccumulator):
         return self
 
     def value(self) -> Tuple[int, np.ndarray]:
+        assert self.min_val is not None
+        assert self.count_vec is not None
         return self.min_val, self.count_vec
 
     def from_value(self, x: Tuple[int, np.ndarray]) -> "SpikeAndSlabAccumulator":

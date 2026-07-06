@@ -79,15 +79,17 @@ class DiagonalGaussianDistribution(TorchProbabilityDistribution):
         self.cc = (-0.5 * self.mu * self.mu / self.covar).sum() + self.log_c
         self.key = keys
 
-    def to(self, device: tn.device) -> None:
-        self.mu = self.mu.to(device)
-        self.covar = self.covar.to(device)
+    def to(self, device: vec.DeviceLike) -> "DiagonalGaussianDistribution":
+        target_device = self._resolve_device_arg(device)
+        self.mu = self.mu.to(target_device)
+        self.covar = self.covar.to(target_device)
 
         self.log_c = -0.5 * (np.log(2.0 * np.pi) * self.dim + tn.log(self.covar).sum())
         self.ca = -0.5 / self.covar
         self.cb = self.mu / self.covar
         self.cc = (-0.5 * self.mu * self.mu / self.covar).sum() + self.log_c
-        self._device = device
+        self._device = target_device
+        return self
 
     def __repr__(self) -> str:
         s1 = repr(list(self.mu.data.cpu().numpy().flatten()))
@@ -96,15 +98,15 @@ class DiagonalGaussianDistribution(TorchProbabilityDistribution):
         return f"DiagonalGaussianDistribution({s1}, {s2})"
 
     def density(self, x: Union[Sequence[float], np.ndarray]) -> float:
-        return exp(self.log_density(x))
+        return float(exp(self.log_density(x)))
 
     def log_density(self, x: Union[Sequence[float], np.ndarray]) -> float:
 
         xx = np.asarray(x)
         rv = np.dot(xx * xx, self.ca.cpu().detach().numpy())
         rv += np.dot(xx, self.cb.cpu().detach().numpy())
-        rv += self.cc
-        return rv
+        rv += float(self.cc)
+        return float(rv)
 
     def seq_log_density(self, x: "DiagonalGaussianTorchEncodedSequence") -> tn.Tensor:
         if not isinstance(x, DiagonalGaussianTorchEncodedSequence):
@@ -172,7 +174,7 @@ class DiagonalGaussianSampler(DistributionSampler):
             rv += self.mu
             return rv
 
-        return [self.sample() for _ in range(size)]
+        return [np.asarray(self.sample()) for _ in range(size)]
 
 
 class DiagonalGaussianAccumulator(TorchStatisticAccumulator):
@@ -204,8 +206,12 @@ class DiagonalGaussianAccumulator(TorchStatisticAccumulator):
         super().__init__(device)
         self.dim = dim
         self.count = 0.0
-        self.sum = np.zeros(dim, dtype=np.float64) if dim is not None else None
-        self.sum2 = np.zeros(dim, dtype=np.float64) if dim is not None else None
+        self.sum: Optional[np.ndarray] = (
+            np.zeros(dim, dtype=np.float64) if dim is not None else None
+        )
+        self.sum2: Optional[np.ndarray] = (
+            np.zeros(dim, dtype=np.float64) if dim is not None else None
+        )
         self.key = keys
 
     def seq_update(
@@ -219,6 +225,8 @@ class DiagonalGaussianAccumulator(TorchStatisticAccumulator):
             self.sum = np.zeros(self.dim, dtype=np.float64)
             self.sum2 = np.zeros(self.dim, dtype=np.float64)
 
+        assert self.sum is not None
+        assert self.sum2 is not None
         x_weight = tn.multiply(x.data.T, weights)
         self.count += float(weights.sum())
         self.sum += tn.sum(x_weight, dim=1).data.cpu().numpy()
@@ -249,6 +257,8 @@ class DiagonalGaussianAccumulator(TorchStatisticAccumulator):
         return self
 
     def value(self) -> Tuple[np.ndarray, np.ndarray, float]:
+        assert self.sum is not None
+        assert self.sum2 is not None
         return self.sum, self.sum2, self.count
 
     def from_value(
@@ -342,12 +352,18 @@ class DiagonalGaussianEstimator(TorchParameterEstimator):
 
         self.dim = dim_loc
         self.pseudo_count = pseudo_count
-        self.prior_mu = (
-            None if suff_stat[0] is None else np.reshape(suff_stat[0], dim_loc)
-        )
-        self.prior_covar = (
-            None if suff_stat[1] is None else np.reshape(suff_stat[1], dim_loc)
-        )
+        if suff_stat[0] is not None:
+            if dim_loc is None:
+                raise ValueError("dim must be set when suff_stat is provided.")
+            self.prior_mu: Optional[np.ndarray] = np.reshape(suff_stat[0], dim_loc)
+        else:
+            self.prior_mu = None
+        if suff_stat[1] is not None:
+            if dim_loc is None:
+                raise ValueError("dim must be set when suff_stat is provided.")
+            self.prior_covar: Optional[np.ndarray] = np.reshape(suff_stat[1], dim_loc)
+        else:
+            self.prior_covar = None
         self.key = keys
 
     def accumulator_factory(self) -> "DiagonalGaussianAccumulatorFactory":
@@ -410,15 +426,17 @@ class DiagonalGaussianDataEncoder(TorchSequenceEncoder):
     ) -> "DiagonalGaussianTorchEncodedSequence":
         if self.dim is None:
             self.dim = len(x[0])
-        xv = np.reshape(x, (-1, self.dim))
+        dim = self.dim
+        xv = np.reshape(np.asarray(x), (-1, dim))
         return DiagonalGaussianTorchEncodedSequence(
             data=vec.tensor(xv, device=device), device=device
         )
 
 
 class DiagonalGaussianTorchEncodedSequence(TorchEncodedSequence):
+    data: tn.Tensor
 
-    def __init__(self, data: tn.Tensor, device: Optional[tn.device] = None):
+    def __init__(self, data: tn.Tensor, device: Optional[tn.device] = None) -> None:
         super().__init__(data=data, device=device)
 
     def __str__(self) -> str:

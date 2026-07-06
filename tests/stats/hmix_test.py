@@ -10,14 +10,14 @@ from dmx.stats import *
 from dmx.stats.categorical import *
 from dmx.stats.gaussian import *
 from dmx.stats.geometric import *
-from dmx.stats.hmixture import *
+from dmx.stats.hmixture import *  # type: ignore[no-redef]  # module exports internal TypeVars
 from tests.stats.stats_tests import *
 
 
-def component_log_density_test(dist, encoder):
+def component_log_density_test(dist: Any, encoder: Any) -> tuple[bool, str]:
     seeds = [1, 2, 3]
     sz = 20
-    rv = []
+    rv: list[Any] = []
     for seed in seeds:
         s = dist.sampler(seed)
         data = s.sample(size=sz)
@@ -34,13 +34,13 @@ def component_log_density_test(dist, encoder):
                 ) / np.abs(seq_comp_ll[i])
         rv.append(np.max(seq_comp_ll))
 
-    return max(rv) < 1.0e-14, "max(rv) test"
+    return bool(max(rv) < 1.0e-14), "max(rv) test"
 
 
-def posterior_test(dist, encoder):
+def posterior_test(dist: Any, encoder: Any) -> tuple[bool, str]:
     seeds = [1, 2, 3]
     sz = 20
-    rv = []
+    rv: list[Any] = []
     for seed in seeds:
         s = dist.sampler(seed)
         data = s.sample(size=sz)
@@ -57,14 +57,14 @@ def posterior_test(dist, encoder):
                 ) / np.abs(seq_post[i])
         rv.append(np.max(seq_post))
 
-    return max(rv) < 1.0e-14, "max(rv) test"
+    return bool(max(rv) < 1.0e-14), "max(rv) test"
 
 
 class HierarchicalMixtureDistributionTestCase(StatsTestClass):
 
     def setUp(self) -> None:
 
-        self._topics = [
+        self._topics: list[Any] = [
             [
                 CategoricalDistribution(pmap={"a": 0.1, "b": 0.3, "c": 0.6}),
                 CategoricalDistribution(pmap={"a": 0.6, "b": 0.1, "c": 0.3}),
@@ -86,15 +86,15 @@ class HierarchicalMixtureDistributionTestCase(StatsTestClass):
         ]
         self._len_encs = [CategoricalDataEncoder(), GeometricDataEncoder()]
 
-        self._ests = [
+        self._ests: list[Any] = [
             [CategoricalEstimator()] * len(self._topics[0]),
             [GaussianEstimator()] * len(self._topics[1]),
         ]
-        self._facts = [
+        self._facts: list[Any] = [
             [CategoricalAccumulatorFactory()] * len(self._topics[0]),
             [GaussianAccumulatorFactory()] * len(self._topics[1]),
         ]
-        self._accs = [
+        self._accs: list[Any] = [
             [CategoricalAccumulator()] * len(self._topics[0]),
             [GaussianAccumulator()] * len(self._topics[1]),
         ]
@@ -277,15 +277,15 @@ class HierarchicalMixtureDistributionTestCase(StatsTestClass):
         self.type_check_data = [None, np.ones((10, 10))]
         self.type_check_keys = [None, "keys", (None, None, None), (1, "keys")]
 
-    def test_component_log_density(self):
+    def test_component_log_density(self) -> None:
         for x in self.density_dist_encoder:
             self.assertTrue(component_log_density_test(*x))
 
-    def test_posterior(self):
+    def test_posterior(self) -> None:
         for x in self.density_dist_encoder:
             self.assertTrue(posterior_test(*x))
 
-    def test_key_exceptions(self):
+    def test_key_exceptions(self) -> None:
         for x in self.type_check_keys:
             with pytest.raises(TypeError) as e:
                 HierarchicalMixtureEstimator(

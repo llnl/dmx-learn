@@ -63,11 +63,11 @@ class IgnoredDistributionTestCase(StatsTestClass):
         self.type_check_data = [None, np.ones((10, 10))]
         self.type_check_keys = [(None, None), 1.0, ("keys", None)]
 
-    def test_09_seq_update(self):
+    def test_09_seq_update(self) -> None:
         # there is no seq update for this class
         assert True
 
-    def test_key_exceptions(self):
+    def test_key_exceptions(self) -> None:
         for x in self.type_check_keys:
             with pytest.raises(TypeError) as e:
                 IgnoredEstimator(keys=x)

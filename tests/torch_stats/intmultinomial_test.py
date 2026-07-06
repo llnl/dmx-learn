@@ -53,28 +53,28 @@ class IntegerMultinomialDistributionTestCase(TorchStatsTestClass):
         self.factories = self._factories
         self.accumulators = self._accs
 
-    def test_seq_log_density_type(self):
+    def test_seq_log_density_type(self) -> None:
         """seq_log_density must raise Exception when passed wrong encoded type."""
         for bad_input in [None, np.ones(10)]:
             with pytest.raises(Exception):
-                self._dists[0].seq_log_density(bad_input)
+                self._dists[0].seq_log_density(cast(Any, bad_input))
 
-    def test_encoder_type(self):
+    def test_encoder_type(self) -> None:
         """dist_to_encoder() must return an IntegerMultinomialDataEncoder."""
         for dist in self._dists:
             self.assertIsInstance(dist.dist_to_encoder(), IntegerMultinomialDataEncoder)
 
-    def test_accumulator_type(self):
+    def test_accumulator_type(self) -> None:
         """factory.make() must return an IntegerMultinomialAccumulator."""
         for f in self._factories:
             self.assertIsInstance(
                 f.make(device=self.device), IntegerMultinomialAccumulator
             )
 
-    def test_sampler_element_range(self):
+    def test_sampler_element_range(self) -> None:
         """Each (value, count) pair in samples must have value in [min_val, max_val]."""
         for dist in self._dists:
-            data = dist.sampler(seed=1).sample(size=50)
+            data = cast(Any, dist.sampler(seed=1).sample(size=50))
             min_v = dist.min_val
             max_v = min_v + len(dist.p_vec) - 1
             for bag in data:

@@ -69,6 +69,8 @@ class GaussianMixtureDistribution(SequenceEncodableProbabilityDistribution):
                 parameters.
         """
         super().__init__()
+        self.sigma2: Union[float, np.ndarray]
+        self.log_c: Union[float, np.ndarray]
         if isinstance(sigma2, float):
             self._tied = True
             self.sigma2 = sigma2
@@ -97,7 +99,11 @@ class GaussianMixtureDistribution(SequenceEncodableProbabilityDistribution):
     def __repr__(self) -> str:
         """Return string representation."""
         s1 = repr(list(self.mu.flatten()))
-        s2 = repr(list(self.sigma2.flatten())) if not self._tied else repr(self.sigma2)
+        s2 = (
+            repr(list(self.sigma2.flatten()))
+            if isinstance(self.sigma2, np.ndarray)
+            else repr(self.sigma2)
+        )
         s3 = repr(list(self.w))
         s4 = repr(self.name)
         s5 = repr(self.keys)
@@ -115,7 +121,7 @@ class GaussianMixtureDistribution(SequenceEncodableProbabilityDistribution):
         Returns:
             float: Density at x.
         """
-        return np.exp(self.log_density(x))
+        return float(np.exp(self.log_density(x)))
 
     def log_density(self, x: float) -> float:
         """Evaluate the log-density of the mixture at x.
@@ -126,11 +132,13 @@ class GaussianMixtureDistribution(SequenceEncodableProbabilityDistribution):
         Returns:
             float: Log-density at x.
         """
-        return vec.log_sum(
-            -0.5 * (x - self.mu) ** 2 / self.sigma2
-            - 0.5 * np.log(self.sigma2)
-            + self.log_c
-            + self.log_w
+        return float(
+            vec.log_sum(
+                -0.5 * (x - self.mu) ** 2 / self.sigma2
+                - 0.5 * np.log(self.sigma2)
+                + self.log_c
+                + self.log_w
+            )
         )
 
     def component_log_density(self, x: float) -> np.ndarray:
@@ -142,10 +150,11 @@ class GaussianMixtureDistribution(SequenceEncodableProbabilityDistribution):
         Returns:
             np.ndarray: Log-density for each component.
         """
-        return (
+        return np.asarray(
             -0.5 * (x - self.mu) ** 2 / self.sigma2
             - 0.5 * np.log(self.sigma2)
-            + self.log_c
+            + self.log_c,
+            dtype=float,
         )
 
     def posterior(self, x: float) -> np.ndarray:
@@ -167,11 +176,11 @@ class GaussianMixtureDistribution(SequenceEncodableProbabilityDistribution):
 
         max_val = np.max(comp_log_density)
         if max_val == -np.inf:
-            return self.w.copy()
+            return np.asarray(self.w.copy(), dtype=float)
         comp_log_density -= max_val
         np.exp(comp_log_density, out=comp_log_density)
         comp_log_density /= comp_log_density.sum()
-        return comp_log_density
+        return np.asarray(comp_log_density, dtype=float)
 
     def seq_component_log_density(
         self, x: "GaussianMixtureEncodedDataSequence"
@@ -192,7 +201,7 @@ class GaussianMixtureDistribution(SequenceEncodableProbabilityDistribution):
 
         rv = -0.5 * (x.data[:, None] - self.mu) ** 2 / self.sigma2 + self.log_c
         rv[:, self.zw] = -np.inf
-        return rv
+        return np.asarray(rv, dtype=float)
 
     def seq_log_density(self, x: "GaussianMixtureEncodedDataSequence") -> np.ndarray:
         """Vectorized log-density for encoded data.
@@ -225,7 +234,7 @@ class GaussianMixtureDistribution(SequenceEncodableProbabilityDistribution):
             ll_sum = np.sum(ll_mat, axis=1, keepdims=True)
             np.log(ll_sum, out=ll_sum)
             ll_sum += ll_max
-            return ll_sum.flatten()
+            return np.asarray(ll_sum.flatten(), dtype=float)
         ll_mat = ll_mat[good_rows, :]
         ll_max = ll_max[good_rows]
         ll_mat -= ll_max
@@ -267,7 +276,7 @@ class GaussianMixtureDistribution(SequenceEncodableProbabilityDistribution):
         np.sum(ll_mat, axis=1, keepdims=True, out=ll_max)
         ll_mat /= ll_max
 
-        return ll_mat
+        return np.asarray(ll_mat, dtype=float)
 
     def sampler(self, seed: Optional[int] = None) -> "GaussianMixtureSampler":
         """Return a GaussianMixtureSampler for this distribution.
@@ -358,7 +367,9 @@ class GaussianMixtureSampler(DistributionSampler):
                 scale=np.sqrt(self.dist.sigma2[0, comp_state]),
                 size=size,
             )
-        return z if size is None else z.tolist()
+        if size is None:
+            return float(z)
+        return [float(v) for v in np.asarray(z)]
 
 
 class GaussianMixtureAccumulator(SequenceEncodableStatisticAccumulator):
@@ -452,6 +463,8 @@ class GaussianMixtureAccumulator(SequenceEncodableStatisticAccumulator):
         if not self._init_rng:
             self._rng_initialize(rng)
 
+        assert self._w_rng is not None
+
         if weight != 0:
             ww = self._w_rng.dirichlet(
                 np.ones(self.num_components)
@@ -479,6 +492,8 @@ class GaussianMixtureAccumulator(SequenceEncodableStatisticAccumulator):
         """
         if not self._init_rng:
             self._rng_initialize(rng)
+
+        assert self._w_rng is not None
 
         sz = len(weights)
         keep_idx = weights > 0
@@ -784,6 +799,7 @@ class GaussianMixtureEstimator(ParameterEstimator):
             mu = xw / nobs_loc
 
         # Estimate variance
+        sigma2: Union[float, np.ndarray]
         if self.tied:
             if self.pseudo_count[2] is not None and self.suff_stat[2] is not None:
                 sigma2 = np.sum(

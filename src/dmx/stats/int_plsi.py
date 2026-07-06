@@ -171,7 +171,7 @@ class IntegerPLSIDistribution(SequenceEncodableProbabilityDistribution):
             float: Density evaluated at observed value x.
 
         """
-        return np.exp(self.log_density(x))
+        return float(np.exp(self.log_density(x)))
 
     def log_density(self, x: Tuple[int, Sequence[Tuple[int, float]]]) -> float:
         """Evaluate the log-density of PLSI model for an observation of x.
@@ -214,7 +214,7 @@ class IntegerPLSIDistribution(SequenceEncodableProbabilityDistribution):
         if self.len_dist is not None:
             rv += self.len_dist.log_density(np.sum(xc))
 
-        return rv
+        return float(rv)
 
     def component_log_density(
         self, x: Tuple[int, Sequence[Tuple[int, float]]]
@@ -236,7 +236,7 @@ class IntegerPLSIDistribution(SequenceEncodableProbabilityDistribution):
         xv = np.asarray([u[0] for u in x[1]], dtype=int)
         xc = np.asarray([u[1] for u in x[1]], dtype=float)
 
-        return np.dot(np.log(self.prob_mat[xv, :]).T, xc)
+        return np.asarray(np.dot(np.log(self.prob_mat[xv, :]).T, xc), dtype=float)
 
     def seq_log_density(self, x: "IntegerPLSIEncodedDataSequence") -> np.ndarray:
 
@@ -260,7 +260,7 @@ class IntegerPLSIDistribution(SequenceEncodableProbabilityDistribution):
         if self.len_dist is not None:
             rv += self.len_dist.seq_log_density(nn)
 
-        return rv
+        return np.asarray(rv, dtype=float)
 
     def seq_component_log_density(
         self, x: "IntegerPLSIEncodedDataSequence"
@@ -306,12 +306,12 @@ class IntegerPLSIDistribution(SequenceEncodableProbabilityDistribution):
                 name=self.name,
                 keys=self.keys,
             )
-        pseudo_count = (pseudo_count, pseudo_count, pseudo_count)
+        pseudo_count_tuple = (pseudo_count, pseudo_count, pseudo_count)
         return IntegerPLSIEstimator(
             num_vals=self.num_vals,
             num_states=self.num_states,
             num_docs=self.num_docs,
-            pseudo_count=pseudo_count,
+            pseudo_count=pseudo_count_tuple,
             suff_stat=(self.prob_mat.T, self.state_mat, self.doc_vec),
             len_estimator=self.len_dist.estimator(),
             name=self.name,
@@ -364,14 +364,15 @@ class IntegerPLSISampler(DistributionSampler):
 
         """
         if size is None:
-            d_id = self.rng.choice(self.dist.num_docs, p=self.dist.doc_vec)
-            cnt = self.size_rng.sample()
+            d_id = int(self.rng.choice(self.dist.num_docs, p=self.dist.doc_vec))
+            cnt = int(self.size_rng.sample())
             z = self.rng.multinomial(cnt, pvals=self.dist.state_mat[d_id, :])
-            rv = []
+            rv: List[int] = []
             for i, n in enumerate(z):
                 if n > 0:
                     rv.extend(
-                        self.rng.choice(
+                        int(v)
+                        for v in self.rng.choice(
                             self.dist.num_vals,
                             p=self.dist.prob_mat[:, i],
                             replace=True,
@@ -381,7 +382,12 @@ class IntegerPLSISampler(DistributionSampler):
 
             return d_id, list(count_by_value(rv).items())
 
-        return [self.sample() for i in range(size)]
+        samples: List[Tuple[int, Sequence[Tuple[int, float]]]] = []
+        for _ in range(size):
+            sample = self.sample()
+            assert isinstance(sample, tuple)
+            samples.append(sample)
+        return samples
 
 
 class IntegerPLSIAccumulator(SequenceEncodableStatisticAccumulator):
@@ -500,6 +506,9 @@ class IntegerPLSIAccumulator(SequenceEncodableStatisticAccumulator):
         if not self._init_rng:
             self._rng_initialize(rng)
 
+        assert self._acc_rng is not None
+        assert self._len_rng is not None
+
         d_id = x[0]
         xv = np.asarray([u[0] for u in x[1]])
         xc = np.asarray([u[1] for u in x[1]])
@@ -522,6 +531,9 @@ class IntegerPLSIAccumulator(SequenceEncodableStatisticAccumulator):
 
         if not self._init_rng:
             self._rng_initialize(rng)
+
+        assert self._acc_rng is not None
+        assert self._len_rng is not None
 
         update = self._acc_rng.dirichlet(
             np.ones(self.num_states) / self.num_states, size=len(xv)
@@ -822,13 +834,13 @@ class IntegerPLSIEstimator(ParameterEstimator):
             state_prob_mat = comp_count / np.sum(comp_count, axis=1, keepdims=True)
 
         if self.pseudo_count[2] is not None and self.suff_stat[2] is not None:
-            adj_cnt = self.pseudo_count[1] / len(doc_count)
-            doc_prob_vec = doc_count + adj_cnt * self.suff_stat[2]
+            adj_cnt_doc = self.pseudo_count[2] / len(doc_count)
+            doc_prob_vec = doc_count + adj_cnt_doc * self.suff_stat[2]
             doc_prob_vec /= np.sum(doc_prob_vec)
 
         elif self.pseudo_count[2] is not None and self.suff_stat[2] is None:
-            adj_cnt = self.pseudo_count[1] / len(doc_count)
-            doc_prob_vec = doc_count + adj_cnt
+            adj_cnt_doc = self.pseudo_count[2] / len(doc_count)
+            doc_prob_vec = doc_count + adj_cnt_doc
             doc_prob_vec /= np.sum(doc_prob_vec)
 
         else:
@@ -867,7 +879,7 @@ class IntegerPLSIDataEncoder(DataSequenceEncoder):
                 in each document.
 
         """
-        self.len_encoder = len_encoder
+        self.len_encoder = len_encoder if len_encoder is not None else NullDataEncoder()
 
     def __str__(self) -> str:
         return "IntegerPLSIDataEncoder(len_dist=" + str(self.len_encoder) + ")"
@@ -909,12 +921,12 @@ class IntegerPLSIDataEncoder(DataSequenceEncoder):
             IntegerPLSIEncodedDataSequence
 
         """
-        xv = []
-        xc = []
-        xd = []
-        xi = []
-        xn = []
-        xm = []
+        xv: List[int] = []
+        xc: List[float] = []
+        xd: List[int] = []
+        xi: List[int] = []
+        xn: List[float] = []
+        xm: List[int] = []
 
         for i, (d_id, xx) in enumerate(x):
 
@@ -928,16 +940,18 @@ class IntegerPLSIDataEncoder(DataSequenceEncoder):
             xn.append(np.sum(c))
             xm.append(d_id)
 
-        xv = np.asarray(xv, dtype=np.int32)
-        xc = np.asarray(xc, dtype=np.float64)
-        xd = np.asarray(xd, dtype=np.int32)
-        xi = np.asarray(xi, dtype=np.int32)
-        xn = np.asarray(xn, dtype=np.float64)
-        xm = np.asarray(xm, dtype=np.int32)
+        xv_arr = np.asarray(xv, dtype=np.int32)
+        xc_arr = np.asarray(xc, dtype=np.float64)
+        xd_arr = np.asarray(xd, dtype=np.int32)
+        xi_arr = np.asarray(xi, dtype=np.int32)
+        xn_arr = np.asarray(xn, dtype=np.float64)
+        xm_arr = np.asarray(xm, dtype=np.int32)
 
-        nn = self.len_encoder.seq_encode(xn)
+        nn = self.len_encoder.seq_encode(xn_arr)
 
-        return IntegerPLSIEncodedDataSequence(data=(nn, (xv, xc, xd, xi, xn, xm)))
+        return IntegerPLSIEncodedDataSequence(
+            data=(nn, (xv_arr, xc_arr, xd_arr, xi_arr, xn_arr, xm_arr))
+        )
 
 
 class IntegerPLSIEncodedDataSequence(EncodedDataSequence):
@@ -979,7 +993,17 @@ class IntegerPLSIEncodedDataSequence(EncodedDataSequence):
     "float64[:])",
     fastmath=True,
 )
-def fast_seq_log_density(xv, xc, xd, xi, xm, wmat, smat, dvec, out):
+def fast_seq_log_density(
+    xv: Any,
+    xc: Any,
+    xd: Any,
+    xi: Any,
+    xm: Any,
+    wmat: Any,
+    smat: Any,
+    dvec: Any,
+    out: Any,
+) -> None:
     n = len(xv)
     m = len(xm)
     k = smat.shape[1]
@@ -1002,8 +1026,8 @@ def fast_seq_log_density(xv, xc, xd, xi, xm, wmat, smat, dvec, out):
     fastmath=True,
 )
 def fast_seq_component_log_density(  # pylint: disable=unused-argument
-    xv, xc, xd, xi, xm, wmat, out
-):
+    xv: Any, xc: Any, xd: Any, xi: Any, xm: Any, wmat: Any, out: Any
+) -> None:
     n = len(xv)
     k = wmat.shape[1]
     for i in range(n):
@@ -1022,8 +1046,18 @@ def fast_seq_component_log_density(  # pylint: disable=unused-argument
     fastmath=True,
 )
 def fast_seq_update(  # pylint: disable=too-many-positional-arguments
-    xv, xc, xd, xi, xm, weights, wmat, smat, wcnt, scnt, dcnt
-):
+    xv: Any,
+    xc: Any,
+    xd: Any,
+    xi: Any,
+    xm: Any,
+    weights: Any,
+    wmat: Any,
+    smat: Any,
+    wcnt: Any,
+    scnt: Any,
+    dcnt: Any,
+) -> None:
     n = len(xv)
     m = len(xm)
     k = smat.shape[1]
@@ -1048,7 +1082,7 @@ def fast_seq_update(  # pylint: disable=too-many-positional-arguments
 
 
 @numba.njit("float64[:](float64[:,:], int32[:], float64[:,:], int32[:], float64[:])")
-def index_dot(x, xi, y, yi, out):
+def index_dot(x: Any, xi: Any, y: Any, yi: Any, out: Any) -> Any:
     n = x.shape[1]
     for i, xi_i in enumerate(xi):
         i1 = xi_i
@@ -1059,14 +1093,14 @@ def index_dot(x, xi, y, yi, out):
 
 
 @numba.njit("float64[:](int32[:], float64[:], float64[:])")
-def bincount(x, w, out):
+def bincount(x: Any, w: Any, out: Any) -> Any:
     for i, x_i in enumerate(x):
         out[x_i] += w[i]
     return out
 
 
 @numba.njit("float64[:,:](int32[:], float64[:,:], float64[:,:])")
-def vec_bincount1(x, w, out):
+def vec_bincount1(x: Any, w: Any, out: Any) -> Any:
     n = w.shape[1]
     for i, x_i in enumerate(x):
         for j in range(n):
@@ -1075,14 +1109,14 @@ def vec_bincount1(x, w, out):
 
 
 @numba.njit("float64[:,:](int32[:], float64[:,:], int32[:], float64[:,:])")
-def vec_bincount2(x, w, y, out):
+def vec_bincount2(x: Any, w: Any, y: Any, out: Any) -> Any:
     for i, x_i in enumerate(x):
         out[x_i, :] += w[y[i], :]
     return out
 
 
 @numba.njit("float64[:,:](int32[:], float64[:,:], float64[:,:])")
-def vec_bincount3(x, w, out):
+def vec_bincount3(x: Any, w: Any, out: Any) -> Any:
     """Numba bincount on the rows of matrix w for groups x.
 
     Used to update comp counts for word/state probabilities.
@@ -1106,7 +1140,7 @@ def vec_bincount3(x, w, out):
 
 
 @numba.njit("float64[:,:](int32[:], float64[:,:], float64[:,:])")
-def vec_bincount4(x, w, out):
+def vec_bincount4(x: Any, w: Any, out: Any) -> Any:
     """Numba bincount on the rows of matrix w for groups x.
 
     Used to initialize doc/state counts.

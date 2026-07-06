@@ -2,6 +2,8 @@
 
 # pylint: disable=duplicate-code
 
+from typing import Any
+
 from numpy.random import RandomState
 
 from dmx.stats import (
@@ -13,6 +15,7 @@ from dmx.stats import (
     GaussianEstimator,
     seq_encode,
 )
+from dmx.stats.pdist import ParameterEstimator
 from dmx.utils.estimation import optimize
 
 if __name__ == "__main__":
@@ -36,7 +39,7 @@ if __name__ == "__main__":
     # Define estimator
     est0 = GaussianEstimator()
     est1 = CategoricalEstimator()
-    emap = {"a": est0, "b": est0}
+    emap: dict[Any, ParameterEstimator[Any]] = {"a": est0, "b": est0}
     est = ConditionalDistributionEstimator(
         estimator_map=emap, default_estimator=est0, given_estimator=est1
     )

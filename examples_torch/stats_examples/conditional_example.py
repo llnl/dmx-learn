@@ -10,6 +10,8 @@ which is not available in torch_stats.
 
 # pylint: disable=duplicate-code
 
+from typing import Any
+
 import numpy as np
 import torch
 
@@ -22,6 +24,7 @@ from dmx.torch_stats import (
     IntegerCategoricalEstimator,
     seq_encode,
 )
+from dmx.torch_stats.pdist import TorchParameterEstimator
 from dmx.torch_utils import detect_device
 from dmx.torch_utils.estimation import optimize
 
@@ -45,7 +48,7 @@ if __name__ == "__main__":
     # Define estimator
     est0 = GaussianEstimator()
     est1 = IntegerCategoricalEstimator()
-    emap = {0: est0, 1: est0}
+    emap: dict[Any, TorchParameterEstimator[Any]] = {0: est0, 1: est0}
     est = ConditionalDistributionEstimator(
         estimator_map=emap, default_estimator=est0, given_estimator=est1
     )

@@ -41,28 +41,28 @@ class IntegerCategoricalDistributionTestCase(TorchStatsTestClass):
         self.factories = self._factories
         self.accumulators = self._accs
 
-    def test_seq_log_density_type(self):
+    def test_seq_log_density_type(self) -> None:
         """seq_log_density must raise Exception when passed wrong encoded type."""
         for bad_input in [None, np.ones(10)]:
             with pytest.raises(Exception):
-                self._dists[0].seq_log_density(bad_input)
+                self._dists[0].seq_log_density(cast(Any, bad_input))
 
-    def test_encoder_type(self):
+    def test_encoder_type(self) -> None:
         """dist_to_encoder() must return an IntegerCategoricalDataEncoder."""
         for dist in self._dists:
             self.assertIsInstance(dist.dist_to_encoder(), IntegerCategoricalDataEncoder)
 
-    def test_accumulator_type(self):
+    def test_accumulator_type(self) -> None:
         """factory.make() must return an IntegerCategoricalAccumulator."""
         for f in self._factories:
             self.assertIsInstance(
                 f.make(device=self.device), IntegerCategoricalAccumulator
             )
 
-    def test_sampler_range(self):
+    def test_sampler_range(self) -> None:
         """Samples must be within [min_val, min_val + len(p_vec) - 1]."""
         for dist in self._dists:
-            data = dist.sampler(seed=1).sample(size=500)
+            data = cast(Any, dist.sampler(seed=1).sample(size=500))
             min_v = dist.min_val
             max_v = min_v + len(dist.p_vec) - 1
             self.assertTrue(
@@ -70,10 +70,10 @@ class IntegerCategoricalDistributionTestCase(TorchStatsTestClass):
                 f"Sample out of [{min_v}, {max_v}]",
             )
 
-    def test_prob_approx(self):
+    def test_prob_approx(self) -> None:
         """Empirical frequencies should approximate the probability vector."""
         dist = IntegerCategoricalDistribution(min_val=0, p_vec=[0.2, 0.5, 0.3])
-        data = dist.sampler(seed=1).sample(size=10000)
+        data = cast(Any, dist.sampler(seed=1).sample(size=10000))
         for val, expected_p in enumerate([0.2, 0.5, 0.3]):
             empirical = sum(1 for x in data if x == val) / len(data)
             self.assertAlmostEqual(empirical, expected_p, delta=0.03)

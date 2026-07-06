@@ -165,7 +165,7 @@ class SequenceDistribution(SequenceEncodableProbabilityDistribution):
 
         return rv
 
-    def seq_ld_lambda(self):
+    def seq_ld_lambda(self) -> List[Any]:
         rv = self.dist.seq_ld_lambda()
 
         if not self.null_len_dist:
@@ -442,7 +442,7 @@ class SequenceAccumulator(SequenceEncodableStatisticAccumulator):
 
         return self
 
-    def get_seq_lambda(self):
+    def get_seq_lambda(self) -> List[Any]:
         rv = self.accumulator.get_seq_lambda()
 
         if self.len_accumulator is not None:

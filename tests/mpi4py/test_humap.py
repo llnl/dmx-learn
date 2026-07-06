@@ -9,7 +9,7 @@ import pickle
 
 import numpy as np
 from mpi4py import MPI  # pylint: disable=no-name-in-module
-from umap import UMAP
+from umap import UMAP  # type: ignore[import-untyped]
 
 from dmx.bstats import MixtureDistribution as BMix
 from dmx.mpi4py.utils.humap import humap_mpi
@@ -39,6 +39,8 @@ def test_humap_mpi() -> None:
 
     if world_rank == 0:
         sz = len(data)
+        if results is None:
+            raise RuntimeError("humap_mpi did not return results on rank 0.")
         embs, mix_model, umap_fit, posteriors = results
 
         assert isinstance(embs, np.ndarray) and embs.shape == (

@@ -3,7 +3,8 @@
 import math
 from functools import lru_cache
 from importlib import import_module
-from typing import Iterable, List, Optional, Union
+from types import ModuleType
+from typing import Any, Iterable, List, Optional, Union
 
 import numpy as np
 
@@ -11,46 +12,46 @@ from dmx.arithmetic import exp
 
 
 @lru_cache(maxsize=1)
-def _scipy_special():
+def _scipy_special() -> ModuleType:
     return import_module("scipy.special")
 
 
-def beta(*args, **kwargs):
+def beta(*args: Any, **kwargs: Any) -> Any:
     """Proxy `scipy.special.beta` through a lazy import."""
     return _scipy_special().beta(*args, **kwargs)
 
 
-def betaln(*args, **kwargs):
+def betaln(*args: Any, **kwargs: Any) -> Any:
     """Proxy `scipy.special.betaln` through a lazy import."""
     return _scipy_special().betaln(*args, **kwargs)
 
 
-def digamma(*args, **kwargs):
+def digamma(*args: Any, **kwargs: Any) -> Any:
     """Proxy `scipy.special.digamma` through a lazy import."""
     return _scipy_special().digamma(*args, **kwargs)
 
 
-def gamma(*args, **kwargs):
+def gamma(*args: Any, **kwargs: Any) -> Any:
     """Proxy `scipy.special.gamma` through a lazy import."""
     return _scipy_special().gamma(*args, **kwargs)
 
 
-def gammaln(*args, **kwargs):
+def gammaln(*args: Any, **kwargs: Any) -> Any:
     """Proxy `scipy.special.gammaln` through a lazy import."""
     return _scipy_special().gammaln(*args, **kwargs)
 
 
-def ive(*args, **kwargs):
+def ive(*args: Any, **kwargs: Any) -> Any:
     """Proxy `scipy.special.ive` through a lazy import."""
     return _scipy_special().ive(*args, **kwargs)
 
 
-def zeta(*args, **kwargs):
+def zeta(*args: Any, **kwargs: Any) -> Any:
     """Proxy `scipy.special.zeta` through a lazy import."""
     return _scipy_special().zeta(*args, **kwargs)
 
 
-D1 = digamma(1.0)
+D1 = float(digamma(1.0))
 
 
 def logpdet(x_mat: np.ndarray) -> float:

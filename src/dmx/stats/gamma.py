@@ -52,7 +52,7 @@ class GammaDistribution(SequenceEncodableProbabilityDistribution):
         super().__init__()
         self.k = k
         self.theta = theta
-        self.log_const = -(gammaln(k) + k * log(theta))
+        self.log_const = float(-(gammaln(k) + k * log(theta)))
         self.name = name
         self.keys = keys
 
@@ -73,7 +73,7 @@ class GammaDistribution(SequenceEncodableProbabilityDistribution):
         Returns:
             float: Density evaluated at x.
         """
-        return exp(self.log_const + (self.k - one) * log(x) - x / self.theta)
+        return float(exp(self.log_const + (self.k - one) * log(x) - x / self.theta))
 
     def log_density(self, x: float) -> float:
         """Evaluate the log-density of the gamma distribution at x.
@@ -84,7 +84,7 @@ class GammaDistribution(SequenceEncodableProbabilityDistribution):
         Returns:
             float: Log-density evaluated at x.
         """
-        return self.log_const + (self.k - one) * log(x) - x / self.theta
+        return float(self.log_const + (self.k - one) * log(x) - x / self.theta)
 
     def seq_log_density(self, x: "GammaEncodedDataSequence") -> np.ndarray:
         """Vectorized log-density for encoded data.
@@ -102,7 +102,7 @@ class GammaDistribution(SequenceEncodableProbabilityDistribution):
         if self.k != 1.0:
             rv += x.data[1] * (self.k - 1.0)
         rv += self.log_const
-        return rv
+        return np.asarray(rv)
 
     def sampler(self, seed: Optional[int] = None) -> "GammaSampler":
         """Return a GammaSampler for this distribution.
@@ -174,9 +174,12 @@ class GammaSampler(DistributionSampler):
             list of samples.
         """
         if size:
-            return self.rng.gamma(
-                shape=self.dist.k, scale=self.dist.theta, size=size
-            ).tolist()
+            return list(
+                map(
+                    float,
+                    self.rng.gamma(shape=self.dist.k, scale=self.dist.theta, size=size),
+                )
+            )
         return float(self.rng.gamma(shape=self.dist.k, scale=self.dist.theta))
 
 
@@ -465,7 +468,7 @@ class GammaEstimator(ParameterEstimator):
         while np.abs(old_k - k) > threshold:
             old_k = k
             k -= (log(k) - digamma(k) - s) / (one / k - trigamma(k))
-        return k
+        return float(k)
 
 
 class GammaDataEncoder(DataSequenceEncoder):

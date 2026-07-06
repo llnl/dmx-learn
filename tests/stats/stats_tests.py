@@ -16,6 +16,7 @@ It includes tests for:
 
 import abc
 import unittest
+from typing import Any, cast
 
 import numpy as np
 import pytest
@@ -24,22 +25,26 @@ from dmx.stats import *
 from dmx.stats import DataSequenceEncoder, SequenceEncodableProbabilityDistribution
 from dmx.utils.estimation import empirical_kl_divergence
 
+_TYPING_EXPORTS = (cast,)
 
-def str_eval_test(dist):
+
+def str_eval_test(dist: Any) -> bool:
     dist2 = eval(str(dist))
-    return dist == dist2
+    return bool(dist == dist2)
 
 
-def estimator_test(dist, est):
+def estimator_test(dist: Any, est: Any) -> bool:
     # pseudo_count should be passed on estimator call
-    return dist.estimator() == est
+    return bool(dist.estimator() == est)
 
 
-def dist_to_encoder_test(dist, encoder):
-    return dist.dist_to_encoder() == encoder
+def dist_to_encoder_test(dist: Any, encoder: Any) -> bool:
+    return bool(dist.dist_to_encoder() == encoder)
 
 
-def sampler_repeat_test(dist: SequenceEncodableProbabilityDistribution):
+def sampler_repeat_test(
+    dist: SequenceEncodableProbabilityDistribution,
+) -> tuple[bool, list[bool]]:
     """
     Test the repeatability of the sampler for a given distribution.
 
@@ -56,7 +61,7 @@ def sampler_repeat_test(dist: SequenceEncodableProbabilityDistribution):
     """
     seeds = [1, 2, 3]
     sz = 20
-    rv = []
+    rv: list[bool] = []
     for seed in seeds:
         s = dist.sampler(seed)
         d1 = s.sample(size=sz)
@@ -71,7 +76,7 @@ def sampler_repeat_test(dist: SequenceEncodableProbabilityDistribution):
 
 def log_density_test(
     dist: SequenceEncodableProbabilityDistribution, encoder: DataSequenceEncoder
-):
+) -> tuple[bool, str]:
     """
     Test the log density function for a given distribution.
 
@@ -88,7 +93,7 @@ def log_density_test(
     """
     seeds = [1, 2, 3]
     sz = 20
-    rv = []
+    rv: list[float] = []
     for seed in seeds:
         s = dist.sampler(seed)
         data = s.sample(size=sz)
@@ -110,26 +115,26 @@ def log_density_test(
     return max(rv) < 1.0e-14, "max(rv) test"
 
 
-def estimator_factory_test(x):
+def estimator_factory_test(x: Any) -> bool:
     est, factory = x
     rv = est.accumulator_factory()
-    return rv == factory
+    return bool(rv == factory)
 
 
-def factory_make_test(x):
+def factory_make_test(x: Any) -> bool:
     factory, acc_ = x
     acc = factory.make()
-    return acc == acc_
+    return bool(acc == acc_)
 
 
-def acc_to_encoder_test(x):
+def acc_to_encoder_test(x: Any) -> bool:
     acc, encoder = x
-    return acc.acc_to_encoder() == encoder
+    return bool(acc.acc_to_encoder() == encoder)
 
 
 def estimation_test(
     dist: SequenceEncodableProbabilityDistribution, encoder: DataSequenceEncoder
-):
+) -> tuple[bool, list[list[float]]]:
     """
     Test the estimation of a distribution using empirical KL divergence.
 
@@ -147,12 +152,12 @@ def estimation_test(
     """
     seeds = [1, 2, 3, 4]
     szs = [50, 500, 5000]
-    rv = []
+    rv: list[bool] = []
 
-    akld = []
+    akld: list[list[float]] = []
     for seed in seeds:
-        kld = []
-        better = []
+        kld: list[float] = []
+        better: list[bool] = []
         for sz in szs:
             data = dist.sampler(seed).sample(size=sz)
             est = dist.estimator()
@@ -169,14 +174,14 @@ def estimation_test(
         rv.append(all(better))
 
     akld_mean = np.mean(akld, axis=0)
-    rv = np.all(akld_mean[1:] <= akld_mean[:-1])
+    passed = bool(np.all(akld_mean[1:] <= akld_mean[:-1]))
 
-    return rv, akld
+    return passed, akld
 
 
 def seq_estimation_test(
     dist: SequenceEncodableProbabilityDistribution, encoder: DataSequenceEncoder
-):
+) -> tuple[bool, list[list[float]]]:
     """
     Test the sequence estimation of a distribution using empirical KL divergence.
 
@@ -194,12 +199,12 @@ def seq_estimation_test(
     """
     seeds = [1, 2, 3, 4]
     szs = [50, 500, 5000]
-    rv = []
+    rv: list[bool] = []
 
-    akld = []
+    akld: list[list[float]] = []
     for seed in seeds:
-        kld = []
-        better = []
+        kld: list[float] = []
+        better: list[bool] = []
         for sz in szs:
             data = dist.sampler(seed).sample(size=sz)
             est = dist.estimator()
@@ -216,15 +221,15 @@ def seq_estimation_test(
         rv.append(all(better))
 
     akld_mean = np.mean(akld, axis=0)
-    rv = np.all(akld_mean[1:] <= akld_mean[:-1])
+    passed = bool(np.all(akld_mean[1:] <= akld_mean[:-1]))
 
-    return rv, akld
+    return passed, akld
 
 
-def initialize_test(dist, encoder):
+def initialize_test(dist: Any, encoder: Any) -> tuple[bool, list[bool]]:
     seeds = [1, 2, 3]
     sz = 1000
-    rv = []
+    rv: list[bool] = []
     for seed in seeds:
         data = dist.sampler(seed=seed).sample(sz)
         enc_data = encoder.seq_encode(data)
@@ -250,13 +255,13 @@ def initialize_test(dist, encoder):
         ekld = empirical_kl_divergence(d0, d1, [(sz, enc_data)])
         rv.append(np.abs(ekld[0]) < 1.0e-1)
 
-    return np.all(rv), rv
+    return bool(np.all(rv)), rv
 
 
-def seq_update_test(dist, encoder):
+def seq_update_test(dist: Any, encoder: Any) -> tuple[bool, list[bool]]:
     seeds = [1, 2, 3]
     sz = 1000
-    rv = []
+    rv: list[bool] = []
     for seed in seeds:
         data = dist.sampler(seed=seed).sample(sz)
         enc_data = [(sz, encoder.seq_encode(data))]
@@ -271,7 +276,7 @@ def seq_update_test(dist, encoder):
         log_diff = ll - ll_prev
         rv.append(log_diff >= 0)
 
-    return np.all(rv), rv
+    return bool(np.all(rv)), rv
 
 
 class StatsTestClass(unittest.TestCase, metaclass=abc.ABCMeta):
@@ -281,8 +286,19 @@ class StatsTestClass(unittest.TestCase, metaclass=abc.ABCMeta):
     Subclasses must implement the `setUp` method to provide specific setup logic.
     """
 
+    eval_dists: list[Any]
+    dist_est: list[Any]
+    dist_encoder: list[Any]
+    sampler_dist: SequenceEncodableProbabilityDistribution
+    density_dist_encoder: list[Any]
+    est_factory: list[Any]
+    factory_acc: list[Any]
+    acc_encoder: list[Any]
+    type_check_data: list[Any]
+    type_check_keys: list[Any]
+
     @abc.abstractmethod
-    def setUp(self):
+    def setUp(self) -> None:
         """
         Abstract method for setting up test data.
         Subclasses must implement this method.
@@ -298,46 +314,46 @@ class StatsTestClass(unittest.TestCase, metaclass=abc.ABCMeta):
 
         raise NotImplementedError
 
-    def test_01_str_eval(self):
+    def test_01_str_eval(self) -> None:
         for dist in self.eval_dists:
             self.assertTrue(str_eval_test(dist))
 
     @pytest.mark.dependency(name="estimator")
-    def test_02_estimator(self):
+    def test_02_estimator(self) -> None:
         for x in self.dist_est:
             rv = estimator_test(*x)
             self.assertTrue(rv)
 
     @pytest.mark.dependency(name="dist_to_encoder")
-    def test_03_dist_to_encoder(self):
+    def test_03_dist_to_encoder(self) -> None:
         for dist, encoder in self.dist_encoder:
             self.assertTrue(dist_to_encoder_test(dist, encoder))
 
     @pytest.mark.dependency(name="sampler")
-    def test_04_sampler(self):
+    def test_04_sampler(self) -> None:
         res = sampler_repeat_test(self.sampler_dist)
         self.assertTrue(res[0], str(res[1]))
 
     @pytest.mark.dependency(depends=["sampler"], name="log_density")
-    def test_05_log_density(self):
+    def test_05_log_density(self) -> None:
         for x in self.density_dist_encoder:
             res = log_density_test(*x)
             self.assertTrue(res[0], str(res[1]))
 
     @pytest.mark.dependency(name="estimator_factory")
-    def test_06_estimator_factory(self):
+    def test_06_estimator_factory(self) -> None:
         for est_factory in self.est_factory:
             rv = estimator_factory_test(est_factory)
             self.assertTrue(rv)
 
     @pytest.mark.dependency(name="factory_make")
-    def test_07_factory_make(self):
+    def test_07_factory_make(self) -> None:
         for x in self.factory_acc:
             rv = factory_make_test(x)
             self.assertTrue(rv)
 
     @pytest.mark.dependency(name="acc_to_encoder")
-    def test_08_acc_to_encoder(self):
+    def test_08_acc_to_encoder(self) -> None:
         for x in self.acc_encoder:
             rv = acc_to_encoder_test(x)
             self.assertTrue(rv)
@@ -345,19 +361,19 @@ class StatsTestClass(unittest.TestCase, metaclass=abc.ABCMeta):
     @pytest.mark.dependency(
         depends=["estimator", "log_density", "estimator_factory", "factory_make"]
     )
-    def test_09_seq_update(self):
+    def test_09_seq_update(self) -> None:
         for x in self.density_dist_encoder:
             res = seq_update_test(*x)
             self.assertTrue(res[0], str(res[1]))
 
     # @pytest.mark.dependency(depends=["estimator", "log_density", "estimator_factory", "factory_make"])
-    # def test_09_estimation(self):
+    # def test_09_estimation(self) -> None:
     #     for x in self.density_dist_encoder:
     #         res = estimation_test(*x)
     #         self.assertTrue(res[0], str(res[1]))
 
     # @pytest.mark.dependency(depends=["estimator", "log_density", "estimator_factory", "factory_make"])
-    # def test_11_initialize(self):
+    # def test_11_initialize(self) -> None:
     #     for x in self.density_dist_encoder:
     #         res = initialize_test(*x)
     #         self.assertTrue(res[0], str(res[1]))

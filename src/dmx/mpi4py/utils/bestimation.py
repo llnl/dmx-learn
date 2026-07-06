@@ -47,7 +47,7 @@ def optimize_mpi(
     out: IO = sys.stdout,
     print_iter: int = 1,
     num_chunks: int = 1,
-) -> ProbabilityDistribution:
+) -> Optional[ProbabilityDistribution]:
     """Run MPI EM estimation for a `dmx.bstats` estimator.
 
     Args:
@@ -118,8 +118,11 @@ def optimize_mpi(
     # the data has not been encoded on all workers yet
     if not enc_data_exists_all:
         enc_data = seq_encode_mpi(data=data, model=mm, num_chunks=num_chunks)
+    if enc_data is None:
+        raise RuntimeError("Encoded data is missing on this MPI rank.")
+    encoded_data = enc_data
 
-    _, old_ll = seq_log_density_sum_mpi(enc_data=enc_data, estimate=mm)
+    _, old_ll = seq_log_density_sum_mpi(enc_data=encoded_data, estimate=mm)
 
     # check if validation data is passed
     # check if encoded data is already on each worker
@@ -137,8 +140,12 @@ def optimize_mpi(
         enc_vdata_exists_all = True
 
     if enc_vdata_exists_all:
+        if enc_vdata is None:
+            raise RuntimeError("Encoded validation data is missing on this MPI rank.")
         _, old_vll = seq_log_density_sum_mpi(enc_vdata, mm)
+        validation_data: Optional[Sequence[Tuple[int, ENCODED_SEQ]]] = enc_vdata
     else:
+        validation_data = None
         old_vll = old_ll
 
     best_model = mm
@@ -146,11 +153,13 @@ def optimize_mpi(
 
     for i in range(max_its):
 
-        mm_next = seq_estimate_mpi(enc_data=enc_data, estimator=est, prev_estimate=mm)
-        _, ll = seq_log_density_sum_mpi(enc_data=enc_data, estimate=mm_next)
+        mm_next = seq_estimate_mpi(
+            enc_data=encoded_data, estimator=est, prev_estimate=mm
+        )
+        _, ll = seq_log_density_sum_mpi(enc_data=encoded_data, estimate=mm_next)
 
-        if enc_vdata_exists_all:
-            _, vll = seq_log_density_sum_mpi(enc_data=enc_vdata, estimate=mm_next)
+        if validation_data is not None:
+            _, vll = seq_log_density_sum_mpi(enc_data=validation_data, estimate=mm_next)
         else:
             vll = ll
 

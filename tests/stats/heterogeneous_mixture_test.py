@@ -11,14 +11,14 @@ from dmx.stats.binomial import *
 from dmx.stats.exponential import *
 from dmx.stats.gaussian import *
 from dmx.stats.geometric import *
-from dmx.stats.heterogeneous_mixture import *
+from dmx.stats.heterogeneous_mixture import *  # type: ignore[assignment]  # module wildcard re-exports exp
 from tests.stats.stats_tests import *
 
 
-def component_log_density_test(dist, encoder):
+def component_log_density_test(dist: Any, encoder: Any) -> tuple[bool, str]:
     seeds = [1, 2, 3]
     sz = 20
-    rv = []
+    rv: list[Any] = []
     for seed in seeds:
         s = dist.sampler(seed)
         data = s.sample(size=sz)
@@ -35,13 +35,13 @@ def component_log_density_test(dist, encoder):
                 ) / np.abs(seq_comp_ll[i])
         rv.append(np.max(seq_comp_ll))
 
-    return max(rv) < 1.0e-14, "max(rv) test"
+    return bool(max(rv) < 1.0e-14), "max(rv) test"
 
 
-def posterior_test(dist, encoder):
+def posterior_test(dist: Any, encoder: Any) -> tuple[bool, str]:
     seeds = [1, 2, 3]
     sz = 20
-    rv = []
+    rv: list[Any] = []
     for seed in seeds:
         s = dist.sampler(seed)
         data = s.sample(size=sz)
@@ -58,7 +58,7 @@ def posterior_test(dist, encoder):
                 ) / np.abs(seq_post[i])
         rv.append(np.max(seq_post))
 
-    return max(rv) < 1.0e-14, "max(rv) test"
+    return bool(max(rv) < 1.0e-14), "max(rv) test"
 
 
 class HeterogeneousMixtureDistributionTestCase(StatsTestClass):
@@ -87,11 +87,11 @@ class HeterogeneousMixtureDistributionTestCase(StatsTestClass):
                 BinomialEstimator(),
             ],
         ]
-        self._facts = [
+        self._facts: list[Any] = [
             [GaussianAccumulatorFactory()] * 2 + [ExponentialAccumulatorFactory()],
             [GeometricAccumulatorFactory()] * 2 + [BinomialAccumulatorFactory()] * 2,
         ]
-        self._accs = [
+        self._accs: list[Any] = [
             [GaussianAccumulator()] * 2 + [ExponentialAccumulator()],
             [GeometricAccumulator()] * 2 + [BinomialAccumulator()] * 2,
         ]
@@ -216,15 +216,15 @@ class HeterogeneousMixtureDistributionTestCase(StatsTestClass):
         self.type_check_data = [None, np.ones((10, 10))]
         self.type_check_keys = [None, "keys", (None, None, None), (1, "keys")]
 
-    def test_component_log_density(self):
+    def test_component_log_density(self) -> None:
         for x in self.density_dist_encoder:
             self.assertTrue(component_log_density_test(*x))
 
-    def test_posterior(self):
+    def test_posterior(self) -> None:
         for x in self.density_dist_encoder:
             self.assertTrue(posterior_test(*x))
 
-    def test_key_exceptions(self):
+    def test_key_exceptions(self) -> None:
         for x in self.type_check_keys:
             with pytest.raises(TypeError) as e:
                 HeterogeneousMixtureEstimator([CategoricalEstimator()] * 5, keys=x)

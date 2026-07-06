@@ -53,27 +53,27 @@ class HeterogeneousMixtureDistributionTestCase(TorchStatsTestClass):
         self.factories = self._factories
         self.accumulators = self._accs
 
-    def test_seq_log_density_type(self):
+    def test_seq_log_density_type(self) -> None:
         """seq_log_density must raise Exception when passed wrong encoded type."""
         for bad_input in [None, np.ones(10)]:
             with pytest.raises(Exception):
-                self._dists[0].seq_log_density(bad_input)
+                self._dists[0].seq_log_density(cast(Any, bad_input))
 
-    def test_encoder_type(self):
+    def test_encoder_type(self) -> None:
         """dist_to_encoder() must return a HeterogeneousMixtureDataEncoder."""
         for dist in self._dists:
             self.assertIsInstance(
                 dist.dist_to_encoder(), HeterogeneousMixtureDataEncoder
             )
 
-    def test_accumulator_type(self):
+    def test_accumulator_type(self) -> None:
         """factory.make() must return a HeterogeneousMixtureAccumulator."""
         for f in self._factories:
             self.assertIsInstance(
                 f.make(device=self.device), HeterogeneousMixtureAccumulator
             )
 
-    def test_seq_posterior_sums_to_one(self):
+    def test_seq_posterior_sums_to_one(self) -> None:
         """Posterior probabilities must sum to 1 across components for each observation."""
         for dist, encoder in zip(self._dists, self._encoders):
             data = dist.sampler(seed=1).sample(size=100)
@@ -85,12 +85,12 @@ class HeterogeneousMixtureDistributionTestCase(TorchStatsTestClass):
                 f"Posterior rows do not sum to 1: {row_sums[:5]}",
             )
 
-    def test_num_components(self):
+    def test_num_components(self) -> None:
         """num_components must match the length of the component list."""
         for dist in self._dists:
             self.assertEqual(dist.num_components, len(dist.components))
 
-    def test_seq_estimate_with_shared_encoder_group(self):
+    def test_seq_estimate_with_shared_encoder_group(self) -> None:
         """seq_estimate must handle multiple components that share one encoder type."""
         dist = self._dists[1]
         encoder = self._encoders[1]
