@@ -652,7 +652,7 @@ class MultinomialEstimator(ParameterEstimator):
             pseudo_count (Optional[float]): Regularizer estimator and len_estimator.
             len_dist (Optional[SequenceEncodableProbabilityDistribution]): Set
                 distribution for the number of trials.
-        len_normalized (bool): Take geometric mean of density.
+            len_normalized (bool): Take geometric mean of density.
             name (Optional[str]): Set name to object instance.
             keys (Optional[str]): Set keys to object instance for merging sufficient
                 statistics.
