@@ -1,25 +1,14 @@
-[tool.poetry]
+[project]
 name = "dmx-learn"
 version = "2.0.0"
 description = "Distributed mixture learning for heterogeneous density estimation. Fit complex probabilistic models on variable-length heterogeneous data with support for distributed computing (Spark, MPI) and GPU acceleration (PyTorch)."
-authors = ["Adam Walder"]
-license = "BSD-3-Clause"
 readme = "README.md"
-
-classifiers = [
-    "Development Status :: 5 - Production/Stable",
-    "Programming Language :: Python",
-    "Programming Language :: Python :: 3",
-    "Programming Language :: Python :: 3.10",
-    "Programming Language :: Python :: 3.11",
-    "Programming Language :: Python :: 3.12",
-    "Intended Audience :: Developers",
-    "Intended Audience :: Science/Research",
-    "Topic :: Scientific/Engineering",
-    "Topic :: Scientific/Engineering :: Artificial Intelligence",
-    "Topic :: Scientific/Engineering :: Mathematics",
-    "Operating System :: OS Independent",
+requires-python = ">=3.10"
+license = "BSD-3-Clause"
+authors = [
+    { name = "Adam Walder" },
 ]
+dynamic = ["classifiers", "dependencies"]
 keywords = [
     "machine learning",
     "density estimation",
@@ -37,6 +26,33 @@ keywords = [
     "data science",
 ]
 
+[project.optional-dependencies]
+torch = ["torch (>=2.0.0,<3.0.0)"]
+optional = ["mpi4py (>=4.0.0,<5.0.0)", "umap-learn (>=0.5.0,<0.6.0)"]
+ci = ["torch (>=2.0.0,<3.0.0)", "umap-learn (>=0.5.0,<0.6.0)"]
+all = [
+    "torch (>=2.0.0,<3.0.0)",
+    "mpi4py (>=4.0.0,<5.0.0)",
+    "umap-learn (>=0.5.0,<0.6.0)",
+]
+
+[tool.poetry]
+packages = [{ include = "dmx", from = "src" }]
+classifiers = [
+    "Development Status :: 5 - Production/Stable",
+    "Programming Language :: Python",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Intended Audience :: Developers",
+    "Intended Audience :: Science/Research",
+    "Topic :: Scientific/Engineering",
+    "Topic :: Scientific/Engineering :: Artificial Intelligence",
+    "Topic :: Scientific/Engineering :: Mathematics",
+    "Operating System :: OS Independent",
+]
+
 [tool.poetry.dependencies]
 python = "^3.10"
 # Core dependencies - always installed
@@ -51,12 +67,6 @@ pyspark = "^4.0.0"
 torch = {version = "^2.0.0", optional = true}
 mpi4py = {version = "^4.0.0", optional = true}
 umap-learn = {version = "^0.5.0", optional = true}
-
-[tool.poetry.extras]
-torch = ["torch"]
-optional = ["mpi4py", "umap-learn"]
-ci = ["torch", "umap-learn"]
-all = ["torch", "mpi4py", "umap-learn"]
 
 [tool.poetry.group.dev]
 optional = true

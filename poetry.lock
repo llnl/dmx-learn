@@ -2701,7 +2701,7 @@ files = [
     {file = "setuptools-82.0.1-py3-none-any.whl", hash = "sha256:a59e362652f08dcd477c78bb6e7bd9d80a7995bc73ce773050228a348ce2e5bb"},
     {file = "setuptools-82.0.1.tar.gz", hash = "sha256:7d872682c5d01cfde07da7bccc7b65469d3dca203318515ada1de5eda35efbf9"},
 ]
-markers = {main = "(extra == \"torch\" or extra == \"ci\" or extra == \"all\") and python_version >= \"3.12\"", dev = "python_version >= \"3.12\""}
+markers = {main = "(extra == \"torch\" or extra == \"ci\" or extra == \"all\") and python_version >= \"3.12\""}
 
 [package.extras]
 check = ["pytest-checkdocs (>=2.4)", "pytest-ruff (>=0.2.1) ; sys_platform != \"cygwin\"", "ruff (>=0.13.0) ; sys_platform != \"cygwin\""]
@@ -3410,4 +3410,4 @@ torch = ["torch"]
 [metadata]
 lock-version = "2.1"
 python-versions = "^3.10"
-content-hash = "6a7a0f0ea5998f1210ea8a7d83a0a052540e853891b595d7f2d8dd4ecd9656c1"
+content-hash = "d0b2793bdb36629afb05fc8c797efcaa18c0378f553a3257278ac354f16980ef"
