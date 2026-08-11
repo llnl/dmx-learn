@@ -342,8 +342,6 @@ Or add to PYTHONPATH:
 export PYTHONPATH=/path/to/dmx-learn:$PYTHONPATH
 ```
 
----
-
 License
 -------
 

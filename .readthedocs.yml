@@ -17,3 +17,10 @@ sphinx:
 formats:
   - pdf
   - epub
+  - pdf
+
+python:
+  install:
+    - method: pip
+      path: .
+    - requirements: requirements.txt

@@ -5,10 +5,12 @@ description = "Distributed mixture learning for heterogeneous density estimation
 authors = ["Adam Walder"]
 license = "BSD-3-Clause"
 readme = "README.md"
-homepage = "https://dmx-learn.readthedocs.io/en/latest/"
-repository = "https://github.com/llnl/dmx-learn"
-documentation = "https://dmx-learn.readthedocs.io/en/latest/"
-packages = [{include = "dmx", from = "src"}]
+requires-python = ">=3.10"
+license = { text = "BSD-3-Clause" }
+authors = [
+  { name="Adam Walder" }
+]
+
 classifiers = [
     "Development Status :: 5 - Production/Stable",
     "Programming Language :: Python",
