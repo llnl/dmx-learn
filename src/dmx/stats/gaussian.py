@@ -1,24 +1,28 @@
-"""Evaluate, estimate, and sample from a Gaussian distribution with mean mu and variance sigma2.
+"""Evaluate, estimate, and sample from a Gaussian distribution with mean mu and variance
+sigma2.
 
-Defines the GaussianDistribution, GaussianSampler, GaussianAccumulatorFactory, GaussianAccumulator,
+Defines the GaussianDistribution, GaussianSampler, GaussianAccumulatorFactory,
+GaussianAccumulator,
 GaussianEstimator, and the GaussianDataEncoder classes for use with dmx-learn.
 
 Data type: float
 """
 
+from typing import Any, Callable, Dict, List, Optional, Tuple, Union
+
 import numpy as np
 from numpy.random import RandomState
-from dmx.arithmetic import *
+
+from dmx.arithmetic import exp, isinf, isnan, log, pi, sqrt
 from dmx.stats.pdist import (
-    SequenceEncodableProbabilityDistribution,
-    ParameterEstimator,
-    DistributionSampler,
-    StatisticAccumulatorFactory,
-    SequenceEncodableStatisticAccumulator,
     DataSequenceEncoder,
+    DistributionSampler,
     EncodedDataSequence,
+    ParameterEstimator,
+    SequenceEncodableProbabilityDistribution,
+    SequenceEncodableStatisticAccumulator,
+    StatisticAccumulatorFactory,
 )
-from typing import Optional, Tuple, List, Callable, Dict, Union, Any
 
 
 class GaussianDistribution(SequenceEncodableProbabilityDistribution):
@@ -38,7 +42,7 @@ class GaussianDistribution(SequenceEncodableProbabilityDistribution):
         mu: float,
         sigma2: float,
         name: Optional[str] = None,
-        keys: Optional[str] = None
+        keys: Optional[str] = None,
     ) -> None:
         """Initialize GaussianDistribution.
 
@@ -48,18 +52,19 @@ class GaussianDistribution(SequenceEncodableProbabilityDistribution):
             name (Optional[str], optional): Name for the object.
             keys (Optional[str], optional): Key for the distribution.
         """
+        super().__init__()
         self.mu = mu
         self.sigma2 = 1.0 if (sigma2 <= 0 or isnan(sigma2) or isinf(sigma2)) else sigma2
-        self.log_const = -0.5 * log(2.0 * pi * self.sigma2)
-        self.const = 1.0 / sqrt(2.0 * pi * self.sigma2)
+        self.log_const = float(-0.5 * log(2.0 * pi * self.sigma2))
+        self.const = float(1.0 / sqrt(2.0 * pi * self.sigma2))
         self.name = name
         self.keys = keys
 
     def __str__(self) -> str:
         """Return string representation."""
         return (
-            f'GaussianDistribution({repr(float(self.mu))}, {repr(float(self.sigma2))}, '
-            f'name={repr(self.name)}, keys={repr(self.keys)})'
+            f"GaussianDistribution({repr(float(self.mu))}, {repr(float(self.sigma2))}, "
+            f"name={repr(self.name)}, keys={repr(self.keys)})"
         )
 
     def density(self, x: float) -> float:
@@ -71,7 +76,9 @@ class GaussianDistribution(SequenceEncodableProbabilityDistribution):
         Returns:
             float: Density at x.
         """
-        return self.const * exp(-0.5 * (x - self.mu) * (x - self.mu) / self.sigma2)
+        return float(
+            self.const * exp(-0.5 * (x - self.mu) * (x - self.mu) / self.sigma2)
+        )
 
     def log_density(self, x: float) -> float:
         """Evaluate the log-density of the Gaussian distribution at x.
@@ -82,13 +89,13 @@ class GaussianDistribution(SequenceEncodableProbabilityDistribution):
         Returns:
             float: Log-density at x.
         """
-        return self.log_const - 0.5 * (x - self.mu) * (x - self.mu) / self.sigma2
+        return float(self.log_const - 0.5 * (x - self.mu) * (x - self.mu) / self.sigma2)
 
     def seq_ld_lambda(self) -> List[Callable]:
         """Return a list containing the seq_log_density method."""
         return [self.seq_log_density]
 
-    def seq_log_density(self, x: 'GaussianEncodedDataSequence') -> np.ndarray:
+    def seq_log_density(self, x: "GaussianEncodedDataSequence") -> np.ndarray:
         """Vectorized log-density for encoded data.
 
         Args:
@@ -98,16 +105,19 @@ class GaussianDistribution(SequenceEncodableProbabilityDistribution):
             np.ndarray: Log-density values.
         """
         if not isinstance(x, GaussianEncodedDataSequence):
-            raise Exception('GaussianDistribution.seq_log_density() requires GaussianEncodedDataSequence.')
+            raise TypeError(
+                "GaussianDistribution.seq_log_density() requires "
+                "GaussianEncodedDataSequence."
+            )
 
         rv = x.data - self.mu
         rv *= rv
         rv *= -0.5 / self.sigma2
         rv += self.log_const
 
-        return rv
+        return np.asarray(rv)
 
-    def sampler(self, seed: Optional[int] = None) -> 'GaussianSampler':
+    def sampler(self, seed: Optional[int] = None) -> "GaussianSampler":
         """Return a GaussianSampler for this distribution.
 
         Args:
@@ -118,7 +128,7 @@ class GaussianDistribution(SequenceEncodableProbabilityDistribution):
         """
         return GaussianSampler(self, seed)
 
-    def estimator(self, pseudo_count: Optional[float] = None) -> 'GaussianEstimator':
+    def estimator(self, pseudo_count: Optional[float] = None) -> "GaussianEstimator":
         """Return a GaussianEstimator for this distribution.
 
         Args:
@@ -133,12 +143,11 @@ class GaussianDistribution(SequenceEncodableProbabilityDistribution):
                 pseudo_count=(pseudo_count, pseudo_count),
                 suff_stat=suff_stat,
                 name=self.name,
-                keys=self.keys
+                keys=self.keys,
             )
-        else:
-            return GaussianEstimator(name=self.name, keys=self.keys)
+        return GaussianEstimator(name=self.name, keys=self.keys)
 
-    def dist_to_encoder(self) -> 'GaussianDataEncoder':
+    def dist_to_encoder(self) -> "GaussianDataEncoder":
         """Return a GaussianDataEncoder for this distribution.
 
         Returns:
@@ -162,19 +171,21 @@ class GaussianSampler(DistributionSampler):
             dist (GaussianDistribution): GaussianDistribution instance to sample from.
             seed (Optional[int], optional): Seed for random number generator.
         """
-        self.rng = RandomState(seed)
-        self.dist = dist
+        super().__init__(dist, seed)
 
     def sample(self, size: Optional[int] = None) -> Union[float, np.ndarray]:
         """Draw iid samples from the Gaussian distribution.
 
         Args:
-            size (Optional[int], optional): Number of samples to draw. If None, returns a single sample.
+            size (Optional[int], optional): Number of samples to draw. If None, returns
+                a single sample.
 
         Returns:
             Union[float, np.ndarray]: Single sample or array of samples.
         """
-        return self.rng.normal(loc=self.dist.mu, scale=sqrt(self.dist.sigma2), size=size)
+        return self.rng.normal(
+            loc=self.dist.mu, scale=sqrt(self.dist.sigma2), size=size
+        )
 
 
 class GaussianAccumulator(SequenceEncodableStatisticAccumulator):
@@ -203,7 +214,9 @@ class GaussianAccumulator(SequenceEncodableStatisticAccumulator):
         self.keys = keys
         self.name = name
 
-    def update(self, x: float, weight: float, estimate: Optional['GaussianDistribution']) -> None:
+    def update(
+        self, x: float, weight: float, estimate: Optional["GaussianDistribution"]
+    ) -> None:
         """Update accumulator with a new observation.
 
         Args:
@@ -225,13 +238,14 @@ class GaussianAccumulator(SequenceEncodableStatisticAccumulator):
             weight (float): Weight for the observation.
             rng (Optional[RandomState]): Random number generator (not used).
         """
+        del rng
         self.update(x, weight, None)
 
     def seq_initialize(
         self,
-        x: 'GaussianEncodedDataSequence',
+        x: "GaussianEncodedDataSequence",
         weights: np.ndarray,
-        rng: Optional[RandomState]
+        rng: Optional[RandomState],
     ) -> None:
         """Vectorized initialization for encoded data.
 
@@ -244,9 +258,9 @@ class GaussianAccumulator(SequenceEncodableStatisticAccumulator):
 
     def seq_update(
         self,
-        x: 'GaussianEncodedDataSequence',
+        x: "GaussianEncodedDataSequence",
         weights: np.ndarray,
-        estimate: Optional['GaussianDistribution']
+        estimate: Optional["GaussianDistribution"],
     ) -> None:
         """Vectorized update for encoded data.
 
@@ -261,11 +275,14 @@ class GaussianAccumulator(SequenceEncodableStatisticAccumulator):
         self.count += w_sum
         self.count2 += w_sum
 
-    def combine(self, suff_stat: Tuple[float, float, float, float]) -> 'GaussianAccumulator':
+    def combine(
+        self, suff_stat: Tuple[float, float, float, float]
+    ) -> "GaussianAccumulator":
         """Aggregate sufficient statistics with this accumulator.
 
         Args:
-            suff_stat (Tuple[float, float, float, float]): (sum, sum2, count, count2) to combine.
+            suff_stat (Tuple[float, float, float, float]): (sum, sum2, count, count2) to
+                combine.
 
         Returns:
             GaussianAccumulator: Self after combining.
@@ -284,7 +301,7 @@ class GaussianAccumulator(SequenceEncodableStatisticAccumulator):
         """
         return self.sum, self.sum2, self.count, self.count2
 
-    def from_value(self, x: Tuple[float, float, float, float]) -> 'GaussianAccumulator':
+    def from_value(self, x: Tuple[float, float, float, float]) -> "GaussianAccumulator":
         """Set the sufficient statistics from a tuple.
 
         Args:
@@ -315,7 +332,7 @@ class GaussianAccumulator(SequenceEncodableStatisticAccumulator):
             else:
                 stats_dict[self.keys] = self
 
-    def key_replace(self, stats_dict: Dict[str, 'GaussianAccumulator']) -> None:
+    def key_replace(self, stats_dict: Dict[str, "GaussianAccumulator"]) -> None:
         """Replace this accumulator's values with those from a dictionary by key.
 
         Args:
@@ -323,9 +340,11 @@ class GaussianAccumulator(SequenceEncodableStatisticAccumulator):
         """
         if self.keys is not None:
             if self.keys in stats_dict:
-                self.sum, self.sum2, self.count, self.count2 = stats_dict[self.keys]
+                self.sum, self.sum2, self.count, self.count2 = stats_dict[
+                    self.keys
+                ].value()
 
-    def acc_to_encoder(self) -> 'GaussianDataEncoder':
+    def acc_to_encoder(self) -> "GaussianDataEncoder":
         """Return a GaussianDataEncoder for this accumulator.
 
         Returns:
@@ -352,7 +371,7 @@ class GaussianAccumulatorFactory(StatisticAccumulatorFactory):
         self.keys = keys
         self.name = name
 
-    def make(self) -> 'GaussianAccumulator':
+    def make(self) -> "GaussianAccumulator":
         """Create a new GaussianAccumulator.
 
         Returns:
@@ -365,8 +384,10 @@ class GaussianEstimator(ParameterEstimator):
     """Estimator for the Gaussian distribution from aggregated sufficient statistics.
 
     Attributes:
-        pseudo_count (Tuple[Optional[float], Optional[float]]): Weights for sufficient statistics.
-        suff_stat (Tuple[Optional[float], Optional[float]]): Tuple of mean (mu) and variance (sigma2).
+        pseudo_count (Tuple[Optional[float], Optional[float]]): Weights for sufficient
+            statistics.
+        suff_stat (Tuple[Optional[float], Optional[float]]): Tuple of mean (mu) and
+            variance (sigma2).
         name (Optional[str]): Name of the estimator.
         keys (Optional[str]): Key for mean and variance.
     """
@@ -376,13 +397,15 @@ class GaussianEstimator(ParameterEstimator):
         pseudo_count: Tuple[Optional[float], Optional[float]] = (None, None),
         suff_stat: Tuple[Optional[float], Optional[float]] = (None, None),
         name: Optional[str] = None,
-        keys: Optional[str] = None
+        keys: Optional[str] = None,
     ):
         """Initialize GaussianEstimator.
 
         Args:
-            pseudo_count (Tuple[Optional[float], Optional[float]]): Tuple of two positive floats.
-            suff_stat (Tuple[Optional[float], Optional[float]]): Tuple of mean and variance.
+            pseudo_count (Tuple[Optional[float], Optional[float]]): Tuple of two
+                positive floats.
+            suff_stat (Tuple[Optional[float], Optional[float]]): Tuple of mean and
+                variance.
             name (Optional[str], optional): Name for the estimator.
             keys (Optional[str], optional): Key for mean and variance.
 
@@ -399,7 +422,7 @@ class GaussianEstimator(ParameterEstimator):
         self.keys = keys
         self.name = name
 
-    def accumulator_factory(self) -> 'GaussianAccumulatorFactory':
+    def accumulator_factory(self) -> "GaussianAccumulatorFactory":
         """Return a GaussianAccumulatorFactory for this estimator.
 
         Returns:
@@ -408,15 +431,14 @@ class GaussianEstimator(ParameterEstimator):
         return GaussianAccumulatorFactory(self.name, self.keys)
 
     def estimate(
-        self,
-        nobs: Optional[float],
-        suff_stat: Tuple[float, float, float, float]
-    ) -> 'GaussianDistribution':
+        self, nobs: Optional[float], suff_stat: Tuple[float, float, float, float]
+    ) -> "GaussianDistribution":
         """Estimate a GaussianDistribution from sufficient statistics.
 
         Args:
             nobs (Optional[float]): Number of observations (not used).
-            suff_stat (Tuple[float, float, float, float]): (sum, sum2, count, count2) sufficient statistics.
+            suff_stat (Tuple[float, float, float, float]): (sum, sum2, count, count2)
+                sufficient statistics.
 
         Returns:
             GaussianDistribution: Estimated distribution.
@@ -427,7 +449,9 @@ class GaussianEstimator(ParameterEstimator):
         if nobs_loc1 == 0.0:
             mu = 0.0
         elif self.pseudo_count[0] is not None and self.suff_stat[0] is not None:
-            mu = (suff_stat[0] + self.pseudo_count[0] * self.suff_stat[0]) / (nobs_loc1 + self.pseudo_count[0])
+            mu = (suff_stat[0] + self.pseudo_count[0] * self.suff_stat[0]) / (
+                nobs_loc1 + self.pseudo_count[0]
+            )
         else:
             mu = suff_stat[0] / nobs_loc1
 
@@ -435,9 +459,10 @@ class GaussianEstimator(ParameterEstimator):
             sigma2 = 0.0
         elif self.pseudo_count[1] is not None and self.suff_stat[1] is not None:
             sigma2 = (
-                (suff_stat[1] - mu * mu * nobs_loc2 + self.pseudo_count[1] * self.suff_stat[1])
-                / (nobs_loc2 + self.pseudo_count[1])
-            )
+                suff_stat[1]
+                - mu * mu * nobs_loc2
+                + self.pseudo_count[1] * self.suff_stat[1]
+            ) / (nobs_loc2 + self.pseudo_count[1])
         else:
             sigma2 = suff_stat[1] / nobs_loc2 - mu * mu
 
@@ -449,7 +474,7 @@ class GaussianDataEncoder(DataSequenceEncoder):
 
     def __str__(self) -> str:
         """Return string representation."""
-        return 'GaussianDataEncoder'
+        return "GaussianDataEncoder"
 
     def __eq__(self, other: object) -> bool:
         """Check equality with another encoder.
@@ -462,7 +487,9 @@ class GaussianDataEncoder(DataSequenceEncoder):
         """
         return isinstance(other, GaussianDataEncoder)
 
-    def seq_encode(self, x: Union[List[float], np.ndarray]) -> 'GaussianEncodedDataSequence':
+    def seq_encode(
+        self, x: Union[List[float], np.ndarray]
+    ) -> "GaussianEncodedDataSequence":
         """Encode a sequence of iid Gaussian observations.
 
         Args:
@@ -477,7 +504,7 @@ class GaussianDataEncoder(DataSequenceEncoder):
         rv = np.asarray(x, dtype=float)
 
         if np.any(np.isnan(rv)) or np.any(np.isinf(rv)):
-            raise Exception('GaussianDistribution requires support x in (-inf, inf).')
+            raise ValueError("GaussianDistribution requires support x in (-inf, inf).")
 
         return GaussianEncodedDataSequence(data=rv)
 
@@ -499,6 +526,4 @@ class GaussianEncodedDataSequence(EncodedDataSequence):
 
     def __repr__(self) -> str:
         """Return string representation."""
-        return f'GaussianEncodedDataSequence(data={self.data})'
-
-
+        return f"GaussianEncodedDataSequence(data={self.data})"

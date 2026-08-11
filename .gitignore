@@ -10,6 +10,19 @@ generate_notebook_data/
 # C extensions
 *.so
 
+# Documentation builds
+docs/_build
+docs/_static
+
+# Coverage reports
+htmlcov/
+.coverage
+.coverage.*
+coverage.xml
+*.cover
+.hypothesis/
+.pytest_cache/
+
 # Distribution / packaging
 .idea
 .Python
@@ -41,8 +54,6 @@ pip-log.txt
 pip-delete-this-directory.txt
 
 .vscode
-
-notebooks/misspelled.py
 
 docs/_build
 docs/_static

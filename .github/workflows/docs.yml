@@ -1,0 +1,62 @@
+name: Documentation
+
+on:
+  push:
+    branches: [main, develop, feature/*]
+  pull_request:
+    branches: [main, develop]
+
+jobs:
+  build-docs:
+    name: Build Sphinx Documentation
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.13'
+
+      - name: Install Poetry
+        uses: snok/install-poetry@v1
+        with:
+          version: 1.8.0
+          virtualenvs-create: true
+          virtualenvs-in-project: true
+
+      - name: Load cached venv
+        id: cached-poetry-dependencies
+        uses: actions/cache@v4
+        with:
+          path: .venv
+          key: venv-${{ runner.os }}-3.13-docs-${{ hashFiles('**/poetry.lock') }}
+
+      - name: Install dependencies
+        run: poetry install --no-interaction --with docs
+
+      - name: Build Sphinx documentation
+        run: |
+          poetry run sphinx-build -W -b html docs/ docs/_build/html
+
+      - name: Check for broken links
+        run: |
+          poetry run sphinx-build -b linkcheck docs/ docs/_build/linkcheck
+        continue-on-error: true
+
+      - name: Upload documentation artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: documentation-html
+          path: docs/_build/html/
+          retention-days: 7
+
+      - name: Upload linkcheck results
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: documentation-linkcheck
+          path: docs/_build/linkcheck/
+          retention-days: 7

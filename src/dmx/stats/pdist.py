@@ -1,39 +1,61 @@
-"""Defines abstract classes for SequenceEncodableProbabilityDistribution, SequenceEncodableStatisticAccumulator,
-ProbabilityDistribution, StatisticAccumulator, StatisticAccumulatorFactory, DataSequenceEncoder, ParameterEstimator,
-ConditionalSampler, and DistributionSampler for classes of the dmx.stats.
+"""Abstract classes for probability distributions and statistical accumulators.
 
+This module provides the foundational abstract base classes for the
+`dmx.stats` package, including probability distributions, statistic
+accumulators, samplers, and encoders.
+
+Classes:
+    ProbabilityDistribution: Abstract base class for probability distributions.
+    SequenceEncodableProbabilityDistribution: Probability distribution with
+        sequence encoding.
+    DistributionSampler: Abstract sampler for probability distributions.
+    ConditionalSampler: Abstract sampler for conditional distributions.
+    StatisticAccumulator: Abstract accumulator for sufficient statistics.
+    SequenceEncodableStatisticAccumulator: Statistic accumulator with sequence
+        encoding.
+    StatisticAccumulatorFactory: Factory for creating statistic accumulators.
+    ParameterEstimator: Abstract estimator for distribution parameters.
+    DataSequenceEncoder: Abstract encoder for data sequences.
+    EncodedDataSequence: Container for encoded sequence data.
 """
-import math
-import numpy as np
-from abc import abstractmethod
-from dmx.arithmetic import *
-from typing import TypeVar, Optional, Any, Generic, Dict
 
-SS = TypeVar('SS')
+# pylint: disable=unnecessary-ellipsis
+# Rationale: Ellipsis (...) is the standard Python idiom for abstract method stubs
+# and is preferred over 'pass' as it more clearly indicates that the method must
+# be implemented by subclasses.
+
+import math
+from abc import abstractmethod
+from typing import Any, Dict, Generic, Optional, TypeVar
+
+import numpy as np
+
+from dmx.arithmetic import maxrandint
+
+SS = TypeVar("SS")
+
 
 def equal_object(x: Any, other: Any) -> bool:
     """Lazy object comparison."""
-    if isinstance(other, type(x)):
-        other_vars = vars(other)
-        self_vars = vars(x)
-
-        for k, v in self_vars.items():
-            if isinstance(other_vars[k], float) and np.isnan(other_vars[k]):
-                if isinstance(v, float) and np.isnan(v):
-                    continue
-                else:
-                    return False
-            if not np.all(other_vars[k] == v):
-                return False
-            
-        return True
-    
-    else:
+    if not isinstance(other, type(x)):
         return False
+
+    other_vars = vars(other)
+    self_vars = vars(x)
+
+    for k, v in self_vars.items():
+        if isinstance(other_vars[k], float) and np.isnan(other_vars[k]):
+            if isinstance(v, float) and np.isnan(v):
+                continue
+            return False
+        if not np.all(other_vars[k] == v):
+            return False
+
+    return True
 
 
 class ProbabilityDistribution:
-    """Defines ProbabilityDistribution Abstract Class. 
+    """Defines ProbabilityDistribution Abstract Class.
 
     Note:
         This is generally used as an inherited class for
@@ -42,13 +64,24 @@ class ProbabilityDistribution:
     """
 
     def __init__(self) -> None:
-        pass
+        """Initialize the probability distribution."""
+        ...
 
     def __repr__(self) -> str:
+        """Return string representation of the distribution."""
         return self.__str__()
 
     @abstractmethod
     def density(self, x: Any) -> float:
+        """Compute the probability density at x.
+
+        Args:
+            x: Input value to evaluate density.
+
+        Returns:
+            Probability density value.
+
+        """
         return math.exp(self.log_density(x))
 
     @abstractmethod
@@ -62,8 +95,8 @@ class ProbabilityDistribution:
         ...
 
     @abstractmethod
-    def sampler(self, seed: Optional[int] = None) -> 'DistributionSampler':
-        """Create a DistributionSampler object for a given ProbabilityDistribution.
+    def sampler(self, seed: Optional[int] = None) -> "DistributionSampler":
+        """Create a sampler for a probability distribution.
 
         Args:
             seed (Optional[int]): Set seed for drawing samples from distribution.
@@ -72,26 +105,27 @@ class ProbabilityDistribution:
         ...
 
     @abstractmethod
-    def estimator(self, pseudo_count: Optional[float] = None) -> 'ParameterEstimator':
-        """Create a ParameterEstimator for corresponding SequenceEncodableProbabilityDistribution.
+    def estimator(self, pseudo_count: Optional[float] = None) -> "ParameterEstimator":
+        """Create a parameter estimator for this distribution.
 
         Args:
-            pseudo_count (Optional[float]): Regularize sufficient statistics in estimation step.
+            pseudo_count (Optional[float]): Regularize sufficient statistics in
+                the estimation step.
 
         Returns:
             ParameterEstimator
 
         """
         ...
-    
+
     def __eq__(self, other: Any) -> bool:
         """Tests if a ProbabilityDistribution is equivilent to another.
-        
+
         Args:
             other (Any): Object to test against.
 
         Returns:
-            True if the objects match. 
+            True if the objects match.
 
         """
         return equal_object(self, other)
@@ -101,11 +135,11 @@ class SequenceEncodableProbabilityDistribution(ProbabilityDistribution):
     """Extends the ProbabilityDistribution to handle vectorized calls."""
 
     @abstractmethod
-    def seq_log_density(self, x: 'EncodedDataSequence') -> np.ndarray:
+    def seq_log_density(self, x: Any) -> np.ndarray:
         """Vectorized evaluation of the log density.
 
         Args:
-            x (EncodedDataSequence): EncodedDataSequence for corresponding SequenceEncodedProbabilityDistribution.
+            x: Encoded sequence for the corresponding probability distribution.
 
         Returns:
             np.ndarray
@@ -114,8 +148,8 @@ class SequenceEncodableProbabilityDistribution(ProbabilityDistribution):
         ...
 
     @abstractmethod
-    def dist_to_encoder(self) -> 'DataSequenceEncoder':
-        """Create DataSequenceEncoder object for SequenceEncodableProbabilityDistribution instance.
+    def dist_to_encoder(self) -> "DataSequenceEncoder":
+        """Create a data sequence encoder for this distribution.
 
         Returns:
             DataSequenceEncoder
@@ -123,35 +157,51 @@ class SequenceEncodableProbabilityDistribution(ProbabilityDistribution):
         """
         ...
 
-    def seq_log_density_lambda(self):
+    def seq_log_density_lambda(self) -> list[Any]:
+        """Return a list containing the sequence log density method.
+
+        Returns:
+            List with single element: the seq_log_density method.
+
+        """
         return [self.seq_log_density]
 
-    def seq_ld_lambda(self):
-        pass
+    def seq_ld_lambda(self) -> list[Any]:
+        """Legacy method stub for compatibility.
+
+        Returns the vectorized log-density callable list used by older helpers.
+
+        """
+        return [self.seq_log_density]
 
 
-class DistributionSampler(object):
+class DistributionSampler:
     """DistributionSampler is an Abstract class for distribution samplers.
 
     Attributes:
-        dist (SequenceEncodableProbabilityDistribution): Distribution to sample from.
+        dist: Distribution to sample from.
         rng (RandomState): Random number generator.
 
     """
 
-    def __init__(self, dist: SequenceEncodableProbabilityDistribution, seed: Optional[int] = None) -> None:
+    def __init__(self, dist: Any, seed: Optional[int] = None) -> None:
         """Initialize DistributionSampler.
 
         Args:
-            dist (SequenceEncodableProbabilityDistribution): Distribution to sample from.
+            dist: Distribution to sample from.
             seed (Optional[int]): Used to set seed on rng.
 
         """
-        self.dist = dist
+        self.dist: Any = dist
         self.rng = np.random.RandomState(seed)
 
     def new_seed(self) -> int:
-        """Generates a new seed from rng"""
+        """Generate a new random seed from the random number generator.
+
+        Returns:
+            A new random seed integer.
+
+        """
         return self.rng.randint(0, maxrandint)
 
     @abstractmethod
@@ -159,7 +209,7 @@ class DistributionSampler(object):
         """Generate samples from distribution.
 
         Args:
-            size (Optional[int]): Number of samples to generate. 
+            size (Optional[int]): Number of samples to generate.
 
         Returns:
             Samples from distribution.
@@ -168,7 +218,7 @@ class DistributionSampler(object):
         ...
 
 
-class ConditionalSampler(object):
+class ConditionalSampler:
     """AbstractClass for ConditionalSampler.
 
     Note:
@@ -177,9 +227,9 @@ class ConditionalSampler(object):
     """
 
     @abstractmethod
-    def sample_given(self, x: Any):
+    def sample_given(self, x: Any) -> Any:
         """Sample at conditional value.
-        
+
         Args:
             x (Any): Conditioned on x, sample from dist.
 
@@ -188,21 +238,36 @@ class ConditionalSampler(object):
 
         """
 
+
 class StatisticAccumulator(Generic[SS]):
+    """Abstract base class for sufficient statistic accumulators.
+
+    Accumulators maintain and update sufficient statistics for parameter estimation.
+
+    Type Parameters:
+        SS: Type of the sufficient statistics.
+
+    """
 
     def __eq__(self, other: Any) -> bool:
         """Tests if a ProbabilityDistribution is equivilent to another.
-        
+
         Args:
             other (Any): Object to test against.
 
         Returns:
-            True if the objects match. 
+            True if the objects match.
 
         """
         return equal_object(self, other)
 
-    def update(self, x: Any, weight: float, estimate: Optional[SequenceEncodableProbabilityDistribution]) -> None:
+    @abstractmethod
+    def update(
+        self,
+        x: Any,
+        weight: float,
+        estimate: Any,
+    ) -> None:
         """Accumulate sufficient statistics for a single data observation.
 
         Note:
@@ -211,12 +276,12 @@ class StatisticAccumulator(Generic[SS]):
         Args:
             x (Any): Data type corresponding to StatisticAccumulator object.
             weight (float): Weight associated with single observation.
-            estimate (SequenceEncodableProbabilityDistribution): Previous estimate of distribution.
+            estimate: Previous estimate of distribution.
 
         """
         ...
 
-    def initialize(self, x: Any, weight: float, rng: np.random.RandomState) -> None:
+    def initialize(self, x: Any, weight: float, rng: Any) -> None:
         """Initialize sufficient statistics for a single data observation.
 
         Note:
@@ -225,15 +290,16 @@ class StatisticAccumulator(Generic[SS]):
         Args:
             x (Any): Data type corresponding to StatisticAccumulator object.
             weight (float): Weight associated with single observation.
-            rng (np.random.RandomState): Set seed for initialization.
+            rng: Seed for initialization. Unused in the base implementation.
 
         """
+        del rng
         self.update(x, weight, estimate=None)
 
     @abstractmethod
-    def combine(self, suff_stat: SS) -> 'StatisticAccumulator':
+    def combine(self, suff_stat: SS) -> "StatisticAccumulator":
         """Method for combining aggregated sufficient statistics.
-        
+
         Args:
             suff_stat (SS): Sufficient statistics.
 
@@ -250,7 +316,7 @@ class StatisticAccumulator(Generic[SS]):
         ...
 
     @abstractmethod
-    def from_value(self, x: SS) -> 'SequenceEncodableStatisticAccumulator':
+    def from_value(self, x: SS) -> "SequenceEncodableStatisticAccumulator":
         """Set sufficient statistics equal to passed value.
 
         Args:
@@ -264,7 +330,8 @@ class StatisticAccumulator(Generic[SS]):
         """Merge sufficient statistics with matching keys.
 
         Args:
-            stats_dict (Dict[str, Any]): Dict mapping keys to sufficient statistic value or accumulator.
+            stats_dict (Dict[str, Any]): Dict mapping keys to sufficient
+                statistic values or accumulators.
 
         """
         ...
@@ -274,83 +341,111 @@ class StatisticAccumulator(Generic[SS]):
         """Set sufficient statistics of accumulator instance to key'd values.
 
         Args:
-            stats_dict (Dict[str, Any]): Dict mapping keys to sufficient statistic value or accumulator.
+            stats_dict (Dict[str, Any]): Dict mapping keys to sufficient
+                statistic values or accumulators.
 
         """
         ...
 
 
 class SequenceEncodableStatisticAccumulator(StatisticAccumulator[SS]):
+    """Statistic accumulator with support for sequence-based updates.
 
-    def get_seq_lambda(self):
-        pass
+    Extends StatisticAccumulator to handle vectorized updates over sequences
+    of encoded data.
+
+    Type Parameters:
+        SS: Type of the sufficient statistics.
+
+    """
+
+    def get_seq_lambda(self) -> list[Any]:
+        """Legacy method stub for compatibility.
+
+        Returns the vectorized update callable list used by older helpers.
+
+        """
+        return [self.seq_update]
 
     @abstractmethod
-    def seq_update(self, x: 'EncodedDataSequence', weights: np.ndarray, estimate: Optional[SequenceEncodableProbabilityDistribution]) -> None:
+    def seq_update(
+        self,
+        x: Any,
+        weights: np.ndarray,
+        estimate: Any,
+    ) -> None:
         """Vectorized accumulation of sufficient statistics for EM updates.
 
         Args:
-            x (EncodedDataSequence): EncodedDataSequence for given SequenceEncodableStatisticAccumulator type.
+            x: Encoded sequence for this accumulator type.
             weights (np.ndarray): weights for observations.
-            estimate (Optional[SequenceEncodableProbabilityDistribution]): Optional previous estimate of distribution.
+            estimate: Optional previous estimate of distribution.
 
         """
         ...
 
     @abstractmethod
-    def seq_initialize(self, x: 'EncodedDataSequence', weights: np.ndarray, rng: np.random.RandomState) -> None:
+    def seq_initialize(self, x: Any, weights: np.ndarray, rng: Any) -> None:
         """Vectorized initialization of sufficient statistics.
 
         Args:
-            x (EncodedDataSequence): EncodedDataSequence for given SequenceEncodableStatisticAccumulator type.
+            x: Encoded sequence for this accumulator type.
             weights (np.ndarray): weights for observations.
-            rng (np.random.RandomState): RandomState object for setting seed on initialization.
+            rng: RandomState used to set the initialization seed.
 
         """
         ...
 
     @abstractmethod
-    def acc_to_encoder(self) -> 'DataSequenceEncoder':
-        """Create DataSequenceEncoder object for SequenceEncodableStatisticAccumulator instance."""
+    def acc_to_encoder(self) -> "DataSequenceEncoder":
+        """Create a data sequence encoder for this accumulator."""
         ...
 
 
-class StatisticAccumulatorFactory(object):
+class StatisticAccumulatorFactory:
     """Factory for creating SequenceEncodableStatsiticAccumulator objects."""
 
     def __eq__(self, other: Any) -> bool:
         """Tests if a ProbabilityDistribution is equivilent to another.
-        
+
         Args:
             other (Any): Object to test against.
 
         Returns:
-            True if the objects match. 
+            True if the objects match.
 
         """
         return equal_object(self, other)
 
     @abstractmethod
-    def make(self) -> 'SequenceEncodableStatisticAccumulator':
-        """Create SequenceEncodableStatisticAccumulator object. """
+    def make(self) -> "SequenceEncodableStatisticAccumulator":
+        """Create SequenceEncodableStatisticAccumulator object."""
         ...
 
 
 class ParameterEstimator(Generic[SS]):
-    """Abstract class for ParameterEstimator object. """
+    """Abstract class for ParameterEstimator object."""
 
     @abstractmethod
-    def __init__(self, *args):
-        """Must implement constructor for ParameterEstimator"""
+    def __init__(self, *args: Any) -> None:
+        """Initialize the ParameterEstimator.
+
+        Args:
+            *args: Variable length argument list for initialization.
+
+        """
         ...
 
     @abstractmethod
-    def estimate(self, nobs: Optional[float], suff_stat: SS) -> 'SequenceEncodableProbabilityDistribution':
-        """Estimate SequenceEncodableProbabilityDistribution for sufficient statistics.
+    def estimate(
+        self, nobs: Optional[float], suff_stat: SS
+    ) -> "SequenceEncodableProbabilityDistribution":
+        """Estimate a probability distribution from sufficient statistics.
 
         Args:
             nobs (Optional[float]): Weighted number of observations.
-            suff_stat (Tuple[int, np.ndarray, np.ndarray, np.ndarray]): Sufficient statistics for dirichlet distribution.
+            suff_stat (Tuple[int, np.ndarray, np.ndarray, np.ndarray]):
+                Sufficient statistics for a Dirichlet distribution.
 
         Returns:
             SequenceEncodableProbabilityDistribution
@@ -359,30 +454,38 @@ class ParameterEstimator(Generic[SS]):
         ...
 
     @abstractmethod
-    def accumulator_factory(self) -> 'StatisticAccumulatorFactory':
-        """Create SequenceEncodableStatisticAccumulator object. """
+    def accumulator_factory(self) -> "StatisticAccumulatorFactory":
+        """Create SequenceEncodableStatisticAccumulator object."""
         ...
 
     def __eq__(self, other: Any) -> bool:
         """Tests if a ParameterEstimator is equivilent to another.
-        
+
         Args:
             other (Any): Object to test against.
 
         Returns:
-            True if the objects match. 
-            
+            True if the objects match.
+
         """
         return equal_object(self, other)
 
+
 class DataSequenceEncoder:
+    """Abstract base class for encoding data sequences.
+
+    Encoders transform raw data sequences into encoded representations
+    suitable for probability distribution operations.
+
+    """
 
     def __str__(self) -> str:
+        """Return string representation of the encoder."""
         return self.__str__()
 
     @abstractmethod
-    def seq_encode(self, x: Any) -> 'EncodedDataSequence':
-        """Create EncodedDataSequence from iid observations from SequenceEncodedProbabilityDistribution.
+    def seq_encode(self, x: Any) -> "EncodedDataSequence":
+        """Create an encoded sequence from IID observations.
 
         Args:
             x (Any): Sequence of observations from corresponding distribution.
@@ -394,7 +497,7 @@ class DataSequenceEncoder:
         ...
 
     @abstractmethod
-    def __eq__(self, other: object) -> bool: 
+    def __eq__(self, other: object) -> bool:
         """Check if object is an instance of DataSequenceEncoder.
 
         Used to avoid repeated sequence encodings when appropriate.
@@ -407,29 +510,29 @@ class DataSequenceEncoder:
 
         """
         ...
-class EncodedDataSequence(object):
-    """EncodedDatSequence is the outputed data structure from
-    DataSeqeunceEncoder. Object is used for vectorized functions and type
-    checks.
+
+
+class EncodedDataSequence:
+    """Container for encoded data sequences.
+
+    EncodedDataSequence is the output data structure from DataSequenceEncoder.
+    This object is used for vectorized functions and type checks.
+
+    Attributes:
+        data: The encoded data for vectorized calls.
+
     """
 
     def __init__(self, data: Any) -> None:
         """Create instance of EncodedDataSequence.
 
         Args:
-            data (Any): Store the data encocded for vectorized calls.
+            data: Store the data encoded for vectorized calls.
 
         """
         self.data = data
 
     @abstractmethod
-    def __repr__(self) -> str: ...
-
-
-
-
-
-
-
-
-
+    def __repr__(self) -> str:
+        """Return string representation of the encoded sequence."""
+        ...

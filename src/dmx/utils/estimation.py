@@ -1,43 +1,73 @@
 """Functions for estimating and validating dmx-learn models from observed data.
 
-Useful functions for estimating dmx-learn 'SequenceEncodableProbabilityDistributions' from 'ParameterEstimator'
-objects.
+Useful functions for estimating dmx-learn
+'SequenceEncodableProbabilityDistributions' from 'ParameterEstimator' objects.
 
 """
+
 import sys
 import time
+from typing import (
+    IO,
+    Any,
+    Callable,
+    List,
+    Optional,
+    Sequence,
+    Tuple,
+    TypeVar,
+    Union,
+    cast,
+)
+
 import numpy as np
 from numpy.random import RandomState
+from pyspark import RDD
 
-from dmx.stats import seq_estimate, seq_log_density_sum, seq_encode, seq_log_density, seq_initialize
-from dmx.stats.pdist import SequenceEncodableProbabilityDistribution, ParameterEstimator, EncodedDataSequence
+from dmx.stats import (
+    seq_encode,
+    seq_estimate,
+    seq_initialize,
+    seq_log_density,
+    seq_log_density_sum,
+)
+from dmx.stats.pdist import (
+    EncodedDataSequence,
+    ParameterEstimator,
+    SequenceEncodableProbabilityDistribution,
+)
 
-from typing import Any, Tuple, List, Union, TypeVar, Optional, IO, Sequence, Callable
+T = TypeVar("T")
+E0 = TypeVar("E0")
+EncodedChunks = Union[List[Tuple[int, EncodedDataSequence]], RDD[Any]]
 
-T = TypeVar('T')
-E0 = TypeVar('E0')
 
-
-def empirical_kl_divergence(dist1: SequenceEncodableProbabilityDistribution,
-                            dist2: SequenceEncodableProbabilityDistribution, enc_data: List[Tuple[int, Any]]
-                            ) -> Tuple[float, float, float]:
+def empirical_kl_divergence(
+    dist1: SequenceEncodableProbabilityDistribution,
+    dist2: SequenceEncodableProbabilityDistribution,
+    enc_data: EncodedChunks,
+) -> Tuple[float, float, float]:
     """Computes the emirical KL-divergence between two densities.
 
-    Compute the KL-divergence between dist1 and dist2, for encoded sequence of data. Dists must both have the
-    same encodings.
+    Compute the KL-divergence between dist1 and dist2 for encoded sequence
+    data. Dists must both have the same encodings.
 
     Args:
-        dist1 (SequenceEncodableProbabilityDistribution): Distribution compatible with enc_data.
-        dist2 (SequenceEncodableProbabilityDistribution): Distribution compatible with enc_data.
-        enc_data (List[Tuple[int, Any]]): List of Tuple containing chunk size and encoded sequence for chunked data.
+        dist1 (SequenceEncodableProbabilityDistribution): Distribution
+            compatible with enc_data.
+        dist2 (SequenceEncodableProbabilityDistribution): Distribution
+            compatible with enc_data.
+        enc_data (EncodedChunks): Encoded local chunks or Spark RDD chunks
+            containing chunk size and encoded sequence for chunked data.
 
     Returns:
-        Tuple of KL-div estiamte, number of 'bad' likelihood values for dist1, 'bad' likelihood values for dist2.
+        Tuple of KL-div estiamte, number of 'bad' likelihood values for dist1,
+        'bad' likelihood values for dist2.
 
     """
 
-    ll = seq_log_density(enc_data, estimate=(dist1, dist2))
-    ll = np.hstack(ll)
+    log_density_chunks = seq_log_density(enc_data, estimate=(dist1, dist2))
+    ll = np.hstack(log_density_chunks)
 
     l1 = ll[0, :]
     l2 = ll[1, :]
@@ -62,7 +92,9 @@ def empirical_kl_divergence(dist1: SequenceEncodableProbabilityDistribution,
 
 
 def k_fold_split_index(sz: int, k: int, rng: RandomState) -> np.ndarray:
-    """Returns integer numpy index vector for k-fold split. Entry j is the fold-id for the j^{th} data point.
+    """Returns integer numpy index vector for k-fold split.
+
+    Entry j is the fold-id for the j^{th} data point.
 
     Args:
         sz (int): Integer length of data points in data set.
@@ -83,8 +115,10 @@ def k_fold_split_index(sz: int, k: int, rng: RandomState) -> np.ndarray:
     return rv
 
 
-def partition_data_index(sz: int, pvec: Union[List[float], np.ndarray], rng: RandomState) -> List[np.ndarray]:
-    """Returns List of np.ndarray[int] containing integers indexes for data partitions proportional to pvec.
+def partition_data_index(
+    sz: int, pvec: Union[List[float], np.ndarray], rng: RandomState
+) -> List[np.ndarray]:
+    """Returns integer index arrays for data partitions proportional to pvec.
 
     Args:
         sz (int): Integer value of total number of data observations.
@@ -99,7 +133,7 @@ def partition_data_index(sz: int, pvec: Union[List[float], np.ndarray], rng: Ran
     sidx = np.argsort(idx)
 
     rv = []
-    p_tot = 0
+    p_tot = 0.0
     prev_idx = 0
 
     for p in pvec:
@@ -111,14 +145,16 @@ def partition_data_index(sz: int, pvec: Union[List[float], np.ndarray], rng: Ran
     return rv
 
 
-def partition_data(data: Sequence[T], pvec: Union[List[float], np.ndarray], rng: RandomState) -> List[List[T]]:
-    """Partitions List of data into partitions, each with size equal to the proportion of pvec.
+def partition_data(
+    data: Sequence[T], pvec: Union[List[float], np.ndarray], rng: RandomState
+) -> List[List[T]]:
+    """Partitions data into partitions of sizes proportional to pvec.
 
     Args:
 
         data (Sequence[T]): Sequence of data observations, each entry of type T.
-        pvec (Union[List[float], np.ndarray]): List of length n, containing proportion of data to be held in each data
-            partition.
+        pvec (Union[List[float], np.ndarray]): List of length n containing the
+            proportion of data to be held in each data partition.
         rng (RandomState): RandomState for setting seed on random partitioning of data.
 
     Returns:
@@ -130,69 +166,94 @@ def partition_data(data: Sequence[T], pvec: Union[List[float], np.ndarray], rng:
     return [[data[i] for i in u] for u in idx_list]
 
 
-def best_of(data: Optional[Sequence[T]], vdata: Optional[Sequence[T]], est: ParameterEstimator, trials: int,
-            max_its: int, init_p: float, delta: float, rng: RandomState,
-            init_estimator: Optional[ParameterEstimator] = None,
-            enc_data: Optional[List[Tuple[int, E0]]] = None,
-            enc_vdata: Optional[Sequence[Tuple[int, E0]]] = None,
-            out: IO = sys.stdout, print_iter: int = 1) -> Tuple[float, SequenceEncodableProbabilityDistribution]:
-    """Performs EM algorithm for trials-number of randomized initial conditions. Returns the best model fit in terms of
-        maximum log-likelihood value from validation data.
+# Keep the current public call signature stable for now.
+# pylint: disable-next=too-many-positional-arguments
+def best_of(
+    data: Optional[Sequence[T]],
+    vdata: Optional[Sequence[T]],
+    est: ParameterEstimator,
+    trials: int,
+    max_its: int,
+    init_p: float,
+    delta: float,
+    rng: RandomState,
+    init_estimator: Optional[ParameterEstimator] = None,
+    enc_data: Optional[EncodedChunks] = None,
+    enc_vdata: Optional[EncodedChunks] = None,
+    out: IO = sys.stdout,
+    print_iter: int = 1,
+) -> Tuple[float, SequenceEncodableProbabilityDistribution]:
+    """Runs EM from randomized initial conditions and returns the best fit.
 
     Args:
-        data (Optional[List[T]]): List of data of type T. If None is given, enc_data must be provided as
-            List[Tuple[int, enc_data_type]].
+        data (Optional[List[T]]): List of data of type T. If None is given,
+            enc_data must be provided as List[Tuple[int, enc_data_type]].
         vdata (Optional[Sequence[T]]): Optional validation set.
         est (ParameterEstimator): ParameterEstimator for model to be estimated.
-        trials (int): Integer number >= 1, of randomized initial conditions to perform EM algorithm for.
-        max_its (int): Integer value >=1, sets the maximum number of iterations of EM to be performed as stopping criteria.
-        init_p (float): Value in (0.0,1.0] for randomizing the proportion of data points used in initialization.
-        delta (float): Stopping criteria for EM when |old-log-likelihood - new-log-likelihood| < delta.
+        trials (int): Integer number >= 1 of randomized initial conditions to
+            perform EM algorithm for.
+        max_its (int): Integer value >=1. Sets the maximum number of
+            iterations of EM to be performed as stopping criteria.
+        init_p (float): Value in (0.0,1.0] for randomizing the proportion of
+            data points used in initialization.
+        delta (float): Stopping criteria for EM when
+            |old-log-likelihood - new-log-likelihood| < delta.
         rng (RandomState): RandomState for setting seed.
-        init_estimator (Optional[ParameterEstimator]): Optional ParameterEstimator used for fitting.
-        enc_data (Optional[List[Tuple[int, E]]]): Optional encoded data, if provided data need not be
-            provided. If None, enc_data is set from data.
-        enc_vdata (Optional[List[Tuple[int, E0]]]): Optional sequence encoded validation set.
+        init_estimator (Optional[ParameterEstimator]): Optional
+            ParameterEstimator used for fitting.
+        enc_data (Optional[List[Tuple[int, E]]]): Optional encoded data. If
+            provided, data need not be provided. If None, enc_data is set from
+            data.
+        enc_vdata (Optional[List[Tuple[int, E0]]]): Optional sequence encoded
+            validation set.
         out (I0): Text output stream.
-        print_iter (int): Print iterations (i.e. log-likelihood difference) every print_iter-iterations.
+        print_iter (int): Print iterations, that is, log-likelihood
+            difference, every print_iter iterations.
 
     Returns:
-        Tuple of log-likelihood of best fitting model and the best fitting model from number of trials.
+        Tuple of log-likelihood of best fitting model and the best fitting
+        model from number of trials.
 
     """
     rv_ll = -np.inf
-    rv_mm = None
+    rv_mm: Optional[SequenceEncodableProbabilityDistribution] = None
     i_est = est if init_estimator is None else init_estimator
 
     if data is None and enc_data is None:
-        raise Exception('Optimization called with empty data or enc_data.')
+        raise ValueError("Optimization called with empty data or enc_data.")
 
-    if max_its < 1:
-        max_its = 1
+    if not 0 < init_p <= 1:
+        raise ValueError(
+            f"Invalid init_p: {init_p}. It must be greater than 0 and less "
+            "than or equal to 1."
+        )
 
-    if trials < 1:
-        trials = 1
+    max_its = max(max_its, 1)
+    trials = max(trials, 1)
 
     for kk in range(trials):
 
-        if enc_data is None:
+        encoded_data = enc_data
+        encoded_vdata = enc_vdata
+        if encoded_data is None:
+            assert data is not None
             encoder = i_est.accumulator_factory().make().acc_to_encoder()
-            enc_data = seq_encode(data, encoder)
+            encoded_data = seq_encode(data, encoder)
 
-            if enc_vdata is None and vdata is not None:
-                enc_vdata = seq_encode(vdata, encoder)
+            if encoded_vdata is None and vdata is not None:
+                encoded_vdata = seq_encode(vdata, encoder)
 
-        mm = seq_initialize(enc_data, i_est, rng, init_p)
-        _, old_ll = seq_log_density_sum(enc_data, mm)
+        mm = seq_initialize(encoded_data, i_est, rng, init_p)
+        _, old_ll = seq_log_density_sum(encoded_data, mm)
 
         for i in range(max_its):
 
-            mm_next = seq_estimate(enc_data, est, mm)
-            _, ll = seq_log_density_sum(enc_data, mm_next)
+            mm_next = seq_estimate(encoded_data, est, mm)
+            _, ll = seq_log_density_sum(encoded_data, mm_next)
             dll = ll - old_ll
 
             if (i + 1) % print_iter == 0:
-                out.write('Iteration %d. LL=%f, delta LL=%e\n' % (i + 1, ll, dll))
+                out.write(f"Iteration {i + 1}. LL={ll:f}, delta LL={dll:e}\n")
 
             if (dll >= 0) or (delta is None):
                 mm = mm_next
@@ -202,57 +263,77 @@ def best_of(data: Optional[Sequence[T]], vdata: Optional[Sequence[T]], est: Para
 
             old_ll = ll
 
-        _, vll = seq_log_density_sum(enc_vdata, mm)
-        out.write('Trial %d. VLL=%f\n' % (kk + 1, vll))
+        validation_data = encoded_vdata if encoded_vdata is not None else encoded_data
+        _, vll = seq_log_density_sum(validation_data, mm)
+        out.write(f"Trial {kk + 1}. VLL={vll:f}\n")
 
         if vll > rv_ll:
             rv_mm = mm
             rv_ll = vll
 
+    if rv_mm is None:
+        raise RuntimeError("No model was estimated.")
+
     return rv_ll, rv_mm
 
 
-def optimize(data: Optional[Sequence[T]], estimator: ParameterEstimator, max_its: int = 10,
-             delta: Optional[float] = 1.0e-9,
-             init_estimator: Optional[ParameterEstimator] = None, init_p: float = 0.1,
-             rng: RandomState = RandomState(), prev_estimate: Optional[SequenceEncodableProbabilityDistribution] = None,
-             vdata: Optional[Sequence[T]] = None,
-             enc_data: Optional[List[Tuple[int, E0]]] = None,
-             enc_vdata: Optional[List[Tuple[int, E0]]] = None,
-             out: IO = sys.stdout,
-             print_iter: int = 1, num_chunks: int = 1) -> SequenceEncodableProbabilityDistribution:
+# Keep the current public call signature stable for now.
+# pylint: disable-next=too-many-positional-arguments
+def optimize(
+    data: Optional[Sequence[T]],
+    estimator: ParameterEstimator,
+    max_its: int = 10,
+    delta: Optional[float] = 1.0e-9,
+    init_estimator: Optional[ParameterEstimator] = None,
+    init_p: float = 0.1,
+    rng: RandomState = RandomState(),
+    prev_estimate: Optional[SequenceEncodableProbabilityDistribution] = None,
+    vdata: Optional[Sequence[T]] = None,
+    enc_data: Optional[EncodedChunks] = None,
+    enc_vdata: Optional[EncodedChunks] = None,
+    out: IO = sys.stdout,
+    print_iter: int = 1,
+    num_chunks: int = 1,
+) -> SequenceEncodableProbabilityDistribution:
     """Estimation of 'estimator' via EM algorithm for max_its iterations or until
         new_loglikelihood - old_loglikelihood < delta.
 
     Args:
-        data (Optional[List[T]]): List of data type T containing observed data. Must be compatible with data type of
-            estimator.
-        estimator (ParameterEstimator): ParameterEstimator used to specify to-be-estimated distribution for observed
-            data.
-        max_its (int): Maximum number of EM iterations to be performed. Default value is 10 iterations.
-        delta (Optional[float]): Stopping criteria for EM algorithm used if max_its is not set: Iterate until
+        data (Optional[List[T]]): List of data type T containing observed
+            data. Must be compatible with data type of estimator.
+        estimator (ParameterEstimator): ParameterEstimator used to specify the
+            to-be-estimated distribution for observed data.
+        max_its (int): Maximum number of EM iterations to be performed.
+            Default value is 10 iterations.
+        delta (Optional[float]): Stopping criteria for EM algorithm used if
+            max_its is not set. Iterate until
             |old_loglikelihood - new_loglikelihood| < delta or iterations == max_its.
-        init_estimator (Optional[ParameterEstimator]): ParameterEstimator to used to initialize EM algorithm parameters.
-            If None, estimator is used. Must be consistent with estimator.
-        init_p (float): Value in (0.0,1.0] for randomizing the proportion of data points used in initialization.
+        init_estimator (Optional[ParameterEstimator]): ParameterEstimator used
+            to initialize EM algorithm parameters. If None, estimator is used.
+            Must be consistent with estimator.
+        init_p (float): Value in (0.0,1.0] for randomizing the proportion of
+            data points used in initialization.
         rng (RandomState): RandomState used to set seed for initializing EM algorithm.
         vdata (Optional[Sequence[T]]): Optional validation set.
-        prev_estimate (Optional[SeqeuenceEncodableProbabilityDistribution]): Optional model estimate used from prior
-            fitting. Must be consistent with estimator.
+        prev_estimate (Optional[SeqeuenceEncodableProbabilityDistribution]):
+            Optional model estimate used from prior fitting. Must be
+            consistent with estimator.
         enc_data (Optional[List[Tuple[int, E]]]): Optional encoded data of form
             List[Tuple[int, E]]. Formed from data if None.
-        enc_vdata (Optional[List[Tuple[int, E0]]]): Optional sequence encoded validation set.
+        enc_vdata (Optional[List[Tuple[int, E0]]]): Optional sequence encoded
+            validation set.
         out (IO): IO stream to write out iterations of EM algorithm.
-        print_iter (int): Print iterations (i.e. log-likelihood difference) every print_iter-iterations.
+        print_iter (int): Print iterations, that is, log-likelihood
+            difference, every print_iter iterations.
         num_chunks (int): Number of chunks for encoded data.
 
     Returns:
-        SequenceEncodableProbabilityDistribution corresponding to estimator when stopping criteria of EM algorithm
-            is met.
+        SequenceEncodableProbabilityDistribution corresponding to estimator
+        when stopping criteria of EM algorithm is met.
 
     """
     if data is None and enc_data is None:
-        raise Exception('Optimization called with empty data or enc_data.')
+        raise ValueError("Optimization called with empty data or enc_data.")
 
     est = estimator if init_estimator is None else init_estimator
 
@@ -262,18 +343,20 @@ def optimize(data: Optional[Sequence[T]], estimator: ParameterEstimator, max_its
         data_encoder = prev_estimate.dist_to_encoder()
 
     if enc_data is None:
+        assert data is not None
         enc_data = seq_encode(data=data, encoder=data_encoder, num_chunks=num_chunks)
 
     if prev_estimate is None:
-        if init_p <= 0.0:
-            p = 0.10
-        else:
-            p = min(max(init_p, 0.0), 1.0)
+        if not 0 < init_p <= 1:
+            raise ValueError(
+                f"Invalid init_p: {init_p}. It must be greater than 0 and "
+                "less than or equal to 1."
+            )
 
         # if isinstance(enc_data, pyspark.rdd.RDD):
         #     mm = initialize(data=data, estimator=est, rng=rng, p=p)
         # else:
-        mm = seq_initialize(enc_data=enc_data, estimator=est, rng=rng, p=p)
+        mm = seq_initialize(enc_data=enc_data, estimator=est, rng=rng, p=init_p)
 
     else:
         mm = prev_estimate
@@ -294,7 +377,7 @@ def optimize(data: Optional[Sequence[T]], estimator: ParameterEstimator, max_its
     for i in range(max_its):
 
         mm_next = seq_estimate(enc_data=enc_data, estimator=estimator, prev_estimate=mm)
-        cnt, ll = seq_log_density_sum(enc_data=enc_data, estimate=mm_next)
+        _, ll = seq_log_density_sum(enc_data=enc_data, estimate=mm_next)
 
         if enc_vdata is not None:
             _, vll = seq_log_density_sum(enc_vdata, mm_next)
@@ -309,21 +392,29 @@ def optimize(data: Optional[Sequence[T]], estimator: ParameterEstimator, max_its
         if (delta is not None) and (dll < delta):
             if enc_vdata is not None:
                 out.write(
-                    'Iteration %d: ln[p_mat(Data|Model)]=%e, ln[p_mat(Data|Model)]-ln[p_mat(Data|PrevModel)]=%e, '
-                    'ln[p_mat(Valid Data|Model)]=%e\n' % (
-                    i + 1, ll, dll, vll))
+                    f"Iteration {i + 1}: ln[p_mat(Data|Model)]={ll:e}, "
+                    f"ln[p_mat(Data|Model)]-ln[p_mat(Data|PrevModel)]={dll:e}, "
+                    f"ln[p_mat(Valid Data|Model)]={vll:e}\n"
+                )
             else:
-                out.write('Iteration %d: ln[p_mat(Data|Model)]=%e, ln[p_mat(Data|Model)]-ln[p_mat(Data|PrevModel)]=%e\n' %
-                          (i + 1, ll, dll))
+                out.write(
+                    f"Iteration {i + 1}: ln[p_mat(Data|Model)]={ll:e}, "
+                    f"ln[p_mat(Data|Model)]-ln[p_mat(Data|PrevModel)]={dll:e}\n"
+                )
             break
 
         if (i + 1) % print_iter == 0:
             if enc_vdata is not None:
-                out.write('Iteration %d: ln[p_mat(Data|Model)]=%e, ln[p_mat(Data|Model)]-ln[p_mat(Data|PrevModel)]=%e, '
-                          'ln[p_mat(Valid Data|Model)]=%e\n' % (i + 1, ll, dll, vll))
+                out.write(
+                    f"Iteration {i + 1}: ln[p_mat(Data|Model)]={ll:e}, "
+                    f"ln[p_mat(Data|Model)]-ln[p_mat(Data|PrevModel)]={dll:e}, "
+                    f"ln[p_mat(Valid Data|Model)]={vll:e}\n"
+                )
             else:
-                out.write('Iteration %d: ln[p_mat(Data|Model)]=%e, ln[p_mat(Data|Model)]-ln[p_mat(Data|PrevModel)]=%e\n' %
-                          (i + 1, ll, dll))
+                out.write(
+                    f"Iteration {i + 1}: ln[p_mat(Data|Model)]={ll:e}, "
+                    f"ln[p_mat(Data|Model)]-ln[p_mat(Data|PrevModel)]={dll:e}\n"
+                )
 
         old_ll = ll
 
@@ -334,105 +425,142 @@ def optimize(data: Optional[Sequence[T]], estimator: ParameterEstimator, max_its
     return best_model
 
 
-def iterate(data: List[T], estimator: Optional[ParameterEstimator], max_its: int,
-            prev_estimate: Optional[SequenceEncodableProbabilityDistribution] = None, init_p: float = 0.1,
-            rng: Optional[RandomState] = RandomState(), out: IO = sys.stdout,
-            enc_data: Optional[List[Tuple[int, E0]]] = None,
-            init_estimator: Optional[ParameterEstimator] = None,
-            print_iter: int = 1) -> SequenceEncodableProbabilityDistribution:
-    """Performs max_its-iterations of EM algorithm and returns next estimate (SequenceEncodableProbabilityDistribution).
+# Keep the current public call signature stable for now.
+# pylint: disable-next=too-many-positional-arguments
+def iterate(
+    data: List[T],
+    estimator: Optional[ParameterEstimator],
+    max_its: int,
+    prev_estimate: Optional[SequenceEncodableProbabilityDistribution] = None,
+    init_p: float = 0.1,
+    rng: Optional[RandomState] = RandomState(),
+    out: IO = sys.stdout,
+    enc_data: Optional[EncodedChunks] = None,
+    init_estimator: Optional[ParameterEstimator] = None,
+    print_iter: int = 1,
+) -> SequenceEncodableProbabilityDistribution:
+    """Performs max_its iterations of EM and returns the next estimate.
 
     Args:
         data (List[T]): List of data type compatible with estimator.
-        estimator (Optional[ParameterEstimator]): Optional ParameterEstimator for distribution to be estimated from
-            data by EM algorithm. Can be None only if init_estimator is not None.
-        max_its (int): Total number of EM iterations to be performed before returning estimate.
-        prev_estimate (Optional[SequenceEncodableProbabilityDistribution]): Optional previous estimate of distribution
-            for data. Must be consistent with estimator or init_estimator.
-        init_p (float): Value in (0.0,1.0] for randomizing the proportion of data points used in initialization.
-        rng (Optional[RandomState]): RandomState used to set seed for initializing EM algorithm.
+        estimator (Optional[ParameterEstimator]): Optional ParameterEstimator
+            for distribution to be estimated from data by EM algorithm. Can be
+            None only if init_estimator is not None.
+        max_its (int): Total number of EM iterations to be performed before
+            returning estimate.
+        prev_estimate (Optional[SequenceEncodableProbabilityDistribution]):
+            Optional previous estimate of distribution for data. Must be
+            consistent with estimator or init_estimator.
+        init_p (float): Value in (0.0,1.0] for randomizing the proportion of
+            data points used in initialization.
+        rng (Optional[RandomState]): RandomState used to set seed for
+            initializing EM algorithm.
         out (IO): IO stream to write out iterations of EM algorithm.
         enc_data (Optional[List[Tuple[int, E]]]): Optional encoded data of form
             List[Tuple[int, E]]. Formed from data if None.
-        init_estimator (Optional[ParameterEstimator]): ParameterEstimator to used to initialize EM algorithm parameters.
-            If None, estimator is used. Must be consistent with estimator.
-        print_iter (bool): Print iterations (i.e. log-likelihood) ever print_iter-iterations.
+        init_estimator (Optional[ParameterEstimator]): ParameterEstimator used
+            to initialize EM algorithm parameters. If None, estimator is used.
+            Must be consistent with estimator.
+        print_iter (bool): Print iterations, that is, log-likelihood, every
+            print_iter iterations.
 
     Returns:
-        SequenceEncodableProbabilityDistribution corresponding to estimator/init_estimator after max_its iterations of
-            EM algorithm.
+        SequenceEncodableProbabilityDistribution corresponding to
+        estimator/init_estimator after max_its iterations of EM algorithm.
 
     """
     if data is None and enc_data is None:
-        raise Exception('Optimization called with empty data or enc_data.')
+        raise ValueError("Optimization called with empty data or enc_data.")
 
-    i_est = estimator if init_estimator is None else init_estimator
+    active_estimator = estimator if estimator is not None else init_estimator
+    if active_estimator is None:
+        raise ValueError("estimator or init_estimator is required.")
+    rng = rng if rng is not None else RandomState()
 
     if enc_data is None:
-        encoder = estimator.accumulator_factory().make().acc_to_encoder()
+        encoder = active_estimator.accumulator_factory().make().acc_to_encoder()
         enc_data = seq_encode(data, encoder)
 
     if prev_estimate is None:
-        if init_p <= 0.0:
-            p = 0.1
-        else:
-            p = min(max(init_p, 0.0), 1.0)
+        if not 0 < init_p <= 1:
+            raise ValueError(
+                f"Invalid init_p: {init_p}. It must be greater than 0 and "
+                "less than or equal to 1."
+            )
 
-        mm = seq_initialize(enc_data, i_est, rng, init_p)
+        mm = seq_initialize(enc_data, active_estimator, rng, init_p)
     else:
         mm = prev_estimate
 
-    if hasattr(enc_data, 'cache'):
-        enc_data.cache()
+    if hasattr(enc_data, "cache"):
+        cast(Any, enc_data).cache()
 
     t0 = time.time()
     for i in range(max_its):
-        mm = seq_estimate(enc_data, estimator, mm)
+        mm = seq_estimate(enc_data, active_estimator, mm)
 
         if (i + 1) % print_iter == 0:
-            out.write('Iteration %d\t E[dT]=%f.\n' % (i + 1, (time.time() - t0) / float(i + 1)))
+            out.write(
+                f"Iteration {i + 1}\t E[dT]="
+                f"{(time.time() - t0) / float(i + 1):f}.\n"
+            )
 
     return mm
 
 
-def hill_climb(data: List[T],
-               vdata: List[T],
-               estimator: ParameterEstimator,
-               prev_estimate: SequenceEncodableProbabilityDistribution,
-               max_its: int,
-               metric_lambda: Callable[[EncodedDataSequence], Sequence],
-               best_estimate: Optional[SequenceEncodableProbabilityDistribution] = None,
-               enc_data: Optional[EncodedDataSequence] = None,
-               enc_vdata: Optional[EncodedDataSequence] = None,
-               out=sys.stdout,
-               print_iter: int = 1) -> SequenceEncodableProbabilityDistribution:
-    """
-    Performs a hill-climbing optimization to find the best model based on a given metric.
+# Keep the current public call signature stable for now.
+# pylint: disable-next=too-many-positional-arguments
+def hill_climb(
+    data: List[T],
+    vdata: List[T],
+    estimator: ParameterEstimator,
+    prev_estimate: SequenceEncodableProbabilityDistribution,
+    max_its: int,
+    metric_lambda: Callable[[List[T], SequenceEncodableProbabilityDistribution], float],
+    best_estimate: Optional[SequenceEncodableProbabilityDistribution] = None,
+    enc_data: Optional[EncodedChunks] = None,
+    enc_vdata: Optional[EncodedChunks] = None,
+    out: IO = sys.stdout,
+    print_iter: int = 1,
+) -> SequenceEncodableProbabilityDistribution:
+    """Performs hill-climbing optimization to find the best model.
 
     Args:
-        data (List[T]): The training data to be encoded and used in optimization.
-        vdata (List[T]): Validation data for evaluating the model during optimization.
-        estimator (ParameterEstimator): The parameter estimator used to update the model.
-        prev_estimate (SequenceEncodableProbabilityDistribution): The initial probability distribution estimate.
+        data (List[T]): The training data to be encoded and used in
+            optimization.
+        vdata (List[T]): Validation data for evaluating the model during
+            optimization.
+        estimator (ParameterEstimator): The parameter estimator used to update
+            the model.
+        prev_estimate (SequenceEncodableProbabilityDistribution): The initial
+            probability distribution estimate.
         max_its (int): Maximum number of iterations for the optimization process.
-        metric_lambda (Callable[[EncodedDataSequence], Sequence]): A lambda function to compute the metric score for the model.
-        best_estimate (Optional[SequenceEncodableProbabilityDistribution], optional): The best model estimate to start with. Defaults to None.
-        enc_data (Optional[EncodedDataSequence], optional): Encoded training data. If None, it will be computed from `data`. Defaults to None.
-        enc_vdata (Optional[EncodedDataSequence], optional): Encoded validation data. If None, it will be computed from `vdata`. Defaults to None.
-        out (file-like object, optional): Output stream for logging progress. Defaults to `sys.stdout`.
-        print_iter (int, optional): Interval for printing progress during iterations. Defaults to 1.
+        metric_lambda (Callable[[EncodedDataSequence], Sequence]): A lambda
+            function to compute the metric score for the model.
+        best_estimate (Optional[SequenceEncodableProbabilityDistribution],
+            optional): The best model estimate to start with. Defaults to None.
+        enc_data (Optional[EncodedDataSequence], optional): Encoded training
+            data. If None, it will be computed from `data`. Defaults to None.
+        enc_vdata (Optional[EncodedDataSequence], optional): Encoded
+            validation data. If None, it will be computed from `vdata`.
+            Defaults to None.
+        out (file-like object, optional): Output stream for logging progress.
+            Defaults to `sys.stdout`.
+        print_iter (int, optional): Interval for printing progress during
+            iterations. Defaults to 1.
 
     Returns:
-        SequenceEncodableProbabilityDistribution: The best model found during the optimization process.
+        SequenceEncodableProbabilityDistribution: The best model found during
+            the optimization process.
     """
     mm = prev_estimate
 
     if enc_data is None:
-        enc_data = mm.dist_to_encoder().seq_encode(data)
-        enc_data = [(len(data), enc_data)]
+        data_enc = mm.dist_to_encoder().seq_encode(data)
+        enc_data = [(len(data), data_enc)]
     if enc_vdata is None:
-        enc_vdata = mm.dist_to_encoder().seq_encode(vdata)
-        enc_vdata = [(len(vdata), enc_vdata)]
+        vdata_enc = mm.dist_to_encoder().seq_encode(vdata)
+        enc_vdata = [(len(vdata), vdata_enc)]
 
     best_model = prev_estimate if best_estimate is None else best_estimate
     _, best_ll = seq_log_density_sum(enc_vdata, best_model)
@@ -445,15 +573,19 @@ def hill_climb(data: List[T],
         _, next_ll = seq_log_density_sum(enc_vdata, mm_next)
         next_score = metric_lambda(vdata, mm_next)
 
-        if (next_score > best_score) or ((next_score == best_score) and (best_ll < next_ll)):
+        if (next_score > best_score) or (
+            (next_score == best_score) and (best_ll < next_ll)
+        ):
             best_model = mm_next
             best_ll = next_ll
             best_score = next_score
 
         if i % print_iter == 0:
-            out.write('Iteration %d. LL=%f, Best LL=%f, Best Score=%f\n' % (i + 1, next_ll, best_ll, best_score))
+            out.write(
+                f"Iteration {i + 1}. LL={next_ll:f}, Best LL={best_ll:f}, "
+                f"Best Score={best_score:f}\n"
+            )
 
         mm = mm_next
 
     return best_model
-

@@ -1,45 +1,63 @@
-from typing import Tuple, Union, List, Optional
-import numpy as np
+"""P-value utilities for approximating composite binomial ranks."""
+
 import itertools
-from scipy.special import gammaln
+from importlib import import_module
+from typing import List, Optional, Sequence, Tuple, Union
+
+import numpy as np
+
+SPECIAL = import_module("scipy.special")
 
 
-def binomial_rank(log_p_vec: Union[List[float], np.ndarray],
-                  log_p1_vec: Optional[Union[List[float], np.ndarray]] = None,
-                  count_vec: Optional[Union[List, np.ndarray]] = None, ll_eps: float = 1.0e-4,
-                  max_len: Optional[int] = None) -> Tuple[np.ndarray, np.ndarray, Tuple[float, float, float]]:
+def binomial_rank(
+    log_p_vec: Union[Sequence[float], np.ndarray],
+    log_p1_vec: Optional[Union[Sequence[float], np.ndarray]] = None,
+    count_vec: Optional[Union[Sequence[float], np.ndarray]] = None,
+    ll_eps: float = 1.0e-4,
+    max_len: Optional[int] = None,
+) -> Tuple[np.ndarray, np.ndarray, Tuple[float, float, float]]:
     """Approximates the log-density histogram for a composite of binomials.
 
     Args:
         log_p_vec: Vector with log probabilities for each binomial distribution
-        log_p1_vec: Optional vector with log one minus probabilities for each binomial distribution (for high-precision)
+        log_p1_vec: Optional vector with log one minus probabilities for each
+            binomial distribution (for high-precision)
         count_vec: Vector with the number of draws for each binomial distribution
         ll_eps: Bin spacing is determined so that |LL - floor(LL/space)*space| < ll_eps
         max_len: Maximum number of bins for histogram
     Returns:
         log_density array, corresponding probs array, Tuple[ll0, dll, total_count]
     """
-    entries = []
+    entries: List[Tuple[np.ndarray, np.ndarray, float]] = []
+    log_p_arr = np.asarray(log_p_vec, dtype=float)
 
     if log_p1_vec is None:
-        log_p1_vec = np.log1p(-np.exp(log_p_vec))
+        log_p1_arr = np.log1p(-np.exp(log_p_arr))
+    else:
+        log_p1_arr = np.asarray(log_p1_vec, dtype=float)
 
     if count_vec is None:
-        count_vec = np.ones(len(log_p_vec))
+        count_arr = np.ones(len(log_p_arr), dtype=float)
+    else:
+        count_arr = np.asarray(count_vec, dtype=float)
 
     # Compute binomial log-densities and probabilities
-    for log_p, log_p1, n in zip(log_p_vec, log_p1_vec, count_vec):
+    for log_p, log_p1, n in zip(log_p_arr, log_p1_arr, count_arr):
         if n == 0 or log_p == -np.inf or log_p1 == -np.inf:
             continue
         nn = np.arange(0, n + 1)
         llv = log_p * nn + log_p1 * (n - nn)
-        ell = gammaln(n + 1) - gammaln(nn + 1) - gammaln(n - nn + 1)
+        ell = (
+            SPECIAL.gammaln(n + 1)
+            - SPECIAL.gammaln(nn + 1)
+            - SPECIAL.gammaln(n - nn + 1)
+        )
         ell = np.exp(ell - ell.max())
         ell /= np.sum(ell)
         llv = llv[ell > 0]
         ell = ell[ell > 0]
 
-        entries.append((llv, ell, n))
+        entries.append((llv, ell, float(n)))
 
     # Find parameters for a common fixed-space grid [ll0, ll0 + dll, ll0 + 2*dll, ...]
     min_vec = np.asarray([entry[0].min() for entry in entries])
@@ -56,13 +74,13 @@ def binomial_rank(log_p_vec: Union[List[float], np.ndarray],
 
     # Adjust log-density histograms to a common grid and convolve
     temp_idx = np.floor((entries[0][0] - entries[0][0].min()) / dll).astype(int)
-    acc_prob = np.bincount(temp_idx, weights=entries[0][1])
+    acc_prob = np.asarray(np.bincount(temp_idx, weights=entries[0][1]), dtype=float)
     acc_count = entries[0][2]
 
     for next_llv, next_ell, next_count in entries[1:]:
         next_idx = np.floor((next_llv - next_llv.min()) / dll).astype(int)
 
-        next_prob = np.bincount(next_idx, weights=next_ell)
+        next_prob = np.asarray(np.bincount(next_idx, weights=next_ell), dtype=float)
         max_count = max(next_count, acc_count)
         acc_weight = np.power(2.0, acc_count - max_count)
         next_weight = np.power(2.0, next_count - max_count)
@@ -72,12 +90,11 @@ def binomial_rank(log_p_vec: Union[List[float], np.ndarray],
         acc_count += next_count
 
     ll0 = min_vec.sum()
-    acc_ll = ll0 + np.arange(len(acc_prob))*dll
+    acc_ll = ll0 + np.arange(len(acc_prob)) * dll
     return acc_ll, acc_prob, (ll0, dll, acc_count)
 
 
-
-if __name__ == '__main__':
+if __name__ == "__main__":
 
     pvec = np.asarray([0.3, 0.8, 0.4])
     pvec = np.log(pvec)
@@ -88,15 +105,25 @@ if __name__ == '__main__':
     nvec_long = np.concatenate([[u] * n for u, n in zip(nvec, cvec)])
 
     test = np.asarray([1, 0, 1, 1, 0, 1, 0, 1])
-    ll = np.where(test==1, pvec_long, nvec_long).sum()
+    ll = np.where(test == 1, pvec_long, nvec_long).sum()
 
-    acc_ll, acc_prob, (ll0, dll, acc_count) = binomial_rank(pvec, count_vec=cvec, max_len=100000)
-    left  = acc_prob[(int((ll - ll0) / dll) - 1):].sum() * np.power(2, acc_count)
-    mid   = acc_prob[int((ll - ll0) / dll):].sum() * np.power(2, acc_count)
-    right = acc_prob[(int((ll - ll0) / dll) + 1):].sum() * np.power(2, acc_count)
-    print('Approximate rank: %f ( Somewhere in [%f, %f] )'%(mid, right, left))
+    rank_ll, rank_prob, (rank_ll0, rank_dll, rank_count) = binomial_rank(
+        pvec, count_vec=cvec, max_len=100000
+    )
+    left = rank_prob[(int((ll - rank_ll0) / rank_dll) - 1) :].sum() * np.power(
+        2, rank_count
+    )
+    mid = rank_prob[int((ll - rank_ll0) / rank_dll) :].sum() * np.power(2, rank_count)
+    right = rank_prob[(int((ll - rank_ll0) / rank_dll) + 1) :].sum() * np.power(
+        2, rank_count
+    )
+    print(f"Approximate rank: {mid:f} ( Somewhere in [{right:f}, {left:f}] )")
 
     # Verify this
-    temp = np.asarray([np.where([u == 1 for u in x], pvec_long, nvec_long).sum() for x in itertools.product([0, 1], repeat=len(pvec_long))])
-    print('True rank:' + str((temp >= ll).sum()))
-
+    temp = np.asarray(
+        [
+            np.where([u == 1 for u in x], pvec_long, nvec_long).sum()
+            for x in itertools.product([0, 1], repeat=len(pvec_long))
+        ]
+    )
+    print("True rank:" + str((temp >= ll).sum()))

@@ -38,7 +38,7 @@ Note that the data simulation is only performed on the master node (rank 0). Oth
 
 .. code-block:: python
 
-   if world_rank == 0: 
+   if world_rank == 0:
        d00 = GaussianDistribution(mu=0.0, sigma2=1.0)
        d01 = CategoricalDistribution({'a': 0.3, 'b': 0.7})
        d0 = CompositeDistribution([d00, d01])
@@ -113,7 +113,7 @@ Here is the complete script for reference:
    world_size = comm.Get_size()
 
    if __name__ == "__main__":
-       if world_rank == 0: 
+       if world_rank == 0:
            d00 = GaussianDistribution(mu=0.0, sigma2=1.0)
            d01 = CategoricalDistribution({'a': 0.3, 'b': 0.7})
            d0 = CompositeDistribution([d00, d01])

@@ -1,1 +1,3 @@
-__all__ = ['optsutil', 'vector']
+"""Utility helpers exposed by :mod:`dmx.utils`."""
+
+__all__ = ["optsutil", "vector"]

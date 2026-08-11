@@ -1,50 +1,61 @@
 """Create, estimate, and sample from a semi-supervised mixture distribution.
 
-Defines the SemiSupervisedMixtureDistribution, SemiSupervisedMixtureSampler, SemiSupervisedMixtureAccumulatorFactory,
-SemiSupervisedMixtureEstimatorAccumulator, SemiSupervisedMixtureEstimator, and the SemiSupervisedMixtureDataEncoder
+Defines the SemiSupervisedMixtureDistribution, SemiSupervisedMixtureSampler,
+SemiSupervisedMixtureAccumulatorFactory,
+SemiSupervisedMixtureEstimatorAccumulator, SemiSupervisedMixtureEstimator, and the
+SemiSupervisedMixtureDataEncoder
 classes for use with dmx-learn.
 
-Data type (Tuple[T, Optional[Sequence[Tuple[int, float]]]): T is the data type of the mixture components. The optional
-Sequence of tuples contain labels for the observations coming from the component (0,1,2,...num_components-1) and an
+Data type (Tuple[T, Optional[Sequence[Tuple[int, float]]]): T is the data type of the
+mixture components. The optional
+Sequence of tuples contain labels for the observations coming from the component
+(0,1,2,...num_components-1) and an
 associated probability for the label.
 
-The likelihood for an observation x = (y, prior) is simply a mixture distribution with the weights of the mixture
-re-weighted to account for the prior knowledge that x was observaed from components in prior with probs in prior as well.
+The likelihood for an observation x = (y, prior) is simply a mixture distribution with
+the weights of the mixture
+re-weighted to account for the prior knowledge that x was observaed from components in
+prior with probs in prior as well.
 
 If no prior is provided, the likelihood is simply a mixture.
 
 Note: seq_initialize() is not well implemented.
 
 """
+
+from typing import Any, Dict, List, Optional, Sequence, Tuple, TypeVar, Union
+
 import numpy as np
 from numpy.random import RandomState
 
 import dmx.utils.vector as vec
-from dmx.arithmetic import *
-from dmx.arithmetic import maxrandint
-from dmx.stats.null_dist import NullDistribution, NullAccumulator, NullEstimator, NullDataEncoder, \
-    NullAccumulatorFactory
-from dmx.stats.pdist import SequenceEncodableProbabilityDistribution, SequenceEncodableStatisticAccumulator, \
-    ParameterEstimator, DistributionSampler, DataSequenceEncoder, StatisticAccumulatorFactory, EncodedDataSequence
+from dmx.arithmetic import exp, maxrandint
+from dmx.stats.pdist import (
+    DataSequenceEncoder,
+    DistributionSampler,
+    EncodedDataSequence,
+    ParameterEstimator,
+    SequenceEncodableProbabilityDistribution,
+    SequenceEncodableStatisticAccumulator,
+    StatisticAccumulatorFactory,
+)
 
-from typing import Sequence, Tuple, List, Dict, Any, Optional, TypeVar, Union
+T0 = TypeVar("T0")  # Data type
+T = Sequence[Tuple[T0, Optional[Sequence[Tuple[int, float]]]]]
 
-T0 = TypeVar('T0')  # Data type
-T1 = TypeVar('T1')  # Prior type
-T = Sequence[Tuple[T0, Optional[Sequence[Tuple[int, T1]]]]]
-
-E0 = TypeVar('E0')  # Encoded data type components
+E0 = TypeVar("E0")  # Encoded data type components
 E1 = Tuple[np.ndarray, np.ndarray, np.ndarray, np.ndarray]  # Encoded prior type
 E = Tuple[int, EncodedDataSequence, Tuple[E1, np.ndarray, np.ndarray], T]
 
-SS0 = TypeVar('SS0')  # Suff-stat type from components
+SS0 = TypeVar("SS0")  # Suff-stat type from components
 
 
 class SemiSupervisedMixtureDistribution(SequenceEncodableProbabilityDistribution):
     """Create SemiSupervisedMixtureDistribution object.
 
     Attributes:
-        components (Sequence[SequenceEncodableProbabilityDistribution]): Mixture components.
+        components (Sequence[SequenceEncodableProbabilityDistribution]): Mixture
+            components.
         num_components (int): Number of mixture components.
         zw (np.ndarray): Bool numpy array, True where weights are 0.0.
         log_w (np.ndarray): Log of weights. Set to -np.inf where weights are 0.
@@ -53,57 +64,85 @@ class SemiSupervisedMixtureDistribution(SequenceEncodableProbabilityDistribution
 
     """
 
-    def __init__(self, components: Sequence[SequenceEncodableProbabilityDistribution],
-                 w: Union[List[float], np.ndarray], name: Optional[str] = None) -> None:
+    def __init__(
+        self,
+        components: Sequence[SequenceEncodableProbabilityDistribution],
+        w: Union[List[float], np.ndarray],
+        name: Optional[str] = None,
+    ) -> None:
         """Create SemiSupervisedMixtureDistribution object.
 
         Args:
-            components (Sequence[SequenceEncodableProbabilityDistribution]): Mixture components.
+            components (Sequence[SequenceEncodableProbabilityDistribution]): Mixture
+                components.
             w ( Union[List[float], np.ndarray]): Mixture weights. Should sum to 1.0
             name (Optional[str]): Set name for object.
 
         """
+        super().__init__()
         self.components = components
         self.num_components = len(components)
         self.w = np.asarray(w)
-        self.zw = (self.w == 0.0)
-        self.log_w = np.log(w + self.zw)
+        self.zw = self.w == 0.0
+        self.log_w = np.log(self.w + self.zw)
         self.log_w[self.zw] = -np.inf
         self.name = name
 
     def __str__(self) -> str:
-        return 'SemiSupervisedMixtureDistribution([%s], [%s], name=%s)' % (
-            ','.join([str(u) for u in self.components]), ','.join(map(str, self.w)), ','.join(repr(self.name)))
+        components = ",".join([str(u) for u in self.components])
+        weights = ",".join(map(str, self.w))
+        name = ",".join(repr(self.name))
+        return (
+            f"SemiSupervisedMixtureDistribution([{components}], "
+            f"[{weights}], name={name})"
+        )
 
-    def density(self, x: Tuple[T0, Optional[Sequence[Tuple[int, T1]]]]) -> float:
-        return exp(self.log_density(x))
+    def density(self, x: Tuple[T0, Optional[Sequence[Tuple[int, float]]]]) -> float:
+        return float(exp(self.log_density(x)))
 
-    def log_density(self, x: Tuple[T0, Optional[Sequence[Tuple[int, T1]]]]) -> float:
+    def log_density(self, x: Tuple[T0, Optional[Sequence[Tuple[int, float]]]]) -> float:
 
         datum, prior = x
         if prior is None:
-            return vec.log_sum(np.asarray([u.log_density(datum) for u in self.components]) + self.log_w)
-        else:
-            w_loc = np.zeros(self.num_components)
-            h_loc = np.zeros(self.num_components, dtype=bool)
-            i_loc = np.zeros(self.num_components, dtype=int)
+            return float(
+                vec.log_sum(
+                    np.asarray([u.log_density(datum) for u in self.components])
+                    + self.log_w
+                )
+            )
+        w_loc = np.zeros(self.num_components)
+        h_loc = np.zeros(self.num_components, dtype=bool)
+        i_loc = np.zeros(self.num_components, dtype=int)
 
-            for idx, val in prior:
-                w_loc[idx] += np.log(val)
-                h_loc[idx] = True
-                i_loc[idx] = idx
+        for idx, val in prior:
+            w_loc[idx] += np.log(val)
+            h_loc[idx] = True
+            i_loc[idx] = idx
 
-            w_loc[h_loc] += self.log_w[h_loc]
-            w_loc = vec.log_posterior(w_loc[h_loc])
+        w_loc[h_loc] += self.log_w[h_loc]
+        w_loc = vec.log_posterior(w_loc[h_loc])
 
-            return vec.log_sum(
-                np.asarray([self.components[i].log_density(datum) for i in np.flatnonzero(h_loc)]) + w_loc)
+        return float(
+            vec.log_sum(
+                np.asarray(
+                    [
+                        self.components[i].log_density(datum)
+                        for i in np.flatnonzero(h_loc)
+                    ]
+                )
+                + w_loc
+            )
+        )
 
-    def posterior(self, x: Tuple[T0, Optional[Sequence[Tuple[int, T1]]]]) -> np.ndarray:
+    def posterior(
+        self, x: Tuple[T0, Optional[Sequence[Tuple[int, float]]]]
+    ) -> np.ndarray:
         datum, prior = x
 
         if prior is None:
-            rv = vec.posterior(np.asarray([u.log_density(datum) for u in self.components]) + self.log_w)
+            rv = vec.posterior(
+                np.asarray([u.log_density(datum) for u in self.components]) + self.log_w
+            )
         else:
 
             w_loc = np.zeros(self.num_components)
@@ -120,18 +159,24 @@ class SemiSupervisedMixtureDistribution(SequenceEncodableProbabilityDistribution
             w_loc[h_loc] = vec.posterior(w_loc[h_loc])
             rv = w_loc
 
-        return rv
+        return np.asarray(rv, dtype=float)
 
-    def seq_log_density(self, x: 'SemiSupervisedMixtureEncodedDataSequence') -> np.ndarray:
+    def seq_log_density(
+        self, x: "SemiSupervisedMixtureEncodedDataSequence"
+    ) -> np.ndarray:
 
         if not isinstance(x, SemiSupervisedMixtureEncodedDataSequence):
-            raise Exception('Requires SemiSupervisedMixtureEncodedDataSequence for `seq_` calls.')
+            raise TypeError(
+                "Requires SemiSupervisedMixtureEncodedDataSequence for `seq_` calls."
+            )
 
-        sz, enc_data, (enc_prior, enc_prior_sum, enc_prior_flag), _ = x.data
+        sz, enc_data, (enc_prior, _enc_prior_sum, enc_prior_flag), _ = x.data
         ll_mat = np.zeros((sz, self.num_components))
         ll_mat.fill(-np.inf)
 
-        norm_const = np.bincount(enc_prior[0], weights=(enc_prior[2] * self.w[enc_prior[1]]), minlength=sz)
+        norm_const = np.bincount(
+            enc_prior[0], weights=(enc_prior[2] * self.w[enc_prior[1]]), minlength=sz
+        )
         norm_const = np.log(norm_const[enc_prior_flag])
 
         ll_mat[~enc_prior_flag, :] = self.log_w
@@ -153,33 +198,38 @@ class SemiSupervisedMixtureDistribution(SequenceEncodableProbabilityDistribution
             np.log(ll_sum, out=ll_sum)
             ll_sum += ll_max
 
-            return ll_sum.flatten()
+            return np.asarray(ll_sum.flatten(), dtype=float)
 
-        else:
-            ll_mat = ll_mat[good_rows, :]
-            ll_max = ll_max[good_rows]
+        ll_mat = ll_mat[good_rows, :]
+        ll_max = ll_max[good_rows]
 
-            ll_mat -= ll_max
-            np.exp(ll_mat, out=ll_mat)
-            ll_sum = np.sum(ll_mat, axis=1, keepdims=True)
-            np.log(ll_sum, out=ll_sum)
-            ll_sum += ll_max
-            rv = np.zeros(good_rows.shape, dtype=float)
-            rv[good_rows] = ll_sum.flatten()
-            rv[~good_rows] = -np.inf
+        ll_mat -= ll_max
+        np.exp(ll_mat, out=ll_mat)
+        ll_sum = np.sum(ll_mat, axis=1, keepdims=True)
+        np.log(ll_sum, out=ll_sum)
+        ll_sum += ll_max
+        rv = np.zeros(good_rows.shape, dtype=float)
+        rv[good_rows] = ll_sum.flatten()
+        rv[~good_rows] = -np.inf
 
-            return rv
+        return np.asarray(rv, dtype=float)
 
-    def seq_posterior(self, x: 'SemiSupervisedMixtureEncodedDataSequence') -> np.ndarray:
+    def seq_posterior(
+        self, x: "SemiSupervisedMixtureEncodedDataSequence"
+    ) -> np.ndarray:
 
         if not isinstance(x, SemiSupervisedMixtureEncodedDataSequence):
-            raise Exception('Requires SemiSupervisedMixtureEncodedDataSequence for `seq_` calls.')
+            raise TypeError(
+                "Requires SemiSupervisedMixtureEncodedDataSequence for `seq_` calls."
+            )
 
-        sz, enc_data, (enc_prior, enc_prior_sum, enc_prior_flag), _ = x.data
+        sz, enc_data, (enc_prior, _enc_prior_sum, enc_prior_flag), _ = x.data
         ll_mat = np.zeros((sz, self.num_components))
         ll_mat.fill(-np.inf)
 
-        norm_const = np.bincount(enc_prior[0], weights=(enc_prior[2] * self.w[enc_prior[1]]), minlength=sz)
+        norm_const = np.bincount(
+            enc_prior[0], weights=(enc_prior[2] * self.w[enc_prior[1]]), minlength=sz
+        )
         norm_const = np.log(norm_const[enc_prior_flag])
 
         ll_mat[~enc_prior_flag, :] = self.log_w
@@ -203,45 +253,64 @@ class SemiSupervisedMixtureDistribution(SequenceEncodableProbabilityDistribution
         ll_sum = np.sum(ll_mat, axis=1, keepdims=True)
         ll_mat /= ll_sum
 
-        return ll_mat
+        return np.asarray(ll_mat, dtype=float)
 
-    def sampler(self, seed: Optional[int] = None) -> 'SemiSupervisedMixtureSampler':
+    def sampler(self, seed: Optional[int] = None) -> "SemiSupervisedMixtureSampler":
         return SemiSupervisedMixtureSampler(self, seed)
 
-    def estimator(self, pseudo_count: Optional[float] = None) -> 'SemiSupervisedMixtureEstimator':
+    def estimator(
+        self, pseudo_count: Optional[float] = None
+    ) -> "SemiSupervisedMixtureEstimator":
         if pseudo_count is not None:
             return SemiSupervisedMixtureEstimator(
-                [u.estimator(pseudo_count=1.0 / self.num_components) for u in self.components],
-                pseudo_count=pseudo_count, name=self.name)
-        else:
-            return SemiSupervisedMixtureEstimator([u.estimator() for u in self.components], name=self.name)
+                [
+                    u.estimator(pseudo_count=1.0 / self.num_components)
+                    for u in self.components
+                ],
+                pseudo_count=pseudo_count,
+                name=self.name,
+            )
+        return SemiSupervisedMixtureEstimator(
+            [u.estimator() for u in self.components], name=self.name
+        )
 
-    def dist_to_encoder(self) -> 'SemiSupervisedMixtureDataEncoder':
-        return SemiSupervisedMixtureDataEncoder(encoder=self.components[0].dist_to_encoder())
+    def dist_to_encoder(self) -> "SemiSupervisedMixtureDataEncoder":
+        return SemiSupervisedMixtureDataEncoder(
+            encoder=self.components[0].dist_to_encoder()
+        )
 
 
 class SemiSupervisedMixtureSampler(DistributionSampler):
 
-    def __init__(self, dist: SemiSupervisedMixtureDistribution, seed: Optional[int] = None) -> None:
+    def __init__(
+        self, dist: SemiSupervisedMixtureDistribution, seed: Optional[int] = None
+    ) -> None:
+        super().__init__(dist, seed)
         rng_loc = RandomState(seed)
         self.rng = RandomState(rng_loc.randint(0, maxrandint))
         self.dist = dist
-        self.comp_samplers = [d.sampler(seed=rng_loc.randint(0, maxrandint)) for d in self.dist.components]
+        self.comp_samplers = [
+            d.sampler(seed=rng_loc.randint(0, maxrandint)) for d in self.dist.components
+        ]
 
     def sample(self, size: Optional[int] = None) -> Union[Sequence[Any], Any]:
-        comp_state = self.rng.choice(range(0, self.dist.num_components), size=size, replace=True, p=self.dist.w)
+        comp_state = self.rng.choice(
+            range(0, self.dist.num_components), size=size, replace=True, p=self.dist.w
+        )
 
         if size is None:
             return self.comp_samplers[comp_state].sample()
-        else:
-            return [self.comp_samplers[i].sample() for i in comp_state]
+        return [self.comp_samplers[i].sample() for i in comp_state]
 
 
 class SemiSupervisedMixtureEstimatorAccumulator(SequenceEncodableStatisticAccumulator):
 
-    def __init__(self, accumulators: Sequence[SequenceEncodableStatisticAccumulator],
-                 keys: Optional[Tuple[Optional[str], Optional[str]]] = (None, None),
-                 name: Optional[str] = None) -> None:
+    def __init__(
+        self,
+        accumulators: Sequence[SequenceEncodableStatisticAccumulator],
+        keys: Optional[Tuple[Optional[str], Optional[str]]] = (None, None),
+        name: Optional[str] = None,
+    ) -> None:
         self.accumulators = accumulators
         self.num_components = len(accumulators)
         self.comp_counts = np.zeros(self.num_components, dtype=float)
@@ -249,19 +318,26 @@ class SemiSupervisedMixtureEstimatorAccumulator(SequenceEncodableStatisticAccumu
         self.name = name
 
         self._init_rng = False
-        self._acc_rng = None
-        self._w_rng = None
+        self._acc_rng: Optional[List[RandomState]] = None
+        self._w_rng: Optional[RandomState] = None
+        self._prior_rng: Optional[RandomState] = None
 
-    def update(self, x: Tuple[T0, Optional[Sequence[Tuple[int, T1]]]], weight: float,
-               estimate: SemiSupervisedMixtureDistribution) -> None:
+    def update(
+        self,
+        x: Tuple[T0, Optional[Sequence[Tuple[int, float]]]],
+        weight: float,
+        estimate: SemiSupervisedMixtureDistribution,
+    ) -> None:
 
         likelihood = estimate.posterior(x)
-        datum, prior = x
+        datum, _prior = x
 
         self.comp_counts += likelihood * weight
 
         for i in range(self.num_components):
-            self.accumulators[i].update(datum, likelihood[i] * weight, estimate.components[i])
+            self.accumulators[i].update(
+                datum, likelihood[i] * weight, estimate.components[i]
+            )
 
     def _rng_initialize(self, rng: RandomState) -> None:
         if not self._init_rng:
@@ -270,15 +346,25 @@ class SemiSupervisedMixtureEstimatorAccumulator(SequenceEncodableStatisticAccumu
             self._prior_rng = RandomState(seed=rng.randint(maxrandint))
 
             seeds = rng.randint(maxrandint, size=self.num_components)
-            self._acc_rng = [RandomState(seed=seeds[i]) for i in range(self.num_components)]
+            self._acc_rng = [
+                RandomState(seed=seeds[i]) for i in range(self.num_components)
+            ]
 
             self._init_rng = True
 
-    def initialize(self, x: Tuple[T0, Optional[Sequence[Tuple[int, T1]]]], weight: float, rng: RandomState) -> None:
+    def initialize(
+        self,
+        x: Tuple[T0, Optional[Sequence[Tuple[int, float]]]],
+        weight: float,
+        rng: RandomState,
+    ) -> None:
         datum, prior = x
 
         if not self._init_rng:
             self._rng_initialize(rng)
+
+        assert self._prior_rng is not None
+        assert self._acc_rng is not None
 
         if prior is None:
             idx = self._prior_rng.choice(self.num_components)
@@ -297,18 +383,32 @@ class SemiSupervisedMixtureEstimatorAccumulator(SequenceEncodableStatisticAccumu
                 self.accumulators[i].initialize(datum, ww, self._acc_rng[i])
                 self.comp_counts[i] += ww
 
-    def seq_initialize(self, x: 'SemiSupervisedMixtureEncodedDataSequence', weights: np.ndarray, rng: RandomState) -> None:
-        sz, enc_data, (enc_prior, enc_prior_sum, enc_prior_flag), xx = x.data
-        for i in range(len(xx)):
-            self.initialize(xx[i], weights[i], rng=rng)
+    def seq_initialize(
+        self,
+        x: "SemiSupervisedMixtureEncodedDataSequence",
+        weights: np.ndarray,
+        rng: RandomState,
+    ) -> None:
+        _sz, _enc_data, (_enc_prior, _enc_prior_sum, _enc_prior_flag), xx = x.data
+        for i, xx_i in enumerate(xx):
+            self.initialize(xx_i, weights[i], rng=rng)
 
-    def seq_update(self, x: 'SemiSupervisedMixtureEncodedDataSequence', weights: np.ndarray, estimate: SemiSupervisedMixtureDistribution) -> None:
+    def seq_update(
+        self,
+        x: "SemiSupervisedMixtureEncodedDataSequence",
+        weights: np.ndarray,
+        estimate: SemiSupervisedMixtureDistribution,
+    ) -> None:
 
-        sz, enc_data, (enc_prior, enc_prior_sum, enc_prior_flag), _ = x.data
+        sz, enc_data, (enc_prior, _enc_prior_sum, enc_prior_flag), _ = x.data
         ll_mat = np.zeros((sz, estimate.num_components))
         ll_mat.fill(-np.inf)
 
-        norm_const = np.bincount(enc_prior[0], weights=(enc_prior[2] * estimate.w[enc_prior[1]]), minlength=sz)
+        norm_const = np.bincount(
+            enc_prior[0],
+            weights=(enc_prior[2] * estimate.w[enc_prior[1]]),
+            minlength=sz,
+        )
         norm_const = np.log(norm_const[enc_prior_flag])
 
         ll_mat[~enc_prior_flag, :] = estimate.log_w
@@ -335,7 +435,9 @@ class SemiSupervisedMixtureEstimatorAccumulator(SequenceEncodableStatisticAccumu
             self.comp_counts[i] += w_loc.sum()
             self.accumulators[i].seq_update(enc_data, w_loc, estimate.components[i])
 
-    def combine(self, suff_stat: Tuple[np.ndarray, Tuple[SS0, ...]]) -> 'SemiSupervisedMixtureEstimatorAccumulator':
+    def combine(
+        self, suff_stat: Tuple[np.ndarray, Tuple[SS0, ...]]
+    ) -> "SemiSupervisedMixtureEstimatorAccumulator":
 
         self.comp_counts += suff_stat[0]
         for i in range(self.num_components):
@@ -344,9 +446,11 @@ class SemiSupervisedMixtureEstimatorAccumulator(SequenceEncodableStatisticAccumu
         return self
 
     def value(self) -> Tuple[np.ndarray, Tuple[Any, ...]]:
-        return self.comp_counts, tuple([u.value() for u in self.accumulators])
+        return self.comp_counts, tuple(u.value() for u in self.accumulators)
 
-    def from_value(self, x: Tuple[np.ndarray, Tuple[SS0, ...]]) -> 'SemiSupervisedMixtureEstimatorAccumulator':
+    def from_value(
+        self, x: Tuple[np.ndarray, Tuple[SS0, ...]]
+    ) -> "SemiSupervisedMixtureEstimatorAccumulator":
         self.comp_counts = x[0]
         for i in range(self.num_components):
             self.accumulators[i].from_value(x[1][i])
@@ -363,8 +467,8 @@ class SemiSupervisedMixtureEstimatorAccumulator(SequenceEncodableStatisticAccumu
         if self.comp_key is not None:
             if self.comp_key in stats_dict:
                 acc = stats_dict[self.comp_key]
-                for i in range(len(acc)):
-                    acc[i] = acc[i].combine(self.accumulators[i].value())
+                for i, acc_i in enumerate(acc):
+                    acc_i = acc_i.combine(self.accumulators[i].value())
             else:
                 stats_dict[self.comp_key] = self.accumulators
 
@@ -385,52 +489,72 @@ class SemiSupervisedMixtureEstimatorAccumulator(SequenceEncodableStatisticAccumu
         for u in self.accumulators:
             u.key_replace(stats_dict)
 
-    def acc_to_encoder(self) -> 'SemiSupervisedMixtureDataEncoder':
-        return SemiSupervisedMixtureDataEncoder(encoder=self.accumulators[0].acc_to_encoder())
+    def acc_to_encoder(self) -> "SemiSupervisedMixtureDataEncoder":
+        return SemiSupervisedMixtureDataEncoder(
+            encoder=self.accumulators[0].acc_to_encoder()
+        )
 
 
 class SemiSupervisedMixtureEstimatorAccumulatorFactory(StatisticAccumulatorFactory):
-    def __init__(self, factories: Sequence[StatisticAccumulatorFactory], dim: int,
-                 keys: Optional[Tuple[Optional[str], Optional[str]]] = (None, None),
-                 name: Optional[str] = None):
+    def __init__(
+        self,
+        factories: Sequence[StatisticAccumulatorFactory],
+        dim: int,
+        keys: Optional[Tuple[Optional[str], Optional[str]]] = (None, None),
+        name: Optional[str] = None,
+    ):
         self.factories = factories
         self.dim = dim
         self.keys = keys if keys is not None else (None, None)
         self.name = name
 
-    def make(self) -> 'SemiSupervisedMixtureEstimatorAccumulator':
-        return SemiSupervisedMixtureEstimatorAccumulator([self.factories[i].make() for i in range(self.dim)], self.keys,
-                                                         self.name)
+    def make(self) -> "SemiSupervisedMixtureEstimatorAccumulator":
+        return SemiSupervisedMixtureEstimatorAccumulator(
+            [self.factories[i].make() for i in range(self.dim)], self.keys, self.name
+        )
 
 
 class SemiSupervisedMixtureEstimator(ParameterEstimator):
-    """SemiSupervisedMixtureEstimator object for estimating SemiSupervisedMixtureDistribution from aggregated
+    """SemiSupervisedMixtureEstimator object for estimating
+    SemiSupervisedMixtureDistribution from aggregated
         sufficient statistics.
 
     Attributes:
-        estimators (Sequence[ParameterEstimator]): Sequence of ParameterEstimators objects for the components of
+        estimators (Sequence[ParameterEstimator]): Sequence of ParameterEstimators
+            objects for the components of
             the mixture. All must be of the same class compatible with data type T.
-        suff_stat (Optional[np.ndarray]): Mixture weights for components obtained from prev estimation or for
+        suff_stat (Optional[np.ndarray]): Mixture weights for components obtained from
+            prev estimation or for
             regularization.
-        pseudo_count (Optional[float]): Re-weight sufficient statistics, i.e. penalize sufficient statistics.
-        keys (Optional[Tuple[Optional[str], Optional[str]]]): Set keys for the weights and components.
+        pseudo_count (Optional[float]): Re-weight sufficient statistics, i.e. penalize
+            sufficient statistics.
+        keys (Optional[Tuple[Optional[str], Optional[str]]]): Set keys for the weights
+            and components.
         name (Optional[str]): Set name for object.
 
     """
-    def __init__(self, estimators: Sequence[ParameterEstimator],
-                 suff_stat: Optional[np.ndarray] = None,
-                 pseudo_count: Optional[float] = None,
-                 keys: Optional[Tuple[Optional[str], Optional[str]]] = (None, None),
-                 name: Optional[str] = None) -> None:
+
+    def __init__(
+        self,
+        estimators: Sequence[ParameterEstimator],
+        suff_stat: Optional[np.ndarray] = None,
+        pseudo_count: Optional[float] = None,
+        keys: Optional[Tuple[Optional[str], Optional[str]]] = (None, None),
+        name: Optional[str] = None,
+    ) -> None:
         """SemiSupervisedMixtureEstimator object.
 
         Args:
-            estimators (Sequence[ParameterEstimator]): Sequence of ParameterEstimators objects for the components of
+            estimators (Sequence[ParameterEstimator]): Sequence of ParameterEstimators
+                objects for the components of
                 the mixture. All must be of the same class compatible with data type T.
-            suff_stat (Optional[np.ndarray]): Mixture weights for components obtained from prev estimation or for
+            suff_stat (Optional[np.ndarray]): Mixture weights for components obtained
+                from prev estimation or for
                 regularization.
-            pseudo_count (Optional[float]): Re-weight sufficient statistics, i.e. penalize sufficient statistics.
-            keys (Optional[Tuple[Optional[str], Optional[str]]]): Set keys for the weights and components.
+            pseudo_count (Optional[float]): Re-weight sufficient statistics, i.e.
+                penalize sufficient statistics.
+            keys (Optional[Tuple[Optional[str], Optional[str]]]): Set keys for the
+                weights and components.
             name (Optional[str]): Set name for object.
 
         """
@@ -442,17 +566,22 @@ class SemiSupervisedMixtureEstimator(ParameterEstimator):
         self.keys = keys if keys is not None else (None, None)
         self.name = name
 
-    def accumulator_factory(self) -> 'SemiSupervisedMixtureEstimatorAccumulatorFactory':
+    def accumulator_factory(self) -> "SemiSupervisedMixtureEstimatorAccumulatorFactory":
         est_factories = [u.accumulator_factory() for u in self.estimators]
-        return SemiSupervisedMixtureEstimatorAccumulatorFactory(est_factories, self.num_components, self.keys,
-                                                                self.name)
+        return SemiSupervisedMixtureEstimatorAccumulatorFactory(
+            est_factories, self.num_components, self.keys, self.name
+        )
 
-    def estimate(self, nobs: Optional[float], suff_stat: Tuple[np.ndarray, Tuple[SS0, ...]]) \
-            -> 'SemiSupervisedMixtureDistribution':
+    def estimate(
+        self, nobs: Optional[float], suff_stat: Tuple[np.ndarray, Tuple[SS0, ...]]
+    ) -> "SemiSupervisedMixtureDistribution":
         num_components = self.num_components
         counts, comp_suff_stats = suff_stat
 
-        components = [self.estimators[i].estimate(counts[i], comp_suff_stats[i]) for i in range(num_components)]
+        components = [
+            self.estimators[i].estimate(counts[i], comp_suff_stats[i])
+            for i in range(num_components)
+        ]
 
         if self.pseudo_count is not None and self.suff_stat is None:
             p = self.pseudo_count / num_components
@@ -460,7 +589,9 @@ class SemiSupervisedMixtureEstimator(ParameterEstimator):
             w /= w.sum()
 
         elif self.pseudo_count is not None and self.suff_stat is not None:
-            w = (counts + self.suff_stat * self.pseudo_count) / (counts.sum() + self.pseudo_count)
+            w = (counts + self.suff_stat * self.pseudo_count) / (
+                counts.sum() + self.pseudo_count
+            )
         else:
 
             nobs_loc = counts.sum()
@@ -472,27 +603,28 @@ class SemiSupervisedMixtureEstimator(ParameterEstimator):
 
         return SemiSupervisedMixtureDistribution(components, w)
 
+
 class SemiSupervisedMixtureDataEncoder(DataSequenceEncoder):
 
     def __init__(self, encoder: DataSequenceEncoder):
         self.encoder = encoder
 
     def __str__(self) -> str:
-        return 'SemiSupervisedMixtureDataEncoder(encoder=' + str(self.encoder) + ')'
+        return "SemiSupervisedMixtureDataEncoder(encoder=" + str(self.encoder) + ")"
 
     def __eq__(self, other: object) -> bool:
         if isinstance(other, SemiSupervisedMixtureDataEncoder):
             return self.encoder == other.encoder
-        else:
-            return False
+        return False
 
-    def seq_encode(self, x: Sequence[Tuple[T0, Optional[Sequence[Tuple[int, T1]]]]]) \
-            -> 'SemiSupervisedMixtureEncodedDataSequence':
+    def seq_encode(
+        self, x: Sequence[Tuple[T0, Optional[Sequence[Tuple[int, float]]]]]
+    ) -> "SemiSupervisedMixtureEncodedDataSequence":
 
-        prior_comp = []
-        prior_idx = []
-        prior_val = []
-        data = []
+        prior_comp: List[int] = []
+        prior_idx: List[int] = []
+        prior_val: List[float] = []
+        data: List[T0] = []
 
         for i, xi in enumerate(x):
             datum, prior = xi
@@ -503,16 +635,26 @@ class SemiSupervisedMixtureDataEncoder(DataSequenceEncoder):
                     prior_comp.append(prior_entry[0])
                     prior_val.append(prior_entry[1])
 
-        prior_comp = np.asarray(prior_comp, dtype=int)
-        prior_idx = np.asarray(prior_idx, dtype=int)
-        prior_val = np.asarray(prior_val, dtype=float)
+        prior_comp_arr = np.asarray(prior_comp, dtype=int)
+        prior_idx_arr = np.asarray(prior_idx, dtype=int)
+        prior_val_arr = np.asarray(prior_val, dtype=float)
 
-        prior_mat = (prior_idx, prior_comp, prior_val, np.log(prior_val))
+        prior_mat = (
+            prior_idx_arr,
+            prior_comp_arr,
+            prior_val_arr,
+            np.log(prior_val_arr),
+        )
 
-        prior_sum = np.bincount(prior_idx, weights=prior_val, minlength=len(x))
+        prior_sum = np.bincount(prior_idx_arr, weights=prior_val_arr, minlength=len(x))
         has_prior = prior_sum != 0
 
-        rv_enc = len(x), self.encoder.seq_encode(data), (prior_mat, prior_sum, has_prior), x
+        rv_enc = (
+            len(x),
+            self.encoder.seq_encode(data),
+            (prior_mat, prior_sum, has_prior),
+            x,
+        )
         return SemiSupervisedMixtureEncodedDataSequence(data=rv_enc)
 
 
@@ -540,5 +682,4 @@ class SemiSupervisedMixtureEncodedDataSequence(EncodedDataSequence):
         super().__init__(data=data)
 
     def __repr__(self) -> str:
-        return f'SemiSupervisedMixtureEncodedDataSequence(data={self.data})'
-
+        return f"SemiSupervisedMixtureEncodedDataSequence(data={self.data})"

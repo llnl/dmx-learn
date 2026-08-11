@@ -3,7 +3,8 @@
 Defines the NullDistribution, NullSampler, NullAccumulatorFactory, NullAccumulator,
 NullEstimator, and the NullDataEncoder classes for use with dmx-learn.
 
-The NullDistribution object and its related classes are space filling objects meant for consistency in type hints.
+The NullDistribution object and its related classes are space filling objects meant for
+consistency in type hints.
 
 Notes:
     The density evaluates to 1.0 for any value (Any data type).
@@ -11,13 +12,21 @@ Notes:
     Sequence encodings return None for any input.
 
 """
-from typing import Any, Optional, Dict
+
+from typing import Any, Dict, Optional
 
 import numpy as np
-from numpy.random import RandomState
+
 import dmx.utils.vector as vec
-from dmx.stats.pdist import SequenceEncodableProbabilityDistribution, ParameterEstimator, DistributionSampler, \
-    StatisticAccumulatorFactory, SequenceEncodableStatisticAccumulator, DataSequenceEncoder, EncodedDataSequence
+from dmx.stats.pdist import (
+    DataSequenceEncoder,
+    DistributionSampler,
+    EncodedDataSequence,
+    ParameterEstimator,
+    SequenceEncodableProbabilityDistribution,
+    SequenceEncodableStatisticAccumulator,
+    StatisticAccumulatorFactory,
+)
 
 
 class NullDistribution(SequenceEncodableProbabilityDistribution):
@@ -35,10 +44,11 @@ class NullDistribution(SequenceEncodableProbabilityDistribution):
             name (Optional[str]): Name for object.
 
         """
+        super().__init__()
         self.name = name
 
     def __str__(self) -> str:
-        return 'NullDistribution(name=%s)' % repr(self.name)
+        return f"NullDistribution(name={repr(self.name)})"
 
     def density(self, x: Optional[Any]) -> float:
         """Density for NullDistribution.
@@ -64,20 +74,19 @@ class NullDistribution(SequenceEncodableProbabilityDistribution):
         """
         return 0.0
 
-    def seq_log_density(self, x: 'NullEncodedDataSequence') -> np.ndarray:
+    def seq_log_density(self, x: "NullEncodedDataSequence") -> np.ndarray:
         return vec.zeros(1)
 
-    def sampler(self, seed: Optional[int] = None) -> 'NullSampler':
+    def sampler(self, seed: Optional[int] = None) -> "NullSampler":
         return NullSampler(dist=self, seed=seed)
 
-    def estimator(self, pseudo_count: Optional[float] = None) -> 'NullEstimator':
+    def estimator(self, pseudo_count: Optional[float] = None) -> "NullEstimator":
         if pseudo_count is None:
             return NullEstimator(name=self.name)
 
-        else:
-            return NullEstimator(pseudo_count=pseudo_count, name=self.name)
+        return NullEstimator(pseudo_count=pseudo_count, name=self.name)
 
-    def dist_to_encoder(self) -> 'NullDataEncoder':
+    def dist_to_encoder(self) -> "NullDataEncoder":
         return NullDataEncoder()
 
 
@@ -85,7 +94,8 @@ class NullSampler(DistributionSampler):
     """NullSampler object, always generates None as sample type.
 
     Note:
-        This generally serves as a place-holder for consistency with other classes. Try to remove it before sampling.
+        This generally serves as a place-holder for consistency with other classes. Try
+        to remove it before sampling.
 
     Attributes:
         rng (RandomState): For consistency with other samplers.
@@ -93,7 +103,7 @@ class NullSampler(DistributionSampler):
 
     """
 
-    def __init__(self, dist: 'NullDistribution', seed: Optional[int] = None) -> None:
+    def __init__(self, dist: "NullDistribution", seed: Optional[int] = None) -> None:
         """NullSampler object.
 
         Args:
@@ -101,8 +111,7 @@ class NullSampler(DistributionSampler):
             dist (NullDistribution): For consistency with other samplers.
 
         """
-        self.rng = RandomState(seed)
-        self.dist = dist
+        super().__init__(dist, seed)
 
     def sample(self, size: Optional[int] = None) -> None:
         """Generate samples from NullDistribution.
@@ -123,7 +132,8 @@ class NullAccumulator(SequenceEncodableStatisticAccumulator):
     """NullAccumulator object for accumulating sufficient statistics.
 
     Notes:
-        All functions do nothing. They are kept for consistency with other classes to ensure type checks.
+        All functions do nothing. They are kept for consistency with other classes to
+        ensure type checks.
 
     Attributes:
         keys (Optional[str]): Set key for distribution.
@@ -141,31 +151,40 @@ class NullAccumulator(SequenceEncodableStatisticAccumulator):
         """
         self.key = keys
 
-    def update(self, x: Optional[Any], weight: float, estimate: Optional['NullDistribution']) -> None:
+    def update(
+        self, x: Optional[Any], weight: float, estimate: Optional["NullDistribution"]
+    ) -> None:
         pass
 
-    def seq_update(self,
-                   x: 'NullEncodedDataSequence',
-                   weights: np.ndarray,
-                   estimate: Optional['NullDistribution']) -> None:
+    def seq_update(
+        self,
+        x: "NullEncodedDataSequence",
+        weights: np.ndarray,
+        estimate: Optional["NullDistribution"],
+    ) -> None:
         pass
 
-    def initialize(self, x: Optional[Any], weight: float, rng: Optional['np.random.RandomState']) -> None:
+    def initialize(
+        self, x: Optional[Any], weight: float, rng: Optional["np.random.RandomState"]
+    ) -> None:
+        del rng
         self.update(x, weight, None)
 
-    def seq_initialize(self,
-                       x: 'NullEncodedDataSequence',
-                       weights: np.ndarray,
-                       rng: np.random.RandomState) -> None:
+    def seq_initialize(
+        self,
+        x: "NullEncodedDataSequence",
+        weights: np.ndarray,
+        rng: np.random.RandomState,
+    ) -> None:
         self.seq_update(x, weights, None)
 
-    def combine(self, suff_stat: Optional[Any]) -> 'NullAccumulator':
+    def combine(self, suff_stat: Optional[Any]) -> "NullAccumulator":
         return self
 
     def value(self) -> None:
         return None
 
-    def from_value(self, x: Optional[Any]) -> 'NullAccumulator':
+    def from_value(self, x: Optional[Any]) -> "NullAccumulator":
         return self
 
     def key_merge(self, stats_dict: Dict[str, Any]) -> None:
@@ -178,7 +197,7 @@ class NullAccumulator(SequenceEncodableStatisticAccumulator):
     def key_replace(self, stats_dict: Dict[str, Any]) -> None:
         pass
 
-    def acc_to_encoder(self) -> 'NullDataEncoder':
+    def acc_to_encoder(self) -> "NullDataEncoder":
         return NullDataEncoder()
 
 
@@ -186,7 +205,8 @@ class NullAccumulatorFactory(StatisticAccumulatorFactory):
     """NullAccumulatorFactory object for creating NullAccumulator objects.
 
     Notes:
-        All functions do nothing. They are kept for consistency with other classes to ensure type checks.
+        All functions do nothing. They are kept for consistency with other classes to
+        ensure type checks.
 
     Attributes:
         keys (Optional[str]): Set key for distribution.
@@ -203,7 +223,7 @@ class NullAccumulatorFactory(StatisticAccumulatorFactory):
         """
         self.keys = keys
 
-    def make(self) -> 'NullAccumulator':
+    def make(self) -> "NullAccumulator":
         return NullAccumulator(keys=self.keys)
 
 
@@ -216,23 +236,27 @@ class NullEstimator(ParameterEstimator):
     Attributes:
         pseudo_count (Optional[float]): Regularize sufficient statistics (ignored).
         suff_stat (Optional[Any]): Can pass anything, is simply ignored.
-        keys (Optional[str]): Key for distribution (not meaningful as all estimates are NullDistribution())
+        keys (Optional[str]): Key for distribution (not meaningful as all estimates are
+            NullDistribution())
         name (Optional[str]): Name for estimator.
 
 
     """
 
-    def __init__(self,
-                 pseudo_count: Optional[float] = None,
-                 suff_stat: Optional[Any] = None,
-                 name: Optional[str] = None,
-                 keys: Optional[str] = None) -> None:
+    def __init__(
+        self,
+        pseudo_count: Optional[float] = None,
+        suff_stat: Optional[Any] = None,
+        name: Optional[str] = None,
+        keys: Optional[str] = None,
+    ) -> None:
         """NullEstimator object.
 
         Args:
             pseudo_count (Optional[float]): Regularize sufficient statistics (ignored).
             suff_stat (Optional[Any]): Can pass anything, is simply ignored.
-            keys (Optional[str]): Key for distribution (not meaningful as all estimates are NullDistribution())
+            keys (Optional[str]): Key for distribution (not meaningful as all estimates
+                are NullDistribution())
             name (Optional[str]): Name for estimator.
 
 
@@ -247,10 +271,12 @@ class NullEstimator(ParameterEstimator):
         self.keys = keys
         self.name = name
 
-    def accumulator_factory(self) -> 'NullAccumulatorFactory':
+    def accumulator_factory(self) -> "NullAccumulatorFactory":
         return NullAccumulatorFactory(self.keys)
 
-    def estimate(self, nobs: Optional[float], suff_stat: Optional[Any] = None) -> 'NullDistribution':
+    def estimate(
+        self, nobs: Optional[float], suff_stat: Optional[Any] = None
+    ) -> "NullDistribution":
         return NullDistribution(name=self.name)
 
 
@@ -264,13 +290,14 @@ class NullDataEncoder(DataSequenceEncoder):
     """
 
     def __str__(self) -> str:
-        return 'NullDataEncoder'
+        return "NullDataEncoder"
 
-    def __eq__(self, other) -> bool:
+    def __eq__(self, other: object) -> bool:
         return isinstance(other, NullDataEncoder)
 
-    def seq_encode(self, x: Any) -> 'NullEncodedDataSequence':
+    def seq_encode(self, x: Any) -> "NullEncodedDataSequence":
         return NullEncodedDataSequence(data=None)
+
 
 class NullEncodedDataSequence(EncodedDataSequence):
     """NullEncodedDataSequence object for vectorized calls.
@@ -282,7 +309,8 @@ class NullEncodedDataSequence(EncodedDataSequence):
         data (None): None is passed as placeholder.
 
     """
-    def __init__(self, data: None):
+
+    def __init__(self, data: None) -> None:
         """NullEncodedDataSequence object..
 
         Args:
@@ -290,8 +318,6 @@ class NullEncodedDataSequence(EncodedDataSequence):
 
         """
         super().__init__(data=data)
-        
+
     def __repr__(self) -> str:
-        return 'NullEncodedDataSequence(data=None}'
-    
-    
+        return "NullEncodedDataSequence(data=None}"

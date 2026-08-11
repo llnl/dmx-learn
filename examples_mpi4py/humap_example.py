@@ -1,16 +1,21 @@
 """Example of fitting heterogenous umap fitting with mpi4py.
 
-Run with mpiexec -n 4 pytest humap_example.py
+Run with mpiexec -n 4 python3 examples_mpi4py/humap_example.py
 
 """
+
+# pylint: disable=duplicate-code
+
 import os
 import pickle
-from mpi4py import MPI
+from typing import Any
+
+from mpi4py import MPI  # pylint: disable=no-name-in-module
 
 from dmx.mpi4py.utils.humap import humap_mpi
 from dmx.mpi4py.utils.optsutil import pickle_on_master
 
-PATH_TO_DATA = "dmx/mpi4py/examples/data"
+PATH_TO_DATA = "examples_mpi4py/data"
 
 comm = MPI.COMM_WORLD
 world_rank = comm.Get_rank()
@@ -27,25 +32,25 @@ if __name__ == "__main__":
         data = None
 
     # These are the parameters that are passed to UMAP fit
-    umap_kwargs = {
-        'n_neighbors': 15,
-        'min_dist': 0.2,
-        'random_state': 42
-    }
-
+    umap_kwargs = {"n_neighbors": 15, "min_dist": 0.2, "random_state": 42}
 
     results = humap_mpi(data=data, seed=1, umap_kwargs=umap_kwargs)
-    
+
+    rv: dict[str, Any] | None
+
     # you can access the results on the master node
     if world_rank == 0:
-        # umap embeddings, mixture model fit, the umap fit, and the posterior embeddings used for UMAP
+        if results is None:
+            raise RuntimeError("HUMAP MPI did not return results on rank 0.")
+
+        # UMAP embeddings, mixture model fit, the UMAP fit, and the posteriors.
         embeddings, mix_model, fit, posteriors = results
 
         rv = {
             "embeddings": embeddings,
             "mix_model": mix_model,
             "umap_fit": fit,
-            "posteriors": posteriors
+            "posteriors": posteriors,
         }
 
     else:

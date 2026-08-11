@@ -1,42 +1,48 @@
-"""Example for DiagonalGaussianMixtureDistribution. Define distribution, 
-generate data, estimate, and evaluate likelihoods.
+"""Fit a diagonal Gaussian mixture model to simulated clustered data."""
 
-This is a fast implementation of Mixture([DiagonalGaussianDistribution()]*K).
+# pylint: disable=duplicate-code
 
-""" 
+from typing import Any, Sequence, cast
+
+import numpy as np
 from numpy.random import RandomState
-from dmx.stats import *
+
+from dmx.stats import (
+    DiagonalGaussianMixtureDistribution,
+    DiagonalGaussianMixtureEstimator,
+    seq_encode,
+)
 from dmx.utils.estimation import optimize
 
-if __name__ == '__main__':
+if __name__ == "__main__":
     n = int(1e4)
     rng = RandomState(1)
     # Define the model
     mu = [[0.0, 0.0], [5.0, 5.0], [10.0, 10.0]]
-    covar = [[1.0, 1.0]]*3
+    covar = [[1.0, 1.0]] * 3
     w = [0.50, 0.40, 0.10]
     dist = DiagonalGaussianMixtureDistribution(mu=mu, covar=covar, w=w)
     # Generate data from sampler
     sampler = dist.sampler(seed=1)
-    data = sampler.sample(n)
+    data = cast(Sequence[np.ndarray], sampler.sample(n))
     # Print out a few samples
     print(data[:5])
     # Define estimator
-    est = DiagonalGaussianMixtureEstimator(
-            num_components=3,
-            dim=2,
-            tied=True) 
+    est = DiagonalGaussianMixtureEstimator(num_components=3, dim=2, tied=True)
     # Estimate model
-    model = optimize(data, est, max_its=100, rng=rng, print_iter=1)
+    model = cast(
+        DiagonalGaussianMixtureDistribution,
+        optimize(data, est, max_its=100, rng=rng, print_iter=1),
+    )
     print(str(model))
-    # Eval likelihood on a an observation 
+    # Eval likelihood on a an observation
     ll0 = model.log_density(data[0])
-    print(f'Likelihood of estimated model eval at {data[0]}: {ll0}')
+    print(f"Likelihood of estimated model eval at {data[0]}: {ll0}")
     # Encode data for vectorized calls
-    enc_data = seq_encode(data, model=model)[0][1]
+    enc_data = cast(Any, seq_encode(data, model=model)[0][1])
     # Eval likleihood at all data points (fast)
     ll = model.seq_log_density(enc_data)
-    print(f'Likelihood of estimated model on data: {ll}')
+    print(f"Likelihood of estimated model on data: {ll}")
     # Fast evaluation of the posterior
     post = model.seq_posterior(enc_data)
-    print(f'Posterior of each observed point: {post}')
+    print(f"Posterior of each observed point: {post}")

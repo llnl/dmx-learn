@@ -6,16 +6,14 @@ such as logarithms, exponentiation, and calculations involving pi, square roots,
 
 """
 
-from numpy import (
-    log,  # Natural logarithm
-    exp,  # Exponential function
-    pi,   # Mathematical constant π
-    sqrt, # Square root function
-    abs,  # Absolute value function
-    dot,  # Dot product of two arrays
-    isnan, # Check for NaN values
-    isinf  # Check for infinite values
-)
+from numpy import abs  # Absolute value function
+from numpy import dot  # Dot product of two arrays
+from numpy import exp  # Exponential function
+from numpy import isinf  # Check for infinite values
+from numpy import isnan  # Check for NaN values
+from numpy import log  # Natural logarithm
+from numpy import pi  # Mathematical constant π
+from numpy import sqrt  # Square root function
 
 # Constants
 maxint = 2**31 - 1  # Maximum value for a signed 32-bit integer
@@ -24,5 +22,5 @@ one = 1.0  # Floating-point representation of 1
 zero = 0.0  # Floating-point representation of 0
 two = 2.0  # Floating-point representation of 2
 half = 0.5  # Floating-point representation of 0.5
-inf = float('inf')  # Floating-point representation of infinity
+inf = float("inf")  # Floating-point representation of infinity
 eps = 1.0e-8  # Small value for numerical precision

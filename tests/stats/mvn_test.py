@@ -1,51 +1,66 @@
 """Test cases for Multivariate Gaussian Distribution and related classes."""
-from tests.stats.stats_tests import * 
+
+# pylint: disable=duplicate-code,wildcard-import,unused-wildcard-import,line-too-long
+# pylint: disable=too-many-instance-attributes,unnecessary-comprehension
+# pylint: disable=redefined-builtin
+
+import numpy as np
+import pytest
+
 from dmx.stats import *
 from dmx.stats.mvn import *
-import numpy as np
-import pytest 
+from tests.stats.stats_tests import *
 
-def gen_covar(seed, sz):
+
+def gen_covar(seed: int, sz: int) -> Any:
     x = np.random.RandomState(seed).rand(sz, sz)
     return x.T @ x
+
 
 class MultivariateGaussianDistributionTestCase(StatsTestClass):
 
     def setUp(self) -> None:
 
-        self.mu = [
-            [0., 5., 15.],
+        self.mu: list[Any] = [
+            [0.0, 5.0, 15.0],
             np.arange(0, 20, 4),
-            [0., 3.],
-            np.asarray([-10., -5.0, 0.0, 5.0, 10.])
+            [0.0, 3.0],
+            np.asarray([-10.0, -5.0, 0.0, 5.0, 10.0]),
         ]
         self.dim = [len(x) for x in self.mu]
         self.covar = [gen_covar(i, x) for i, x in enumerate(self.dim)]
-        
-        self.eval_dists = [
-            MultivariateGaussianDistribution(mu=self.mu[0], covar=self.covar[0], name='name', keys='keys'),
-            MultivariateGaussianDistribution(mu=self.mu[1], covar=self.covar[1], keys='keys'),
-            MultivariateGaussianDistribution(mu=self.mu[2], covar=self.covar[2], name='name'),
-            MultivariateGaussianDistribution(mu=self.mu[3], covar=self.covar[3])
 
+        self.eval_dists = [
+            MultivariateGaussianDistribution(
+                mu=self.mu[0], covar=self.covar[0], name="name", keys="keys"
+            ),
+            MultivariateGaussianDistribution(
+                mu=self.mu[1], covar=self.covar[1], keys="keys"
+            ),
+            MultivariateGaussianDistribution(
+                mu=self.mu[2], covar=self.covar[2], name="name"
+            ),
+            MultivariateGaussianDistribution(mu=self.mu[3], covar=self.covar[3]),
         ]
         self._ests = [
-            MultivariateGaussianEstimator(dim=self.dim[0], name='name', keys='keys'),
-            MultivariateGaussianEstimator(dim=self.dim[1], keys='keys'),
-            MultivariateGaussianEstimator(dim=self.dim[2], name='name'),
-            MultivariateGaussianEstimator(dim=self.dim[3])
+            MultivariateGaussianEstimator(dim=self.dim[0], name="name", keys="keys"),
+            MultivariateGaussianEstimator(dim=self.dim[1], keys="keys"),
+            MultivariateGaussianEstimator(dim=self.dim[2], name="name"),
+            MultivariateGaussianEstimator(dim=self.dim[3]),
         ]
         self._factories = [
-            MultivariateGaussianAccumulatorFactory(dim=self.dim[0], name='name', keys='keys'),
-            MultivariateGaussianAccumulatorFactory(dim=self.dim[1], keys='keys'),
-            MultivariateGaussianAccumulatorFactory(dim=self.dim[2], name='name'),
-            MultivariateGaussianAccumulatorFactory(dim=self.dim[3])
+            MultivariateGaussianAccumulatorFactory(
+                dim=self.dim[0], name="name", keys="keys"
+            ),
+            MultivariateGaussianAccumulatorFactory(dim=self.dim[1], keys="keys"),
+            MultivariateGaussianAccumulatorFactory(dim=self.dim[2], name="name"),
+            MultivariateGaussianAccumulatorFactory(dim=self.dim[3]),
         ]
         self._accumulators = [
-            MultivariateGaussianAccumulator(dim=self.dim[0], name='name', keys='keys'),
-            MultivariateGaussianAccumulator(dim=self.dim[1], keys='keys'),
-            MultivariateGaussianAccumulator(dim=self.dim[2], name='name'),
-            MultivariateGaussianAccumulator(dim=self.dim[3])
+            MultivariateGaussianAccumulator(dim=self.dim[0], name="name", keys="keys"),
+            MultivariateGaussianAccumulator(dim=self.dim[1], keys="keys"),
+            MultivariateGaussianAccumulator(dim=self.dim[2], name="name"),
+            MultivariateGaussianAccumulator(dim=self.dim[3]),
         ]
         self._encoders = [MultivariateGaussianDataEncoder(dim=x) for x in self.dim]
 
@@ -59,17 +74,23 @@ class MultivariateGaussianDistributionTestCase(StatsTestClass):
         self.acc_encoder = [(a, e) for a, e in zip(self._accumulators, self._encoders)]
 
         self.type_check_data = [None, np.ones((10, 10))]
-        self.type_check_keys = [(None, None), 1.0, ('keys', None)]
+        self.type_check_keys = [(None, None), 1.0, ("keys", None)]
 
-    def test_seq_log_density_type(self):
+    def test_seq_log_density_type(self) -> None:
         for x in self.type_check_data:
             with pytest.raises(Exception) as e:
                 self.eval_dists[0].seq_log_density(x)
-            assert str(e.value) == 'MultivariateGaussianEncodedDataSequence required for seq_log_density().'  
+            assert str(e.value) == (
+                "MultivariateGaussianEncodedDataSequence required for "
+                "seq_log_density()."
+            )
 
-    def test_key_exceptions(self):
+    def test_key_exceptions(self) -> None:
         for x in self.type_check_keys:
             with pytest.raises(TypeError) as e:
                 MultivariateGaussianEstimator(keys=x)
-                
-            assert str(e.value) == "MultivariateGaussianEstimator requires keys to be of type 'str'."
+
+            assert (
+                str(e.value)
+                == "MultivariateGaussianEstimator requires keys to be of type 'str'."
+            )

@@ -1,32 +1,41 @@
-from typing import Sequence, Optional, Union, Any, Tuple
-from typing import TypeVar, NoReturn, Dict, List
-from dmx.arithmetic import *
-from dmx.bstats.pdist import (SequenceEncodableAccumulator,
-                               ParameterEstimator,
-                               DataFrameEncodableAccumulator,
-                               ProbabilityDistribution,
-                               EncodedDataSequence,
-                               DataSequenceEncoder)
-from dmx.bstats.catdirichlet import DictDirichletDistribution
-from dmx.bstats.symdirichlet import SymmetricDirichletDistribution
-from dmx.bstats.dirichlet import DirichletDistribution
-
 from collections import defaultdict
-from dmx.bstats.nulldist import null_dist
+from typing import Any, Dict, List, NoReturn, Optional, Sequence, Tuple, TypeVar, Union
+
 import numpy as np
 from scipy.special import digamma
 
-T = TypeVar('T')
+from dmx.arithmetic import *
+from dmx.bstats.catdirichlet import DictDirichletDistribution
+from dmx.bstats.dirichlet import DirichletDistribution
+from dmx.bstats.nulldist import null_dist
+from dmx.bstats.pdist import (
+    DataFrameEncodableAccumulator,
+    DataSequenceEncoder,
+    EncodedDataSequence,
+    ParameterEstimator,
+    ProbabilityDistribution,
+    SequenceEncodableAccumulator,
+)
+from dmx.bstats.symdirichlet import SymmetricDirichletDistribution
+
+T = TypeVar("T")
 
 default_prior = DictDirichletDistribution(1.0 + 1.0e-12)
 
+
 class CategoricalDistribution(ProbabilityDistribution):
 
-    def __init__(self, prob_map: Dict[Any, float], default_value: float = 0.0, name: Optional[str] = None, prior: Optional[ProbabilityDistribution] = default_prior):
+    def __init__(
+        self,
+        prob_map: Dict[Any, float],
+        default_value: float = 0.0,
+        name: Optional[str] = None,
+        prior: Optional[ProbabilityDistribution] = default_prior,
+    ):
 
-        with np.errstate(divide='ignore'):
+        with np.errstate(divide="ignore"):
             self.prob_map = prob_map
-			#self.prob_vec = np.asarray(u[1] for u in prob_list)
+            # self.prob_vec = np.asarray(u[1] for u in prob_list)
             self.name = name
             self.default_value = default_value
             self.log_default_value = np.log(default_value)
@@ -34,7 +43,12 @@ class CategoricalDistribution(ProbabilityDistribution):
             self.set_prior(prior)
 
     def __str__(self):
-        return 'CategoricalDistribution(%s, default_value=%s, name=%s, prior=%s)' % (str(self.prob_map), str(self.default_value), str(self.name), str(self.prior))
+        return "CategoricalDistribution(%s, default_value=%s, name=%s, prior=%s)" % (
+            str(self.prob_map),
+            str(self.default_value),
+            str(self.name),
+            str(self.prior),
+        )
 
     def get_parameters(self):
         return self.prob_map
@@ -52,29 +66,31 @@ class CategoricalDistribution(ProbabilityDistribution):
             a = self.prior.get_parameters()
             n = len(self.prob_map)
             if isinstance(a, float):
-                bb = digamma(a) - digamma(n*a)
+                bb = digamma(a) - digamma(n * a)
                 b = {k: bb for k in self.prob_map.keys()}
             else:
                 b = digamma(sum(a.values()))
                 b = {k: digamma(v) - b for k, v in a.items()}
             self.conj_prior_params = a
-            self.expected_nparams  = b
-            self.has_conj_prior    = True
+            self.expected_nparams = b
+            self.has_conj_prior = True
 
         else:
             self.conj_prior_params = None
-            self.expected_nparams  = None
-            self.has_conj_prior    = False
+            self.expected_nparams = None
+            self.has_conj_prior = False
 
     def entropy(self) -> float:
         rv = 0.0
         for v in self.prob_map.values():
             if v > 0:
-                rv += np.log(v)*v
+                rv += np.log(v) * v
         return rv
 
     def log_density(self, x) -> float:
-        return np.log(self.prob_map.get(x, self.default_value)) - self.log1p_default_value
+        return (
+            np.log(self.prob_map.get(x, self.default_value)) - self.log1p_default_value
+        )
 
     def expected_log_density(self, x) -> float:
 
@@ -89,7 +105,9 @@ class CategoricalDistribution(ProbabilityDistribution):
 
     def seq_log_density(self, x) -> float:
         xs, val_map_inv = x
-        mapped_probs = np.log([self.prob_map.get(u,self.default_value) for u in val_map_inv])
+        mapped_probs = np.log(
+            [self.prob_map.get(u, self.default_value) for u in val_map_inv]
+        )
 
         return mapped_probs[xs]
 
@@ -109,7 +127,7 @@ class CategoricalDistribution(ProbabilityDistribution):
     def estimator(self):
         return CategoricalEstimator(name=self.name, prior=self.prior)
 
-    def dist_to_encoder(self) -> 'CategoricalDataEncoder':
+    def dist_to_encoder(self) -> "CategoricalDataEncoder":
         return CategoricalDataEncoder()
 
 
@@ -120,7 +138,7 @@ class CategoricalSampler(object):
 
         temp = dist.prob_map.items()
         self.levels = [u[0] for u in temp]
-        self.probs  = [u[1] for u in temp]
+        self.probs = [u[1] for u in temp]
         self.num_levels = len(self.levels)
 
     def sample(self, size=None):
@@ -134,11 +152,13 @@ class CategoricalSampler(object):
             return [levels[i] for i in rv]
 
 
-class CategoricalEstimatorAccumulator(SequenceEncodableAccumulator, DataFrameEncodableAccumulator):
+class CategoricalEstimatorAccumulator(
+    SequenceEncodableAccumulator, DataFrameEncodableAccumulator
+):
 
     def __init__(self, name, keys):
         self.name = name
-        self.key  = keys[0]
+        self.key = keys[0]
         self.count_map = defaultdict(float)
         self.count_sum = 0.0
 
@@ -168,7 +188,7 @@ class CategoricalEstimatorAccumulator(SequenceEncodableAccumulator, DataFrameEnc
 
     def df_update(self, df, weights, estimate):
         gb = df.groupby([self.name])
-        for k,idx in gb.indices:
+        for k, idx in gb.indices:
             loc_sum = np.sum(weights[idx])
             self.count_map[k] += loc_sum
             self.count_sum += loc_sum
@@ -187,7 +207,7 @@ class CategoricalEstimatorAccumulator(SequenceEncodableAccumulator, DataFrameEnc
         self.count_sum = x[1]
         return self
 
-    def acc_to_encoder(self) -> 'CategoricalDataEncoder':
+    def acc_to_encoder(self) -> "CategoricalDataEncoder":
         return CategoricalDataEncoder()
 
 
@@ -203,7 +223,9 @@ class CategoricalEstimatorAccumulatorFactory(object):
 
 class CategoricalEstimator(ParameterEstimator):
 
-    def __init__(self, default_value: float = 0.0, name=None, prior=default_prior, keys=(None,)):
+    def __init__(
+        self, default_value: float = 0.0, name=None, prior=default_prior, keys=(None,)
+    ):
         self.keys = keys
         self.name = name
         self.prior = prior
@@ -222,14 +244,14 @@ class CategoricalEstimator(ParameterEstimator):
         count_map, stats_sum = suff_stat
         stats_sum = sum(count_map.values())
 
-        #if self.default_value:
-        #	if stats_sum > 0:
-        #		default_value = 1.0/stats_sum
-        #		default_value *= default_value
-        #	else:
-        #		default_value = 0.5
-        #else:
-        #	default_value = 0.0
+        # if self.default_value:
+        # 	if stats_sum > 0:
+        # 		default_value = 1.0/stats_sum
+        # 		default_value *= default_value
+        # 	else:
+        # 		default_value = 0.5
+        # else:
+        # 	default_value = 0.0
         default_value = self.default_value
 
         if isinstance(self.prior, DictDirichletDistribution):
@@ -239,23 +261,40 @@ class CategoricalEstimator(ParameterEstimator):
             if isinstance(conj_prior_params, float):
                 alpha = conj_prior_params
 
-                keys       = count_map.keys()
-                norm_const = (alpha - 1)*len(keys) + stats_sum
+                keys = count_map.keys()
+                norm_const = (alpha - 1) * len(keys) + stats_sum
 
-                pMap = {k: ((alpha-1) + count_map[k])/norm_const for k in keys}
-                cpp  = {k: (alpha + count_map[k]) for k in keys}
+                pMap = {k: ((alpha - 1) + count_map[k]) / norm_const for k in keys}
+                cpp = {k: (alpha + count_map[k]) for k in keys}
 
-                return CategoricalDistribution(pMap, default_value=default_value, name=self.name, prior=DictDirichletDistribution(cpp))
+                return CategoricalDistribution(
+                    pMap,
+                    default_value=default_value,
+                    name=self.name,
+                    prior=DictDirichletDistribution(cpp),
+                )
             else:
                 alpha_sum = sum(conj_prior_params.values())
 
                 keys = set(conj_prior_params.keys()).union(count_map.keys())
                 norm_const = (alpha_sum - len(keys)) + count_map
 
-                pMap = {k: ((conj_prior_params.get(k, 0.0)-1) + count_map.get(k, 0.0)) / norm_const for k in keys}
-                cpp = {k: (conj_prior_params.get(k, 0.0) + count_map.get(k, 0.0)) for k in keys}
+                pMap = {
+                    k: ((conj_prior_params.get(k, 0.0) - 1) + count_map.get(k, 0.0))
+                    / norm_const
+                    for k in keys
+                }
+                cpp = {
+                    k: (conj_prior_params.get(k, 0.0) + count_map.get(k, 0.0))
+                    for k in keys
+                }
 
-                return CategoricalDistribution(pMap, default_value=default_value, name=self.name, prior=DictDirichletDistribution(cpp))
+                return CategoricalDistribution(
+                    pMap,
+                    default_value=default_value,
+                    name=self.name,
+                    prior=DictDirichletDistribution(cpp),
+                )
 
         else:
 
@@ -266,19 +305,20 @@ class CategoricalEstimator(ParameterEstimator):
             else:
                 pMap = {k: v / nobs_loc for k, v in count_map.items()}
 
-
-            return CategoricalDistribution(pMap, default_value=default_value, name=self.name)
+            return CategoricalDistribution(
+                pMap, default_value=default_value, name=self.name
+            )
 
 
 class CategoricalDataEncoder(DataSequenceEncoder):
-    
+
     def __str__(self) -> str:
-        return 'CategoricalDataEncoder'
+        return "CategoricalDataEncoder"
 
     def __eq__(self, other: object) -> bool:
         return isinstance(other, CategoricalDataEncoder)
 
-    def seq_encode(self, x: Sequence[T]) -> 'CategoricalEncodedData':
+    def seq_encode(self, x: Sequence[T]) -> "CategoricalEncodedData":
         val_map_inv, xs = np.unique(x, return_inverse=True)
         return CategoricalEncodedData(data=(xs, val_map_inv))
 
@@ -288,6 +328,4 @@ class CategoricalEncodedData(EncodedDataSequence):
         super().__init__(data)
 
     def __repr__(self) -> str:
-        return f'CategoricalEncodedData(data={self.data})'
-
-
+        return f"CategoricalEncodedData(data={self.data})"

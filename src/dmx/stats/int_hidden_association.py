@@ -1,59 +1,92 @@
 """Create, estimate, and sample from an integer hidden association model.
 
 Defines the IntegerHiddenAssociationDistribution, IntegerHiddenAssociationSampler,
-IntegerHiddenAssociationAccumulatorFactory, IntegerHiddenAssociationAccumulator, IntegerHiddenAssociationEstimator, and
+IntegerHiddenAssociationAccumulatorFactory, IntegerHiddenAssociationAccumulator,
+IntegerHiddenAssociationEstimator, and
 the IntegerHiddenAssociationDataEncoder classes for use with dmx-learn.
 
 The k-rank variant of SparseMarkovAssociation.
 
 Data type:  Tuple[List[Tuple[int, float]], List[Tuple[int, float]]].
 
-The SparseMarkovAssociation model is a generative model for two sets of words S_1 ={w_{1,1},...,w_{1,n}} and
-S_2 ={w_{2,1},...,w_{2,m}} over W possible words. The model assumes a hidden set of states
-H_2 = {h_{2,1},...,h_{2,m}} where h_{2,j} takes on values in {1,2,...,k} and a hidden set of assignments
-A_2 = {a_{2,1},...,a_{2,m}} where a_{2,j} takes on values in {1,2,...,m}. The observed likelihood function is
+The SparseMarkovAssociation model is a generative model for two sets of words S_1
+={w_{1,1},...,w_{1,n}} and
+S_2 ={w_{2,1},...,w_{2,m}} over W possible words. The model assumes a hidden set of
+states
+H_2 = {h_{2,1},...,h_{2,m}} where h_{2,j} takes on values in {1,2,...,k} and a hidden
+set of assignments
+A_2 = {a_{2,1},...,a_{2,m}} where a_{2,j} takes on values in {1,2,...,m}. The observed
+likelihood function is
 computed from P(S_1, S_2) = P(S_2 | S_1) P(S_1), where
 
 (1) log(P(S_2|S_1)) = sum_{i=1}^{m} log(P(w_{2,i}|w_{1,1},...,w_{1,n})
-    = sum_{i=1}^{m} log( (1/m)*sum_{j=1}^{n} (1-alpha)*sum_{k=1}^{K}P(w_{2,i} | h_{2,k})*P(h_{2,k}|w_{1,j}) + alpha/W).
+    = sum_{i=1}^{m} log( (1/m)*sum_{j=1}^{n} (1-alpha)*sum_{k=1}^{K}P(w_{2,i} |
+    h_{2,k})*P(h_{2,k}|w_{1,j}) + alpha/W).
 (2) log(P(S_1)) = sum_{j=1}^{n} log((1-alpha)*P(w_{1,j}) + alpha/W ).
 
-This model is great when the conditional probability matrix is both large and dense. It can also be nested inside other
+This model is great when the conditional probability matrix is both large and dense. It
+can also be nested inside other
 graphical models like a mixture model.
 
 Note: This is the k-rank equivalent of SparseMarkovAssociationModel.
 
 """
+
 import math
+from typing import Any, Dict, List, Optional, Sequence, Tuple, TypeVar, Union, cast
+
 import numba
 import numpy as np
 
-from dmx.arithmetic import *
-from dmx.arithmetic import maxrandint
-from dmx.stats.pdist import SequenceEncodableProbabilityDistribution, SequenceEncodableStatisticAccumulator, \
-    ParameterEstimator, DistributionSampler, DataSequenceEncoder, StatisticAccumulatorFactory, EncodedDataSequence
-from dmx.stats.null_dist import NullDistribution, NullAccumulator, NullEstimator, NullDataEncoder, \
-    NullAccumulatorFactory
+from dmx.arithmetic import exp, maxrandint
+from dmx.stats.null_dist import (
+    NullAccumulator,
+    NullAccumulatorFactory,
+    NullDistribution,
+    NullEstimator,
+)
+from dmx.stats.pdist import (
+    DataSequenceEncoder,
+    DistributionSampler,
+    EncodedDataSequence,
+    ParameterEstimator,
+    SequenceEncodableProbabilityDistribution,
+    SequenceEncodableStatisticAccumulator,
+    StatisticAccumulatorFactory,
+)
 from dmx.utils.optsutil import count_by_value
 
-from typing import Optional, List, Tuple, Optional, Any, Dict, Union, Sequence, TypeVar
-
 E0 = Tuple[List[Tuple[np.ndarray, ...]], EncodedDataSequence, EncodedDataSequence]
-E1 = Tuple[Tuple[np.ndarray, np.ndarray, np.ndarray, np.ndarray, np.ndarray, np.ndarray, np.ndarray], EncodedDataSequence, EncodedDataSequence]
+E1 = Tuple[
+    Tuple[
+        np.ndarray,
+        np.ndarray,
+        np.ndarray,
+        np.ndarray,
+        np.ndarray,
+        np.ndarray,
+        np.ndarray,
+    ],
+    EncodedDataSequence,
+    EncodedDataSequence,
+]
 
-SS1 = TypeVar('SS1')  # suff stat prev
-SS2 = TypeVar('SS2')  # suff stat len
+SS1 = TypeVar("SS1")  # suff stat prev
+SS2 = TypeVar("SS2")  # suff stat len
 
 
 class IntegerHiddenAssociationDistribution(SequenceEncodableProbabilityDistribution):
-    """IntegerHiddenAssociationDistribution object for specifying integer Hidden association distribution.
+    """IntegerHiddenAssociationDistribution object for specifying integer Hidden
+    association distribution.
 
     Attributes:
         cond_weights (np.ndarray): States given words in S1.
         state_prob_mat (np.ndarray): Words in S2 given States.
-        len_dist (SequenceEncodableProbabilityDistribution): Distribution for length of observations.
+        len_dist (SequenceEncodableProbabilityDistribution): Distribution for length of
+            observations.
             Should be compatible with type Tuple[int, int].
-        prev_dist (SequenceEncodableProbabilityDistribution): Distribution for given P(S1).
+        prev_dist (SequenceEncodableProbabilityDistribution): Distribution for given
+            P(S1).
             Should be compatible with Tuple[int, float].
         has_prev_dist (bool): True is there is a non-null prev_dist specified.
         num_vals2 (int): Number of values in S2.
@@ -66,23 +99,35 @@ class IntegerHiddenAssociationDistribution(SequenceEncodableProbabilityDistribut
         use_numba (bool): If True, numba is used for encoding and estimation.
 
     """
-    def __init__(self, state_prob_mat: Union[List[List[float]], np.ndarray],
-                 cond_weights: Union[List[List[float]], np.ndarray],
-                 alpha: float = 0.0,
-                 prev_dist: Optional[SequenceEncodableProbabilityDistribution] = NullDistribution(),
-                 len_dist: Optional[SequenceEncodableProbabilityDistribution] = NullDistribution(),
-                 name: Optional[str] = None,
-                 keys: Tuple[Optional[str], Optional[str]] = (None, None),
-                 use_numba: bool = False) -> None:
+
+    def __init__(
+        self,
+        state_prob_mat: Union[List[List[float]], np.ndarray],
+        cond_weights: Union[List[List[float]], np.ndarray],
+        alpha: float = 0.0,
+        prev_dist: Optional[
+            SequenceEncodableProbabilityDistribution
+        ] = NullDistribution(),
+        len_dist: Optional[
+            SequenceEncodableProbabilityDistribution
+        ] = NullDistribution(),
+        name: Optional[str] = None,
+        keys: Tuple[Optional[str], Optional[str]] = (None, None),
+        use_numba: bool = False,
+    ) -> None:
         """IntegerHiddenAssociationDistribution object.
 
         Args:
-            state_prob_mat (Union[List[List[float]], np.ndarray]): States given previous words.
-            cond_weights (Union[List[List[float]], np.ndarray]): Words in S2 given states.
+            state_prob_mat (Union[List[List[float]], np.ndarray]): States given previous
+                words.
+            cond_weights (Union[List[List[float]], np.ndarray]): Words in S2 given
+                states.
             alpha (float): Probability of drawing from uniform vs transition density.
-            prev_dist (Optional[SequenceEncodableProbabilityDistribution]): Distribution for given P(S1).
+            prev_dist (Optional[SequenceEncodableProbabilityDistribution]): Distribution
+                for given P(S1).
                 Should be compatible with Tuple[int, float].
-            len_dist (Optional[SequenceEncodableProbabilityDistribution]): Distribution for length of observations.
+            len_dist (Optional[SequenceEncodableProbabilityDistribution]): Distribution
+                for length of observations.
                 Should be compatible with type Tuple[int, int].
             name (Optional[str]): Set name for object.
             keys (Tuple[Optional[str], Optional[str]): Keys for the weights and states.
@@ -90,6 +135,7 @@ class IntegerHiddenAssociationDistribution(SequenceEncodableProbabilityDistribut
 
         """
         self.cond_weights = np.asarray(cond_weights, dtype=np.float64)
+        super().__init__()
         self.state_prob_mat = np.asarray(state_prob_mat, dtype=np.float64)
         self.len_dist = len_dist if len_dist is not None else NullDistribution()
         self.prev_dist = prev_dist if prev_dist is not None else NullDistribution()
@@ -104,22 +150,37 @@ class IntegerHiddenAssociationDistribution(SequenceEncodableProbabilityDistribut
         self.use_numba = use_numba
 
     def __str__(self) -> str:
-        s1 = ','.join(
-            ['[' + ','.join(map(str, self.state_prob_mat[i, :])) + ']' for i in range(len(self.state_prob_mat))])
-        s2 = ','.join(['[' + ','.join(map(str, self.cond_weights[i, :])) + ']' for i in range(len(self.cond_weights))])
+        s1 = ",".join(
+            [
+                "[" + ",".join(map(str, self.state_prob_mat[i, :])) + "]"
+                for i in range(len(self.state_prob_mat))
+            ]
+        )
+        s2 = ",".join(
+            [
+                "[" + ",".join(map(str, self.cond_weights[i, :])) + "]"
+                for i in range(len(self.cond_weights))
+            ]
+        )
         s3 = str(self.alpha)
         s4 = repr(self.prev_dist) if self.prev_dist is None else str(self.prev_dist)
         s5 = str(self.len_dist)
         s6 = repr(self.name)
         s7 = repr(self.keys)
 
-        return 'IntegerHiddenAssociationDistribution([%s], [%s], alpha=%s, prev_dist=%s, len_dist=%s, name=%s, ' \
-               'keys=%s)' % (s1, s2, s3, s4, s5, s6, s7)
+        return (
+            f"IntegerHiddenAssociationDistribution([{s1}], [{s2}], alpha={s3}, "
+            f"prev_dist={s4}, len_dist={s5}, name={s6}, keys={s7})"
+        )
 
-    def density(self, x: Tuple[List[Tuple[int, float]], List[Tuple[int, float]]]) -> float:
-        return exp(self.log_density(x))
+    def density(
+        self, x: Tuple[List[Tuple[int, float]], List[Tuple[int, float]]]
+    ) -> float:
+        return float(exp(self.log_density(x)))
 
-    def log_density(self, x: Tuple[List[Tuple[int, float]], List[Tuple[int, float]]]) -> float:
+    def log_density(
+        self, x: Tuple[List[Tuple[int, float]], List[Tuple[int, float]]]
+    ) -> float:
 
         nw = self.num_vals2
         a = self.alpha / nw
@@ -130,7 +191,6 @@ class IntegerHiddenAssociationDistribution(SequenceEncodableProbabilityDistribut
         cy = np.asarray([u[1] for u in x[1]])
         vy = np.asarray([u[0] for u in x[1]])
 
-        n1 = np.sum(cx)
         n2 = np.sum(cy)
 
         ll = self.cond_weights[vx, :].T * (cx / np.sum(cx))
@@ -144,9 +204,11 @@ class IntegerHiddenAssociationDistribution(SequenceEncodableProbabilityDistribut
 
         return rv
 
-    def seq_log_density(self, x: 'IntegerHiddenAssociationEncodedDataSequence') -> np.ndarray:
+    def seq_log_density(
+        self, x: "IntegerHiddenAssociationEncodedDataSequence"
+    ) -> np.ndarray:
         if not isinstance(x, IntegerHiddenAssociationEncodedDataSequence):
-            raise Exception('Requires IntegerHiddenAssociationEncodedDataSequence.')
+            raise TypeError("Requires IntegerHiddenAssociationEncodedDataSequence.")
 
         nw = self.num_vals2
         a = self.alpha / nw
@@ -175,53 +237,92 @@ class IntegerHiddenAssociationDistribution(SequenceEncodableProbabilityDistribut
             t0 = np.concatenate([[0], s0]).cumsum().astype(np.int32)
             t1 = np.concatenate([[0], s1]).cumsum().astype(np.int32)
             max_len = s0.max()
-            numba_seq_log_density(self.num_states, max_len, t0, t1, x0, x1, c0, c1, w0, self.cond_weights,
-                                  self.state_prob_mat, self.init_prob_vec, a, b, rv)
+            numba_seq_log_density(
+                self.num_states,
+                max_len,
+                t0,
+                t1,
+                x0,
+                x1,
+                c0,
+                c1,
+                w0,
+                self.cond_weights,
+                self.state_prob_mat,
+                self.init_prob_vec,
+                a,
+                b,
+                rv,
+            )
 
             rv += self.prev_dist.seq_log_density(xv)
             rv += self.len_dist.seq_log_density(nn)
 
         return rv
 
-    def sampler(self, seed: Optional[int] = None) -> 'IntegerHiddenAssociationSampler':
+    def sampler(self, seed: Optional[int] = None) -> "IntegerHiddenAssociationSampler":
         if isinstance(self.prev_dist, NullDistribution):
-            raise Exception('HiddenAssociationSampler requires attribute dist.prev_dist.')
+            raise RuntimeError(
+                "HiddenAssociationSampler requires attribute dist.prev_dist."
+            )
         if isinstance(self.len_dist, NullDistribution):
-            raise Exception('HiddenAssociationSampler requires attribute dist.size_dist.')
+            raise RuntimeError(
+                "HiddenAssociationSampler requires attribute dist.size_dist."
+            )
         return IntegerHiddenAssociationSampler(self, seed)
 
-    def estimator(self, pseudo_count: Optional[float] = None) -> 'IntegerHiddenAssociationEstimator':
+    def estimator(
+        self, pseudo_count: Optional[float] = None
+    ) -> "IntegerHiddenAssociationEstimator":
         n_vals = (self.num_vals1, self.num_vals2)
         prev_est = self.prev_dist.estimator()
         len_est = self.len_dist.estimator()
 
-        return IntegerHiddenAssociationEstimator(num_vals=n_vals, num_states=self.num_states, alpha=self.alpha,
-                                                 prev_estimator=prev_est, len_estimator=len_est, name=self.name,
-                                                 keys=self.keys, use_numba=self.use_numba)
+        return IntegerHiddenAssociationEstimator(
+            num_vals=n_vals,
+            num_states=self.num_states,
+            alpha=self.alpha,
+            prev_estimator=prev_est,
+            len_estimator=len_est,
+            name=self.name,
+            keys=self.keys,
+            use_numba=self.use_numba,
+        )
 
-    def dist_to_encoder(self) -> 'IntegerHiddenAssociationDataEncoder':
+    def dist_to_encoder(self) -> "IntegerHiddenAssociationDataEncoder":
         prev_encoder = self.prev_dist.dist_to_encoder()
         len_encoder = self.len_dist.dist_to_encoder()
-        return IntegerHiddenAssociationDataEncoder(prev_encoder, len_encoder, self.use_numba)
+        return IntegerHiddenAssociationDataEncoder(
+            prev_encoder, len_encoder, self.use_numba
+        )
+
 
 class IntegerHiddenAssociationSampler(DistributionSampler):
 
-    def __init__(self, dist: IntegerHiddenAssociationDistribution, seed: Optional[int] = None) -> None:
-        self.rng = np.random.RandomState(seed)
+    def __init__(
+        self, dist: IntegerHiddenAssociationDistribution, seed: Optional[int] = None
+    ) -> None:
+        super().__init__(dist, seed)
         self.dist = dist
 
         if isinstance(self.dist.prev_dist, NullDistribution):
-            raise Exception('HiddenAssociationSampler requires attribute dist.prev_dist.')
-        else:
-            self.prev_sampler = self.dist.prev_dist.sampler(seed=self.rng.randint(0, maxrandint))
+            raise RuntimeError(
+                "HiddenAssociationSampler requires attribute dist.prev_dist."
+            )
+        self.prev_sampler = self.dist.prev_dist.sampler(
+            seed=self.rng.randint(0, maxrandint)
+        )
 
         if isinstance(self.dist.len_dist, NullDistribution):
-            raise Exception('HiddenAssociationSampler requires attribute dist.size_dist.')
-        else:
-            self.size_sampler = self.dist.len_dist.sampler(seed=self.rng.randint(0, maxrandint))
+            raise RuntimeError(
+                "HiddenAssociationSampler requires attribute dist.size_dist."
+            )
+        self.size_sampler = self.dist.len_dist.sampler(
+            seed=self.rng.randint(0, maxrandint)
+        )
 
     def sample_given(self, x: List[Tuple[int, float]]) -> List[Tuple[int, float]]:
-        slen = self.size_sampler.sample()
+        slen = int(self.size_sampler.sample())
         rng = np.random.RandomState(self.rng.randint(0, maxrandint))
 
         x0 = np.asarray([xx[0] for xx in x])
@@ -233,7 +334,7 @@ class IntegerHiddenAssociationSampler(DistributionSampler):
         else:
             return []
 
-        v2 = []
+        v2: List[int] = []
         z1 = rng.choice(len(x0), p=x1, replace=True, size=slen)
         ns = self.dist.num_states
         nw = self.dist.num_vals2
@@ -241,29 +342,42 @@ class IntegerHiddenAssociationSampler(DistributionSampler):
         for zz1 in z1:
 
             if rng.rand() >= self.dist.alpha:
-                u = rng.choice(ns, p=self.dist.cond_weights[x0[zz1], :])
-                v2.append(rng.choice(nw, p=self.dist.state_prob_mat[u, :]))
+                u = int(rng.choice(ns, p=self.dist.cond_weights[x0[int(zz1)], :]))
+                v2.append(int(rng.choice(nw, p=self.dist.state_prob_mat[u, :])))
             else:
-                v2.append(rng.choice(nw))
+                v2.append(int(rng.choice(nw)))
 
-        return list(count_by_value(v2).items())
+        return [(int(k), float(v)) for k, v in count_by_value(v2).items()]
 
-    def sample(self, size: Optional[int] = None) -> Union[Sequence[List[Tuple[int, float]]], List[Tuple[int, float]]]:
+    def _sample_single(
+        self,
+    ) -> Tuple[List[Tuple[int, float]], List[Tuple[int, float]]]:
+        x = cast(List[Tuple[int, float]], self.prev_sampler.sample())
+        return x, self.sample_given(x)
+
+    def sample(self, size: Optional[int] = None) -> Union[
+        Sequence[Tuple[List[Tuple[int, float]], List[Tuple[int, float]]]],
+        Tuple[List[Tuple[int, float]], List[Tuple[int, float]]],
+    ]:
 
         if size is None:
-            x = self.prev_sampler.sample()
-            return x, self.sample_given(x)
-        else:
-            return [self.sample() for i in range(size)]
+            return self._sample_single()
+        return [self._sample_single() for i in range(size)]
 
 
+# pylint: disable-next=too-many-instance-attributes
 class IntegerHiddenAssociationAccumulator(SequenceEncodableStatisticAccumulator):
 
-    def __init__(self, num_vals1: int, num_vals2: int, num_states: int,
-                 prev_acc: Optional[SequenceEncodableStatisticAccumulator] = NullAccumulator(),
-                 size_acc: Optional[SequenceEncodableStatisticAccumulator] = NullAccumulator(),
-                 use_numba: bool = False,
-                 keys: Optional[Tuple[Optional[str], Optional[str]]] = (None, None)) -> None:
+    def __init__(
+        self,
+        num_vals1: int,
+        num_vals2: int,
+        num_states: int,
+        prev_acc: Optional[SequenceEncodableStatisticAccumulator] = NullAccumulator(),
+        size_acc: Optional[SequenceEncodableStatisticAccumulator] = NullAccumulator(),
+        use_numba: bool = False,
+        keys: Optional[Tuple[Optional[str], Optional[str]]] = (None, None),
+    ) -> None:
         self.init_count = np.zeros(num_vals1, dtype=np.float64)
         self.weight_count = np.zeros((num_vals1, num_states), dtype=np.float64)
         self.state_count = np.zeros((num_states, num_vals2), dtype=np.float64)
@@ -276,13 +390,17 @@ class IntegerHiddenAssociationAccumulator(SequenceEncodableStatisticAccumulator)
         self.weight_key, self.state_key = keys if keys is not None else (None, None)
 
         self._init_rng = False
-        self._rng_prev = None
-        self._rng_size = None
-        self._rng_weight = None
-        self._rng_state = None
+        self._rng_prev: Optional[np.random.RandomState] = None
+        self._rng_size: Optional[np.random.RandomState] = None
+        self._rng_weight: Optional[np.random.RandomState] = None
+        self._rng_state: Optional[np.random.RandomState] = None
 
-    def update(self, x: Tuple[List[Tuple[int, float]], List[Tuple[int, float]]], weight: float,
-               estimate: IntegerHiddenAssociationDistribution) -> None:
+    def update(
+        self,
+        x: Tuple[List[Tuple[int, float]], List[Tuple[int, float]]],
+        weight: float,
+        estimate: IntegerHiddenAssociationDistribution,
+    ) -> None:
         vx = np.asarray([u[0] for u in x[0]], dtype=int)
         cx = np.asarray([u[1] for u in x[0]], dtype=float)
         vy = np.asarray([u[0] for u in x[1]], dtype=int)
@@ -302,8 +420,12 @@ class IntegerHiddenAssociationAccumulator(SequenceEncodableStatisticAccumulator)
         self.state_count[:, vy] += np.sum(z_mat, axis=0) * cy * weight
         self.init_count[vx] += cx
 
-        self.prev_accumulator.update(x[0], weight, None if estimate is None else estimate.prev_dist)
-        self.size_accumulator.update(cy.sum(), weight, None if estimate is None else estimate.len_dist)
+        self.prev_accumulator.update(
+            x[0], weight, None if estimate is None else estimate.prev_dist
+        )
+        self.size_accumulator.update(
+            cy.sum(), weight, None if estimate is None else estimate.len_dist
+        )
 
     def _rng_initialize(self, rng: np.random.RandomState) -> None:
         if not self._init_rng:
@@ -314,27 +436,50 @@ class IntegerHiddenAssociationAccumulator(SequenceEncodableStatisticAccumulator)
             self._rng_size = np.random.RandomState(seed=seeds[3])
             self._init_rng = True
 
-    def initialize(self, x: Tuple[List[Tuple[int, float]], List[Tuple[int, float]]], weight: float,
-                   rng: np.random.RandomState) -> None:
+    def initialize(
+        self,
+        x: Tuple[List[Tuple[int, float]], List[Tuple[int, float]]],
+        weight: float,
+        rng: np.random.RandomState,
+    ) -> None:
 
         if not self._init_rng:
             self._rng_initialize(rng)
+        assert self._rng_weight is not None
+        assert self._rng_state is not None
+        assert self._rng_prev is not None
+        assert self._rng_size is not None
 
         vx = np.asarray([u[0] for u in x[0]], dtype=int)
         cx = np.asarray([u[1] for u in x[0]], dtype=float)
         vy = np.asarray([u[0] for u in x[1]], dtype=int)
         cy = np.asarray([u[1] for u in x[1]], dtype=float)
 
-        self.weight_count[vx, :] += self._rng_weight.dirichlet(np.ones(self.num_states), size=len(vx)) * weight
-        self.state_count[:, vy] += self._rng_state.dirichlet(np.ones(self.num_states), size=len(vy)).T * cy * weight
+        self.weight_count[vx, :] += (
+            self._rng_weight.dirichlet(np.ones(self.num_states), size=len(vx)) * weight
+        )
+        self.state_count[:, vy] += (
+            self._rng_state.dirichlet(np.ones(self.num_states), size=len(vy)).T
+            * cy
+            * weight
+        )
         self.init_count[vx] += cx
 
         self.prev_accumulator.initialize(x[0], weight, self._rng_prev)
         self.size_accumulator.initialize(cy.sum(), weight, self._rng_size)
 
-    def seq_initialize(self, x: 'IntegerHiddenAssociationEncodedDataSequence', weights: np.ndarray, rng: np.random.RandomState) -> None:
+    def seq_initialize(
+        self,
+        x: "IntegerHiddenAssociationEncodedDataSequence",
+        weights: np.ndarray,
+        rng: np.random.RandomState,
+    ) -> None:
         if not self._init_rng:
             self._rng_initialize(rng)
+        assert self._rng_weight is not None
+        assert self._rng_state is not None
+        assert self._rng_prev is not None
+        assert self._rng_size is not None
 
         if not x.numba_enc:
             xx = x.data
@@ -342,9 +487,15 @@ class IntegerHiddenAssociationAccumulator(SequenceEncodableStatisticAccumulator)
             for i, (entry, weight) in enumerate(zip(xx[0], weights)):
                 vx, cx, vy, cy = entry
 
-                self.weight_count[vx, :] += self._rng_weight.dirichlet(np.ones(self.num_states), size=len(vx)) * weight
-                self.state_count[:, vy] += self._rng_state.dirichlet(np.ones(self.num_states), size=len(vy)).T * cy * \
-                                           weight
+                self.weight_count[vx, :] += (
+                    self._rng_weight.dirichlet(np.ones(self.num_states), size=len(vx))
+                    * weight
+                )
+                self.state_count[:, vy] += (
+                    self._rng_state.dirichlet(np.ones(self.num_states), size=len(vy)).T
+                    * cy
+                    * weight
+                )
                 self.init_count[vx] += cx
 
             self.prev_accumulator.seq_initialize(xx[1], weights, self._rng_prev)
@@ -352,38 +503,56 @@ class IntegerHiddenAssociationAccumulator(SequenceEncodableStatisticAccumulator)
 
         else:
 
-            (s0, s1, x0, x1, c0, c1, w0), xv, nn = x.data
-            weights_0 = []
-            weights_1 = []
+            (s0, s1, x0, x1, c0, c1, _w0), xv, nn = x.data
+            weights_0: List[float] = []
+            weights_1: List[float] = []
 
-            for i in range(len(s0)):
-                weights_0.extend([weights[i]]*s0[i]*self.num_states)
-                weights_1.extend([weights[i]]*s1[i])
+            for i, s0_i in enumerate(s0):
+                weights_0.extend([weights[i]] * s0_i * self.num_states)
+                weights_1.extend([weights[i]] * s1[i])
 
-            weights_0 = np.asarray(weights_0)
-            weights_1 = np.asarray(weights_1)
-            ww0 = self._rng_weight.dirichlet(np.ones(self.num_states), size=len(x0)).flatten() * weights_0
+            weights_0_arr = np.asarray(weights_0, dtype=np.float64)
+            weights_1_arr = np.asarray(weights_1, dtype=np.float64)
+            ww0 = (
+                self._rng_weight.dirichlet(
+                    np.ones(self.num_states), size=len(x0)
+                ).flatten()
+                * weights_0_arr
+            )
             ww0 = np.reshape(ww0, (len(x0), self.num_states))
 
-            self.weight_count += vec_bincount1(x=x0, w=ww0, out=np.zeros_like(self.weight_count, dtype=np.float64))
+            self.weight_count += vec_bincount1(
+                x=x0, w=ww0, out=np.zeros_like(self.weight_count, dtype=np.float64)
+            )
 
             ww1 = self._rng_state.dirichlet(np.ones(self.num_states), size=len(x1)).T
-            ww1 *= np.reshape(c1*weights_1, (-1, len(x1)))
+            ww1 *= np.reshape(c1 * weights_1_arr, (-1, len(x1)))
 
-            self.state_count += vec_bincount2(x=x1, w=ww1, out=np.zeros_like(self.state_count, dtype=np.float64))
+            self.state_count += vec_bincount2(
+                x=x1, w=ww1, out=np.zeros_like(self.state_count, dtype=np.float64)
+            )
 
-            self.init_count += np.bincount(x0, weights=c0*weights_0[np.arange(0, len(weights_0), self.num_states)],
-                                           minlength=len(self.init_count))
+            self.init_count += np.bincount(
+                x0,
+                weights=c0
+                * weights_0_arr[np.arange(0, len(weights_0_arr), self.num_states)],
+                minlength=len(self.init_count),
+            )
 
             self.prev_accumulator.seq_initialize(xv, weights, self._rng_prev)
             self.size_accumulator.seq_initialize(nn, weights, self._rng_size)
 
-    def seq_update(self, x: 'IntegerHiddenAssociationEncodedDataSequence', weights: np.ndarray, estimate: IntegerHiddenAssociationDistribution) -> None:
+    def seq_update(
+        self,
+        x: "IntegerHiddenAssociationEncodedDataSequence",
+        weights: np.ndarray,
+        estimate: IntegerHiddenAssociationDistribution,
+    ) -> None:
 
         if not x.numba_enc:
             xx = x.data
 
-            for i, (entry, weight) in enumerate(zip(xx[0], weights)):
+            for _i, (entry, weight) in enumerate(zip(xx[0], weights)):
                 vx, cx, vy, cy = entry
                 nx = np.sum(cx)
                 x_mat = (estimate.cond_weights[vx, :].T * (cx / nx)).T
@@ -399,8 +568,12 @@ class IntegerHiddenAssociationAccumulator(SequenceEncodableStatisticAccumulator)
                 self.state_count[:, vy] += np.sum(z_mat, axis=0) * cy * weight
                 self.init_count[vx] += cx
 
-            self.prev_accumulator.seq_update(xx[1], weights, None if estimate is None else estimate.prev_dist)
-            self.size_accumulator.seq_update(xx[2], weights, None if estimate is None else estimate.len_dist)
+            self.prev_accumulator.seq_update(
+                xx[1], weights, None if estimate is None else estimate.prev_dist
+            )
+            self.size_accumulator.seq_update(
+                xx[2], weights, None if estimate is None else estimate.len_dist
+            )
         else:
 
             (s0, s1, x0, x1, c0, c1, w0), xv, nn = x.data
@@ -409,14 +582,37 @@ class IntegerHiddenAssociationAccumulator(SequenceEncodableStatisticAccumulator)
             t1 = np.concatenate([[0], s1]).cumsum().astype(np.int32)
             max_len = s0.max()
 
-            numba_seq_update(self.num_states, max_len, t0, t1, x0, x1, c0, c1, w0, estimate.cond_weights,
-                             estimate.state_prob_mat, self.weight_count, self.state_count, self.init_count, weights)
+            numba_seq_update(
+                self.num_states,
+                max_len,
+                t0,
+                t1,
+                x0,
+                x1,
+                c0,
+                c1,
+                w0,
+                estimate.cond_weights,
+                estimate.state_prob_mat,
+                self.weight_count,
+                self.state_count,
+                self.init_count,
+                weights,
+            )
 
-            self.prev_accumulator.seq_update(xv, weights, None if estimate is None else estimate.prev_dist)
-            self.size_accumulator.seq_update(nn, weights, None if estimate is None else estimate.len_dist)
+            self.prev_accumulator.seq_update(
+                xv, weights, None if estimate is None else estimate.prev_dist
+            )
+            self.size_accumulator.seq_update(
+                nn, weights, None if estimate is None else estimate.len_dist
+            )
 
-    def combine(self, suff_stat: Tuple[np.ndarray, np.ndarray, np.ndarray, Optional[SS1], Optional[SS2]]) \
-            -> 'IntegerHiddenAssociationAccumulator':
+    def combine(
+        self,
+        suff_stat: Tuple[
+            np.ndarray, np.ndarray, np.ndarray, Optional[SS1], Optional[SS2]
+        ],
+    ) -> "IntegerHiddenAssociationAccumulator":
 
         init_count, weight_count, state_count, prev_acc, size_acc = suff_stat
 
@@ -429,14 +625,17 @@ class IntegerHiddenAssociationAccumulator(SequenceEncodableStatisticAccumulator)
 
         return self
 
-    def value(self) -> Tuple[np.ndarray, np.ndarray, np.ndarray, Optional[Any], Optional[Any]]:
+    def value(
+        self,
+    ) -> Tuple[np.ndarray, np.ndarray, np.ndarray, Optional[Any], Optional[Any]]:
         pval = self.prev_accumulator.value()
         sval = self.size_accumulator.value()
 
         return self.init_count, self.weight_count, self.state_count, pval, sval
 
-    def from_value(self, x: Tuple[np.ndarray, np.ndarray, np.ndarray, Optional[SS1], Optional[SS2]]) \
-            -> 'IntegerHiddenAssociationAccumulator':
+    def from_value(
+        self, x: Tuple[np.ndarray, np.ndarray, np.ndarray, Optional[SS1], Optional[SS2]]
+    ) -> "IntegerHiddenAssociationAccumulator":
 
         init_count, weight_count, state_count, prev_acc, size_acc = x
 
@@ -479,86 +678,127 @@ class IntegerHiddenAssociationAccumulator(SequenceEncodableStatisticAccumulator)
         self.prev_accumulator.key_replace(stats_dict)
         self.size_accumulator.key_replace(stats_dict)
 
-    def acc_to_encoder(self) -> 'DataSequenceEncoder':
+    def acc_to_encoder(self) -> "DataSequenceEncoder":
         prev_encoder = self.prev_accumulator.acc_to_encoder()
         len_encoder = self.size_accumulator.acc_to_encoder()
-        return IntegerHiddenAssociationDataEncoder(prev_encoder, len_encoder, self.use_numba)
+        return IntegerHiddenAssociationDataEncoder(
+            prev_encoder, len_encoder, self.use_numba
+        )
 
 
 class IntegerHiddenAssociationAccumulatorFactory(StatisticAccumulatorFactory):
 
-    def __init__(self, num_vals1: int, num_vals2: int, num_states: int,
-                 prev_factory: Optional[StatisticAccumulatorFactory] = NullAccumulatorFactory(),
-                 len_factory: Optional[StatisticAccumulatorFactory] = NullAccumulatorFactory(),
-                 use_numba: bool = False,
-                 keys: Tuple[Optional[str], Optional[str]] = (None, None)) -> None:
-        self.len_factory = len_factory if len_factory is not None else NullAccumulatorFactory()
-        self.prev_factory = prev_factory if prev_factory is not None else NullAccumulatorFactory()
+    def __init__(
+        self,
+        num_vals1: int,
+        num_vals2: int,
+        num_states: int,
+        prev_factory: Optional[StatisticAccumulatorFactory] = NullAccumulatorFactory(),
+        len_factory: Optional[StatisticAccumulatorFactory] = NullAccumulatorFactory(),
+        use_numba: bool = False,
+        keys: Tuple[Optional[str], Optional[str]] = (None, None),
+    ) -> None:
+        self.len_factory = (
+            len_factory if len_factory is not None else NullAccumulatorFactory()
+        )
+        self.prev_factory = (
+            prev_factory if prev_factory is not None else NullAccumulatorFactory()
+        )
         self.keys = keys
         self.use_numba = use_numba
         self.num_vals1 = num_vals1
         self.num_vals2 = num_vals2
         self.num_states = num_states
 
-    def make(self) -> 'IntegerHiddenAssociationAccumulator':
+    def make(self) -> "IntegerHiddenAssociationAccumulator":
         len_acc = self.len_factory.make()
         prev_acc = self.prev_factory.make()
-        return IntegerHiddenAssociationAccumulator(num_vals1=self.num_vals1, num_vals2=self.num_vals2,
-                                                   num_states=self.num_states, prev_acc=prev_acc, size_acc=len_acc,
-                                                   use_numba=self.use_numba, keys=self.keys)
+        return IntegerHiddenAssociationAccumulator(
+            num_vals1=self.num_vals1,
+            num_vals2=self.num_vals2,
+            num_states=self.num_states,
+            prev_acc=prev_acc,
+            size_acc=len_acc,
+            use_numba=self.use_numba,
+            keys=self.keys,
+        )
 
 
 class IntegerHiddenAssociationEstimator(ParameterEstimator):
-    """IntegerHiddenAssociationEstimator object for estimating IntegerHiddenAssociationDistribution from aggregated
+    """IntegerHiddenAssociationEstimator object for estimating
+    IntegerHiddenAssociationDistribution from aggregated
         sufficient statistics.
 
     Attributes:
-        num_vals (Union[List[int], Tuple[int, int], int]): Number of values in S1 and S2. Either length 2, if int
+        num_vals (Union[List[int], Tuple[int, int], int]): Number of values in S1 and
+            S2. Either length 2, if int
             value is set to num_vals1 and num_vals2.
         num_states (int): Number of hidden states.
-        alpha (float): Prob of drawing from uniform, (1-alpha) draw from transition density.
-        prev_estimator (ParameterEstimator): Estimator for the previous word set. Must be compatible with
+        alpha (float): Prob of drawing from uniform, (1-alpha) draw from transition
+            density.
+        prev_estimator (ParameterEstimator): Estimator for the previous word set. Must
+            be compatible with
             Tuple[int, float]. Defaults to NullEstimator().
-        len_estimator (ParameterEstimator): Estimator for the length of observations. Must be compatible
+        len_estimator (ParameterEstimator): Estimator for the length of observations.
+            Must be compatible
             with Tuple[int, int]. Defaults to NullEstimator().
         suff_stat (Optional[Any]): Kept for consistency.
         pseudo_count (Optional[float]): Kept for consistency.
-        use_numba (bool): If true Numba is used for encoding and vectorized function calls.
+        use_numba (bool): If true Numba is used for encoding and vectorized function
+            calls.
         name (Optional[str]): Set a name to the object instance.
-        keys (Tuple[Optional[str], Optional[str]]): Set the keys for weights and transitions.
+        keys (Tuple[Optional[str], Optional[str]]): Set the keys for weights and
+            transitions.
         num_vals1 (int): Number of values in set 1.
         num_vals2 (int): Number of values in set 2.
 
     """
 
-    def __init__(self, num_vals: Union[List[int], Tuple[int, int], int], num_states: int, alpha: float = 0.0,
-                 prev_estimator: Optional[ParameterEstimator] = NullEstimator(),
-                 len_estimator: Optional[ParameterEstimator] = NullEstimator(),
-                 suff_stat: Optional[Any] = None,
-                 pseudo_count: Optional[float] = None,
-                 use_numba: bool = False,
-                 name: Optional[str] = None,
-                 keys: Optional[Tuple[Optional[str], Optional[str]]] = (None, None)) -> None:
+    # This estimator preserves a long-standing public constructor shape.
+    # pylint: disable-next=too-many-positional-arguments
+    def __init__(
+        self,
+        num_vals: Union[List[int], Tuple[int, int], int],
+        num_states: int,
+        alpha: float = 0.0,
+        prev_estimator: Optional[ParameterEstimator] = NullEstimator(),
+        len_estimator: Optional[ParameterEstimator] = NullEstimator(),
+        suff_stat: Optional[Any] = None,
+        pseudo_count: Optional[float] = None,
+        use_numba: bool = False,
+        name: Optional[str] = None,
+        keys: Optional[Tuple[Optional[str], Optional[str]]] = (None, None),
+    ) -> None:
         """IntegerHiddenAssociationEstimator object.
 
         Args:
-            num_vals (Union[List[int], Tuple[int, int], int]): Number of values in S1 and S2. Either length 2, if int
+            num_vals (Union[List[int], Tuple[int, int], int]): Number of values in S1
+                and S2. Either length 2, if int
                 value is set to num_vals1 and num_vals2.
             num_states (int): Number of hidden states.
-            alpha (float): Prob of drawing from uniform, (1-alpha) draw from transition density.
-            prev_estimator (Optional[ParameterEstimator]): Estimator for the previous word set. Must be compatible with
+            alpha (float): Prob of drawing from uniform, (1-alpha) draw from transition
+                density.
+            prev_estimator (Optional[ParameterEstimator]): Estimator for the previous
+                word set. Must be compatible with
                 Tuple[int, float].
-            len_estimator (Optional[ParameterEstimator]): Estimator for the length of observations. Must be compatible
+            len_estimator (Optional[ParameterEstimator]): Estimator for the length of
+                observations. Must be compatible
                 with Tuple[int, int].
             suff_stat (Optional[Any]): Kept for consistency.
             pseudo_count (Optional[float]): Kept for consistency.
-            use_numba (bool): If true Numba is used for encoding and vectorized function calls.
+            use_numba (bool): If true Numba is used for encoding and vectorized function
+                calls.
             name (Optional[str]): Set a name to the object instance.
-            keys (Optional[Tuple[Optional[str], Optional[str]]]): Set the keys for weights and transitions.
+            keys (Optional[Tuple[Optional[str], Optional[str]]]): Set the keys for
+                weights and transitions.
 
         """
-        self.prev_estimator = prev_estimator if prev_estimator is not None else NullEstimator()
-        self.len_estimator = len_estimator if len_estimator is not None else NullEstimator()
+        self.prev_estimator = (
+            prev_estimator if prev_estimator is not None else NullEstimator()
+        )
+        self.len_estimator = (
+            len_estimator if len_estimator is not None else NullEstimator()
+        )
         self.pseudo_count = pseudo_count
         self.suff_stat = suff_stat
         self.num_vals = num_vals
@@ -579,16 +819,27 @@ class IntegerHiddenAssociationEstimator(ParameterEstimator):
             self.num_vals1 = num_vals
             self.num_vals2 = num_vals
 
-    def accumulator_factory(self) -> 'IntegerHiddenAssociationAccumulatorFactory':
+    def accumulator_factory(self) -> "IntegerHiddenAssociationAccumulatorFactory":
         len_factory = self.len_estimator.accumulator_factory()
         prev_factory = self.prev_estimator.accumulator_factory()
 
-        return IntegerHiddenAssociationAccumulatorFactory(self.num_vals1, self.num_vals2, self.num_states, prev_factory,
-                                                          len_factory, self.use_numba, self.keys)
+        return IntegerHiddenAssociationAccumulatorFactory(
+            self.num_vals1,
+            self.num_vals2,
+            self.num_states,
+            prev_factory,
+            len_factory,
+            self.use_numba,
+            self.keys,
+        )
 
-    def estimate(self, nobs: Optional[float], suff_stat: Tuple[np.ndarray, np.ndarray, np.ndarray,
-                                                               Optional[SS1], Optional[SS2]]) \
-            -> 'IntegerHiddenAssociationDistribution':
+    def estimate(
+        self,
+        nobs: Optional[float],
+        suff_stat: Tuple[
+            np.ndarray, np.ndarray, np.ndarray, Optional[SS1], Optional[SS2]
+        ],
+    ) -> "IntegerHiddenAssociationDistribution":
 
         init_count, weight_count, state_count, prev_stats, size_stats = suff_stat
 
@@ -610,22 +861,39 @@ class IntegerHiddenAssociationEstimator(ParameterEstimator):
         weight_prob = weight_count / wsum
         state_prob = state_count / ssum
 
-        # return IntegerHiddenAssociationDistribution(init_prob, state_prob, weight_prob, self.alpha, len_dist)
-        return IntegerHiddenAssociationDistribution(state_prob_mat=state_prob, cond_weights=weight_prob,
-                                                    alpha=self.alpha, prev_dist=prev_dist, use_numba=self.use_numba,
-                                                    len_dist=len_dist, name=self.name, keys=self.keys)
+        # return IntegerHiddenAssociationDistribution(init_prob, state_prob,
+        # weight_prob, self.alpha, len_dist)
+        return IntegerHiddenAssociationDistribution(
+            state_prob_mat=state_prob,
+            cond_weights=weight_prob,
+            alpha=self.alpha,
+            prev_dist=prev_dist,
+            use_numba=self.use_numba,
+            len_dist=len_dist,
+            name=self.name,
+            keys=self.keys,
+        )
 
 
 class IntegerHiddenAssociationDataEncoder(DataSequenceEncoder):
 
-    def __init__(self, prev_encoder: DataSequenceEncoder, len_encoder: DataSequenceEncoder, use_numba: bool) -> None:
+    def __init__(
+        self,
+        prev_encoder: DataSequenceEncoder,
+        len_encoder: DataSequenceEncoder,
+        use_numba: bool,
+    ) -> None:
         self.prev_encoder = prev_encoder
         self.len_encoder = len_encoder
         self.use_numba = use_numba
 
     def __str__(self) -> str:
-        s = 'IntegerHiddenAssociationDataEncoder(prev_encoder=' + str(self.prev_encoder) + ',len_encoder='
-        s += str(self.len_encoder) + ',use_numba=' + str(self.use_numba) + ')'
+        s = (
+            "IntegerHiddenAssociationDataEncoder(prev_encoder="
+            + str(self.prev_encoder)
+            + ",len_encoder="
+        )
+        s += str(self.len_encoder) + ",use_numba=" + str(self.use_numba) + ")"
         return s
 
     def __eq__(self, other: object) -> bool:
@@ -634,32 +902,34 @@ class IntegerHiddenAssociationDataEncoder(DataSequenceEncoder):
             cond1 = self.len_encoder == other.len_encoder
             cond2 = self.use_numba == other.use_numba
             return cond0 and cond1 and cond2
-        else:
-            return False
+        return False
 
-    def _seq_encode(self, x: Sequence[Tuple[List[Tuple[int, float]], List[Tuple[int, float]]]]) \
-            -> 'IntegerHiddenAssociationEncodedDataSequence':
+    def _seq_encode(
+        self, x: Sequence[Tuple[List[Tuple[int, float]], List[Tuple[int, float]]]]
+    ) -> "IntegerHiddenAssociationEncodedDataSequence":
         """Sequence encoding for use with without numba.
-        
-        Returns 'rv' Tuple of 
-            rv[0] (List[Tuple[ndarray[int], ndarray[float], ndarray[int], ndarray[float]]]): List of Tuples containing 
-                Flattened numpy arrays of x0 values, x0 counts, x1 values, x1 counts. 
-            rv[1] (E1): Sequence encoded output from list of Tuples containing sum of counts for 
+
+        Returns 'rv' Tuple of
+            rv[0] (List[Tuple[ndarray[int], ndarray[float], ndarray[int],
+            ndarray[float]]]): List of Tuples containing
+                Flattened numpy arrays of x0 values, x0 counts, x1 values, x1 counts.
+            rv[1] (E1): Sequence encoded output from list of Tuples containing sum of
+            counts for
                 x0 and x1.
-            rv[2] (E2): Sequence encoding of x0 from prev_encoder. 
-        
+            rv[2] (E2): Sequence encoding of x0 from prev_encoder.
+
         Args:
-            x: Sequence of iid integer hidden association observations. 
+            x: Sequence of iid integer hidden association observations.
 
         Returns:
-            See rv above. 
+            See rv above.
 
         """
-        rv = []
-        nn = []
+        rv: List[Tuple[np.ndarray, ...]] = []
+        nn: List[float] = []
 
         for xx in x:
-            rv0 = []
+            rv0: List[np.ndarray] = []
             for c_vec in xx:
                 rv0.append(np.asarray([v for v, c in c_vec], dtype=int))
                 rv0.append(np.asarray([c for v, c in c_vec], dtype=float))
@@ -668,16 +938,20 @@ class IntegerHiddenAssociationDataEncoder(DataSequenceEncoder):
             rv.append(tuple(rv0))
             nn.append(nn0)
 
-        nn = self.len_encoder.seq_encode(nn)
+        nn_enc = self.len_encoder.seq_encode(nn)
         xv = self.prev_encoder.seq_encode([x[0] for x in x])
 
-        return IntegerHiddenAssociationEncodedDataSequence(data=(rv, xv, nn), use_numba=False)
+        return IntegerHiddenAssociationEncodedDataSequence(
+            data=(rv, xv, nn_enc), use_numba=False
+        )
 
-    def seq_encode(self, x: Sequence[Tuple[List[Tuple[int, float]], List[Tuple[int, float]]]]) \
-            -> 'IntegerHiddenAssociationEncodedDataSequence':
+    def seq_encode(
+        self, x: Sequence[Tuple[List[Tuple[int, float]], List[Tuple[int, float]]]]
+    ) -> "IntegerHiddenAssociationEncodedDataSequence":
         """Sequence encoding for integer hidden association observations.
 
-        If numba is not used see _seq_encode(). Else the following is returned a Tuple of the following form is returned
+        If numba is not used see _seq_encode(). Else the following is returned a Tuple
+        of the following form is returned
         None, ((s0, s1, x0, x1, c0, c1, w0), xv, nn) with,
 
             s0 (np.ndarray): Numpy array of lengths for length of x[i][0]
@@ -700,51 +974,55 @@ class IntegerHiddenAssociationDataEncoder(DataSequenceEncoder):
 
         if not self.use_numba:
             return self._seq_encode(x)
-        else:
-            x1 = []
-            x0 = []
-            s1 = []
-            s0 = []
-            c0 = []
-            c1 = []
-            w0 = []
-            nn = []
+        x1: List[int] = []
+        x0: List[int] = []
+        s1: List[int] = []
+        s0: List[int] = []
+        c0: List[float] = []
+        c1: List[float] = []
+        w0: List[float] = []
+        nn: List[float] = []
 
-            for i, xx in enumerate(x):
-                xx0 = [v for v, c in xx[0]]
-                cc0 = [c for v, c in xx[0]]
-                xx1 = [v for v, c in xx[1]]
-                cc1 = [c for v, c in xx[1]]
+        for _i, xx in enumerate(x):
+            xx0 = [v for v, c in xx[0]]
+            cc0 = [c for v, c in xx[0]]
+            xx1 = [v for v, c in xx[1]]
+            cc1 = [c for v, c in xx[1]]
 
-                x0.extend(xx0)
-                x1.extend(xx1)
-                c0.extend(cc0)
-                c1.extend(cc1)
-                w0.append(sum(cc0))
-                s1.append(len(xx1))
-                s0.append(len(xx0))
-                nn.append(sum(cc1))
+            x0.extend(xx0)
+            x1.extend(xx1)
+            c0.extend(cc0)
+            c1.extend(cc1)
+            w0.append(sum(cc0))
+            s1.append(len(xx1))
+            s0.append(len(xx0))
+            nn.append(sum(cc1))
 
-            nn = self.len_encoder.seq_encode(nn)
-            xv = self.prev_encoder.seq_encode([x[0] for x in x])
+        nn_enc = self.len_encoder.seq_encode(nn)
+        xv = self.prev_encoder.seq_encode([x[0] for x in x])
 
-            x0 = np.asarray(x0, dtype=np.int32)
-            x1 = np.asarray(x1, dtype=np.int32)
-            c0 = np.asarray(c0, dtype=np.float64)
-            c1 = np.asarray(c1, dtype=np.float64)
-            s0 = np.asarray(s0, dtype=np.int32)
-            s1 = np.asarray(s1, dtype=np.int32)
-            w0 = np.asarray(w0, dtype=np.float64)
+        x0_arr = np.asarray(x0, dtype=np.int32)
+        x1_arr = np.asarray(x1, dtype=np.int32)
+        c0_arr = np.asarray(c0, dtype=np.float64)
+        c1_arr = np.asarray(c1, dtype=np.float64)
+        s0_arr = np.asarray(s0, dtype=np.int32)
+        s1_arr = np.asarray(s1, dtype=np.int32)
+        w0_arr = np.asarray(w0, dtype=np.float64)
 
-            return IntegerHiddenAssociationEncodedDataSequence(data=((s0, s1, x0, x1, c0, c1, w0), xv, nn),
-                                                               use_numba=True)
+        return IntegerHiddenAssociationEncodedDataSequence(
+            data=((s0_arr, s1_arr, x0_arr, x1_arr, c0_arr, c1_arr, w0_arr), xv, nn_enc),
+            use_numba=True,
+        )
+
 
 class IntegerHiddenAssociationEncodedDataSequence(EncodedDataSequence):
     """IntegerHiddenAssociationEncodedDataSequence object for vectorized function calls.
 
     Notes:
-        E0 = Tuple[List[Tuple[np.ndarray, ...]], EncodedDataSequence, EncodedDataSequence]
-        E1 = Tuple[Tuple[np.ndarray, np.ndarray, np.ndarray, np.ndarray, np.ndarray, np.ndarray, np.ndarray],
+        E0 = Tuple[List[Tuple[np.ndarray, ...]], EncodedDataSequence,
+        EncodedDataSequence]
+        E1 = Tuple[Tuple[np.ndarray, np.ndarray, np.ndarray, np.ndarray, np.ndarray,
+        np.ndarray, np.ndarray],
         EncodedDataSequence, EncodedDataSequence]
 
     Attributes:
@@ -753,7 +1031,7 @@ class IntegerHiddenAssociationEncodedDataSequence(EncodedDataSequence):
 
     """
 
-    def __init__(self, data: Union[E0, E1], use_numba: bool = False):
+    def __init__(self, data: Union[E0, E1], use_numba: bool = False) -> None:
         """IntegerHiddenAssociationEncodedDataSequence object.
 
         Args:
@@ -765,22 +1043,43 @@ class IntegerHiddenAssociationEncodedDataSequence(EncodedDataSequence):
         self.numba_enc = use_numba
 
     def __repr__(self) -> str:
-        return f'IntegerHiddenAssociationEncodedDataSequence(data={self.data}, use_numba={self.numba_enc})'
+        return (
+            f"IntegerHiddenAssociationEncodedDataSequence(data={self.data}, "
+            f"use_numba={self.numba_enc})"
+        )
 
 
 @numba.njit(
-    'void(int64, int64, int32[:], int32[:], int32[:], int32[:], float64[:], float64[:], float64[:], float64[:,:], '
-    'float64[:,:], float64[:], float64, float64, float64[:])')
-def numba_seq_log_density(num_states, max_len1, t0, t1, x0, x1, c0, c1, w0, cond_weights, state_prob_mat, init_prob_vec,
-                          a, b, out):
+    "void(int64, int64, int32[:], int32[:], int32[:], int32[:], float64[:], "
+    "float64[:], "
+    "float64[:], float64[:,:], "
+    "float64[:,:], float64[:], float64, float64, float64[:])"
+)
+def numba_seq_log_density(  # pylint: disable=too-many-positional-arguments,unused-argument
+    num_states: int,
+    max_len1: int,
+    t0: np.ndarray,
+    t1: np.ndarray,
+    x0: np.ndarray,
+    x1: np.ndarray,
+    c0: np.ndarray,
+    c1: np.ndarray,
+    w0: np.ndarray,
+    cond_weights: np.ndarray,
+    state_prob_mat: np.ndarray,
+    init_prob_vec: np.ndarray,
+    a: float,
+    b: float,
+    out: np.ndarray,
+) -> None:
     x_mat = np.zeros((max_len1, num_states), dtype=np.float64)
 
     for i in range(len(t0) - 1):
 
-        vx = x0[t0[i]:t0[i + 1]]
-        cx = c0[t0[i]:t0[i + 1]]
-        vy = x1[t1[i]:t1[i + 1]]
-        cy = c1[t1[i]:t1[i + 1]]
+        vx = x0[t0[i] : t0[i + 1]]
+        cx = c0[t0[i] : t0[i + 1]]
+        vy = x1[t1[i] : t1[i + 1]]
+        cy = c1[t1[i] : t1[i + 1]]
         sx = w0[i]
 
         l1 = t0[i + 1] - t0[i]
@@ -802,20 +1101,38 @@ def numba_seq_log_density(num_states, max_len1, t0, t1, x0, x1, c0, c1, w0, cond
 
 
 @numba.njit(
-    'void(int64, int64, int32[:], int32[:], int32[:], int32[:], float64[:], float64[:], float64[:], float64[:,:], '
-    'float64[:,:], float64[:,:], float64[:,:], float64[:], float64[:])')
-def numba_seq_update(num_states, max_len1, t0, t1, x0, x1, c0, c1, w0, cond_weights, state_prob_mat, weight_count,
-                     state_count, init_count, weights):
+    "void(int64, int64, int32[:], int32[:], int32[:], int32[:], float64[:], "
+    "float64[:], "
+    "float64[:], float64[:,:], "
+    "float64[:,:], float64[:,:], float64[:,:], float64[:], float64[:])"
+)
+def numba_seq_update(  # pylint: disable=too-many-positional-arguments,unused-argument
+    num_states: int,
+    max_len1: int,
+    t0: np.ndarray,
+    t1: np.ndarray,
+    x0: np.ndarray,
+    x1: np.ndarray,
+    c0: np.ndarray,
+    c1: np.ndarray,
+    w0: np.ndarray,
+    cond_weights: np.ndarray,
+    state_prob_mat: np.ndarray,
+    weight_count: np.ndarray,
+    state_count: np.ndarray,
+    init_count: np.ndarray,
+    weights: np.ndarray,
+) -> None:
     x_mat = np.zeros((max_len1, num_states), dtype=np.float64)
     z_mat = np.zeros((max_len1, num_states), dtype=np.float64)
 
     for i in range(len(t0) - 1):
 
         weight = weights[i]
-        vx = x0[t0[i]:t0[i + 1]]
-        cx = c0[t0[i]:t0[i + 1]]
-        vy = x1[t1[i]:t1[i + 1]]
-        cy = c1[t1[i]:t1[i + 1]]
+        vx = x0[t0[i] : t0[i + 1]]
+        cx = c0[t0[i] : t0[i + 1]]
+        vy = x1[t1[i] : t1[i + 1]]
+        cy = c1[t1[i] : t1[i + 1]]
 
         l1 = t0[i + 1] - t0[i]
         l2 = t1[i + 1] - t1[i]
@@ -845,8 +1162,8 @@ def numba_seq_update(num_states, max_len1, t0, t1, x0, x1, c0, c1, w0, cond_weig
                     state_count[k, wid] += temp
 
 
-@numba.njit('float64[:,:](int32[:], float64[:,:], float64[:,:])')
-def vec_bincount1(x, w, out):
+@numba.njit("float64[:,:](int32[:], float64[:,:], float64[:,:])")
+def vec_bincount1(x: np.ndarray, w: np.ndarray, out: np.ndarray) -> np.ndarray:
     """Numba bincount on the rows of matrix w for groups x.
 
     Args:
@@ -858,13 +1175,13 @@ def vec_bincount1(x, w, out):
         Numpy 2-d array.
 
     """
-    for i in range(len(x)):
-        out[x[i], :] += w[i, :]
+    for i, x_i in enumerate(x):
+        out[x_i, :] += w[i, :]
     return out
 
 
-@numba.njit('float64[:,:](int32[:], float64[:,:], float64[:,:])')
-def vec_bincount2(x, w, out):
+@numba.njit("float64[:,:](int32[:], float64[:,:], float64[:,:])")
+def vec_bincount2(x: np.ndarray, w: np.ndarray, out: np.ndarray) -> np.ndarray:
     """Numba bincount on the rows of matrix w for groups x.
 
     N = len(x)
@@ -880,7 +1197,6 @@ def vec_bincount2(x, w, out):
         Numpy 2-d array.
 
     """
-    for j in range(len(x)):
-        out[:, x[j]] += w[:, j]
+    for j, x_j in enumerate(x):
+        out[:, x_j] += w[:, j]
     return out
-

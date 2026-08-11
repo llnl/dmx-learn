@@ -1,34 +1,51 @@
-"""A detailed example of heterogenous SNE embeddings."""
+"""Build a composite mixture sample and embed it with h-SNE."""
+
+from typing import Any, Sequence
+
 import numpy as np
-from dmx.stats import *
+
+from dmx.stats import (
+    CompositeDistribution,
+    GaussianDistribution,
+    IntegerCategoricalDistribution,
+    MixtureDistribution,
+)
 from dmx.utils.htsne import htsne
 
-def sample_with_labels(size, mixture_comps, mixture_weights, rng):
-    seeds = rng.randint(low=0, high=2**32, size=len(mixture_comps))
+
+def sample_with_labels(
+    size: int,
+    mixture_comps: Sequence[Any],
+    mixture_weights: Sequence[float] | np.ndarray,
+    random_state: np.random.RandomState,
+) -> tuple[np.ndarray, list[Any]]:
+    seeds = random_state.randint(low=0, high=2**32, size=len(mixture_comps))
 
     samplers = [comp.sampler(seed=s) for s, comp in zip(seeds, mixture_comps)]
 
-    labels = rng.choice(len(mixture_comps), p=mixture_weights, replace=True, size=size)
-    labels = np.bincount(labels, minlength=len(mixture_comps))
+    label_counts = random_state.choice(
+        len(mixture_comps), p=mixture_weights, replace=True, size=size
+    )
+    label_counts = np.bincount(label_counts, minlength=len(mixture_comps))
 
     cnt = 0
     rv0 = np.zeros(size, dtype=int)
-    rv1 = []
-    for i, c in enumerate(labels):
-        if c > 0:
-            rv0[cnt:(cnt+c)] += i
-            rv1.extend(samplers[i].sample(c))
-            cnt += c
+    rv1: list[Any] = []
+    for component_idx, count in enumerate(label_counts):
+        if count > 0:
+            rv0[cnt : (cnt + count)] += component_idx
+            rv1.extend(samplers[component_idx].sample(count))
+            cnt += count
 
     return rv0, rv1
 
 
-if __name__ == '__main__':
+if __name__ == "__main__":
     rng = np.random.RandomState(1)
     # define composite mixture
     ncomps = 5
     p = 0.75
-    p_vec = np.ones((ncomps, ncomps))*(1.0-p)/(ncomps-1)
+    p_vec = np.ones((ncomps, ncomps)) * (1.0 - p) / (ncomps - 1)
     np.fill_diagonal(p_vec, p)
 
     s2 = 1.0
@@ -46,14 +63,9 @@ if __name__ == '__main__':
 
     # simulate data from mixture
     N = int(1e3)
-    labels, data = sample_with_labels(
-            size=N,
-            mixture_comps=dist.components,
-            mixture_weights=dist.w,
-            rng=rng)
-    embs = htsne(data, mix_model=dist)
+    _labels, data = sample_with_labels(
+        size=N, mixture_comps=dist.components, mixture_weights=dist.w, random_state=rng
+    )
+    _embs = htsne(data, mix_model=dist)
 
-    # make plot 
-
-   
-
+    # make plot

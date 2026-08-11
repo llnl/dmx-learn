@@ -1,0 +1,98 @@
+version: 2
+updates:
+  # Core dependencies - numpy, scipy, pandas, pyspark, etc.
+  - package-ecosystem: "pip"
+    directory: "/"
+    schedule:
+      interval: "monthly"
+    open-pull-requests-limit: 5
+    groups:
+      core-dependencies:
+        patterns:
+          - "numpy"
+          - "scipy"
+          - "numba"
+          - "mpmath"
+          - "pandas"
+          - "pyspark"
+    labels:
+      - "dependencies"
+      - "core"
+    # Security updates only - no version updates unless security-related
+    # Dependabot will only create PRs for security vulnerabilities
+    allow:
+      - dependency-type: "direct"
+        update-types: ["security"]
+
+  # Optional dependencies - torch, mpi4py, umap-learn
+  - package-ecosystem: "pip"
+    directory: "/"
+    schedule:
+      interval: "monthly"
+    open-pull-requests-limit: 5
+    groups:
+      optional-dependencies:
+        patterns:
+          - "torch"
+          - "mpi4py"
+          - "umap-learn"
+    labels:
+      - "dependencies"
+      - "optional"
+    allow:
+      - dependency-type: "direct"
+        update-types: ["security"]
+
+  # Dev dependencies - pytest, black, isort, pylint, mypy, etc.
+  - package-ecosystem: "pip"
+    directory: "/"
+    schedule:
+      interval: "monthly"
+    open-pull-requests-limit: 5
+    groups:
+      dev-dependencies:
+        patterns:
+          - "pytest*"
+          - "black"
+          - "isort"
+          - "pylint"
+          - "mypy"
+          - "pydocstyle"
+          - "pre-commit"
+          - "types-*"
+          - "pandas-stubs"
+    labels:
+      - "dependencies"
+      - "dev"
+    allow:
+      - dependency-type: "development"
+        update-types: ["security"]
+
+  # Docs dependencies - sphinx and related
+  - package-ecosystem: "pip"
+    directory: "/"
+    schedule:
+      interval: "monthly"
+    open-pull-requests-limit: 5
+    groups:
+      docs-dependencies:
+        patterns:
+          - "sphinx*"
+    labels:
+      - "dependencies"
+      - "docs"
+    allow:
+      - dependency-type: "development"
+        update-types: ["security"]
+
+  # GitHub Actions - keep workflows up to date
+  - package-ecosystem: "github-actions"
+    directory: "/"
+    schedule:
+      interval: "monthly"
+    open-pull-requests-limit: 5
+    labels:
+      - "dependencies"
+      - "github-actions"
+    # For GitHub Actions, we can be more permissive with updates
+    # since they're already pinned to major versions

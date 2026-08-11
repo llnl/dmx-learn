@@ -1,6 +1,6 @@
 Composite Distribution
 =========================
-The composite distribution is the staple distribtion of *dmx-learn* that allows for distributions over heterogenous tuples of data. Assume we have observed a d-dimensional tuple :math:`x=(x_1, x_2, \dots, x_d)` with component-wise data types :math:`(T_1, T_2, \dots, T_d)`. The composite distribution models the tuple with a likelihood 
+The composite distribution is the staple distribtion of *dmx-learn* that allows for distributions over heterogenous tuples of data. Assume we have observed a d-dimensional tuple :math:`x=(x_1, x_2, \dots, x_d)` with component-wise data types :math:`(T_1, T_2, \dots, T_d)`. The composite distribution models the tuple with a likelihood
 
 .. math::
 
@@ -28,5 +28,3 @@ CompositeSampler
 
 .. autoclass:: dmx.stats.composite.CompositeSampler
    :members:
-
-

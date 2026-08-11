@@ -1,12 +1,17 @@
 """Test cases for Sequence Distribution and related classes."""
-from tests.stats.stats_tests import * 
-from dmx.stats import *
-from dmx.stats.sequence import *
-from dmx.stats.categorical import * 
-from dmx.stats.null_dist import * 
+
+# pylint: disable=duplicate-code,wildcard-import,unused-wildcard-import,line-too-long
+# pylint: disable=too-many-instance-attributes,unnecessary-comprehension
+# pylint: disable=redefined-builtin
 
 import numpy as np
-import pytest 
+import pytest
+
+from dmx.stats import *
+from dmx.stats.categorical import *
+from dmx.stats.null_dist import *
+from dmx.stats.sequence import *  # type: ignore[no-redef]  # module exports internal TypeVars
+from tests.stats.stats_tests import *
 
 
 class SequenceDistributionTestCase(StatsTestClass):
@@ -21,44 +26,113 @@ class SequenceDistributionTestCase(StatsTestClass):
         self._len_ests = CategoricalEstimator()
 
         self._dists = [
-            CategoricalDistribution({'a': 0.5, 'b': 0.25, 'c': 0.25}),
-            CategoricalDistribution({'a': 0.25, 'b': 0.25, 'c': 0.25, 'd': 0.25}),
-            CategoricalDistribution({'a': 0.25, 'b': 0.25, 'c': 0.25, 'd': 0.25})
+            CategoricalDistribution({"a": 0.5, "b": 0.25, "c": 0.25}),
+            CategoricalDistribution({"a": 0.25, "b": 0.25, "c": 0.25, "d": 0.25}),
+            CategoricalDistribution({"a": 0.25, "b": 0.25, "c": 0.25, "d": 0.25}),
         ]
         self._accs = CategoricalAccumulator()
         self._facs = CategoricalAccumulatorFactory()
         self._ests = CategoricalEstimator()
 
-
         self.eval_dists = [
-            SequenceDistribution(dist=self._dists[0], len_dist=self._len_dists[0], len_normalized=False, name='name', keys='keys'),
-            SequenceDistribution(dist=self._dists[0], len_dist=self._len_dists[0], len_normalized=True, name='name', keys='keys'),
-            SequenceDistribution(dist=self._dists[0], len_dist=self._len_dists[0], len_normalized=False, name='name'),
-            SequenceDistribution(dist=self._dists[1], len_dist=self._len_dists[1], keys='keys'),
-            SequenceDistribution(dist=self._dists[1], len_dist=self._len_dists[1])
+            SequenceDistribution(
+                dist=self._dists[0],
+                len_dist=self._len_dists[0],
+                len_normalized=False,
+                name="name",
+                keys="keys",
+            ),
+            SequenceDistribution(
+                dist=self._dists[0],
+                len_dist=self._len_dists[0],
+                len_normalized=True,
+                name="name",
+                keys="keys",
+            ),
+            SequenceDistribution(
+                dist=self._dists[0],
+                len_dist=self._len_dists[0],
+                len_normalized=False,
+                name="name",
+            ),
+            SequenceDistribution(
+                dist=self._dists[1], len_dist=self._len_dists[1], keys="keys"
+            ),
+            SequenceDistribution(dist=self._dists[1], len_dist=self._len_dists[1]),
         ]
         self._estimators = [
-            SequenceEstimator(estimator=self._ests, len_estimator=self._len_ests, name='name', keys='keys'),
-            SequenceEstimator(estimator=self._ests, len_estimator=self._len_ests, len_normalized=True, name='name', keys='keys'),
-            SequenceEstimator(estimator=self._ests, len_estimator=self._len_ests, name='name'),
-            SequenceEstimator(estimator=self._ests, len_estimator=self._len_ests, keys='keys'),
-            SequenceEstimator(estimator=self._ests, len_estimator=self._len_ests)
+            SequenceEstimator(
+                estimator=self._ests,
+                len_estimator=self._len_ests,
+                name="name",
+                keys="keys",
+            ),
+            SequenceEstimator(
+                estimator=self._ests,
+                len_estimator=self._len_ests,
+                len_normalized=True,
+                name="name",
+                keys="keys",
+            ),
+            SequenceEstimator(
+                estimator=self._ests, len_estimator=self._len_ests, name="name"
+            ),
+            SequenceEstimator(
+                estimator=self._ests, len_estimator=self._len_ests, keys="keys"
+            ),
+            SequenceEstimator(estimator=self._ests, len_estimator=self._len_ests),
         ]
         self._factories = [
-            SequenceAccumulatorFactory(dist_factory=self._facs, len_factory=self._len_facs, name='name', keys='keys'),
-            SequenceAccumulatorFactory(dist_factory=self._facs, len_factory=self._len_facs, len_normalized=True, name='name', keys='keys'),
-            SequenceAccumulatorFactory(dist_factory=self._facs, len_factory=self._len_facs, name='name'),
-            SequenceAccumulatorFactory(dist_factory=self._facs, len_factory=self._len_facs, keys='keys'),
-            SequenceAccumulatorFactory(dist_factory=self._facs, len_factory=self._len_facs)
+            SequenceAccumulatorFactory(
+                dist_factory=self._facs,
+                len_factory=self._len_facs,
+                name="name",
+                keys="keys",
+            ),
+            SequenceAccumulatorFactory(
+                dist_factory=self._facs,
+                len_factory=self._len_facs,
+                len_normalized=True,
+                name="name",
+                keys="keys",
+            ),
+            SequenceAccumulatorFactory(
+                dist_factory=self._facs, len_factory=self._len_facs, name="name"
+            ),
+            SequenceAccumulatorFactory(
+                dist_factory=self._facs, len_factory=self._len_facs, keys="keys"
+            ),
+            SequenceAccumulatorFactory(
+                dist_factory=self._facs, len_factory=self._len_facs
+            ),
         ]
         self._accumulators = [
-            SequenceAccumulator(accumulator=self._accs, len_accumulator=self._len_accs, name='name', keys='keys'),
-            SequenceAccumulator(accumulator=self._accs, len_accumulator=self._len_accs, len_normalized=True, name='name', keys='keys'),
-            SequenceAccumulator(accumulator=self._accs, len_accumulator=self._len_accs, name='name'),
-            SequenceAccumulator(accumulator=self._accs, len_accumulator=self._len_accs, keys='keys'),
-            SequenceAccumulator(accumulator=self._accs, len_accumulator=self._len_accs)
+            SequenceAccumulator(
+                accumulator=self._accs,
+                len_accumulator=self._len_accs,
+                name="name",
+                keys="keys",
+            ),
+            SequenceAccumulator(
+                accumulator=self._accs,
+                len_accumulator=self._len_accs,
+                len_normalized=True,
+                name="name",
+                keys="keys",
+            ),
+            SequenceAccumulator(
+                accumulator=self._accs, len_accumulator=self._len_accs, name="name"
+            ),
+            SequenceAccumulator(
+                accumulator=self._accs, len_accumulator=self._len_accs, keys="keys"
+            ),
+            SequenceAccumulator(accumulator=self._accs, len_accumulator=self._len_accs),
         ]
-        self._encoders = [SequenceDataEncoder(encoders=[CategoricalDataEncoder()]*2)] * len(self.eval_dists)
+        self._encoders = [
+            SequenceDataEncoder(
+                encoders=(CategoricalDataEncoder(), CategoricalDataEncoder())
+            )
+        ] * len(self.eval_dists)
 
         # Define members for tests
         self.dist_est = [(d, e) for d, e in zip(self.eval_dists, self._estimators)]
@@ -70,48 +144,80 @@ class SequenceDistributionTestCase(StatsTestClass):
         self.acc_encoder = [(a, e) for a, e in zip(self._accumulators, self._encoders)]
 
         self.type_check_data = [None, np.ones((10, 10))]
-        self.type_check_keys = [(None, None), 1.0, ('keys', None)]
-    
+        self.type_check_keys = [(None, None), 1.0, ("keys", None)]
 
-    def test_seq_log_density_type(self):
+    def test_seq_log_density_type(self) -> None:
         for x in self.type_check_data:
             with pytest.raises(Exception) as e:
                 self.eval_dists[0].seq_log_density(x)
-            assert str(e.value) == "SequenceEncodedDataSequence required for seq_log_density()."
-    
-    def test_none_estimator(self):
+            assert (
+                str(e.value)
+                == "SequenceEncodedDataSequence required for seq_log_density()."
+            )
+
+    def test_none_estimator(self) -> None:
         dists = [
-            SequenceDistribution(dist=self._dists[0], name='name', keys='keys'),
-            SequenceDistribution(dist=self._dists[0], len_dist=None, name='name', keys='keys'),
-            SequenceDistribution(dist=self._dists[0], len_dist=NullDistribution(), name='name', keys='keys')
+            SequenceDistribution(dist=self._dists[0], name="name", keys="keys"),
+            SequenceDistribution(
+                dist=self._dists[0], len_dist=None, name="name", keys="keys"
+            ),
+            SequenceDistribution(
+                dist=self._dists[0],
+                len_dist=NullDistribution(),
+                name="name",
+                keys="keys",
+            ),
         ]
         ests = [
-            SequenceEstimator(estimator=self._ests, len_estimator=NullEstimator(), name='name', keys='keys'),
-            SequenceEstimator(estimator=self._ests, len_estimator=NullEstimator(), name='name', keys='keys'),
-            SequenceEstimator(estimator=self._ests, len_estimator=NullEstimator(), name='name', keys='keys')
+            SequenceEstimator(
+                estimator=self._ests,
+                len_estimator=NullEstimator(),
+                name="name",
+                keys="keys",
+            ),
+            SequenceEstimator(
+                estimator=self._ests,
+                len_estimator=NullEstimator(),
+                name="name",
+                keys="keys",
+            ),
+            SequenceEstimator(
+                estimator=self._ests,
+                len_estimator=NullEstimator(),
+                name="name",
+                keys="keys",
+            ),
         ]
         rv = []
         for d, e in zip(dists, ests):
             rv.append(d.estimator() == e)
-        
-        assert all(rv), rv 
 
-    def test_none_len_dist(self):
+        assert all(rv), rv
+
+    def test_none_len_dist(self) -> None:
         dists = [
-            SequenceDistribution(dist=self._dists[0], name='name', keys='keys'),
-            SequenceDistribution(dist=self._dists[0], len_dist=None, name='name', keys='keys'),
-            SequenceDistribution(dist=self._dists[0], len_dist=NullDistribution(), name='name', keys='keys')
+            SequenceDistribution(dist=self._dists[0], name="name", keys="keys"),
+            SequenceDistribution(
+                dist=self._dists[0], len_dist=None, name="name", keys="keys"
+            ),
+            SequenceDistribution(
+                dist=self._dists[0],
+                len_dist=NullDistribution(),
+                name="name",
+                keys="keys",
+            ),
         ]
         rv = []
         for d in dists:
-            rv.append(d == eval(str(d)))
-        
-        assert all(rv), rv 
-            
-    def test_key_exceptions(self):
+            rv.append(str_eval_test(d))
+
+        assert all(rv), rv
+
+    def test_key_exceptions(self) -> None:
         for x in self.type_check_keys:
             with pytest.raises(TypeError) as e:
-                SequenceEstimator(estimator=ParameterEstimator(), keys=x)
-                
-            assert str(e.value) == "SequenceEstimator requires keys to be of type 'str'."
+                SequenceEstimator(estimator=cast(Any, ParameterEstimator)(), keys=x)
 
+            assert (
+                str(e.value) == "SequenceEstimator requires keys to be of type 'str'."
+            )

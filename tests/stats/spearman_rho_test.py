@@ -1,43 +1,55 @@
 """Test cases for Spearman Ranking Distribution and related classes."""
-from tests.stats.stats_tests import * 
+
+# pylint: disable=duplicate-code,wildcard-import,unused-wildcard-import,line-too-long
+# pylint: disable=too-many-instance-attributes,unnecessary-comprehension
+# pylint: disable=redefined-builtin
+
+import numpy as np
+import pytest
+
 from dmx.stats import *
 from dmx.stats.spearman_rho import *
-import numpy as np
-import pytest 
+from tests.stats.stats_tests import *
 
-def get_sigma(seed, sz):
+
+def get_sigma(seed: int, sz: int) -> Any:
     rng = np.random.RandomState(seed)
     rv = np.arange(sz)
     rng.shuffle(rv)
     return rv
+
 
 class SpearmanRankingDistributionTestCase(StatsTestClass):
     def setUp(self) -> None:
         self.dim = [3, 5, 8, 9]
         self.sigma = [get_sigma(i, x) for i, x in enumerate(self.dim)]
         self.eval_dists = [
-            SpearmanRankingDistribution(sigma=self.sigma[0], rho=1.0, name='name', keys='keys'),
-            SpearmanRankingDistribution(sigma=self.sigma[1], rho=1.0, name='name'),
-            SpearmanRankingDistribution(sigma=self.sigma[2], rho=0.90, keys='keys'),
-            SpearmanRankingDistribution(sigma=self.sigma[3], rho=0.80)
+            SpearmanRankingDistribution(
+                sigma=self.sigma[0], rho=1.0, name="name", keys="keys"
+            ),
+            SpearmanRankingDistribution(sigma=self.sigma[1], rho=1.0, name="name"),
+            SpearmanRankingDistribution(sigma=self.sigma[2], rho=0.90, keys="keys"),
+            SpearmanRankingDistribution(sigma=self.sigma[3], rho=0.80),
         ]
         self._ests = [
-            SpearmanRankingEstimator(dim=self.dim[0], name='name', keys='keys'),
-            SpearmanRankingEstimator(dim=self.dim[1], name='name'),
-            SpearmanRankingEstimator(dim=self.dim[2], keys='keys'),
-            SpearmanRankingEstimator(dim=self.dim[3])
+            SpearmanRankingEstimator(dim=self.dim[0], name="name", keys="keys"),
+            SpearmanRankingEstimator(dim=self.dim[1], name="name"),
+            SpearmanRankingEstimator(dim=self.dim[2], keys="keys"),
+            SpearmanRankingEstimator(dim=self.dim[3]),
         ]
         self._factories = [
-            SpearmanRankingAccumulatorFactory(dim=self.dim[0], name='name', keys='keys'),
-            SpearmanRankingAccumulatorFactory(dim=self.dim[1], name='name'),
-            SpearmanRankingAccumulatorFactory(dim=self.dim[2], keys='keys'),
-            SpearmanRankingAccumulatorFactory(dim=self.dim[3])
+            SpearmanRankingAccumulatorFactory(
+                dim=self.dim[0], name="name", keys="keys"
+            ),
+            SpearmanRankingAccumulatorFactory(dim=self.dim[1], name="name"),
+            SpearmanRankingAccumulatorFactory(dim=self.dim[2], keys="keys"),
+            SpearmanRankingAccumulatorFactory(dim=self.dim[3]),
         ]
         self._accumulators = [
-            SpearmanRankingAccumulator(dim=self.dim[0], name='name', keys='keys'),
-            SpearmanRankingAccumulator(dim=self.dim[1], name='name'),
-            SpearmanRankingAccumulator(dim=self.dim[2], keys='keys'),
-            SpearmanRankingAccumulator(dim=self.dim[3])
+            SpearmanRankingAccumulator(dim=self.dim[0], name="name", keys="keys"),
+            SpearmanRankingAccumulator(dim=self.dim[1], name="name"),
+            SpearmanRankingAccumulator(dim=self.dim[2], keys="keys"),
+            SpearmanRankingAccumulator(dim=self.dim[3]),
         ]
         self._encoders = [SpearmanRankingDataEncoder()] * len(self.dim)
 
@@ -51,18 +63,23 @@ class SpearmanRankingDistributionTestCase(StatsTestClass):
         self.acc_encoder = [(a, e) for a, e in zip(self._accumulators, self._encoders)]
 
         self.type_check_data = [None, np.ones((10, 10))]
-        self.type_check_keys = [(None, None), 1.0, ('keys', None)]
+        self.type_check_keys = [(None, None), 1.0, ("keys", None)]
 
-    def test_seq_log_density_type(self):
+    def test_seq_log_density_type(self) -> None:
         for x in self.type_check_data:
             with pytest.raises(Exception) as e:
                 self.eval_dists[0].seq_log_density(x)
-            assert str(e.value) == "SpearmanRankingEncodedDataSequence required for seq_log_density()."
-            
-    def test_key_exceptions(self):
+            assert (
+                str(e.value)
+                == "SpearmanRankingEncodedDataSequence required for seq_log_density()."
+            )
+
+    def test_key_exceptions(self) -> None:
         for x in self.type_check_keys:
             with pytest.raises(TypeError) as e:
                 SpearmanRankingEstimator(dim=1, keys=x)
-                
-            assert str(e.value) == "SpearmanRankingEstimator requires keys to be of type 'str'."
 
+            assert (
+                str(e.value)
+                == "SpearmanRankingEstimator requires keys to be of type 'str'."
+            )

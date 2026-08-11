@@ -1,27 +1,32 @@
 """Test cases for Markov Chain Distribution and related classes."""
-from tests.stats.stats_tests import * 
-from dmx.stats import *
-from dmx.stats.markovchain import *
-from dmx.stats.categorical import * 
-from dmx.stats.sequence import * 
-import numpy as np
-import pytest 
 
+# pylint: disable=duplicate-code,wildcard-import,unused-wildcard-import,line-too-long
+# pylint: disable=too-many-instance-attributes,unnecessary-comprehension
+# pylint: disable=redefined-builtin
+
+import numpy as np
+import pytest
+
+from dmx.stats import *
+from dmx.stats.categorical import *
+from dmx.stats.markovchain import *  # type: ignore[no-redef]  # module exports internal TypeVars
+from dmx.stats.sequence import *  # type: ignore[no-redef]  # module exports internal TypeVars
+from tests.stats.stats_tests import *
 
 
 class MarkovChainDistributionTestCase(StatsTestClass):
-    
+
     def setUp(self) -> None:
         rng = np.random.RandomState(1)
-        vals = ['a', 'b', 'c', 'd', 'e']
-        pi = rng.dirichlet(alpha=[1.]*len(vals)).tolist()
-        init_prob_map = {k: v for k, v in zip(vals, pi)}
-        trans_map = {v: {} for v in vals}
+        vals = ["a", "b", "c", "d", "e"]
+        init_probs = rng.dirichlet(alpha=[1.0] * len(vals)).tolist()
+        init_prob_map = {k: v for k, v in zip(vals, init_probs)}
+        trans_map: dict[str, dict[str, float]] = {v: {} for v in vals}
         for x in vals:
-            w = rng.dirichlet(alpha=[1.]*len(vals)).tolist()
+            w = rng.dirichlet(alpha=[1.0] * len(vals)).tolist()
             trans_map[x] = {k: v for k, v in zip(vals, w)}
 
-        # Length distribution 
+        # Length distribution
         len_dist = CategoricalDistribution({3: 0.5, 5: 0.5})
         len_acc = CategoricalAccumulator()
         len_fac = CategoricalAccumulatorFactory()
@@ -29,26 +34,43 @@ class MarkovChainDistributionTestCase(StatsTestClass):
         len_enc = CategoricalDataEncoder()
 
         self.eval_dists = [
-            MarkovChainDistribution(init_prob_map=init_prob_map, transition_map=trans_map, len_dist=len_dist, keys='keys', name='name'),
-            MarkovChainDistribution(init_prob_map=init_prob_map, transition_map=trans_map, len_dist=len_dist, keys='keys'),
-            MarkovChainDistribution(init_prob_map=init_prob_map, transition_map=trans_map, len_dist=len_dist)
+            MarkovChainDistribution(
+                init_prob_map=init_prob_map,
+                transition_map=trans_map,
+                len_dist=len_dist,
+                keys="keys",
+                name="name",
+            ),
+            MarkovChainDistribution(
+                init_prob_map=init_prob_map,
+                transition_map=trans_map,
+                len_dist=len_dist,
+                keys="keys",
+            ),
+            MarkovChainDistribution(
+                init_prob_map=init_prob_map, transition_map=trans_map, len_dist=len_dist
+            ),
         ]
-        self._ests = [
-            MarkovChainEstimator(len_estimator=len_est, keys='keys', name='name'),
-            MarkovChainEstimator(len_estimator=len_est, keys='keys'),
-            MarkovChainEstimator(len_estimator=len_est)
+        self._ests: list[Any] = [
+            MarkovChainEstimator(len_estimator=len_est, keys="keys", name="name"),
+            MarkovChainEstimator(len_estimator=len_est, keys="keys"),
+            MarkovChainEstimator(len_estimator=len_est),
         ]
-        self._factories = [
-            MarkovChainAccumulatorFactory(len_factory=len_fac, keys='keys', name='name'),
-            MarkovChainAccumulatorFactory(len_factory=len_fac, keys='keys'),
-            MarkovChainAccumulatorFactory(len_factory=len_fac)
+        self._factories: list[Any] = [
+            MarkovChainAccumulatorFactory(
+                len_factory=len_fac, keys="keys", name="name"
+            ),
+            MarkovChainAccumulatorFactory(len_factory=len_fac, keys="keys"),
+            MarkovChainAccumulatorFactory(len_factory=len_fac),
         ]
-        self._accumulators = [
-            MarkovChainAccumulator(len_accumulator=len_acc, keys='keys', name='name'),
-            MarkovChainAccumulator(len_accumulator=len_acc, keys='keys'),
-            MarkovChainAccumulator(len_accumulator=len_acc)
+        self._accumulators: list[Any] = [
+            MarkovChainAccumulator(len_accumulator=len_acc, keys="keys", name="name"),
+            MarkovChainAccumulator(len_accumulator=len_acc, keys="keys"),
+            MarkovChainAccumulator(len_accumulator=len_acc),
         ]
-        self._encoders = [MarkovChainDataEncoder(len_encoder=len_enc)]*len(self.eval_dists)
+        self._encoders: list[Any] = [MarkovChainDataEncoder(len_encoder=len_enc)] * len(
+            self.eval_dists
+        )
 
         # Define members for tests
         self.dist_est = [(d, e) for d, e in zip(self.eval_dists, self._ests)]
@@ -61,8 +83,11 @@ class MarkovChainDistributionTestCase(StatsTestClass):
 
         self.type_check_data = [None, np.ones((10, 10))]
 
-    def test_seq_log_density_type(self):
+    def test_seq_log_density_type(self) -> None:
         for x in self.type_check_data:
             with pytest.raises(Exception) as e:
                 self.eval_dists[0].seq_log_density(x)
-            assert str(e.value) == "MarkovChainEncodedDataSequence required for seq_log_density()."
+            assert (
+                str(e.value)
+                == "MarkovChainEncodedDataSequence required for seq_log_density()."
+            )

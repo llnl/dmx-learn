@@ -1,18 +1,22 @@
-from typing import Optional, Any, TypeVar, Sequence
-from dmx.arithmetic import *
-from dmx.stats.pdist import (
-        SequenceEncodableProbabilityDistribution,
-        SequenceEncodableStatisticAccumulator,
-        ParameterEstimator,
-        ProbabilityDistribution,
-        EncodedDataSequence,
-        DataSequenceEncoder)
-from numpy.random import RandomState
-from dmx.bstats.nulldist import NullDistribution
-import numpy as np
+from typing import Any, Optional, Sequence, TypeVar
 
-T = TypeVar('T')
+import numpy as np
+from numpy.random import RandomState
+
+from dmx.arithmetic import *
+from dmx.bstats.nulldist import NullDistribution
+from dmx.stats.pdist import (
+    DataSequenceEncoder,
+    EncodedDataSequence,
+    ParameterEstimator,
+    ProbabilityDistribution,
+    SequenceEncodableProbabilityDistribution,
+    SequenceEncodableStatisticAccumulator,
+)
+
+T = TypeVar("T")
 null_dist = NullDistribution()
+
 
 class DiracDistribution(SequenceEncodableProbabilityDistribution):
 
@@ -20,7 +24,7 @@ class DiracDistribution(SequenceEncodableProbabilityDistribution):
         self.value = value
 
     def __str__(self):
-        return 'DiracDistribution(%s)'%(str(self.value))
+        return "DiracDistribution(%s)" % (str(self.value))
 
     def get_prior(self):
         return self.dist.get_prior()
@@ -46,7 +50,7 @@ class DiracDistribution(SequenceEncodableProbabilityDistribution):
     def estimator(self):
         return DiracEstimator()
 
-    def dist_to_encoder(self) -> 'DiracDataEncoder':
+    def dist_to_encoder(self) -> "DiracDataEncoder":
         return DiracDataEncoder()
 
 
@@ -88,20 +92,21 @@ class DiracAccumulator(SequenceEncodableStatisticAccumulator):
     def key_replace(self, stats_dict):
         pass
 
-    def acc_to_encoder(self) -> 'DiracDataEncoder':
+    def acc_to_encoder(self) -> "DiracDataEncoder":
         return DiracDataEncoder()
+
 
 class DiracEstimator(ParameterEstimator):
 
     def __init__(self, value, prior: ProbabilityDistribution = null_dist, keys=None):
 
-        self.value  = value
-        self.prior  = prior
-        self.keys   = keys
+        self.value = value
+        self.prior = prior
+        self.keys = keys
 
     def accumulator_factory(self):
-        obj = type('', (object,), {'make': lambda o: DiracAccumulator()})()
-        return(obj)
+        obj = type("", (object,), {"make": lambda o: DiracAccumulator()})()
+        return obj
 
     def get_prior(self):
         return self.dist.get_prior()
@@ -112,15 +117,16 @@ class DiracEstimator(ParameterEstimator):
     def estimate(self, suff_stat):
         return DiracDistribution(self.value)
 
+
 class DiracDataEncoder(DataSequenceEncoder):
-    
+
     def __str__(self) -> str:
-        return 'DiracDataEncoder'
+        return "DiracDataEncoder"
 
     def __eq__(self, other: object) -> bool:
         return isinstance(other, DiracDataEncoder)
 
-    def seq_encode(self, x: Sequence[T]) -> 'DiracEncodedData':
+    def seq_encode(self, x: Sequence[T]) -> "DiracEncodedData":
         return DiracEncodedData(data=np.asarray(x, dtype=object))
 
 
@@ -129,6 +135,4 @@ class DiracEncodedData(EncodedDataSequence):
         super().__init__(data)
 
     def __repr__(self) -> str:
-        return f'DiracEncodedData(data={self.data})'
-
-
+        return f"DiracEncodedData(data={self.data})"

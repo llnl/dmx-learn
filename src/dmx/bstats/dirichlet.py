@@ -1,10 +1,15 @@
-import numpy as np
 import sys
+
+import numpy as np
 from numpy.random import RandomState
 from scipy.special import gammaln
 
 import dmx.utils.vector as vec
-from dmx.bstats.pdist import ProbabilityDistribution, SequenceEncodableAccumulator, ParameterEstimator
+from dmx.bstats.pdist import (
+    ParameterEstimator,
+    ProbabilityDistribution,
+    SequenceEncodableAccumulator,
+)
 from dmx.utils.special import *
 
 
@@ -20,7 +25,7 @@ def dirichlet_param_solve(alpha, meanLogP, delta):
 
     count = 0
     asum = alpha.sum()
-    dalpha = (2*delta)+1
+    dalpha = (2 * delta) + 1
 
     while dalpha > delta:
 
@@ -56,14 +61,14 @@ def mpe(x0, f, eps):
 
     while res > eps:
         y = f(X[-1, :])
-        dy = y-X[-1, :]
-        U = (X[1:, :]-X[:-1, :]).T
+        dy = y - X[-1, :]
+        U = (X[1:, :] - X[:-1, :]).T
         X2 = X[1:, :].T
         c = np.dot(np.linalg.pinv(U), dy)
         c *= -1
-        s = (np.dot(X2, c) + y)/(c.sum() + 1)
+        s = (np.dot(X2, c) + y) / (c.sum() + 1)
 
-        res = np.abs(s-s0).sum()
+        res = np.abs(s - s0).sum()
         s0 = s
         X = np.concatenate((X, np.reshape(y, (1, -1))), axis=0)
         its_cnt += 1
@@ -88,16 +93,16 @@ class DirichletDistribution(ProbabilityDistribution):
 
     def __init__(self, alpha):
 
-        if isinstance(alpha, (float,int)):
-            self.dim   = 0
+        if isinstance(alpha, (float, int)):
+            self.dim = 0
             self.alpha = alpha
         else:
-            self.dim       = len(alpha)
-            self.alpha     = alpha
+            self.dim = len(alpha)
+            self.alpha = alpha
             self.log_const = sum(gammaln(alpha)) - gammaln(sum(alpha))
 
     def __str__(self):
-        return 'DirichletDistribution(%s)'%(str(self.alpha))
+        return "DirichletDistribution(%s)" % (str(self.alpha))
 
     def get_parameters(self):
         return self.alpha
@@ -117,14 +122,19 @@ class DirichletDistribution(ProbabilityDistribution):
                 a = self.alpha
                 aa = dist.alpha
 
-            return -((gammaln(np.sum(aa)) - np.sum(gammaln(aa))) + np.dot(digamma(a)-digamma(np.sum(a)), aa - 1))
+            return -(
+                (gammaln(np.sum(aa)) - np.sum(gammaln(aa)))
+                + np.dot(digamma(a) - digamma(np.sum(a)), aa - 1)
+            )
         else:
             pass
 
     def entropy(self):
         a = self.alpha
         a0 = np.sum(a)
-        return -((gammaln(a0) - np.sum(gammaln(a))) + np.dot(digamma(a) - digamma(a0), a - 1))
+        return -(
+            (gammaln(a0) - np.sum(gammaln(a))) + np.dot(digamma(a) - digamma(a0), a - 1)
+        )
 
     def density(self, x):
         return exp(self.log_density(x))
@@ -133,11 +143,11 @@ class DirichletDistribution(ProbabilityDistribution):
 
         if self.dim == 0:
             a = self.alpha
-            rv = np.log(x).sum()*(a-1)
-            cc = gammaln(a)*len(x) - gammaln(len(x)*a)
+            rv = np.log(x).sum() * (a - 1)
+            cc = gammaln(a) * len(x) - gammaln(len(x) * a)
             return rv - cc
         else:
-            rv = np.dot(np.log(x), self.alpha-1)
+            rv = np.dot(np.log(x), self.alpha - 1)
             return rv - self.log_const
 
         return rv
@@ -156,7 +166,7 @@ class DirichletDistribution(ProbabilityDistribution):
             if a != 1:
                 rv += x[0].sum(axis=1) * (a - 1)
         else:
-            g = (a != 1)
+            g = a != 1
             rv = np.dot(x[0][:, g], self.alpha - 1.0)
             rv -= self.log_const
         return rv
@@ -168,7 +178,7 @@ class DirichletDistribution(ProbabilityDistribution):
 
         rv2 = np.maximum(rv, sys.float_info.min)
         np.log(rv2, out=rv2)
-        return rv2, rv, rv*rv
+        return rv2, rv, rv * rv
 
     def sampler(self, seed=None):
         return DirichletSampler(self, seed)
@@ -177,13 +187,17 @@ class DirichletDistribution(ProbabilityDistribution):
         if pseudo_count is None:
             return DirichletEstimator(dim=self.dim)
         else:
-            return DirichletEstimator(dim=self.dim, pseudo_count=pseudo_count, suff_stat=log(self.alpha/sum(self.alpha)))
+            return DirichletEstimator(
+                dim=self.dim,
+                pseudo_count=pseudo_count,
+                suff_stat=log(self.alpha / sum(self.alpha)),
+            )
 
 
 class DirichletSampler(object):
 
     def __init__(self, dist, seed):
-        self.rng  = RandomState(seed)
+        self.rng = RandomState(seed)
         self.dist = dist
 
     def sample(self, size=None):
@@ -205,26 +219,25 @@ class DirichletSampler(object):
             return self.rng.dirichlet(alpha=self.dist.alpha, size=size)
 
 
-
 class DirichletAccumulator(SequenceEncodableAccumulator):
 
     def __init__(self, dim, keys=None):
-        self.dim       = dim
+        self.dim = dim
         self.sumOfLogs = np.zeros(dim)
-        self.sum       = np.zeros(dim)
-        self.sum2      = np.zeros(dim)
-        self.counts    = 0
-        self.key       = keys
+        self.sum = np.zeros(dim)
+        self.sum2 = np.zeros(dim)
+        self.counts = 0
+        self.key = keys
 
     def update(self, x, weight, estimate):
         z = x > 0
         if np.all(z):
             self.sumOfLogs += log(x) * weight
-            self.sum += weight*x
-            self.sum2 += weight*x*x
+            self.sum += weight * x
+            self.sum2 += weight * x * x
             self.counts += weight
         else:
-            self.sumOfLogs[z] += log(x[z])*weight
+            self.sumOfLogs[z] += log(x[z]) * weight
             self.sum += weight * x
             self.sum2 += weight * x * x
             self.counts += weight
@@ -269,19 +282,29 @@ class DirichletAccumulator(SequenceEncodableAccumulator):
 
 class DirichletEstimator(ParameterEstimator):
 
-    def __init__(self, dim, pseudo_count=None, suff_stat=None, delta=1.0e-8, keys=None, use_mpe=False):
-        self.dim          = dim
-        self.pseudo_count  = pseudo_count
-        self.delta        = delta
-        self.suff_stat     = suff_stat
-        self.keys         = keys
-        self.use_mpe      = use_mpe
+    def __init__(
+        self,
+        dim,
+        pseudo_count=None,
+        suff_stat=None,
+        delta=1.0e-8,
+        keys=None,
+        use_mpe=False,
+    ):
+        self.dim = dim
+        self.pseudo_count = pseudo_count
+        self.delta = delta
+        self.suff_stat = suff_stat
+        self.keys = keys
+        self.use_mpe = use_mpe
 
     def accumulatorFactory(self):
         dim = self.dim
         keys = self.keys
-        obj = type('', (object,), {'make': lambda self: DirichletAccumulator(dim, keys)})()
-        return(obj)
+        obj = type(
+            "", (object,), {"make": lambda self: DirichletAccumulator(dim, keys)}
+        )()
+        return obj
 
     def estimate(self, nobs, suff_stat):
 
@@ -289,23 +312,23 @@ class DirichletEstimator(ParameterEstimator):
         dim = len(sum_of_logs)
 
         if self.pseudo_count is not None and self.suff_stat is None:
-            c1              = digamma(one) - digamma(dim)
-            c2              = sum_of_logs + c1*self.pseudo_count
-            initialEstimate = c2*(dim/sum(c2))
-            meanLogP        = c2 / (nobs + self.pseudo_count)
+            c1 = digamma(one) - digamma(dim)
+            c2 = sum_of_logs + c1 * self.pseudo_count
+            initialEstimate = c2 * (dim / sum(c2))
+            meanLogP = c2 / (nobs + self.pseudo_count)
 
         elif self.pseudo_count is not None and self.suff_stat is not None:
-            c2              = sum_of_logs + self.suff_stat*self.pseudo_count
-            initialEstimate = c2*(dim/sum(c2))
-            meanLogP        = c2 / (nobs + self.pseudo_count)
+            c2 = sum_of_logs + self.suff_stat * self.pseudo_count
+            initialEstimate = c2 * (dim / sum(c2))
+            meanLogP = c2 / (nobs + self.pseudo_count)
 
         else:
 
-            sum_v = sum_v/nobs
-            sum_v2 = sum_v2/nobs
+            sum_v = sum_v / nobs
+            sum_v2 = sum_v2 / nobs
             sum_v[-1] = 1.0 - sum_v[:-1].sum()
 
-            '''
+            """
             #initialConst = (sum_v[0]-sum_v2[0])/(sum_v2[0]-sum_v[0]*sum_v[0])
             initialConst1 = (sum_v - sum_v2).mean()
             initialConst2 = (sum_v2 - sum_v*sum_v).mean()
@@ -317,10 +340,10 @@ class DirichletEstimator(ParameterEstimator):
 
             #initialEstimate = sum_of_logs*(dim/sum(sum_of_logs))
 
-            '''
+            """
             initialEstimate = sum_v
 
-            meanLogP        = sum_of_logs/nobs
+            meanLogP = sum_of_logs / nobs
 
         if nobs == 1.0:
             return DirichletDistribution(initialEstimate)
@@ -328,8 +351,12 @@ class DirichletEstimator(ParameterEstimator):
         else:
 
             if self.use_mpe:
-                alpha, its_cnt = find_alpha(np.asarray(initialEstimate), meanLogP, self.delta)
+                alpha, its_cnt = find_alpha(
+                    np.asarray(initialEstimate), meanLogP, self.delta
+                )
             else:
-                alpha, its_cnt = dirichlet_param_solve(np.asarray(initialEstimate), meanLogP, self.delta)
+                alpha, its_cnt = dirichlet_param_solve(
+                    np.asarray(initialEstimate), meanLogP, self.delta
+                )
 
             return DirichletDistribution(alpha)
