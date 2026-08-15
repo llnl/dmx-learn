@@ -1,0 +1,4 @@
+interface:
+  display_name: "DMX Local Modeling"
+  short_description: "Question-first local model fitting"
+  default_prompt: "Use $dmx-local-modeling to help me choose, fit, and diagnose a dmx-learn model for my local data."

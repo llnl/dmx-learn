@@ -1,0 +1,4 @@
+interface:
+  display_name: "DMX Expert Orchestrator"
+  short_description: "Top-level router for local dmx-learn modeling"
+  default_prompt: "Use $dmx-expert-orchestrator to scope my local dmx-learn modeling task, default to dmx.stats, and route detailed implementation to the right repo-local skill."
