@@ -8,13 +8,14 @@ description: Main entry point for local `dmx-learn` modeling requests. Use to sc
 Use this skill as the top-level router for local modeling requests in
 `dmx-learn`.
 
-Keep the first pass focused on four decisions:
+Keep the first pass focused on five decisions:
 
 1. Is the request local and in scope for `dmx-learn`?
-2. What does one observation look like?
-3. Should the first model be a direct `dmx.stats` estimator or a composite or
+2. Where is the data, and can it be inspected directly?
+3. What does one observation look like?
+4. Should the first model be a direct `dmx.stats` estimator or a composite or
    mixture built from `dmx.stats` parts?
-4. Which narrower skill or reference should carry the detailed implementation?
+5. Which narrower skill or reference should carry the detailed implementation?
 
 ## Default Surface
 
@@ -36,12 +37,38 @@ Keep the first pass focused on four decisions:
 
 ### 1. Intake
 
-- Ask for or infer the data path, loader path, or in-memory object.
-- Ask what one observation looks like in concrete terms.
+The intake goal is to get the minimum local-data facts needed to choose model
+structure from the actual data, not from vague prompt wording.
+
+- Treat the local data path, loader path, or in-memory object as a first-class
+  input.
+- If a data path or loader is available, prefer inspecting a representative
+  observation instead of asking the user to describe the whole dataset from
+  memory.
+- Ask what one observation looks like in concrete terms: one row, record,
+  tuple, sequence, or other unit of modeling.
+- Ask or infer field roles: continuous, categorical, count, binary, text,
+  set-like, sequence-like, or optional.
+- Ask whether any part of the observation is ordered, variable-length, or
+  nested.
+- Ask whether there are known groups, labels, repeated entities, or candidate
+  conditioning keys.
+- Ask for rough data size, including sample count and typical sequence length
+  when relevant.
+- Ask whether GPU use is acceptable before suggesting `torch_stats`.
 - Ask whether the user already has a fixed downstream task or just wants a good
   reusable fitted model.
-- Ask about groups, labels, repeated entities, and rough data size only when
-  those details affect the model family choice.
+
+Use a concise first-pass intake like this when the answers are not already
+available from the supplied data:
+
+1. Where is the local data or loader I should inspect?
+2. What does one observation look like?
+3. Which fields are continuous, categorical, counts, optional, set-like, or
+   sequence-like?
+4. Are there labels, groups, repeated entities, or known conditioning keys?
+5. Roughly how many observations are there, how long are sequences if any, and
+   is GPU use acceptable if scale makes `torch_stats` worth considering?
 
 ### 2. Structure First
 
