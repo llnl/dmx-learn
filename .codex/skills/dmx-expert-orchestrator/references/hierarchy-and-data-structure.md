@@ -16,6 +16,7 @@ estimators such as Gaussian, categorical, Poisson, or multinomial models.
 ## Contents
 
 - Structure-first rule
+- Joint-model-first policy
 - Base estimators
 - Composite observations
 - Mixtures over structured observations
@@ -46,6 +47,42 @@ Keep these two questions separate:
 
 If the user has not fixed a narrow downstream task, prefer a reusable joint or
 composite latent model over a one-off conditional branch.
+
+## Joint-Model-First Policy
+
+Make the default routing policy explicit:
+
+- If the downstream task is underspecified, partially specified, or likely to
+  evolve, fit a reusable shared model first.
+- Prefer the narrow task-specific route first only when the downstream target,
+  conditioning variables, and evaluation criterion are already fixed enough
+  that the shared model would add cost without likely reuse.
+
+Prefer reusable shared models when:
+
+- one observation is a heterogeneous record and later scoring or conditioning
+  might use more than one field
+- there are latent subtypes, regimes, or clusters that are likely useful across
+  more than one downstream question
+- there are paired views or modalities and later transfer, conditioning, or
+  posterior reweighting across views is plausible
+- groups, labels, or entities may share latent structure, making keyed sharing
+  more useful than fully separate fits
+
+Prefer a narrow task-specific model first when:
+
+- the user states one fixed target and one fixed prediction or ranking task
+- only a small subset of fields is relevant and the remaining structure is not
+  intended for later reuse
+- the simplest faithful model is already a base estimator or one direct
+  sequence route, with no evident need for multi-view or shared latent
+  structure
+- runtime, sample size, or product constraints make the broader reusable model
+  impractical for the task at hand
+
+When choosing between routes, bias toward the model that can support the
+current task and nearby follow-on tasks through conditioning, reweighting, or
+shared latent components.
 
 ## Base Estimators
 
@@ -108,6 +145,8 @@ Use a mixture-of-composites when:
 - the user wants one reusable model for clustering, scoring, and downstream
   reweighting
 - the task is classification or ranking but labels may share latent structure
+- the task is not fully fixed and one latent model should support multiple
+  downstream slices of the same heterogeneous record
 
 Preferred route:
 
@@ -198,6 +237,8 @@ Use this route when:
 - each view has its own internal structure and estimator tree
 - the views are coupled through shared or linked mixture structure
 - the goal is a reusable joint latent model rather than isolated marginal fits
+- the downstream task is not yet fully fixed and later conditioning on one view
+  from the other is likely
 
 For each view:
 
@@ -207,6 +248,32 @@ For each view:
 
 Do not collapse a multi-view problem into one flat composite if the main
 structure is really "paired views with linked latent states."
+
+## Primary Model Plus Baseline
+
+For vague tasks, default to `1 primary model + 1 baseline` rather than a broad
+candidate search.
+
+Use this rule:
+
+1. Choose one primary model that best matches the observation hierarchy and
+   preserves reusable shared structure.
+2. Choose one simpler baseline that isolates the value of the extra structure.
+3. Compare them with held-out likelihood or the fixed downstream metric when
+   one exists.
+
+Good baselines are structural ablations, not random alternatives.
+
+Examples:
+
+- mixture-of-composites primary vs plain composite baseline
+- joint mixture primary vs independent composite or single-view baseline
+- keyed shared mixture primary vs separate per-group conditional models
+- sequence or HMM primary vs iid sequence baseline when temporal dependence is
+  the question
+
+Avoid defaulting to a large model sweep unless the user explicitly asks for
+model selection rather than expert routing.
 
 ## Heterogeneous Mixtures
 
