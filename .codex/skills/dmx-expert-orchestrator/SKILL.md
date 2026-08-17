@@ -70,7 +70,52 @@ available from the supplied data:
 5. Roughly how many observations are there, how long are sequences if any, and
    is GPU use acceptable if scale makes `torch_stats` worth considering?
 
-### 2. Structure First
+### 2. Default Lightweight EDA For Local Data Paths
+
+If the user provides a local data path or loader that can be inspected, run a
+lightweight EDA pass by default before choosing model structure.
+
+The purpose of this pass is to support model-structure routing. It is not a
+full exploratory analysis report, feature-selection pass, or visualization
+exercise.
+
+Use the same small, repeatable checklist each time:
+
+1. Inspect sample count or row count so the scale is concrete.
+2. Inspect a few representative rows or records to identify what one
+   observation appears to be.
+3. Inspect missingness at a field level when it may change the structure,
+   especially for optional fields or partially observed tuples.
+4. Inspect discrete cardinalities for fields that look categorical, binary, or
+   identifier-like.
+5. Inspect sequence lengths when any field appears variable-length, ordered, or
+   nested as a list-like object.
+6. Inspect grouping or repeated-key structure when there are obvious IDs,
+   labels, user/item pairs, session keys, or repeated entities.
+
+Keep this pass lightweight:
+
+- Prefer small representative slices over broad profiling.
+- Prefer field summaries that affect structure choice over generic descriptive
+  statistics.
+- Stop once there is enough evidence to decide the observation unit, field
+  roles, and whether grouping, sequence structure, or optional substructure is
+  present.
+- Do not expand into correlations, plots, hypothesis testing, or a full
+  notebook-style report unless the user explicitly asks for deeper EDA.
+
+Ask a follow-up question instead of guessing when the lightweight pass still
+leaves a structural ambiguity, for example:
+
+- it is unclear what should count as one observation
+- multiple fields could be the grouping or conditioning key
+- missingness could mean either optional structure or a data-quality problem
+- a sequence-like field might instead be an unordered set or bag
+- the loader or file format prevents direct inspection of representative rows
+
+When asking a follow-up, keep it narrow and tied to the next routing decision.
+
+### 3. Structure First
 
 - Decide the observation structure before naming an estimator family.
 - Start with the simplest accurate description: scalar, vector, tuple, record,
@@ -78,7 +123,7 @@ available from the supplied data:
 - When the task is underspecified, prefer a reusable joint or composite view of
   the observation over a narrow one-off objective.
 
-### 3. Choose The Next Skill Or Reference
+### 4. Choose The Next Skill Or Reference
 
 - Route implementation-heavy local fitting work to
   `dmx-local-modeling`.
