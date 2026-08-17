@@ -638,6 +638,22 @@ class MixtureEstimator(ParameterEstimator):
     """MixtureEstimator object used to estimate MixtureDistribution from aggregated
     sufficient statistics.
 
+    Notes:
+        ``keys`` controls which sufficient-statistic blocks are pooled with other
+        Mixture estimators that use the same key values.
+
+        - ``keys[0]`` shares the outer mixture-weight counts.
+        - ``keys[1]`` shares component sufficient statistics by component index.
+
+        This allows partial sharing. For example, ``keys=(None, "comps0")`` keeps
+        each outer mixture's weights separate while tying the component estimators
+        positionally. Unkeyed blocks are still estimated independently.
+
+        Use keyed sharing only when component positions have the same meaning across
+        the models being fit. If the component ordering or intended semantics differ,
+        the shared key will over-pool statistics and can force the wrong parameters to
+        match.
+
     Attributes:
         estimators (Sequence[ParameterEstimator]): Sequence of ParameterEstimator
             objects for the mixture
@@ -648,8 +664,8 @@ class MixtureEstimator(ParameterEstimator):
         pseudo_count (Optional[float]): Used to re-weight the member variable sufficient
             statistics in estimation.
         name (Optional[str]): Name for MixtureEstimator object.
-        keys (Tuple[Optional[str], Optional[str]]): Keys for the weights and component
-            distributions.
+        keys (Tuple[Optional[str], Optional[str]]): Keys for the outer mixture-weight
+            counts and the component sufficient statistics.
 
     """
 
@@ -675,8 +691,14 @@ class MixtureEstimator(ParameterEstimator):
             pseudo_count (Optional[float]): Used to re-weight the member variable
                 sufficient statistics in estimation.
             name (Optional[str]): Set a name to the MixtureEstimator object.
-            keys (Tuple[Optional[str], Optional[str]]): Set keys for the weights and
-                component distributions.
+            keys (Tuple[Optional[str], Optional[str]]): Keys that control sharing of
+                sufficient statistics across Mixture estimators with matching key
+                values. ``keys[0]`` shares outer mixture-weight counts. ``keys[1]``
+                shares component sufficient statistics by component index. Use
+                ``keys=(None, "shared_components")`` when only the inner components
+                should be tied. Shared keys assume aligned component ordering; if the
+                component positions do not mean the same thing, the fit will
+                over-share statistics.
 
         """
         if (

@@ -1495,14 +1495,31 @@ class HiddenMarkovAccumulatorFactory(StatisticAccumulatorFactory):
 class HiddenMarkovEstimator(ParameterEstimator):
     """Estimator for HiddenMarkovDistribution from aggregated sufficient statistics.
 
+    Notes:
+        ``keys`` lets multiple HMM estimators share selected statistic blocks during
+        fitting instead of sharing the entire model.
+
+        - ``keys[0]`` shares initial-state counts.
+        - ``keys[1]`` shares transition-count matrices.
+        - ``keys[2]`` shares emission sufficient statistics by hidden-state index.
+
+        The length estimator is not controlled by this tuple; any sharing for sequence
+        lengths must come from keys on the length estimator itself.
+
+        A common pattern is ``keys=("init_key", "trans_key", None)`` to tie the
+        Markov dynamics while leaving emissions independent. Only use
+        ``keys[2]`` when state index ``i`` has the same semantic role in every model,
+        otherwise the emission updates will be pooled across mismatched states.
+
     Attributes:
         estimators (List[ParameterEstimator]): Estimators for emission distributions.
         len_estimator (ParameterEstimator): Estimator for length distribution.
         pseudo_count (Tuple[Optional[float], Optional[float]]): Pseudo counts for
             initial states and transitions.
         name (Optional[str]): Name for the object instance.
-        keys (Tuple[Optional[str], Optional[str], Optional[str]]): Keys for initial
-            states, transitions, and emissions.
+        keys (Tuple[Optional[str], Optional[str], Optional[str]]): Keys for
+            initial-state counts, transition counts, and emission sufficient
+            statistics.
         use_numba (bool): Whether to use Numba for sequence encoding and vectorized
             functions.
     """
@@ -1527,7 +1544,15 @@ class HiddenMarkovEstimator(ParameterEstimator):
             len_estimator: Estimator for length distribution.
             pseudo_count: Pseudo counts for initial states and transitions.
             name: Name for the object instance.
-            keys: Keys for initial states, transitions, and emissions.
+            keys: Keys that control sharing of sufficient statistics across HMM
+                estimators with matching key values. ``keys[0]`` shares
+                initial-state counts, ``keys[1]`` shares transition-count
+                matrices, and ``keys[2]`` shares emission sufficient statistics by
+                hidden-state index. This tuple does not affect the length
+                estimator. Use ``keys=("init_key", "trans_key", None)`` to tie the
+                Markov dynamics while keeping emissions separate. If emission keys
+                are shared, the hidden-state ordering must already be aligned
+                across the models.
             use_numba: Whether to use Numba for sequence encoding and vectorized
                 functions.
 

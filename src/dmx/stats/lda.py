@@ -545,6 +545,25 @@ class LDAEstimatorAccumulatorFactory(StatisticAccumulatorFactory):
 
 
 class LDAEstimator(ParameterEstimator):
+    """Estimate an LDADistribution from aggregated document and topic statistics.
+
+    Notes:
+        ``keys`` controls two different sharing decisions for LDA estimators.
+
+        - ``keys[0]`` shares the statistics used to update ``alpha``:
+          accumulated expected log-topic proportions, document counts, and the
+          previous alpha iterate.
+        - ``keys[1]`` shares topic sufficient statistics by topic index.
+
+        This means ``keys=(None, "shared_topics")`` ties the topic-word models while
+        allowing each LDA estimator to keep its own document-topic prior. In contrast,
+        ``keys=("shared_alpha", None)`` shares only the alpha update.
+
+        Shared topic keys assume topic index ``i`` represents the same topic role
+        across the models being fit. If topic order is not aligned, keyed sharing will
+        pool the wrong topic statistics. When ``fixed_alpha`` is set, alpha-sharing
+        keys do not change the final alpha because the estimator uses the fixed value.
+    """
 
     def __init__(
         self,
@@ -557,6 +576,28 @@ class LDAEstimator(ParameterEstimator):
         gamma_threshold: float = 1.0e-8,
         alpha_threshold: float = 1.0e-8,
     ) -> None:
+        """Initialize LDAEstimator.
+
+        Args:
+            estimators (Sequence[ParameterEstimator]): Estimators for the topic-word
+                distributions.
+            suff_stat (Optional[Any]): Optional prior sufficient statistics used during
+                estimation.
+            pseudo_count (Optional[Tuple[float, float]]): Optional pseudo-counts for
+                regularization.
+            name (Optional[str]): Name for the estimator.
+            keys (Optional[Tuple[Optional[str], Optional[str]]]): Keys that control
+                sharing of sufficient statistics across LDA estimators with matching
+                key values. ``keys[0]`` shares the alpha-update statistics, while
+                ``keys[1]`` shares topic sufficient statistics by topic index. Use
+                ``keys=(None, "shared_topics")`` to tie topic-word distributions but
+                keep alpha separate. Shared topic keys assume aligned topic ordering.
+            fixed_alpha (Optional[np.ndarray]): Fixed alpha value. When provided, the
+                estimator does not update alpha from shared statistics.
+            gamma_threshold (float): Threshold used in document-posterior updates.
+            alpha_threshold (float): Threshold used in alpha updates.
+
+        """
         self.num_topics = len(estimators)
         self.estimators = estimators
         self.pseudo_count = pseudo_count
