@@ -122,9 +122,14 @@ When asking a follow-up, keep it narrow and tied to the next routing decision.
   set, sequence, ranking, or mixed observation.
 - When the task is underspecified, prefer a reusable joint or composite view of
   the observation over a narrow one-off objective.
+- Read `references/hierarchy-and-data-structure.md` before choosing
+  field-level estimators or routing into estimator catalogs.
 
 ### 4. Choose The Next Skill Or Reference
 
+- Use `references/hierarchy-and-data-structure.md` for structure-first routing:
+  base estimator vs composite vs mixture, sequence/HMM, grouped sharing, joint
+  mixture, and heterogeneous mixture decisions.
 - Route implementation-heavy local fitting work to
   `dmx-local-modeling`.
 - Route Python source edits, examples, or library changes to
