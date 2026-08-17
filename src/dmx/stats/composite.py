@@ -287,6 +287,11 @@ class CompositeAccumulator(SequenceEncodableStatisticAccumulator):
     def initialize(self, x: Tuple[Any, ...], weight: float, rng: RandomState) -> None:
         """Initialize accumulators with a new observation.
 
+        The composite wrapper does not create its own sufficient-statistic target.
+        It delegates each tuple position to the corresponding child accumulator using
+        an independent child random number generator. Pseudo-count and prior-target
+        behavior is therefore controlled by the child estimators.
+
         Args:
             x (Tuple[Any, ...]): Observation tuple.
             weight (float): Weight for the observation.
@@ -302,6 +307,11 @@ class CompositeAccumulator(SequenceEncodableStatisticAccumulator):
         self, x: "CompositeEncodedDataSequence", weights: np.ndarray, rng: RandomState
     ) -> None:
         """Vectorized initialization for encoded data.
+
+        Each encoded tuple field is initialized by its matching child accumulator with
+        the same observation weights and an independent child random number generator.
+        Use child estimator pseudo-counts or child keys when only selected fields need
+        regularized or shared initialization.
 
         Args:
             x (CompositeEncodedDataSequence): Encoded data sequence.
@@ -459,9 +469,22 @@ class CompositeAccumulatorFactory(StatisticAccumulatorFactory):
 class CompositeEstimator(ParameterEstimator):
     """Estimator for CompositeDistribution.
 
+    Notes:
+        A Composite estimator-level ``keys`` value shares the whole tuple-shaped
+        sufficient statistic with other Composite estimators using the same key. The
+        merge is positional: field ``i`` in one composite is pooled with field ``i``
+        in another.
+
+        Composite accumulators also recurse into their child accumulators. That means
+        child estimator keys can still share individual fields even when the
+        Composite estimator itself is unkeyed. Use a Composite-level key only when
+        every field position has the same meaning across the estimators being fit;
+        otherwise prefer keys on selected child estimators.
+
     Attributes:
         estimators (Sequence[ParameterEstimator]): Estimators for each component.
-        keys (Optional[str]): Keys used for merging sufficient statistics.
+        keys (Optional[str]): Key used for sharing the complete positional tuple of
+            component sufficient statistics.
         count (int): Number of components.
         name (Optional[str]): Name of the object.
     """
@@ -476,8 +499,11 @@ class CompositeEstimator(ParameterEstimator):
 
         Args:
             estimators (Sequence[ParameterEstimator]): Estimators for each component.
-            keys (Optional[str], optional): Keys used for merging sufficient statistics.
-                Defaults to None.
+            keys (Optional[str], optional): Key used to share the complete composite
+                sufficient statistic with matching Composite estimators. Sharing is
+                positional, so component ``i`` is pooled with component ``i``. Use
+                child estimator keys instead when only selected fields should be
+                tied. Defaults to None.
             name (Optional[str], optional): Name of the object. Defaults to None.
 
         Raises:

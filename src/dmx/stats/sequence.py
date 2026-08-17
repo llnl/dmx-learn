@@ -378,6 +378,19 @@ class SequenceAccumulator(SequenceEncodableStatisticAccumulator):
         self._init_rng = True
 
     def initialize(self, x: Sequence[T], weight: float, rng: RandomState) -> None:
+        """Initialize sequence item and length sufficient statistics.
+
+        Each item in the sequence is passed to the item accumulator. If
+        ``len_normalized`` is true, the item weight is divided by sequence length;
+        otherwise each item receives the full sequence weight. The length accumulator,
+        when present, receives the sequence length with the original sequence weight.
+        Pseudo-count behavior is controlled by the item and length estimators.
+
+        Args:
+            x (Sequence[T]): Observed sequence.
+            weight (float): Weight for the sequence.
+            rng (RandomState): Random number generator.
+        """
         if not self._init_rng:
             self._rng_initialize(rng)
 
@@ -392,6 +405,19 @@ class SequenceAccumulator(SequenceEncodableStatisticAccumulator):
     def seq_initialize(
         self, x: "SequenceEncodedDataSequence", weights: np.ndarray, rng: RandomState
     ) -> None:
+        """Vectorized initialization for encoded sequence data.
+
+        Encoded item observations are initialized through the item accumulator using
+        item weights derived from the parent sequence weights. Length statistics are
+        initialized separately through the length accumulator, if one is configured.
+        Use child estimator pseudo-counts or child keys when item and length
+        initialization should be regularized or shared independently.
+
+        Args:
+            x (SequenceEncodedDataSequence): Encoded sequence data.
+            weights (np.ndarray): Weights for each sequence.
+            rng (RandomState): Random number generator.
+        """
         idx, icnt, _inz, enc_seq, enc_nseq = x.data
 
         if not self._init_rng:
@@ -555,6 +581,22 @@ class SequenceEstimator(ParameterEstimator):
         If len_estimator is NullEstimator() or None, len_dist is used as length
         distribution in estimation.
 
+        A Sequence estimator-level ``keys`` value shares the wrapper sufficient
+        statistic, which includes both the repeated-item statistic and the sequence
+        length statistic when a length estimator is present. The accumulator also
+        recurses into the item and length accumulators, so their own keys can be used
+        for more targeted sharing.
+
+        Use a Sequence-level key only when both the item distribution and length
+        behavior should be tied across the keyed estimators. If only lengths or only
+        item parameters should be shared, put keys on the corresponding child
+        estimator instead.
+
+        Sequence initialization delegates to the item accumulator and, when present,
+        the length accumulator. Pseudo-counts and prior targets should be set on those
+        child estimators; the Sequence wrapper itself only controls how sequence
+        weights are distributed to items through ``len_normalized``.
+
     Attributes:
         estimator (ParameterEstimator): ParameterEstimator for base distribution.
         len_estimator (Optional[ParameterEstimator]): ParameterEstimator for length
@@ -564,8 +606,8 @@ class SequenceEstimator(ParameterEstimator):
             length distribution.
         len_normalized (Optional[bool]): Take geometric mean of density if True.
         name (Optional[str]): Name of SequenceEstimator instance.
-        keys (Optional[str]): Key for SequenceEstimator instance used in aggregating
-            sufficient statistics.
+        keys (Optional[str]): Key for sharing the Sequence wrapper sufficient
+            statistic.
 
     """
 
@@ -589,8 +631,10 @@ class SequenceEstimator(ParameterEstimator):
                 length distribution.
             len_normalized (Optional[bool]): Take geometric mean of density if True.
             name (Optional[str]): Set name to SequenceEstimator instance.
-            keys (Optional[str]): Set key to SequenceEstimator instance for merging
-                sufficient statistics.
+            keys (Optional[str]): Key used to share the Sequence wrapper sufficient
+                statistic with matching Sequence estimators. This shares item and
+                length statistics together, when length statistics are being
+                accumulated. Use child estimator keys for narrower sharing.
 
         """
         if isinstance(keys, str) or keys is None:

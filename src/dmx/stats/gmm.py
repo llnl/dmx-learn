@@ -295,7 +295,12 @@ class GaussianMixtureDistribution(SequenceEncodableProbabilityDistribution):
         """Return a GaussianMixtureEstimator for this distribution.
 
         Args:
-            pseudo_count (Optional[float], optional): Pseudo-count for regularization.
+            pseudo_count (Optional[float], optional): Scalar copied into the estimator's
+                weight, mean, and variance pseudo-count slots. This convenience method
+                does not supply prior mean or variance sufficient statistics, so those
+                slots only affect later estimation if prior statistics are supplied to
+                the returned estimator. The weight slot smooths mixture weights toward
+                uniform weights when no weight prior is supplied.
 
         Returns:
             GaussianMixtureEstimator: Estimator object.
@@ -687,13 +692,26 @@ class GaussianMixtureEstimator(ParameterEstimator):
     Notes:
         Set equal variance with `tied` parameter.
 
+        ``pseudo_count`` and ``suff_stat`` are three-tuples ordered as
+        ``(weights, means, variances)``. Each position controls a separate
+        parameter update. Weight pseudo-counts smooth toward uniform mixture weights
+        when ``suff_stat[0]`` is ``None`` and shrink toward ``suff_stat[0]`` when it
+        is provided. Mean and variance pseudo-counts only take effect when their
+        matching prior targets, ``suff_stat[1]`` and ``suff_stat[2]``, are provided.
+
+        Use the prior targets in ``suff_stat`` for regularized initialization when
+        a reasonable starting mean or variance is known. Use ``fixed_weights`` when
+        the outer mixture weights should not be estimated; component mean and
+        variance regularization still follows the tuple slots above. With
+        ``tied=True``, the variance update pools variance mass across components.
+
     Attributes:
         num_components (int): Number of mixture components.
         pseudo_count (Tuple[Optional[float], Optional[float], Optional[float]]):
-            Pseudo-counts for weights, mean, variance.
+            Pseudo-counts for weights, means, and variances, respectively.
         suff_stat (Tuple[Optional[np.ndarray], Optional[np.ndarray],
-            Optional[np.ndarray]]): Sufficient statistics for weights, mean, and
-            variance.
+            Optional[np.ndarray]]): Prior targets for weights, means, and variances.
+            The mean and variance targets are not raw observation counts.
         tied (bool): If True, assume each Gaussian mixture has the same variance.
         keys (Tuple[Optional[str], Optional[str]]): Keys for weights and mixture
             components.
@@ -725,10 +743,15 @@ class GaussianMixtureEstimator(ParameterEstimator):
             fixed_weights (Optional[Union[List[float], np.ndarray]], optional): If not
                 None, weights are fixed.
             suff_stat (Tuple[Optional[np.ndarray], Optional[np.ndarray],
-                Optional[np.ndarray]], optional): Sufficient statistics for weights,
-                mean, and variance.
+                Optional[np.ndarray]], optional): Prior targets for weights, means, and
+                variances. Weight targets are mixed with component counts; mean and
+                variance targets are mixed with their matching weighted sufficient
+                statistics only when the corresponding pseudo-count is not ``None``.
             pseudo_count (Tuple[Optional[float], Optional[float], Optional[float]],
-                optional): Pseudo-counts for weights, mean, variance.
+                optional): Pseudo-counts for weights, means, and variances,
+                respectively. Weight pseudo-counts can smooth toward uniform weights
+                without a supplied target; mean and variance pseudo-counts require the
+                matching ``suff_stat`` target to affect the update.
             tied (bool, optional): If True, assume each Gaussian mixture has the same
                 variance.
             keys (Tuple[Optional[str], Optional[str]], optional): Keys for weights and
@@ -780,7 +803,9 @@ class GaussianMixtureEstimator(ParameterEstimator):
 
         Args:
             nobs (Optional[float]): Number of observations (not used).
-            suff_stat (SS): Sufficient statistics.
+            suff_stat (SS): Tuple containing component counts, weighted sums,
+                weighted squared sums, effective component counts, and auxiliary
+                counts accumulated from data.
 
         Returns:
             GaussianMixtureDistribution: Estimated distribution.

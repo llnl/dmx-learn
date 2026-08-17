@@ -311,7 +311,12 @@ class DiagonalGaussianMixtureDistribution(SequenceEncodableProbabilityDistributi
         """Return a DiagonalGaussianMixtureEstimator for this distribution.
 
         Args:
-            pseudo_count (Optional[float], optional): Pseudo-count for regularization.
+            pseudo_count (Optional[float], optional): Scalar copied into the estimator's
+                weight, mean, and covariance pseudo-count slots. This convenience method
+                does not supply prior mean or covariance sufficient statistics, so those
+                slots only affect later estimation if prior statistics are supplied to
+                the returned estimator. The weight slot smooths mixture weights toward
+                uniform weights when no weight prior is supplied.
 
         Returns:
             DiagonalGaussianMixtureEstimator: Estimator object.
@@ -720,15 +725,29 @@ class DiagonalGaussianMixtureAccumulatorFactory(StatisticAccumulatorFactory):
 class DiagonalGaussianMixtureEstimator(ParameterEstimator):
     """Estimator for diagonal Gaussian mixture distributions.
 
+    Notes:
+        ``pseudo_count`` and ``suff_stat`` are three-tuples ordered as
+        ``(weights, means, diagonal_covariances)``. Weight pseudo-counts smooth
+        toward uniform mixture weights when ``suff_stat[0]`` is ``None`` and shrink
+        toward ``suff_stat[0]`` when it is provided. Mean and diagonal covariance
+        pseudo-counts only take effect when the matching prior targets are provided.
+
+        ``suff_stat[1]`` and ``suff_stat[2]`` are reshaped to
+        ``(num_components, dim)`` and should be prior targets for component means and
+        diagonal covariance values. Use them for regularized initialization when
+        component locations or scales are known. ``fixed_weights`` bypasses the outer
+        weight update, but does not disable mean or covariance regularization.
+
     Attributes:
         num_components (int): Number of mixture components.
         dim (int): Dimensionality of the data.
         fixed_weights (Optional[Union[List[float], np.ndarray]]): Fixed mixture weights,
             if provided.
         suff_stat (Tuple[Optional[np.ndarray], Optional[np.ndarray],
-            Optional[np.ndarray]]): Prior sufficient statistics.
+            Optional[np.ndarray]]): Prior targets for weights, means, and diagonal
+            covariances.
         pseudo_count (Tuple[Optional[float], Optional[float], Optional[float]]): Pseudo
-            counts for estimation.
+            counts for weights, means, and diagonal covariances, respectively.
         tied (bool): If True, the covariance of each mixture component is tied.
         keys (Tuple[Optional[str], Optional[str]]): Set keys for weights and parameters.
         name (Optional[str]): Name for object.
@@ -760,9 +779,14 @@ class DiagonalGaussianMixtureEstimator(ParameterEstimator):
             fixed_weights (Optional[Union[List[float], np.ndarray]], optional): Fixed
                 mixture weights, if provided.
             suff_stat (Tuple[Optional[np.ndarray], Optional[np.ndarray],
-                Optional[np.ndarray]], optional): Prior sufficient statistics.
+                Optional[np.ndarray]], optional): Prior targets for weights, means, and
+                diagonal covariances. Mean and covariance targets are reshaped to
+                ``(num_components, dim)``.
             pseudo_count (Tuple[Optional[float], Optional[float], Optional[float]],
-                optional): Pseudo counts for estimation.
+                optional): Pseudo-counts for weights, means, and diagonal covariances.
+                Weight pseudo-counts can smooth toward uniform weights without a
+                supplied target; mean and covariance pseudo-counts require matching
+                ``suff_stat`` targets to affect the update.
             tied (bool, optional): If True, the covariance of each mixture component is
                 tied. Defaults to False.
             keys (Tuple[Optional[str], Optional[str]], optional): Set keys for weights
@@ -841,7 +865,9 @@ class DiagonalGaussianMixtureEstimator(ParameterEstimator):
 
         Args:
             nobs (Optional[float]): Number of observations (not used).
-            suff_stat (SS): Sufficient statistics.
+            suff_stat (SS): Tuple containing component counts, weighted vector sums,
+                weighted squared vector sums, effective component counts, and auxiliary
+                counts accumulated from data.
 
         Returns:
             DiagonalGaussianMixtureDistribution: Estimated distribution.

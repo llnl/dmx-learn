@@ -462,6 +462,12 @@ class HeterogeneousMixtureAccumulator(SequenceEncodableStatisticAccumulator):
     def initialize(self, x: T, weight: float, rng: RandomState) -> None:
         """Initialize accumulator with a new observation.
 
+        Initialization draws a random responsibility vector from a Dirichlet
+        distribution and uses it to split the observation weight across heterogeneous
+        components. Each component accumulator receives the same observation with its
+        sampled share of the weight. This is a randomized start, not a posterior
+        update from a fitted mixture.
+
         Args:
             x (T): Observation.
             weight (float): Weight for the observation.
@@ -492,6 +498,10 @@ class HeterogeneousMixtureAccumulator(SequenceEncodableStatisticAccumulator):
         rng: RandomState,
     ) -> None:
         """Vectorized initialization for encoded data.
+
+        Positive-weight observations receive random Dirichlet responsibilities across
+        components. Those responsibilities seed the outer component counts and are
+        passed as component-specific weights to the child accumulators.
 
         Args:
             x (HeterogeneousMixtureEncodedDataSequence): Encoded data sequence.
@@ -715,12 +725,25 @@ class HeterogeneousMixtureEstimator(ParameterEstimator):
     """Estimator for HeterogeneousMixtureDistribution from aggregated sufficient
     statistics.
 
+    Notes:
+        The outer sufficient statistic is a component-count vector. If
+        ``pseudo_count`` is provided without ``suff_stat``, the estimator smooths
+        mixture weights uniformly across components. If both are provided,
+        ``suff_stat`` is treated as a prior weight target and mixed with the
+        accumulated component counts. ``fixed_weights`` bypasses this outer-weight
+        update entirely.
+
+        ``keys[0]`` shares the outer component-count vector. ``keys[1]`` shares
+        child component sufficient statistics by component index. Shared component
+        keys assume component position ``i`` has the same meaning in every estimator
+        with that key.
+
     Attributes:
         estimators (Sequence[ParameterEstimator]): Estimators for the mixture
             components.
         fixed_weights (Optional[np.ndarray]): Fixed weights for the mixture (if any).
-        suff_stat (Optional[np.ndarray]): Sufficient statistics for the weights.
-        pseudo_count (Optional[float]): Pseudo-count for regularization.
+        suff_stat (Optional[np.ndarray]): Prior target for the outer mixture weights.
+        pseudo_count (Optional[float]): Pseudo-count mass for the outer mixture weights.
         name (Optional[str]): Name for the estimator.
         keys (Tuple[Optional[str], Optional[str]]): Keys for the weights and component
             distributions.
@@ -742,9 +765,11 @@ class HeterogeneousMixtureEstimator(ParameterEstimator):
                 components.
             fixed_weights (Optional[np.ndarray], optional): Fixed weights for the
                 mixture.
-            suff_stat (Optional[np.ndarray], optional): Sufficient statistics for the
-                weights.
-            pseudo_count (Optional[float], optional): Pseudo-count for regularization.
+            suff_stat (Optional[np.ndarray], optional): Prior target for the outer
+                mixture weights. Used only when ``pseudo_count`` is not ``None``.
+            pseudo_count (Optional[float], optional): Pseudo-count mass for the outer
+                mixture weights. With no ``suff_stat`` it smooths uniformly across
+                components; with ``suff_stat`` it shrinks toward that target.
             name (Optional[str], optional): Name for the estimator.
             keys (Tuple[Optional[str], Optional[str]], optional): Keys for the weights
                 and component distributions.
@@ -790,7 +815,8 @@ class HeterogeneousMixtureEstimator(ParameterEstimator):
 
         Args:
             nobs (Optional[float]): Number of observations (not used).
-            suff_stat (Tuple[np.ndarray, Tuple[Any, ...]]): Sufficient statistics.
+            suff_stat (Tuple[np.ndarray, Tuple[Any, ...]]): Component counts and one
+                child sufficient-statistic value per heterogeneous component.
 
         Returns:
             HeterogeneousMixtureDistribution: Estimated distribution.
