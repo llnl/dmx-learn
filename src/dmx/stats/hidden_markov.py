@@ -938,6 +938,12 @@ class HiddenMarkovAccumulator(SequenceEncodableStatisticAccumulator):
     def initialize(self, x: Sequence[T], weight: float, rng: RandomState) -> None:
         """Initialize the accumulator with a single HMM observation sequence.
 
+        Initialization draws a random hidden-state path for the sequence and uses that
+        path to seed initial-state counts, transition counts, state counts, and the
+        child emission accumulators. It is not a posterior update from an existing
+        HMM estimate; it is the randomized start used by initialization workflows such
+        as repeated `best_of` trials.
+
         Args:
             x (Sequence[T]): Observed sequence.
             weight (float): Weight for the observation.
@@ -978,6 +984,11 @@ class HiddenMarkovAccumulator(SequenceEncodableStatisticAccumulator):
         rng: np.random.RandomState,
     ) -> None:
         """Vectorized initialization for encoded HMM data.
+
+        Random hidden states are assigned to encoded observations before accumulating
+        initial-state, transition, state, emission, and length sufficient statistics.
+        Emission initialization is delegated to the child accumulators with weights
+        determined by the sampled hidden-state assignments.
 
         Args:
             x (HiddenMarkovEncodedDataSequence): Encoded HMM data sequence.
@@ -1511,11 +1522,18 @@ class HiddenMarkovEstimator(ParameterEstimator):
         ``keys[2]`` when state index ``i`` has the same semantic role in every model,
         otherwise the emission updates will be pooled across mismatched states.
 
+        ``pseudo_count`` has two slots: initial-state counts and transition counts.
+        They smooth toward uniform initial-state probabilities and uniform transition
+        probabilities, respectively. Emission regularization is controlled by the
+        child estimators in ``estimators``; the generic HMM estimator does not have a
+        third emission pseudo-count slot. Length regularization is controlled by
+        ``len_estimator``.
+
     Attributes:
         estimators (List[ParameterEstimator]): Estimators for emission distributions.
         len_estimator (ParameterEstimator): Estimator for length distribution.
         pseudo_count (Tuple[Optional[float], Optional[float]]): Pseudo counts for
-            initial states and transitions.
+            initial-state and transition-count smoothing.
         name (Optional[str]): Name for the object instance.
         keys (Tuple[Optional[str], Optional[str], Optional[str]]): Keys for
             initial-state counts, transition counts, and emission sufficient
@@ -1542,7 +1560,9 @@ class HiddenMarkovEstimator(ParameterEstimator):
         Args:
             estimators: Estimators for emission distributions.
             len_estimator: Estimator for length distribution.
-            pseudo_count: Pseudo counts for initial states and transitions.
+            pseudo_count: Two-slot tuple for initial-state and transition-count
+                smoothing. Emission and length regularization must be configured on
+                the child emission estimators and length estimator.
             name: Name for the object instance.
             keys: Keys that control sharing of sufficient statistics across HMM
                 estimators with matching key values. ``keys[0]`` shares
@@ -1604,7 +1624,9 @@ class HiddenMarkovEstimator(ParameterEstimator):
 
         Args:
             nobs: Number of observations.
-            suff_stat: Sufficient statistics tuple.
+            suff_stat: Tuple containing number of states, initial-state counts, state
+                counts, transition counts, child emission sufficient statistics, and
+                length sufficient statistics.
 
         Returns:
             HiddenMarkovModelDistribution: The estimated distribution.

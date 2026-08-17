@@ -538,6 +538,19 @@ class HierarchicalMixtureEstimatorAccumulator(SequenceEncodableStatisticAccumula
         weights: np.ndarray,
         rng: RandomState,
     ) -> None:
+        """Vectorized initialization for encoded hierarchical-mixture data.
+
+        Initialization randomly assigns each sequence to an outer mixture and each
+        encoded item to a topic, then accumulates the outer-mixture by topic count
+        matrix and delegates topic initialization to the child topic accumulators.
+        Length statistics are initialized through the length accumulator. This is a
+        randomized start, not a posterior update from a fitted hierarchical mixture.
+
+        Args:
+            x (HierarchicalMixtureEncodedDataSequence): Encoded sequence data.
+            weights (np.ndarray): Weights for each sequence.
+            rng (RandomState): Random number generator.
+        """
         sz, idx, _cnt, enc_data, enc_len = x.data
         tsz = len(idx)
 
@@ -767,9 +780,14 @@ class HierarchicalMixtureEstimator(ParameterEstimator):
     distribution for aggregated sufficient statistics.
 
     Notes:
-        If pseudo_count is passed, the mixture weights are re-weighted in estimation.
-        If attribute suff_stat is set, a suff_stat is re-weighted and combined with new
-        sufficient statistics in estimation.
+        The accumulated count matrix has shape ``(num_mixtures, num_components)``:
+        rows correspond to outer mixtures and columns correspond to topic
+        distributions. If ``pseudo_count`` is provided without ``suff_stat``, the
+        count matrix is smoothed uniformly across all cells before being normalized
+        into outer mixture weights and per-outer-mixture topic weights. If both are
+        provided, ``suff_stat`` is treated as a prior target for that same matrix.
+        The target affects both the outer weights and the conditional topic weights
+        after normalization, so its shape and topic ordering must match the estimator.
 
         ``keys`` controls sharing for two statistic blocks:
 
@@ -788,10 +806,11 @@ class HierarchicalMixtureEstimator(ParameterEstimator):
         num_mixtures (int): Number of outer-mixture components.
         estimators (Sequence[ParameterEstimator]): ParameterEstimator objects for the
             topics.
-        pseudo_count (Optional[float]): Re-weight 'suff_stat' above in estimation.
-        suff_stat (np.ndarray): 2-d numpy array of dimension (num_components,
-            num_mixtures). Represents the
-            inner-mixture weights.
+        pseudo_count (Optional[float]): Pseudo-count mass for the outer-mixture by
+            topic count matrix.
+        suff_stat (Optional[np.ndarray]): 2-d numpy array of dimension
+            (num_mixtures, num_components). Prior target for the outer-mixture by
+            topic count matrix.
         len_estimator (Optional[ParameterEstimator]): Estimator for the length of inner
             mixture sequences.
         keys (Optional[Tuple[Optional[str], Optional[str]]]): Keys for the
@@ -825,10 +844,14 @@ class HierarchicalMixtureEstimator(ParameterEstimator):
             len_dist (Optional[SequenceEncodableProbabilityDistribution]): Fix the
                 length on inner-mixture sequence
                 distribution.
-            suff_stat (np.ndarray): 2-d numpy array of dimension (num_components,
-                num_mixtures). Represents the
-                inner-mixture weights.
-            pseudo_count (Optional[float]): Re-weight 'suff_stat' above in estimation.
+            suff_stat (Optional[np.ndarray]): 2-d numpy array of dimension
+                (num_mixtures, num_components). Prior target for the outer-mixture by
+                topic count matrix. The target is normalized into both outer weights
+                and per-outer-mixture topic weights during estimation.
+            pseudo_count (Optional[float]): Pseudo-count mass applied to the
+                outer-mixture by topic count matrix. With no ``suff_stat`` it smooths
+                uniformly across all cells; with ``suff_stat`` it shrinks toward that
+                target.
             name (Optional[str]): Set a name to object instance.
             keys (Optional[Tuple[Optional[str], Optional[str]]]): Keys that control
                 sharing of sufficient statistics across HierarchicalMixture
@@ -878,6 +901,16 @@ class HierarchicalMixtureEstimator(ParameterEstimator):
         nobs: Optional[float],
         suff_stat: Tuple[np.ndarray, Sequence[Any], Optional[Any]],
     ) -> "HierarchicalMixtureDistribution":
+        """Estimate a HierarchicalMixtureDistribution from sufficient statistics.
+
+        Args:
+            nobs (Optional[float]): Number of observations (not used).
+            suff_stat (Tuple[np.ndarray, Sequence[Any], Optional[Any]]): Count matrix,
+                topic sufficient statistics, and optional length sufficient statistics.
+
+        Returns:
+            HierarchicalMixtureDistribution: Estimated distribution.
+        """
         num_components = self.num_components
         num_mixtures = self.num_mixtures
         counts, comp_suff_stats, len_suff_stats = suff_stat

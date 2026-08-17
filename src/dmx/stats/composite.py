@@ -287,6 +287,11 @@ class CompositeAccumulator(SequenceEncodableStatisticAccumulator):
     def initialize(self, x: Tuple[Any, ...], weight: float, rng: RandomState) -> None:
         """Initialize accumulators with a new observation.
 
+        The composite wrapper does not create its own sufficient-statistic target.
+        It delegates each tuple position to the corresponding child accumulator using
+        an independent child random number generator. Pseudo-count and prior-target
+        behavior is therefore controlled by the child estimators.
+
         Args:
             x (Tuple[Any, ...]): Observation tuple.
             weight (float): Weight for the observation.
@@ -302,6 +307,11 @@ class CompositeAccumulator(SequenceEncodableStatisticAccumulator):
         self, x: "CompositeEncodedDataSequence", weights: np.ndarray, rng: RandomState
     ) -> None:
         """Vectorized initialization for encoded data.
+
+        Each encoded tuple field is initialized by its matching child accumulator with
+        the same observation weights and an independent child random number generator.
+        Use child estimator pseudo-counts or child keys when only selected fields need
+        regularized or shared initialization.
 
         Args:
             x (CompositeEncodedDataSequence): Encoded data sequence.

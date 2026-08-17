@@ -661,6 +661,12 @@ class IntegerHiddenMarkovAccumulator(SequenceEncodableStatisticAccumulator):
     ) -> None:
         """Vectorized initialization for encoded HMM data.
 
+        Initialization assigns a random hidden state to each encoded integer
+        observation, then accumulates initial-state counts, transition counts, state
+        counts, integer emission counts, and length statistics from those sampled
+        assignments. It is a randomized start, not a posterior update from an existing
+        HMM estimate.
+
         Args:
             x (HiddenMarkovEncodedDataSequence): Encoded HMM data sequence.
             weights (np.ndarray): Weights for each sequence.
@@ -927,13 +933,25 @@ class IntegerHiddenMarkovEstimator(ParameterEstimator):
     """Estimator for IntegerHiddenMarkovDistribution from aggregated sufficient
     statistics.
 
+    Notes:
+        Unlike the generic ``HiddenMarkovEstimator``, this specialized integer HMM
+        has a three-slot ``pseudo_count`` tuple:
+
+        - ``pseudo_count[0]`` smooths initial-state counts uniformly across states.
+        - ``pseudo_count[1]`` smooths transition counts uniformly across state pairs.
+        - ``pseudo_count[2]`` smooths integer emission counts uniformly across
+          ``num_words`` for each hidden state.
+
+        Length regularization is controlled by ``len_estimator``. The emitted integer
+        probabilities are estimated directly from the accumulated emission-count
+        matrix, so there are no child emission estimators to configure.
+
     Attributes:
         num_words (int): Size of vocabulary
         num_states (int): Number of latent states.
-        estimators (List[ParameterEstimator]): Estimators for emission distributions.
         len_estimator (ParameterEstimator): Estimator for length distribution.
-        pseudo_count (Tuple[Optional[float], Optional[float]]): Pseudo counts for
-            initial states, transitions, and emissions.
+        pseudo_count (Tuple[Optional[float], Optional[float], Optional[float]]): Pseudo
+            counts for initial states, transitions, and integer emissions.
         name (Optional[str]): Name for the object instance.
         keys (Tuple[Optional[str], Optional[str], Optional[str]]): Keys for initial
             states, transitions, and emissions.
@@ -957,10 +975,12 @@ class IntegerHiddenMarkovEstimator(ParameterEstimator):
         """Initializes IntegerHiddenMarkovEstimator.
 
         Args:
-            num_words: Vocabular size.
+            num_words: Vocabulary size.
             num_states: Number of latent states.
             len_estimator: Estimator for length distribution.
-            pseudo_count: Pseudo counts for initial states and transitions.
+            pseudo_count: Three-slot tuple for initial-state, transition, and integer
+                emission smoothing. The emission slot smooths each state's emission
+                probabilities uniformly over ``num_words``.
             name: Name for the object instance.
             keys: Keys for initial states, transitions, and emissions.
 
@@ -1014,7 +1034,8 @@ class IntegerHiddenMarkovEstimator(ParameterEstimator):
 
         Args:
             nobs: Number of observations.
-            suff_stat: Sufficient statistics tuple.
+            suff_stat: Tuple containing initial-state counts, state counts, transition
+                counts, integer emission counts, and length sufficient statistics.
 
         Returns:
             IntegerHiddenMarkovModelDistribution: The estimated distribution.

@@ -686,10 +686,22 @@ class MarkovChainEstimator(ParameterEstimator, Generic[T]):
     """MarkovChainEstimator object for estimating MarkovChainDistribution object from
     aggregated data.
 
+    Notes:
+        With ``pseudo_count=None``, initial-state and transition probabilities are
+        normalized from observed counts only. With a pseudo-count, the estimator builds
+        a smoothing support from observed initial states, observed transition targets,
+        and any values supplied in ``levels``. Unseen states receive pseudo-count mass
+        only if they are included in that support, so pass ``levels`` when a known
+        state space should be available during initialization or sparse fitting.
+
+        The length distribution is estimated by ``len_estimator`` and is not smoothed
+        by the Markov-chain pseudo-count.
+
     Attributes:
-        pseudo_count (Optional[float]): Used to re-weight sufficient statistics when
-            merged with aggregated data.
-        levels (Optional[Iterable[T]]): State state values previously encountered.
+        pseudo_count (Optional[float]): Smoothing mass for initial-state and transition
+            probabilities.
+        levels (Optional[Iterable[T]]): Optional state values to include in the
+            smoothing support.
         len_estimator (ParameterEstimator): NullEstimator if no length distribution is
             to be estimated.
         name (Optional[str]): Name for instance of MarkovChainEstimator.
@@ -709,9 +721,11 @@ class MarkovChainEstimator(ParameterEstimator, Generic[T]):
         """MarkovChainEstimator object.
 
         Args:
-            pseudo_count (Optional[float]): Used to re-weight sufficient statistics when
-                merged with aggregated data.
-            levels (Optional[Iterable[T]]): Set of state values.
+            pseudo_count (Optional[float]): Smoothing mass for initial-state and
+                transition probabilities. If set, mass is spread uniformly over the
+                support from observed states plus ``levels``.
+            levels (Optional[Iterable[T]]): Optional state values to include in the
+                smoothing support even if they are not observed.
             len_estimator (Optional[ParameterEstimator]): ParameterEstimator for length
                 of Markov sequences.
             name (Optional[str]): Set a name for instance of MarkovChainEstimator.
@@ -795,6 +809,10 @@ class MarkovChainEstimator(ParameterEstimator, Generic[T]):
         distribution are obtained by a weighted aggregation of sufficient statistics in
         'suff_stat', and member
         variables of MarkovChainEstimator object.
+
+        The smoothing support is the union of observed initial states, observed
+        transition targets, and ``levels``. States absent from that union do not receive
+        pseudo-count mass.
 
         Arg suff_stat is a Tuple of length three containing,
             suff_stat[0] (Dict[T, float]): Maps initial state values to their aggregated
