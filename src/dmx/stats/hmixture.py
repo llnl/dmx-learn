@@ -771,6 +771,18 @@ class HierarchicalMixtureEstimator(ParameterEstimator):
         If attribute suff_stat is set, a suff_stat is re-weighted and combined with new
         sufficient statistics in estimation.
 
+        ``keys`` controls sharing for two statistic blocks:
+
+        - ``keys[0]`` shares the outer-mixture by topic count matrix, which drives
+          both the outer mixture weights and the per-outer-mixture topic weights.
+        - ``keys[1]`` shares the topic sufficient statistics by topic index.
+
+        The length estimator is not controlled by this tuple; use keys on the length
+        estimator itself if length statistics should be shared. Shared topic keys
+        assume topic index ``i`` has the same meaning across the hierarchical
+        mixtures being fit. If topic roles are not aligned, keyed sharing will
+        over-pool statistics.
+
     Attributes:
         num_components (int): Number of topic distributions (inner-mixture).
         num_mixtures (int): Number of outer-mixture components.
@@ -782,9 +794,8 @@ class HierarchicalMixtureEstimator(ParameterEstimator):
             inner-mixture weights.
         len_estimator (Optional[ParameterEstimator]): Estimator for the length of inner
             mixture sequences.
-        keys (Optional[Tuple[Optional[str], Optional[str]]]): Keys for weights and
-            topics, passed to accumulator
-            factory with call to 'accumulator_factory()'.
+        keys (Optional[Tuple[Optional[str], Optional[str]]]): Keys for the
+            mixture-by-topic count matrix and the topic sufficient statistics.
         len_dist (Optional[SequenceEncodableProbabilityDistribution]): Fix the length on
             inner-mixture sequence
             distribution.
@@ -819,8 +830,12 @@ class HierarchicalMixtureEstimator(ParameterEstimator):
                 inner-mixture weights.
             pseudo_count (Optional[float]): Re-weight 'suff_stat' above in estimation.
             name (Optional[str]): Set a name to object instance.
-            keys (Optional[Tuple[Optional[str], Optional[str]]]): Set keys for weights
-                and topics.
+            keys (Optional[Tuple[Optional[str], Optional[str]]]): Keys that control
+                sharing of sufficient statistics across HierarchicalMixture
+                estimators with matching key values. ``keys[0]`` shares the
+                outer-mixture by topic count matrix. ``keys[1]`` shares topic
+                sufficient statistics by topic index. The tuple does not control the
+                length estimator.
 
         """
         if (

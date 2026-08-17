@@ -555,6 +555,17 @@ class SequenceEstimator(ParameterEstimator):
         If len_estimator is NullEstimator() or None, len_dist is used as length
         distribution in estimation.
 
+        A Sequence estimator-level ``keys`` value shares the wrapper sufficient
+        statistic, which includes both the repeated-item statistic and the sequence
+        length statistic when a length estimator is present. The accumulator also
+        recurses into the item and length accumulators, so their own keys can be used
+        for more targeted sharing.
+
+        Use a Sequence-level key only when both the item distribution and length
+        behavior should be tied across the keyed estimators. If only lengths or only
+        item parameters should be shared, put keys on the corresponding child
+        estimator instead.
+
     Attributes:
         estimator (ParameterEstimator): ParameterEstimator for base distribution.
         len_estimator (Optional[ParameterEstimator]): ParameterEstimator for length
@@ -564,8 +575,8 @@ class SequenceEstimator(ParameterEstimator):
             length distribution.
         len_normalized (Optional[bool]): Take geometric mean of density if True.
         name (Optional[str]): Name of SequenceEstimator instance.
-        keys (Optional[str]): Key for SequenceEstimator instance used in aggregating
-            sufficient statistics.
+        keys (Optional[str]): Key for sharing the Sequence wrapper sufficient
+            statistic.
 
     """
 
@@ -589,8 +600,10 @@ class SequenceEstimator(ParameterEstimator):
                 length distribution.
             len_normalized (Optional[bool]): Take geometric mean of density if True.
             name (Optional[str]): Set name to SequenceEstimator instance.
-            keys (Optional[str]): Set key to SequenceEstimator instance for merging
-                sufficient statistics.
+            keys (Optional[str]): Key used to share the Sequence wrapper sufficient
+                statistic with matching Sequence estimators. This shares item and
+                length statistics together, when length statistics are being
+                accumulated. Use child estimator keys for narrower sharing.
 
         """
         if isinstance(keys, str) or keys is None:
