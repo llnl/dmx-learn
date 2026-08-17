@@ -5,7 +5,10 @@ Source notebook:
 
 ## Prompt
 
-You have local grouped sequence data where one observation is:
+The user points you at a local grouped-sequence file:
+`data/benchmarks/process/user_process_sequences.jsonl`
+
+Start by inspecting that file and confirm that one observation is:
 
 ```python
 (
@@ -17,7 +20,7 @@ You have local grouped sequence data where one observation is:
 Each `process_sequence` is ordered, variable-length, and usually has length
 between 5 and 8. Each element is `(process_time, process_name)`. There are
 many users, each with a moderate number of sequences. The downstream task is
-to rank likely user aliases for new target sequences.
+to rank likely user aliases for new target sequences from that local dataset.
 
 I want one primary `dmx.stats` modeling route and one meaningful baseline.
 Explain:
@@ -28,7 +31,7 @@ Explain:
 4. when to prefer a sequence-of-mixtures route over an HMM-style route
 5. how to use the fitted model after training to rank likely users
 
-## Expected Behavior
+## Expected Success Characteristics
 
 A strong answer should:
 

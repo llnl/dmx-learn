@@ -5,7 +5,10 @@ Source notebook:
 
 ## Prompt
 
-You have local training data where one observation is:
+The user points you at a local training file:
+`data/benchmarks/security/session_events.parquet`
+
+Start by inspecting that file and confirm that one observation is:
 
 ```python
 (
@@ -25,7 +28,8 @@ fields are always present. The categorical fields can be missing. The
 `attack_detected` label is only present when a record was hand-labeled, so its
 missingness should not be treated as ordinary missing-at-random noise.
 
-I need one fitted `dmx-learn` model that can support two downstream tasks:
+I need one fitted `dmx-learn` model from that local dataset that can support
+two downstream tasks:
 
 1. rank likely users for a new observation
 2. later estimate `P(attack_detected | observed fields)` without refitting a
@@ -33,10 +37,10 @@ I need one fitted `dmx-learn` model that can support two downstream tasks:
 
 Recommend one primary `dmx.stats` model and one meaningful baseline. Explain
 the observation structure, where `keys` should go, why your preferred route is
-better, how you would initialize the fit, and how you would reuse the fitted
-model for both downstream tasks.
+better, how you would initialize the fit after inspection, and how you would
+reuse the fitted model for both downstream tasks.
 
-## Expected Behavior
+## Expected Success Characteristics
 
 A strong answer should:
 

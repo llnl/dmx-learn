@@ -5,7 +5,10 @@ Source notebook:
 
 ## Prompt
 
-You have local data where one observation is:
+The user points you at a local retrieval dataset:
+`data/benchmarks/search/key_counter_timer_sequences.parquet`
+
+Start by inspecting that file and confirm that one observation is:
 
 ```python
 (
@@ -32,7 +35,7 @@ reductions are appropriate. Your answer should cover:
 5. when cosine similarity over posterior embeddings is an acceptable surrogate
    for full mixture reweighting
 
-## Expected Behavior
+## Expected Success Characteristics
 
 A strong answer should:
 
