@@ -6,9 +6,12 @@ Source notebook:
 ## Prompt
 
 You need to recommend package-native `dmx.stats` mixture constructions for
-three local modeling problems.
+three local modeling problems. In each case, the user has already handed you a
+local path to inspect before committing to a structure.
 
 Problem A:
+
+Local path: `data/benchmarks/mixtures/heterogeneous_records.parquet`
 
 ```python
 (
@@ -24,6 +27,8 @@ imputation of the missing count field and later posterior-based embeddings.
 
 Problem B:
 
+Local path: `data/benchmarks/mixtures/shared_topic_sequences.pkl`
+
 ```python
 list[float]
 ```
@@ -34,6 +39,8 @@ different weights. You can either use a specialized estimator or spell the
 model out with nested mixtures and `keys`.
 
 Problem C:
+
+Local path: `data/benchmarks/mixtures/joint_views.npz`
 
 ```python
 (
@@ -54,7 +61,7 @@ Recommend the right primary route for each problem. Explain:
 4. when a specialized estimator should win over a generic keyed construction
 5. how the fitted model should be reused after training
 
-## Expected Behavior
+## Expected Success Characteristics
 
 A strong answer should:
 

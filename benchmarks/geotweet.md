@@ -5,7 +5,10 @@ Source notebook:
 
 ## Prompt
 
-You have local geotagged tweet data. After preprocessing, one observation is:
+The user points you at a local preprocessed geotweet file:
+`data/benchmarks/geotweet/preprocessed_geotweets.pkl`
+
+Start by inspecting that file and confirm that one observation is:
 
 ```python
 (
@@ -16,7 +19,8 @@ You have local geotagged tweet data. After preprocessing, one observation is:
 
 `hashtag_ids` comes from a finite hashtag vocabulary and may contain multiple
 hashtags per tweet. `location` is a latitude-longitude pair. Both views are
-observed together during training. The main downstream needs are:
+observed together during training. The main downstream needs from that local
+dataset are:
 
 1. inspect which latent hashtag topics map to which regions
 2. estimate where a given hashtag or small hashtag set is most likely to
@@ -34,7 +38,7 @@ Explain:
 5. how to inspect the fitted model after training for both topic-level and
    hashtag-level geographic queries
 
-## Expected Behavior
+## Expected Success Characteristics
 
 A strong answer should:
 
