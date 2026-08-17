@@ -1,143 +1,151 @@
 ---
 name: dmx-local-modeling
-description: Help users choose, fit, diagnose, and use local `dmx-learn` models with user-provided data, especially APIs in `src/dmx/stats` and `src/dmx/utils`. Use for question-first sessions about estimator selection, coding model fits, validation splits, likelihood diagnostics, clustering, ranking, sequence models, classification metrics, embedding plots, composite mixtures, or keyed shared-component mixtures on local and in-memory data. Do not use for Spark, MPI, or other distributed estimation workflows.
+description: Implementation-oriented local `dmx-learn` fitting skill for coding, fitting, diagnosing, and using models on local or in-memory data once the problem structure is known. Prefer explicit `src/dmx/stats` estimators and `src/dmx/utils` fitting helpers. Do not use for Spark, MPI, or other distributed estimation workflows.
 ---
 
 # Dmx Local Modeling
 
-## Overview
+Use this skill for implementation-heavy local modeling work after the problem
+has already been scoped to a concrete local `dmx-learn` path.
 
-Use this skill to run a short QA loop before writing code, then turn the answers
-into explicit `dmx.stats` estimators, fitting code, and diagnostics. Keep the
-scope local: assume the user already has data loaded or can provide concrete
-Python objects, dtypes, schemas, and representative rows.
+This skill is narrow on purpose:
 
-## Start With Questions
+- it writes explicit estimators, fitting loops, and diagnostics
+- it assumes the task is local and in scope for `dmx-learn`
+- it does not own broad intake, lightweight EDA, or high-level routing policy
 
-- Confirm that the task is local-only and not Spark, MPI, or distributed fitting.
-- Ask at most 2 to 4 high-value questions at a time.
-- Prefer questions about the actual Python object over abstract modeling jargon.
-- Infer what you can from the user's sample data before asking follow-ups.
+When the problem framing is still ambiguous, hand that work to
+[`dmx-expert-orchestrator`](../dmx-expert-orchestrator/SKILL.md) first.
 
-### Minimum First-Pass Questions
+## When To Use This Skill
 
-1. What does one observation look like?
-   Ask for a short schema, dtype summary, and 3 to 5 representative rows or items.
-2. What is the modeling goal?
-   Ask whether they want density estimation, clustering, classification,
-   ranking, sequence modeling, topic modeling, embedding, model comparison,
-   or diagnostics.
-3. Which parts of the observation are continuous, counts, categorical, vector,
-   set-like, sequential, ranking-like, or optional and missing?
-4. What supervision exists?
-   Ask whether they have no labels, full labels, partial labels, known groups,
-   or conditioned pairs.
-5. What constraints matter?
-   Ask about sample size, missingness, expected number of clusters or states,
-   interpretability, and whether a train and validation split already exists.
+Use this skill when at least one of these is already known:
 
-## Build A Modeling Sketch Before Coding
+- the observation structure is clear enough to code directly
+- the model family has already been chosen upstream
+- the user wants runnable fitting code, diagnostics, or post-fit usage
+- the main question is about implementation details in `dmx.stats` or
+  `dmx.utils`
 
-- Restate the observation type and task in `dmx-learn` terms.
-- Name the tentative estimator or estimators and explain why they match.
-- State any unresolved modeling choices.
-- If model choice is ambiguous, offer 2 or 3 concrete candidates with tradeoffs.
-- For heterogeneous supervised tasks, explicitly consider whether a
-  mixture-of-composites is a better primary abstraction than an independent
-  per-label conditional model.
-- Read `references/model-routing.md` when choosing a model family.
-- Read `references/repo-entry-points.md` when turning the plan into code.
+Do not use this skill as the main router for vague modeling requests. For:
 
-## Prefer Explicit Local Fitting Paths
+- intake and lightweight local-data inspection
+- structure-first routing across base, composite, mixture, sequence, joint, or
+  grouped models
+- deciding when to fit one primary model plus one baseline
+- deciding whether the task should stay broad and reusable instead of going
+  straight to a narrow conditional path
 
-1. Build explicit `dmx.stats` estimators instead of relying on broad auto-detection.
-2. Use `dmx.utils.estimation.partition_data` when the user needs a validation split.
-3. Use `dmx.utils.estimation.optimize` for the standard local EM loop.
-4. Use `dmx.utils.estimation.best_of` when initialization sensitivity is likely,
-   especially for mixtures and other latent-variable models.
-5. Use `seq_encode`, `dist_to_encoder`, `seq_log_density`,
-   `seq_log_density_sum`, and `seq_posterior` for fast post-fit evaluation.
-6. Use `src/dmx/utils/automatic.py` selectively. It is useful for
-   `prepare_mixture_model` and embedding helpers, but `get_estimator` and
-   `get_dpm_mixture` route through `dmx.bstats` and are not the default path
-   for this skill.
-7. For heterogeneous labeled data, prefer explicit `CompositeEstimator` plus
-   `MixtureEstimator` constructions over ad hoc condition-specific models.
-8. When labels are numerous and likely share latent structure, prefer keyed
-   shared-component mixtures as a low-rank approximation to `p(x | y)` instead
-   of fitting fully independent mixtures per label.
+read [`../dmx-expert-orchestrator/SKILL.md`](../dmx-expert-orchestrator/SKILL.md)
+and its
+[`references/hierarchy-and-data-structure.md`](../dmx-expert-orchestrator/references/hierarchy-and-data-structure.md)
+first.
 
-## Decide Diagnostics Up Front
+## Default Workflow
 
-- Choose the success criterion before writing code: held-out log likelihood,
-  class probabilities, rank depth, cluster structure, posterior inspection,
-  embedding separation, or parameter sanity.
-- For held-out likelihood and repeated fits, prefer
-  `partition_data`, `optimize`, `best_of`, and `empirical_kl_divergence`
-  when a reference model exists.
-- For classification-style evaluation, inspect `src/dmx/utils/metrics.py`.
-- For ranking data, prefer `SpearmanRankingEstimator` plus rank-based diagnostics.
-- For embedding plots, fit or reuse a mixture model, then use
-  `dmx.utils.htsne.htsne` or `dmx.utils.humap.humap`.
-- Treat formal likelihood-ratio and p-value requests narrowly. There is no
-  general LLR orchestration helper here. If the user wants significance or rank
-  approximations, inspect `src/dmx/utils/pvalues.py` and explain the limits.
+### 1. Confirm The Implementation Target
 
-## Route By Task And Data Shape
+Before coding, restate only the facts needed for implementation:
 
-- Scalar continuous data: start with `GaussianEstimator`,
-  `ExponentialEstimator`, `GammaEstimator`, or `LogGaussianEstimator`.
-- Counts and nonnegative integers: start with `PoissonEstimator`,
-  `GeometricEstimator`, or `BinomialEstimator`.
-- Unordered categorical data: start with `CategoricalEstimator`,
-  `IntegerCategoricalEstimator`, `MultinomialEstimator`, or
-  `IntegerMultinomialEstimator`.
-- Continuous vectors: start with `MultivariateGaussianEstimator`,
-  `DiagonalGaussianEstimator`, `GaussianMixtureEstimator`, or
-  `DiagonalGaussianMixtureEstimator`.
-- Heterogeneous rows or records: combine field-level estimators with
-  `CompositeEstimator`, and use wrappers such as `OptionalEstimator`,
-  `IgnoredEstimator`, `WeightedEstimator`, or `ConditionalDistributionEstimator`
-  when needed.
-- Heterogeneous rows with latent subtypes: treat mixture-of-composites as a
-  first-class default. Start with `MixtureEstimator([CompositeEstimator(...)])`
-  before reaching for more fragmented per-field or per-label constructions.
-- Labeled heterogeneous ranking or classification: usually prefer a shared
-  mixture-of-composites workflow over a `ConditionalDistributionEstimator`
-  whose branches are fully separate composite mixtures. If labels likely share
-  latent substructure, use keyed mixture components to learn a low-rank
-  approximation where labels keep their own mixture weights but share component
-  distributions.
-- Latent clustering: start with `MixtureEstimator`,
-  `GaussianMixtureEstimator`, `HierarchicalMixtureEstimator`,
-  `HeterogeneousMixtureEstimator`, or `SemiSupervisedMixtureEstimator`.
-- Sequences: start with `MarkovChainEstimator`, `HiddenMarkovEstimator`,
-  `IntegerHiddenMarkovEstimator`, `LookbackHiddenMarkovEstimator`, or
-  `SequenceEstimator`.
-- Sets or edit-distance-like discrete objects: start with
-  `BernoulliSetEstimator`, `IntegerBernoulliSetEstimator`,
-  `IntegerBernoulliEditEstimator`, or `IntegerStepBernoulliEditEstimator`.
-- Rankings and permutations: start with `SpearmanRankingEstimator`.
-- Topic-style discrete mixtures: inspect `IntegerPLSIEstimator` and `LDAEstimator`.
+- what one observation is
+- the intended estimator family or estimator tree
+- the fitting objective or evaluation target
+- any known validation split, restart budget, or scale constraint
 
-## Reuse Repo Examples Aggressively
+If those facts are still uncertain, stop routing locally and defer back to the
+orchestrator instead of improvising your own broad routing pass here.
 
-- Prefer adapting a nearby runnable example over inventing fresh scaffolding.
-- Check `examples/stats_examples/gaussian_example.py` for simple local fitting.
-- Check `examples/stats_examples/mixture_example.py` for structured latent mixtures.
-- Check `examples/detailed_estimation_example.py` for train and validation loops.
-- Check `examples/stats_examples/mixture_example.py` specifically for keyed
-  shared-component mixtures. That pattern is the main reference for low-rank
-  conditional approximations built from shared mixture components.
-- Check `examples/stats_examples/spearman_rho_example.py` for ranking models.
-- Check `src/dmx/utils/metrics.py`, `src/dmx/utils/htsne.py`, and
-  `src/dmx/utils/humap.py` for downstream diagnostics and visualization.
+### 2. Convert The Chosen Structure Into Explicit Estimators
+
+- Prefer explicit `dmx.stats` estimator construction over broad automation.
+- Keep the hierarchy chosen upstream intact. Do not flatten a composite,
+  sequence, or grouped problem into a simpler estimator only because it is
+  quicker to code.
+- Read [`references/model-routing.md`](references/model-routing.md) when you
+  need the concrete estimator family map after the structure is already known.
+- Reuse the orchestrator's structure-first philosophy: hierarchy choice comes
+  first, field-level estimators second.
+
+For advanced structure selection, grouped-sharing policy, or joint-model-first
+reasoning, go back to the orchestrator reference instead of re-deriving that
+logic in this skill.
+
+### 3. Use Repo-Native Local Fitting Helpers
+
+Read [`references/repo-entry-points.md`](references/repo-entry-points.md) for
+the concrete repo paths.
+
+Default implementation path:
+
+1. Build an explicit estimator in `dmx.stats`.
+2. Split data with `dmx.utils.estimation.partition_data` when held-out
+   validation is needed.
+3. Fit with `dmx.utils.estimation.optimize`.
+4. Upgrade to `dmx.utils.estimation.best_of` when initialization sensitivity is
+   plausible, especially for mixtures or other latent-variable models.
+5. Use vectorized post-fit calls such as `seq_encode`, `seq_log_density`,
+   `seq_log_density_sum`, or related posterior helpers instead of repeated
+   scalar scoring.
+
+Use `src/dmx/utils/automatic.py` selectively:
+
+- `prepare_mixture_model` is useful for embedding and mixture-oriented helper
+  flows
+- `get_estimator` and `get_dpm_mixture` are not the default path here because
+  they route through `dmx.bstats`
+
+### 4. Keep Shared-Structure Implementations Explicit
+
+This skill should still be useful for coding and fitting advanced local models,
+but not for deciding whether they are the right first abstraction.
+
+Implementation defaults:
+
+- for heterogeneous records, build field estimators explicitly and combine them
+  with `CompositeEstimator`
+- for latent subtypes over heterogeneous records, implement a
+  `CompositeEstimator` inside a `MixtureEstimator`
+- for many-label problems with shared latent structure, use keyed shared
+  components explicitly instead of hiding the structure inside many unrelated
+  conditional branches
+
+Use [`references/model-routing.md`](references/model-routing.md) and
+[`references/repo-entry-points.md`](references/repo-entry-points.md) for the
+keyed mixture and composite-mixture patterns. Use the orchestrator references
+for the higher-level question of when those patterns should be preferred.
+
+### 5. Code Diagnostics And Post-Fit Usage
+
+Choose the success criterion before writing the final code path:
+
+- held-out log likelihood or likelihood comparisons
+- classification metrics or ranking depth
+- posterior inspection or cluster structure
+- embedding-oriented exploratory views
+- parameter sanity and fit stability
+
+Repo-native helpers:
+
+- `src/dmx/utils/metrics.py` for classification and ranking-style evaluation
+- `src/dmx/utils/pvalues.py` only for narrow approximate significance or rank
+  calculations, not as a generic testing framework
+- `src/dmx/utils/htsne.py` and `src/dmx/utils/humap.py` for embedding workflows
+
+## Example Reuse Policy
+
+- Prefer adapting nearby runnable examples over inventing new scaffolding.
+- Start with `examples/stats_examples/gaussian_example.py` for the smallest
+  fit-and-score flow.
+- Use `examples/detailed_estimation_example.py` for validation and repeated-fit
+  loops.
+- Use `examples/stats_examples/mixture_example.py` for structured mixtures and
+  keyed shared-component implementations.
+- Use `examples/stats_examples/spearman_rho_example.py` for ranking workflows.
 
 ## Output Expectations
 
-- Produce a short restatement of assumptions before coding.
-- Write runnable code, not only model advice.
-- Include both fitting and model-use snippets when relevant.
-- Show how to inspect the fitted object, evaluate likelihoods, or compute the
-  requested diagnostic.
-- Point to the exact example, utility, or stats module that informed the answer.
+- Restate the implementation assumptions briefly before coding.
+- Produce runnable code, not only estimator advice.
+- Include fitting, scoring, and model-use snippets when they are relevant.
+- Show how to inspect the fitted model or compute the requested diagnostic.
+- Cite the exact repo example, utility, or stats module that informed the code.
