@@ -10,6 +10,9 @@ from a real notebook pattern in this repo and includes:
 - expected success characteristics for a strong answer
 - regression checks for common failure modes
 
+Use [evaluation-rubric.md](evaluation-rubric.md) for a short human-reviewable
+scoring guide across the full suite.
+
 ## Canonical Prompt Set
 
 1. [conditional-vs-composite-mixture.md](conditional-vs-composite-mixture.md)
