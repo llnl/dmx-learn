@@ -441,13 +441,25 @@ class OptionalEstimatorAccumulatorFactory(StatisticAccumulatorFactory):
 class OptionalEstimator(ParameterEstimator):
     """OptionalEstimator for estimating OptionalDistribution from sufficient statistics.
 
+    Notes:
+        An Optional estimator-level ``keys`` value shares the Optional wrapper
+        sufficient statistic with other Optional estimators using the same key. That
+        statistic contains both missing/non-missing counts and the wrapped
+        estimator's sufficient statistic for non-missing observations.
+
+        The Optional accumulator does not separately recurse into the wrapped
+        accumulator for keyed sharing. If ``keys`` is ``None``, keys on the wrapped
+        estimator are not applied through this wrapper. Use the Optional-level key
+        when missingness and non-missing parameters should be tied together.
+
     Attributes:
         estimator (ParameterEstimator): Estimator for base distribution.
         missing_value (Any): Missing_value specification.
         est_prob (bool): If true estimate the probability of a missing value.
         pseudo_count (Optional[float]): Regularize estimate of missing data.
         name (Optional[str]): Set name to object.
-        keys (Optional[str]): Set keys for sufficient statistics.
+        keys (Optional[str]): Key for sharing missingness counts and wrapped
+            sufficient statistics together.
 
     """
 
@@ -468,7 +480,10 @@ class OptionalEstimator(ParameterEstimator):
             est_prob (bool): If true estimate the probability of a missing value.
             pseudo_count (Optional[float]): Regularize estimate of missing data.
             name (Optional[str]): Set name to object.
-            keys (Optional[str]): Set keys for sufficient statistics.
+            keys (Optional[str]): Key used to share Optional wrapper sufficient
+                statistics with matching Optional estimators. The shared statistic
+                includes missing/non-missing counts and the wrapped estimator's
+                statistic for observed values.
 
         """
         if isinstance(keys, str) or keys is None:

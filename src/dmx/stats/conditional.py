@@ -704,14 +704,28 @@ class ConditionalDistributionAccumulatorFactory(StatisticAccumulatorFactory):
 class ConditionalDistributionEstimator(ParameterEstimator):
     """Estimator for ConditionalDistribution.
 
+    Notes:
+        The top-level ``keys`` value is retained on the estimator and resulting
+        distribution, but the current Conditional accumulator does not use it to merge
+        the whole conditional sufficient statistic. During keyed merging it delegates
+        to the accumulators in ``estimator_map``, ``default_estimator``, and
+        ``given_estimator``.
+
+        To share conditional submodels, put keys on the child estimators. For example,
+        use matching keys on selected values in ``estimator_map`` to share those
+        conditional distributions, or on ``given_estimator`` to share the model for
+        the conditioning variable. Do not rely on the top-level ``keys`` argument to
+        pool the full mapping.
+
     Attributes:
         estimator_map (Dict[T0, ParameterEstimator]): Estimators for each conditional
             distribution.
         default_estimator (ParameterEstimator): Estimator for default_distribution.
         given_estimator (ParameterEstimator): Estimator for given_distribution.
         name (Optional[str]): Name for object.
-        keys (Optional[str]): ConditionalDistributionEstimator with matching 'keys' will
-            be aggregated.
+        keys (Optional[str]): Metadata key propagated to the estimator and fitted
+            distribution; it is not used by the current accumulator to share the
+            full conditional mapping.
     """
 
     def __init__(
@@ -732,8 +746,9 @@ class ConditionalDistributionEstimator(ParameterEstimator):
             given_estimator (Optional[ParameterEstimator]): Estimator for
                 given_distribution.
             name (Optional[str], optional): Name for object.
-            keys (Optional[str], optional): ConditionalDistributionEstimator with
-                matching 'keys' will be aggregated.
+            keys (Optional[str], optional): Metadata key propagated to the estimator
+                and fitted distribution. Current keyed aggregation is controlled by
+                keys on the child estimators, not by this top-level value.
 
         Raises:
             TypeError: If keys is not a string or None.

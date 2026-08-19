@@ -669,6 +669,23 @@ class JointMixtureEstimator(ParameterEstimator):
     """JointMixtureEstimator object for estimating joint mixture distribution from
     aggregated sufficient stats.
 
+    Notes:
+        ``keys`` identifies the statistic blocks that may be shared with other
+        JointMixture estimators using the same key values.
+
+        - ``keys[0]`` corresponds to the joint latent-count block used for the
+          marginal weights and cross-view transition matrices.
+        - ``keys[1]`` shares the ``X1`` component sufficient statistics by
+          component index.
+        - ``keys[2]`` shares the ``X2`` component sufficient statistics by
+          component index.
+
+        Tuple positions allow partial sharing; they do not tie the whole joint
+        mixture unless all relevant positions use matching keys. Component-bank keys
+        assume component index ``i`` has the same meaning in every estimator that
+        shares the key. Treat keyed sharing of the joint latent-count block carefully
+        and verify it in the fitted model before relying on it.
+
     Attributes:
         estimators1 (Sequence[ParameterEstimator]): Estimators for mixture component of
             X1.
@@ -677,9 +694,9 @@ class JointMixtureEstimator(ParameterEstimator):
         suff_stat:
         pseudo_count (Optional[Tuple[float, float, float]]): Used to re-weight the state
             counts in estimation.
-        keys (Optional[Tuple[Optional[str], Optional[str], Optional[str]]]): Set keys
-            for weights, mixture
-            components of X1, mixture components of X2.
+        keys (Optional[Tuple[Optional[str], Optional[str], Optional[str]]]): Keys for
+            joint latent counts, ``X1`` component statistics, and ``X2`` component
+            statistics.
         name (Optional[str]): Set name to object.
 
     """
@@ -709,9 +726,12 @@ class JointMixtureEstimator(ParameterEstimator):
             suff_stat:
             pseudo_count (Optional[Tuple[float, float, float]]): Used to re-weight the
                 state counts in estimation.
-            keys (Optional[Tuple[Optional[str], Optional[str], Optional[str]]]): Set
-                keys for weights, mixture
-                components of X1, mixture components of X2.
+            keys (Optional[Tuple[Optional[str], Optional[str], Optional[str]]]): Keys
+                that control which sufficient-statistic blocks are shared. ``keys[0]``
+                refers to the joint latent-count block used for weights and
+                cross-view transition matrices. ``keys[1]`` and ``keys[2]`` share
+                the ``X1`` and ``X2`` component accumulators positionally. Shared
+                component keys require aligned component ordering across estimators.
             name (Optional[str]): Set name to object.
 
         """
