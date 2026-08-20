@@ -112,6 +112,9 @@ def assert_scalar_sequence_expected_log_density(
 
 def _assert_values_equal(actual: Any, expected: Any) -> None:
     """Compare nested sufficient statistics, including NumPy arrays."""
+    if actual is None or expected is None:
+        assert actual is expected
+        return
     if isinstance(actual, (tuple, list)) and isinstance(expected, (tuple, list)):
         assert len(actual) == len(expected)
         for actual_value, expected_value in zip(actual, expected):
