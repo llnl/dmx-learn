@@ -72,6 +72,7 @@ from dmx.bstats.mvngamma import (
     MultivariateNormalGammaDistribution,
     MultivariateNormalGammaSampler,
 )
+from dmx.bstats.normgamma import NormalGammaDistribution, NormalGammaSampler
 from dmx.bstats.nulldist import NullDistribution, NullEstimator, NullSampler
 from dmx.bstats.optional import OptionalDistribution, OptionalEstimator, OptionalSampler
 from dmx.bstats.pdist import (
@@ -138,6 +139,8 @@ __all__ = [
     "MixtureSampler",
     "MultivariateNormalGammaDistribution",
     "MultivariateNormalGammaSampler",
+    "NormalGammaDistribution",
+    "NormalGammaSampler",
     "NullDistribution",
     "NullEstimator",
     "NullSampler",

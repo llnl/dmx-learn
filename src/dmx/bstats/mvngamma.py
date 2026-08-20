@@ -1,141 +1,214 @@
-from typing import Optional, Sequence, Tuple, Union
+"""Define independent normal-gamma priors for diagonal Gaussian parameters.
+
+For every coordinate, ``tau_i ~ Gamma(a_i, scale=1 / b_i)`` and
+``x_i | tau_i ~ Normal(mu_i, variance=1 / (lam_i * tau_i))``. The joint
+support contains finite location vectors and strictly positive precision
+vectors. Diagonal Gaussian likelihoods use these arrays as current prior or
+posterior hyperparameters; the optional ``prior`` attribute is metadata only.
+"""
+
+from __future__ import annotations
+
+from collections.abc import Sequence
+from typing import Any, Optional, cast
 
 import numpy as np
-import scipy.integrate
 
-from dmx.bstats.pdist import ProbabilityDistribution
+from dmx.bstats.pdist import DistributionSampler, ProbabilityDistribution
 from dmx.utils.special import digamma, gammaln
 
-FlexDatumType = Tuple[
-    Union[Sequence[float], np.ndarray], Union[Sequence[float], np.ndarray]
+# This conjugate-prior distribution intentionally has no estimator or dedicated
+# sequence encoder; inherited scalar fallbacks remain its public behavior.
+# pylint: disable=abstract-method
+
+ArrayLike = Sequence[float] | np.ndarray[Any, np.dtype[Any]]
+MultivariateNormalGammaDatum = tuple[ArrayLike, ArrayLike]
+MultivariateNormalGammaParameters = tuple[
+    np.ndarray[Any, np.dtype[np.float64]],
+    np.ndarray[Any, np.dtype[np.float64]],
+    np.ndarray[Any, np.dtype[np.float64]],
+    np.ndarray[Any, np.dtype[np.float64]],
 ]
-FlexParamType = Tuple[np.ndarray, np.ndarray, np.ndarray, np.ndarray]
-
-DatumType = Tuple[np.ndarray, np.ndarray]
-ParamType = Tuple[np.ndarray, np.ndarray, np.ndarray, np.ndarray]
+Model = ProbabilityDistribution[Any, Any, Any]
 
 
-class MultivariateNormalGammaDistribution(ProbabilityDistribution):
+class MultivariateNormalGammaDistribution(
+    ProbabilityDistribution[
+        MultivariateNormalGammaDatum, MultivariateNormalGammaParameters, Any
+    ]
+):
+    """Product of coordinate-wise normal-gamma distributions."""
 
     def __init__(
         self,
-        mu: np.ndarray,
-        lam: np.ndarray,
-        a: np.ndarray,
-        b: np.ndarray,
+        mu: np.ndarray[Any, Any],
+        lam: np.ndarray[Any, Any],
+        a: np.ndarray[Any, Any],
+        b: np.ndarray[Any, Any],
         name: Optional[str] = None,
-        prior: Optional[ProbabilityDistribution] = None,
-    ):
+        prior: Optional[Model] = None,
+    ) -> None:
+        """Initialize vector normal-gamma hyperparameters.
 
+        Args:
+            mu: Finite coordinate centers.
+            lam: Positive coordinate-wise relative precisions.
+            a: Positive gamma shapes for precision.
+            b: Positive gamma rates for precision.
+            name: Optional model name.
+            prior: Optional metadata describing an earlier prior.
+
+        Raises:
+            ValueError: If arrays differ in shape or contain invalid parameters.
+        """
+        super().__init__()
         self.name = name
-        self.prior = prior
+        self.prior = cast(Model, prior)
+        self.parents = []
         self.set_parameters((mu, lam, a, b))
 
-    def __str__(self):
-        mu = ",".join(map(str, self.mu.tolist()))
-        lam = ",".join(map(str, self.lam.tolist()))
-        a = ",".join(map(str, self.a.tolist()))
-        b = ",".join(map(str, self.b.tolist()))
-
+    def __str__(self) -> str:
+        """Return a constructor-like representation using plain lists."""
         return (
-            "MultivariateNormalGammaDistribution([%s], [%s], [%s], [%s], name=%s, prior=%s)"
-            % (mu, lam, a, b, self.name, str(self.prior))
+            f"MultivariateNormalGammaDistribution({self.mu.tolist()!r}, "
+            f"{self.lam.tolist()!r}, {self.a.tolist()!r}, {self.b.tolist()!r}, "
+            f"name={self.name!r}, prior={self.prior})"
         )
 
-    def get_parameters(self):
+    def get_parameters(self) -> MultivariateNormalGammaParameters:
+        """Return ``(mu, lam, a, b)`` parameter arrays."""
         return self.mu, self.lam, self.a, self.b
 
-    def set_parameters(self, value):
-        mu, lam, a, b = value
+    def set_parameters(self, value: MultivariateNormalGammaParameters) -> None:
+        """Replace all vector normal-gamma hyperparameters.
 
-        self.mu = np.asarray(mu, dtype=float)
-        self.lam = np.asarray(lam, dtype=float)
-        self.a = np.asarray(a, dtype=float)
-        self.b = np.asarray(b, dtype=float)
+        Args:
+            value: Tuple of ``(mu, lam, a, b)`` arrays with matching shapes.
 
-    def cross_entropy(self, dist: ProbabilityDistribution) -> float:
-        if isinstance(dist, MultivariateNormalGammaDistribution):
-            a = self.a
-            b = self.b
-            m = self.mu
-            l = self.lam
-
-            aa = dist.a
-            bb = dist.b
-            mm = dist.mu
-            ll = dist.lam
-
-            c1 = (
-                np.log(bb) * aa
-                + 0.5 * np.log(ll)
-                - gammaln(aa)
-                - 0.5 * np.log(2 * np.pi)
+        Raises:
+            ValueError: If arrays differ in shape or contain invalid parameters.
+        """
+        mu, lam, a, b = (np.asarray(item, dtype=float) for item in value)
+        if mu.ndim != 1 or not mu.shape == lam.shape == a.shape == b.shape:
+            raise ValueError(
+                "Multivariate normal-gamma parameters must be matching vectors."
             )
-            c2 = (aa - 0.5) * (digamma(a) - np.log(b)) - bb * (a / b)
-            c3 = (
-                -0.5
-                * ll
-                * ((1 / l) + m * m * a / b - 2 * mm * m * a / b + mm * mm * a / b)
+        if not np.all(np.isfinite(mu)):
+            raise ValueError("Multivariate normal-gamma mu must be finite.")
+        if any(
+            not np.all(np.isfinite(item)) or np.any(item <= 0) for item in (lam, a, b)
+        ):
+            raise ValueError(
+                "Multivariate normal-gamma lam, a, and b must be finite "
+                "and positive."
             )
-            return -np.sum(c1 + c2 + c3)
-        else:
-            # lf2 = lambda x, y: dist.log_density((x, y)) * self.density((x, y))
-            # lf1 = lambda x, y: dist.log_density((-x, y)) * self.density((-x, y))
-            # a1 = scipy.integrate.dblquad(lf1, 0, np.inf, lambda u: 0, lambda u: np.inf)
-            # a2 = scipy.integrate.dblquad(lf2, 0, np.inf, lambda u: 0, lambda u: np.inf)
-            # return -(a1[0] + a2[0])
-            return 0
+        self.mu = mu
+        self.lam = lam
+        self.a = a
+        self.b = b
+
+    def cross_entropy(self, dist: Model) -> float:
+        """Return ``-E_self[log(dist)]`` for the same distribution family.
+
+        There is no generic numerical fallback for arbitrary multivariate
+        distributions because their dimension and integration contract are not
+        available through the base interface.
+
+        Args:
+            dist: Multivariate normal-gamma distribution to compare.
+
+        Returns:
+            Sum of coordinate-wise analytic cross-entropies.
+
+        Raises:
+            NotImplementedError: If ``dist`` is from another family.
+        """
+        if not isinstance(dist, MultivariateNormalGammaDistribution):
+            raise NotImplementedError(
+                "Cross-entropy is only defined between multivariate "
+                "normal-gamma distributions."
+            )
+        c1 = (
+            np.log(dist.b) * dist.a
+            + 0.5 * np.log(dist.lam)
+            - gammaln(dist.a)
+            - 0.5 * np.log(2 * np.pi)
+        )
+        c2 = (dist.a - 0.5) * (digamma(self.a) - np.log(self.b))
+        c2 -= dist.b * (self.a / self.b)
+        squared_shift = (self.mu - dist.mu) ** 2
+        c3 = -0.5 * dist.lam * ((1 / self.lam) + squared_shift * self.a / self.b)
+        return float(-np.sum(c1 + c2 + c3))
 
     def entropy(self) -> float:
-        a = self.a
-        b = self.b
-        lam = self.lam
-
-        return -np.sum(
-            (
-                (a - 0.5) * (digamma(a) - np.log(b))
-                - a
-                - 0.5
-                + np.log(b) * a
-                + 0.5 * np.log(lam)
-                - gammaln(a)
-                - 0.5 * np.log(2 * np.pi)
-            )
+        """Return the summed differential entropy of all coordinates."""
+        value = (
+            (self.a - 0.5) * (digamma(self.a) - np.log(self.b))
+            - self.a
+            - 0.5
+            + np.log(self.b) * self.a
+            + 0.5 * np.log(self.lam)
+            - gammaln(self.a)
+            - 0.5 * np.log(2 * np.pi)
         )
+        return float(-np.sum(value))
 
-    def density(self, x: (float, float)) -> float:
-        return np.exp(self.log_density(x))
+    def density(self, x: MultivariateNormalGammaDatum) -> float:
+        """Evaluate the joint density, returning zero outside the support."""
+        if not self._in_support(x):
+            return 0.0
+        return float(np.exp(self.log_density(x)))
 
-    def log_density(self, x: FlexDatumType) -> float:
-        a = self.a
-        b = self.b
-        mu = self.mu
-        lam = self.lam
-
-        c0 = np.log(b) * a + 0.5 * np.log(lam / (2 * np.pi)) - gammaln(a)
-        c1 = np.log(x[1]) * (a - 0.5) - b * x[1]
-        c2 = -lam * x[1] * (x[0] - mu) * (x[0] - mu) / 2
+    def log_density(self, x: MultivariateNormalGammaDatum) -> float:
+        """Evaluate the joint log-density, returning ``-inf`` off support."""
+        if not self._in_support(x):
+            return float(-np.inf)
+        location = np.asarray(x[0], dtype=float)
+        precision = np.asarray(x[1], dtype=float)
+        c0 = (
+            np.log(self.b) * self.a
+            + 0.5 * np.log(self.lam / (2 * np.pi))
+            - gammaln(self.a)
+        )
+        c1 = np.log(precision) * (self.a - 0.5) - self.b * precision
+        c2 = -self.lam * precision * (location - self.mu) ** 2 / 2
         return float(np.sum(c0 + c1 + c2))
 
-    def sampler(self, seed: Optional[int] = None):
+    def _in_support(self, x: MultivariateNormalGammaDatum) -> bool:
+        """Return whether one location-precision pair belongs to the support."""
+        location = np.asarray(x[0], dtype=float)
+        precision = np.asarray(x[1], dtype=float)
+        return bool(
+            location.shape == self.mu.shape
+            and precision.shape == self.mu.shape
+            and np.all(np.isfinite(location))
+            and np.all(np.isfinite(precision))
+            and np.all(precision > 0)
+        )
+
+    def sampler(self, seed: Optional[int] = None) -> "MultivariateNormalGammaSampler":
+        """Create a joint sampler using an optional deterministic seed."""
         return MultivariateNormalGammaSampler(self, seed)
 
 
-class MultivariateNormalGammaSampler(object):
+class MultivariateNormalGammaSampler(DistributionSampler[MultivariateNormalGammaDatum]):
+    """Draw vector locations and precisions from normal-gamma factors."""
 
     def __init__(
-        self, dist: MultivariateNormalGammaDistribution, seed: Optional[int] = None
-    ):
-        self.dist = dist
-        self.seed = seed
-        self.rng = np.random.RandomState(seed)
-        self.grng = np.random.RandomState(self.rng.tomaxint())
-        self.nrng = np.random.RandomState(self.rng.tomaxint())
+        self,
+        dist: MultivariateNormalGammaDistribution,
+        seed: Optional[int] = None,
+    ) -> None:
+        """Initialize independent child random streams."""
+        super().__init__(dist, seed)
+        self.grng = np.random.RandomState(self.new_seed())
+        self.nrng = np.random.RandomState(self.new_seed())
 
-    def sample(self, size=None):
-        if size is None:
-            t = self.grng.gamma(self.dist.a, 1 / self.dist.b)
-            x = self.nrng.normal(self.dist.mu, 1 / (self.dist.lam * t))
-            return x, t
-        else:
-            return [self.sample() for i in range(size)]
+    def sample(self, size: Optional[int] = None) -> Any:
+        """Draw one pair or a list of ``size`` vector pairs."""
+        if size is not None:
+            return [self.sample() for _ in range(size)]
+        precision = self.grng.gamma(self.dist.a, 1 / self.dist.b)
+        scale = np.sqrt(1 / (self.dist.lam * precision))
+        location = self.nrng.normal(self.dist.mu, scale)
+        return location, precision
