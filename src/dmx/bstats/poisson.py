@@ -1,296 +1,399 @@
-# import copyreg, copy, pickle, dill
-from typing import Any, Dict, Optional
+"""Bayesian Poisson likelihoods for nonnegative integer counts.
+
+``PoissonDistribution(lam)`` has support on integers ``x >= 0`` and returns
+``-inf`` for all other observations. The default gamma prior uses shape
+``1.0001`` and scale ``1e6``. Accumulators store weighted ``(count, sum)``
+statistics. Under a gamma prior, expected log-density integrates both
+``log(lam)`` and ``lam``; without a conjugate prior it uses plug-in scoring.
+"""
+
+from __future__ import annotations
+
+from collections.abc import Iterable, MutableMapping
+from typing import Any, Optional
 
 import numpy as np
-import scipy.integrate
-from numpy.random import RandomState
 from scipy.optimize import minimize_scalar
-from scipy.special import digamma, exp1, gammaln
+from scipy.stats import poisson
 
-from dmx.arithmetic import *
 from dmx.bstats.gamma import GammaDistribution
 from dmx.bstats.nulldist import NullDistribution, null_dist
 from dmx.bstats.pdist import (
+    DataSequenceEncoder,
+    DistributionSampler,
+    EncodedDataSequence,
     ParameterEstimator,
     ProbabilityDistribution,
     StatisticAccumulator,
+    StatisticAccumulatorFactory,
 )
-from dmx.utils.special import stirling2
+from dmx.utils.special import digamma, gammaln, stirling2
+
+# Legacy bstats implementations are intentionally concrete protocol classes.
+# pylint: disable=abstract-method
+
+Array = np.ndarray[Any, np.dtype[np.float64]]
+PoissonEncoded = tuple[Array, Array]
+PoissonSuffStat = tuple[float, float]
+Model = ProbabilityDistribution[Any, Any, Any]
 
 default_prior = GammaDistribution(1.0001, 1.0e6)
 
 
-class PoissonDistribution(ProbabilityDistribution):
-    """
-    A Poisson distributed random variable has the likelihood function
-
-    l(x | lambda) = (lambda ** x) * exp(-lambda) / x!
-
-    where x is a non-negative integer and lambda is a positive real number.
-    """
-
-    lam: float
-    log_lambda: float
-    conj_prior_params: (float, float)
-    prior: ProbabilityDistribution
-    has_conj_prior: bool
-    has_prior: bool
+class PoissonDistribution(ProbabilityDistribution[int, float, PoissonEncoded]):
+    """Poisson count likelihood with a gamma parameter prior."""
 
     def __init__(
         self,
         lam: float,
         name: Optional[str] = None,
-        prior: ProbabilityDistribution = default_prior,
+        prior: Model = default_prior,
         keys: Optional[str] = None,
-    ):
-
+    ) -> None:
+        """Initialize a positive rate, metadata, and prior."""
+        super().__init__()
         self.name = name
         self.keys = keys
         self.set_parameters(lam)
         self.set_prior(prior)
 
     def __str__(self) -> str:
-        return "PoissonDistribution(%f, name=%s, prior=%s, keys=%s)" % (
-            self.lam,
-            str(self.name),
-            str(self.prior),
-            str(self.keys),
+        """Return a constructor-like representation."""
+        return (
+            f"PoissonDistribution({self.lam!r}, name={self.name!r}, "
+            f"prior={self.prior}, keys={self.keys!r})"
         )
 
     def get_parameters(self) -> float:
+        """Return the Poisson rate."""
         return self.lam
 
-    def set_parameters(self, params: float) -> None:
-        self.lam = params
-        self.log_lambda = np.log(self.lam)
+    def set_parameters(self, value: float) -> None:
+        """Replace the positive finite rate and cached logarithm."""
+        if not np.isfinite(value) or value <= 0.0:
+            raise ValueError("Poisson rate must be finite and positive.")
+        self.lam = float(value)
+        self.log_lambda = float(np.log(self.lam))
 
-    def get_prior(self) -> ProbabilityDistribution:
+    def get_prior(self) -> Model:
+        """Return the current gamma or alternate prior."""
         return self.prior
 
-    def set_prior(self, prior: ProbabilityDistribution):
+    def set_prior(self, prior: Model) -> None:
+        """Replace the prior and cache gamma hyperparameters."""
         self.prior = prior
+        self.has_conj_prior = isinstance(prior, GammaDistribution)
+        self.has_prior = prior is not None and not isinstance(prior, NullDistribution)
+        self.conj_prior_params: Optional[tuple[float, float]] = (
+            prior.get_parameters() if isinstance(prior, GammaDistribution) else None
+        )
 
-        if isinstance(prior, GammaDistribution):
-            k, theta = self.prior.get_parameters()
-            self.conj_prior_params = (k, theta)
-            self.has_conj_prior = True
-            self.has_prior = True
-        elif isinstance(prior, NullDistribution) or prior is None:
-            self.has_prior = False
-        else:
-            self.conj_prior_params = None
-            self.has_conj_prior = False
-            self.has_prior = True
-
-    def get_data_type(self):
+    def get_data_type(self) -> type[int]:
+        """Return the intended observation type."""
         return int
 
-    def density(self, x: int) -> float:
-        return np.exp(self.log_density(x))
+    @staticmethod
+    def _in_support(x: Any) -> bool:
+        """Return whether ``x`` is a finite nonnegative integer."""
+        return bool(
+            isinstance(x, (int, np.integer))
+            and not isinstance(x, (bool, np.bool_))
+            and x >= 0
+        )
 
     def log_density(self, x: int) -> float:
-        return x * self.log_lambda - float(gammaln(x + 1.0)) - self.lam
+        """Evaluate log mass, returning ``-inf`` outside count support."""
+        if not self._in_support(x):
+            return float(-np.inf)
+        return float(x * self.log_lambda - gammaln(x + 1.0) - self.lam)
 
-    def expected_log_density(self, x: float) -> float:
+    def expected_log_density(self, x: int) -> float:
+        """Evaluate prior-averaged log mass when the prior is gamma."""
+        if not self._in_support(x):
+            return float(-np.inf)
+        if self.conj_prior_params is None:
+            return self.log_density(x)
+        shape, scale = self.conj_prior_params
+        return float(
+            (digamma(shape) + np.log(scale)) * x - shape * scale - gammaln(x + 1.0)
+        )
 
-        if self.has_conj_prior:
-
-            k, theta = self.conj_prior_params
-            e1 = (digamma(k) + np.log(theta)) * x
-            e2 = k * theta
-            e3 = gammaln(x + 1)
-            return e1 - e2 - e3
-
-        else:
-            pass
-
-    def cross_entropy(self, dist: ProbabilityDistribution) -> float:
-        if isinstance(dist, PoissonDistribution):
-            lam1 = self.lam
-            lam2 = dist.lam
-            rv = self.entropy()
-            rv += lam1 - lam2 - (np.log(lam1) - np.log(lam2)) * lam1
-        else:
-            pass
+    def cross_entropy(self, dist: Model) -> float:
+        """Return ``-E_self[log(dist)]`` for another Poisson likelihood."""
+        if not isinstance(dist, PoissonDistribution):
+            return super().cross_entropy(dist)
+        return float(
+            self.entropy()
+            + dist.lam
+            - self.lam
+            + self.lam * (self.log_lambda - dist.log_lambda)
+        )
 
     def entropy(self) -> float:
+        """Return the Poisson Shannon entropy."""
+        return float(poisson.entropy(self.lam))
 
-        if self.lam > 450:
-            l = self.lam
-            rv = -(
-                0.5 * np.log(2.0 * np.pi * l)
-                + 0.5
-                - 1 / (12.0 * l)
-                - 1.0 / (24.0 * l * l)
-                - 19.0 / (360.0 * l * l * l)
+    def moment(self, order: int) -> float:
+        """Return a raw integer moment using Stirling numbers."""
+        if order == 0:
+            return 1.0
+        return float(
+            sum(
+                np.power(self.lam, index) * stirling2(order, index)
+                for index in range(1, order + 1)
             )
-        else:
-            lam = self.lam
-            rv0 = (
-                0.5 * np.log(2.0 * np.pi * lam)
-                + 0.5
-                + (lam + 0.5) * exp1(lam)
-                - np.exp(-lam)
-            )
-            rterm = lambda x: (np.exp(-lam * x) / x) * (
-                (1 / x) - 0.5 + (1 / np.log1p(-x))
-            )
-            rv1 = scipy.integrate.quad(rterm, 0, 1)[0]
-            rv = -rv0 + rv1
-        return rv
+        )
 
-    def moment(self, p: int) -> float:
-        if p == 0:
-            return 0
-        elif p == 1:
-            return self.lam
-        else:
-            rv = 0
-            for i in range(p):
-                rv += np.power(self.lam, i) * stirling2(p, i)
-            return rv
+    def seq_log_density(self, x: PoissonEncoded) -> np.ndarray[Any, Any]:
+        """Evaluate log masses from encoded values and log-factorials."""
+        values, log_factorials = x
+        result = values * self.log_lambda - log_factorials - self.lam
+        valid = np.isfinite(values) & (values >= 0.0) & (values == np.floor(values))
+        return np.where(valid, result, -np.inf).astype(float)
 
-    def seq_log_density(self, x):
-        rv = x[0] * self.log_lambda
-        rv -= x[1]
-        rv -= self.lam
-        return rv
+    def seq_expected_log_density(self, x: PoissonEncoded) -> np.ndarray[Any, Any]:
+        """Evaluate prior-averaged log masses for encoded counts."""
+        if self.conj_prior_params is None:
+            return self.seq_log_density(x)
+        values, log_factorials = x
+        shape, scale = self.conj_prior_params
+        result = (
+            (digamma(shape) + np.log(scale)) * values - shape * scale - log_factorials
+        )
+        valid = np.isfinite(values) & (values >= 0.0) & (values == np.floor(values))
+        return np.where(valid, result, -np.inf).astype(float)
 
-    def seq_expected_log_density(self, x):
-        k, theta = self.conj_prior_params
-        e1 = (digamma(k) + np.log(theta)) * x[0]
-        e2 = k * theta
-        e3 = x[1]
-        return e1 - e2 - e3
+    def seq_encode(self, x: Iterable[int]) -> PoissonEncoded:
+        """Encode count values and their log-factorials."""
+        values = np.asarray(tuple(x), dtype=np.float64)
+        return values, np.asarray(gammaln(values + 1.0), dtype=np.float64)
 
-    def seq_encode(self, x):
-        rv1 = np.asarray(x, dtype=float)
-        rv2 = gammaln(rv1 + 1.0)
-        return rv1, rv2
-
-    def sampler(self, seed: Optional[int] = None):
+    def sampler(self, seed: Optional[int] = None) -> "PoissonSampler":
+        """Create a repeatable Poisson sampler."""
         return PoissonSampler(self, seed)
 
-    def estimator(self):
+    def estimator(self) -> "PoissonEstimator":
+        """Create an estimator retaining metadata and the current prior."""
         return PoissonEstimator(name=self.name, keys=self.keys, prior=self.prior)
 
-
-class PoissonSampler(object):
-
-    def __init__(self, dist, seed=None):
-        self.rng = RandomState(seed)
-        self.dist = dist
-
-    def sample(self, size=None):
-        return self.rng.poisson(lam=self.dist.lam, size=size)
+    def dist_to_encoder(self) -> "PoissonDataEncoder":
+        """Create the Poisson sequence encoder."""
+        return PoissonDataEncoder()
 
 
-class PoissonEstimatorAccumulator(StatisticAccumulator):
+class PoissonSampler(DistributionSampler[int]):
+    """Draw independent nonnegative Poisson counts."""
 
-    def __init__(self, name, keys):
+    def __init__(self, dist: PoissonDistribution, seed: Optional[int] = None) -> None:
+        """Initialize the sampler for ``dist``."""
+        super().__init__(dist, seed)
+
+    def sample(self, size: Optional[int] = None) -> Any:
+        """Draw one integer or an array of ``size`` integers."""
+        value = self.rng.poisson(lam=self.dist.lam, size=size)
+        return int(value) if size is None else value
+
+
+class PoissonEstimatorAccumulator(
+    StatisticAccumulator[int, PoissonSuffStat, PoissonEncoded]
+):
+    """Accumulate weighted observation count and count sum."""
+
+    def __init__(self, name: Optional[str], keys: Optional[str]) -> None:
+        """Initialize empty statistics and sharing metadata."""
         self.name = name
         self.key = keys
         self.sum = 0.0
-        self.gsum = 0.0
         self.count = 0.0
 
-    def initialize(self, x, weight, rng):
+    def initialize(self, x: int, weight: float, rng: np.random.RandomState) -> None:
+        """Accumulate one observation during initialization."""
+        del rng
         self.update(x, weight, None)
 
-    def seq_initialize(self, x, weights, rng):
+    def seq_initialize(
+        self,
+        x: PoissonEncoded,
+        weights: np.ndarray[Any, Any],
+        rng: np.random.RandomState,
+    ) -> None:
+        """Accumulate encoded observations during initialization."""
+        del rng
         self.seq_update(x, weights, None)
 
-    def update(self, x, weight, estimate):
+    def update(self, x: int, weight: float, estimate: Optional[Model]) -> None:
+        """Add one weighted nonnegative count."""
+        del estimate
+        if not PoissonDistribution._in_support(x):  # pylint: disable=protected-access
+            raise ValueError("Poisson statistics require nonnegative integer counts.")
         self.sum += x * weight
         self.count += weight
-        self.gsum += gammaln(x + 1)
 
-    def seq_update(self, x, weights, estimate):
-        self.sum += np.dot(x[0], weights)
-        self.count += weights.sum()
+    def seq_update(
+        self,
+        x: PoissonEncoded,
+        weights: np.ndarray[Any, Any],
+        estimate: Optional[Model],
+    ) -> None:
+        """Add encoded counts with corresponding weights."""
+        del estimate
+        values = x[0]
+        if np.any((values < 0.0) | (values != np.floor(values))):
+            raise ValueError("Poisson statistics require nonnegative integer counts.")
+        self.sum += float(np.dot(values, weights))
+        self.count += float(weights.sum())
 
-    def combine(self, suff_stat):
-        self.sum += suff_stat[1]
+    def combine(self, suff_stat: PoissonSuffStat) -> "PoissonEstimatorAccumulator":
+        """Merge ``(observation_count, count_sum)`` statistics."""
         self.count += suff_stat[0]
+        self.sum += suff_stat[1]
         return self
 
-    def value(self):
+    def value(self) -> PoissonSuffStat:
+        """Return ``(observation_count, count_sum)``."""
         return self.count, self.sum
 
-    def from_value(self, x):
-        self.count = x[0]
-        self.sum = x[1]
+    def from_value(self, x: PoissonSuffStat) -> "PoissonEstimatorAccumulator":
+        """Restore ``(observation_count, count_sum)``."""
+        self.count, self.sum = x
+        return self
 
-    def key_merge(self, stats_dict: Dict[str, Any]):
+    def key_merge(self, stats_dict: MutableMapping[str, Any]) -> None:
+        """Merge statistics through the configured sharing key."""
         if self.key is not None:
             if self.key in stats_dict:
                 stats_dict[self.key].combine(self.value())
             else:
                 stats_dict[self.key] = self
 
-    def key_replace(self, stats_dict: Dict[str, Any]):
-        if self.key is not None:
-            if self.key in stats_dict:
-                self.from_value(stats_dict[self.key].value())
+    def key_replace(self, stats_dict: MutableMapping[str, Any]) -> None:
+        """Replace statistics through the configured sharing key."""
+        if self.key is not None and self.key in stats_dict:
+            self.from_value(stats_dict[self.key].value())
+
+    def acc_to_encoder(self) -> "PoissonDataEncoder":
+        """Create the compatible Poisson encoder."""
+        return PoissonDataEncoder()
 
 
-class PoissonEstimatorAccumulatorFactory(object):
+class PoissonEstimatorAccumulatorFactory(
+    StatisticAccumulatorFactory[int, PoissonSuffStat, PoissonEncoded]
+):
+    """Create Poisson accumulators with shared metadata."""
 
-    def __init__(self, name, keys):
+    def __init__(self, name: Optional[str], keys: Optional[str]) -> None:
+        """Store metadata copied into each accumulator."""
         self.name = name
         self.keys = keys
 
-    def make(self):
+    def make(self) -> PoissonEstimatorAccumulator:
+        """Create an empty Poisson accumulator."""
         return PoissonEstimatorAccumulator(self.name, self.keys)
 
 
-class PoissonEstimator(ParameterEstimator):
+class PoissonEstimator(ParameterEstimator[int, float, PoissonEncoded, PoissonSuffStat]):
+    """Estimate a Poisson rate and update its gamma posterior."""
 
     def __init__(
         self,
         name: Optional[str] = None,
         keys: Optional[str] = None,
-        prior: ProbabilityDistribution = default_prior,
-    ):
-
-        self.prior = prior
+        prior: Model = default_prior,
+    ) -> None:
+        """Initialize estimator metadata and prior."""
         self.name = name
         self.keys = keys
-        self.has_conj_prior = isinstance(prior, GammaDistribution)
-        self.has_prior = not isinstance(prior, NullDistribution) and prior is not None
+        self.set_prior(prior)
 
     def accumulator_factory(self) -> PoissonEstimatorAccumulatorFactory:
+        """Create a compatible accumulator factory."""
         return PoissonEstimatorAccumulatorFactory(self.name, self.keys)
 
-    def set_prior(self, prior) -> None:
+    def set_prior(self, prior: Model) -> None:
+        """Replace the estimator prior and update prior flags."""
         self.prior = prior
+        self.has_conj_prior = isinstance(prior, GammaDistribution)
+        self.has_prior = prior is not None and not isinstance(prior, NullDistribution)
 
-    def get_prior(self) -> ProbabilityDistribution:
+    def get_prior(self) -> Model:
+        """Return the estimator prior."""
         return self.prior
 
-    def estimate(self, suff_stat: (float, float)) -> PoissonDistribution:
-
-        nobs, psum = suff_stat
-
+    # The base estimator exposes overloaded one- and two-argument call forms.
+    def estimate(  # pylint: disable=arguments-differ
+        self, *args: Any
+    ) -> PoissonDistribution:
+        """Estimate from ``(observation_count, count_sum)`` statistics."""
+        nobs, count_sum = args[-1]
         if self.has_conj_prior:
-
-            k, theta = self.prior.get_parameters()
-
-            new_k = k + psum
-            new_theta = theta / (nobs * theta + 1)
-            posterior_mode = (new_k - 1) * new_theta
-
-            return PoissonDistribution(
-                posterior_mode,
-                name=self.name,
-                prior=GammaDistribution(new_k, new_theta),
+            assert isinstance(self.prior, GammaDistribution)
+            shape, scale = self.prior.get_parameters()
+            posterior_shape = shape + count_sum
+            posterior_scale = scale / (nobs * scale + 1.0)
+            rate = max(
+                (posterior_shape - 1.0) * posterior_scale,
+                np.finfo(float).tiny,
             )
+            return PoissonDistribution(
+                rate,
+                name=self.name,
+                prior=GammaDistribution(posterior_shape, posterior_scale),
+                keys=self.keys,
+            )
+        if self.has_prior:
 
-        elif self.has_prior:
+            def objective(value: float) -> float:
+                return float(
+                    -count_sum * np.log(value)
+                    + nobs * value
+                    - self.prior.log_density(value)
+                )
 
-            ll_fun = lambda x: np.log(x)
+            upper = max(count_sum / nobs if nobs else 1.0, 1.0) * 10.0
+            solution = minimize_scalar(
+                objective,
+                bounds=(np.finfo(float).tiny, upper),
+                method="bounded",
+            )
+            return PoissonDistribution(
+                float(solution.x),
+                name=self.name,
+                prior=self.prior,
+                keys=self.keys,
+            )
+        rate = count_sum / nobs if nobs else np.finfo(float).tiny
+        return PoissonDistribution(
+            max(rate, np.finfo(float).tiny),
+            name=self.name,
+            prior=null_dist,
+            keys=self.keys,
+        )
 
-            pass
 
-        else:
-            return PoissonDistribution(psum / nobs, name=self.name, prior=null_dist)
+class PoissonDataEncoder(DataSequenceEncoder[int, PoissonEncoded]):
+    """Encode Poisson counts and cached log-factorials."""
+
+    def __str__(self) -> str:
+        """Return the stable encoder name."""
+        return "PoissonDataEncoder"
+
+    def __eq__(self, other: object) -> bool:
+        """Return whether another encoder has Poisson semantics."""
+        return isinstance(other, PoissonDataEncoder)
+
+    def seq_encode(self, x: Iterable[int]) -> "PoissonEncodedData":
+        """Encode observations in a typed container."""
+        values = np.asarray(tuple(x), dtype=np.float64)
+        return PoissonEncodedData((values, gammaln(values + 1.0)))
+
+
+class PoissonEncodedData(EncodedDataSequence[PoissonEncoded]):
+    """Contain Poisson values and cached log-factorials."""
+
+    def __init__(self, data: PoissonEncoded) -> None:
+        """Store encoded Poisson data."""
+        super().__init__(data)
+
+    def __repr__(self) -> str:
+        """Return a concise encoded-data representation."""
+        return f"PoissonEncodedData(data={self.data!r})"

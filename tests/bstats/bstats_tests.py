@@ -120,6 +120,19 @@ def _assert_values_equal(actual: Any, expected: Any) -> None:
         for actual_value, expected_value in zip(actual, expected):
             _assert_values_equal(actual_value, expected_value)
         return
+    if isinstance(actual, Mapping) and isinstance(expected, Mapping):
+        assert actual.keys() == expected.keys()
+        for key in actual:
+            _assert_values_equal(actual[key], expected[key])
+        return
+    actual_array = np.asarray(actual)
+    expected_array = np.asarray(expected)
+    if (
+        actual_array.dtype.kind not in "biufc"
+        or expected_array.dtype.kind not in "biufc"
+    ):
+        np.testing.assert_equal(actual, expected)
+        return
     np.testing.assert_allclose(actual, expected, rtol=1.0e-12, atol=1.0e-12)
 
 
