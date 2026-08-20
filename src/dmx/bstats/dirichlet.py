@@ -1,296 +1,372 @@
+"""Dirichlet priors for dense categorical probability vectors.
+
+Vector parameters define an ordinary fixed-dimensional Dirichlet distribution.
+A scalar parameter is a compatibility form for a symmetric prior whose dimension
+is inferred from each scored observation. Scalar parameters therefore support
+density evaluation but not sampling, entropy, or estimation until a dimension is
+known.
+"""
+
+from __future__ import annotations
+
 import sys
+from collections.abc import Callable, Iterable, MutableMapping, Sequence
+from typing import Any, Optional, Union, overload
 
 import numpy as np
-from numpy.random import RandomState
-from scipy.special import gammaln
 
-import dmx.utils.vector as vec
 from dmx.bstats.pdist import (
+    DistributionSampler,
     ParameterEstimator,
     ProbabilityDistribution,
     SequenceEncodableAccumulator,
+    StatisticAccumulatorFactory,
 )
-from dmx.utils.special import *
+from dmx.utils.special import digamma, digammainv, gammaln
+
+# This prior also retains the legacy estimator protocol used by bstats.
+# pylint: disable=abstract-method
+
+Array = np.ndarray[Any, np.dtype[np.float64]]
+DenseObservation = Union[Sequence[float], Array]
+DirichletParameters = Union[float, Array]
+EncodedDirichlet = tuple[Array, Array, Array]
+DirichletSufficientStatistics = tuple[float, Array, Array, Array]
+Model = ProbabilityDistribution[Any, Any, Any]
 
 
-def dirichlet_param_solve(alpha, meanLogP, delta):
-
-    dim = len(alpha)
-
-    valid = np.bitwise_and(np.isfinite(alpha), alpha > 0)
-    valid = np.bitwise_and(valid, np.isfinite(meanLogP))
-
-    alpha = alpha[valid]
-    mlp = meanLogP[valid]
-
+def dirichlet_param_solve(
+    alpha: Array, mean_log_p: Array, delta: float
+) -> tuple[Array, int]:
+    """Solve the Dirichlet fixed-point equation."""
+    dimension = len(alpha)
+    valid = np.isfinite(alpha) & (alpha > 0) & np.isfinite(mean_log_p)
+    estimate = alpha[valid]
+    log_means = mean_log_p[valid]
     count = 0
-    asum = alpha.sum()
-    dalpha = (2 * delta) + 1
-
-    while dalpha > delta:
-
+    change = (2 * delta) + 1
+    while change > delta:
         count += 1
-
-        dasum = digamma(asum)
-        old_alpha = alpha
-        adj_alpha = mlp + dasum
-        alpha = digammainv(adj_alpha)
-        asum = np.sum(alpha)
-        dalpha = np.abs(alpha - old_alpha).sum()
-        dalpha /= asum
-
-    if dim != alpha.size:
-        rv = np.zeros(dim, dtype=float)
-        rv[valid] = alpha
-    else:
-        rv = alpha
-
-    return rv, count
+        old_estimate = estimate
+        estimate = np.asarray(
+            digammainv(log_means + digamma(estimate.sum())), dtype=np.float64
+        )
+        change = float(np.abs(estimate - old_estimate).sum() / estimate.sum())
+    if dimension == estimate.size:
+        return estimate, count
+    result = np.zeros(dimension, dtype=np.float64)
+    result[valid] = estimate
+    return result, count
 
 
-def mpe(x0, f, eps):
+def mpe(
+    initial: Array, update: Callable[[Array], Array], epsilon: float
+) -> tuple[Array, int]:
+    """Accelerate fixed-point iteration with polynomial extrapolation."""
+    first = update(initial)
+    second = update(first)
+    third = update(second)
+    history = np.asarray([initial, first, second, third])
+    result = third
+    previous = third
+    residual = float(np.abs(third - second).sum())
+    count = 2
+    while residual > epsilon:
+        value = update(history[-1, :])
+        difference = value - history[-1, :]
+        increments = (history[1:, :] - history[:-1, :]).T
+        coefficients = -np.dot(np.linalg.pinv(increments), difference)
+        result = (np.dot(history[1:, :].T, coefficients) + value) / (
+            coefficients.sum() + 1
+        )
+        residual = float(np.abs(result - previous).sum())
+        previous = result
+        history = np.concatenate((history, np.reshape(value, (1, -1))), axis=0)
+        count += 1
+    return np.asarray(result, dtype=np.float64), count
 
-    x1 = f(x0)
-    x2 = f(x1)
-    x3 = f(x2)
-    X = np.asarray([x0, x1, x2, x3])
-    s0 = x3
-    s = s0
-    res = np.abs(x3 - x2).sum()
-    its_cnt = 2
 
-    while res > eps:
-        y = f(X[-1, :])
-        dy = y - X[-1, :]
-        U = (X[1:, :] - X[:-1, :]).T
-        X2 = X[1:, :].T
-        c = np.dot(np.linalg.pinv(U), dy)
-        c *= -1
-        s = (np.dot(X2, c) + y) / (c.sum() + 1)
+def alpha_seq_lambda(mean_log_p: Array) -> Callable[[Array], Array]:
+    """Create the fixed-point update for Dirichlet concentrations."""
 
-        res = np.abs(s - s0).sum()
-        s0 = s
-        X = np.concatenate((X, np.reshape(y, (1, -1))), axis=0)
-        its_cnt += 1
-
-    return s, its_cnt
-
-
-def alpha_seq_lambda(meanLogP):
-
-    def next_alpha(currentAlpha):
-        return digammainv(meanLogP + digamma(currentAlpha.sum()))
+    def next_alpha(current_alpha: Array) -> Array:
+        return np.asarray(
+            digammainv(mean_log_p + digamma(current_alpha.sum())),
+            dtype=np.float64,
+        )
 
     return next_alpha
 
 
-def find_alpha(current_alpha, mlp, thresh):
-    f = alpha_seq_lambda(mlp)
-    return mpe(current_alpha, f, thresh)
+def find_alpha(
+    current_alpha: Array, mean_log_p: Array, threshold: float
+) -> tuple[Array, int]:
+    """Estimate concentrations using accelerated fixed-point iteration."""
+    return mpe(current_alpha, alpha_seq_lambda(mean_log_p), threshold)
 
 
-class DirichletDistribution(ProbabilityDistribution):
+class DirichletDistribution(
+    ProbabilityDistribution[DenseObservation, DirichletParameters, EncodedDirichlet]
+):
+    """Dirichlet prior with dense or dimension-free symmetric parameters."""
 
-    def __init__(self, alpha):
+    def __init__(self, alpha: Union[float, Sequence[float], Array]) -> None:
+        """Initialize positive vector or scalar concentrations."""
+        super().__init__()
+        self.set_parameters(alpha)
 
-        if isinstance(alpha, (float, int)):
-            self.dim = 0
-            self.alpha = alpha
-        else:
-            self.dim = len(alpha)
-            self.alpha = alpha
-            self.log_const = sum(gammaln(alpha)) - gammaln(sum(alpha))
+    def __str__(self) -> str:
+        """Return a constructor-like representation."""
+        value: object = (
+            self.alpha.tolist() if isinstance(self.alpha, np.ndarray) else self.alpha
+        )
+        return f"DirichletDistribution({value!r})"
 
-    def __str__(self):
-        return "DirichletDistribution(%s)" % (str(self.alpha))
-
-    def get_parameters(self):
+    def get_parameters(self) -> DirichletParameters:
+        """Return the scalar or dense concentration parameters."""
         return self.alpha
 
-    def set_parameters(self, params):
-        self.alpha = params
-
-    def cross_entropy(self, dist):
-        if isinstance(dist, DirichletDistribution):
-            if self.dim == 0 and dist.dim != 0:
-                a = self.alpha * np.ones(dist.dim)
-                aa = dist.alpha
-            elif self.dim != 0 and dist.dim == 0:
-                a = self.alpha
-                aa = dist.alpha * np.ones(self.dim)
-            else:
-                a = self.alpha
-                aa = dist.alpha
-
-            return -(
-                (gammaln(np.sum(aa)) - np.sum(gammaln(aa)))
-                + np.dot(digamma(a) - digamma(np.sum(a)), aa - 1)
-            )
-        else:
-            pass
-
-    def entropy(self):
-        a = self.alpha
-        a0 = np.sum(a)
-        return -(
-            (gammaln(a0) - np.sum(gammaln(a))) + np.dot(digamma(a) - digamma(a0), a - 1)
+    def set_parameters(self, value: Union[float, Sequence[float], Array]) -> None:
+        """Replace concentrations and refresh cached dimensional state."""
+        if np.isscalar(value):
+            concentration = float(value)  # type: ignore[arg-type]
+            if not np.isfinite(concentration) or concentration <= 0:
+                raise ValueError(
+                    "Dirichlet concentrations must be finite and positive."
+                )
+            self.alpha: DirichletParameters = concentration
+            self.dim = 0
+            self.log_const: Optional[float] = None
+            return
+        concentrations = np.asarray(value, dtype=np.float64)
+        if concentrations.ndim != 1 or concentrations.size == 0:
+            raise ValueError("Dirichlet concentrations must be a nonempty vector.")
+        if not np.all(np.isfinite(concentrations) & (concentrations > 0)):
+            raise ValueError("Dirichlet concentrations must be finite and positive.")
+        self.alpha = concentrations
+        self.dim = len(concentrations)
+        self.log_const = float(
+            np.sum(gammaln(concentrations)) - gammaln(concentrations.sum())
         )
 
-    def density(self, x):
-        return exp(self.log_density(x))
+    def concentrations_for_dimension(self, dimension: int) -> Array:
+        """Return dense concentrations for a requested dimension."""
+        if isinstance(self.alpha, np.ndarray):
+            if len(self.alpha) != dimension:
+                raise ValueError("Observation dimension does not match parameters.")
+            return self.alpha
+        return np.full(dimension, self.alpha, dtype=np.float64)
 
-    def log_density(self, x):
+    def cross_entropy(self, dist: Model) -> float:
+        """Return ``-E_self[log(dist)]`` for another Dirichlet prior."""
+        if not isinstance(dist, DirichletDistribution):
+            return super().cross_entropy(dist)
+        if self.dim == 0 and dist.dim == 0:
+            raise ValueError("Cross-entropy requires a known Dirichlet dimension.")
+        dimension = self.dim or dist.dim
+        own = self.concentrations_for_dimension(dimension)
+        other = dist.concentrations_for_dimension(dimension)
+        expected_logs = digamma(own) - digamma(own.sum())
+        return float(
+            np.sum(gammaln(other))
+            - gammaln(other.sum())
+            - np.dot(other - 1.0, expected_logs)
+        )
 
+    def entropy(self) -> float:
+        """Return differential entropy for fixed-dimensional parameters."""
         if self.dim == 0:
-            a = self.alpha
-            rv = np.log(x).sum() * (a - 1)
-            cc = gammaln(a) * len(x) - gammaln(len(x) * a)
-            return rv - cc
-        else:
-            rv = np.dot(np.log(x), self.alpha - 1)
-            return rv - self.log_const
+            raise ValueError("Entropy requires a known Dirichlet dimension.")
+        return self.cross_entropy(self)
 
-        return rv
+    def log_density(self, x: DenseObservation) -> float:
+        """Evaluate the log-density at a simplex point."""
+        observation = np.asarray(x, dtype=np.float64)
+        if observation.ndim != 1 or observation.size == 0:
+            return float(-np.inf)
+        if (
+            not np.all(np.isfinite(observation))
+            or np.any(observation <= 0)
+            or not np.isclose(observation.sum(), 1.0)
+        ):
+            return float(-np.inf)
+        alpha = self.concentrations_for_dimension(len(observation))
+        log_const = float(np.sum(gammaln(alpha)) - gammaln(alpha.sum()))
+        return float(np.dot(np.log(observation), alpha - 1.0) - log_const)
 
-    def seq_log_density(self, x):
-        if len(x) == 0:
-            return np.zeros(0, dtype=float)
+    def seq_log_density(self, x: EncodedDirichlet) -> Array:
+        """Evaluate log-densities for encoded simplex observations."""
+        logs, values, _ = x
+        if values.ndim != 2:
+            raise ValueError("Encoded Dirichlet observations must be a matrix.")
+        alpha = self.concentrations_for_dimension(values.shape[1])
+        log_const = float(np.sum(gammaln(alpha)) - gammaln(alpha.sum()))
+        result = np.dot(logs, alpha - 1.0) - log_const
+        valid = (
+            np.all(np.isfinite(values), axis=1)
+            & np.all(values > 0, axis=1)
+            & np.isclose(values.sum(axis=1), 1.0)
+        )
+        return np.where(valid, result, -np.inf).astype(np.float64)
 
-        a = self.alpha
-        n = x.shape[1]
-        m = x.shape[0]
+    def seq_encode(self, x: Iterable[DenseObservation]) -> EncodedDirichlet:
+        """Encode observations as logs, values, and squared values."""
+        values = np.asarray(x, dtype=np.float64)
+        logs = np.log(np.maximum(values, sys.float_info.min))
+        return logs, values, values * values
 
-        if self.dim == 0:
-            cc = gammaln(a) * n - gammaln(n * a)
-            rv = np.zeros(m) - cc
-            if a != 1:
-                rv += x[0].sum(axis=1) * (a - 1)
-        else:
-            g = a != 1
-            rv = np.dot(x[0][:, g], self.alpha - 1.0)
-            rv -= self.log_const
-        return rv
-
-    def seq_encode(self, x):
-        rv = np.asarray(x).copy()
-
-        # TODO: Add warning for invalid values
-
-        rv2 = np.maximum(rv, sys.float_info.min)
-        np.log(rv2, out=rv2)
-        return rv2, rv, rv * rv
-
-    def sampler(self, seed=None):
+    def sampler(self, seed: Optional[int] = None) -> "DirichletSampler":
+        """Create a sampler for fixed-dimensional dense parameters."""
         return DirichletSampler(self, seed)
 
-    def estimator(self, pseudo_count=None):
-        if pseudo_count is None:
-            return DirichletEstimator(dim=self.dim)
-        else:
-            return DirichletEstimator(
-                dim=self.dim,
-                pseudo_count=pseudo_count,
-                suff_stat=log(self.alpha / sum(self.alpha)),
-            )
+    def estimator(self, pseudo_count: Optional[float] = None) -> "DirichletEstimator":
+        """Create an estimator for fixed-dimensional dense parameters."""
+        if self.dim == 0:
+            raise ValueError("Estimation requires a known Dirichlet dimension.")
+        sufficient_statistic = None
+        if pseudo_count is not None:
+            alpha = self.concentrations_for_dimension(self.dim)
+            sufficient_statistic = np.log(alpha / alpha.sum())
+        return DirichletEstimator(
+            dim=self.dim,
+            pseudo_count=pseudo_count,
+            suff_stat=sufficient_statistic,
+        )
 
 
-class DirichletSampler(object):
+class DirichletSampler(DistributionSampler[DenseObservation]):
+    """Draw dense simplex vectors from fixed-dimensional parameters."""
 
-    def __init__(self, dist, seed):
-        self.rng = RandomState(seed)
-        self.dist = dist
+    def __init__(self, dist: DirichletDistribution, seed: Optional[int] = None) -> None:
+        """Initialize a sampler for ``dist``."""
+        if dist.dim == 0:
+            raise ValueError("Sampling requires a known Dirichlet dimension.")
+        super().__init__(dist, seed)
 
-    def sample(self, size=None):
+    # The overload preserves scalar-versus-batch return shapes.
+    # pylint: disable=signature-differs
+    @overload
+    def sample(self, size: None = None) -> DenseObservation: ...
 
-        alpha = self.dist.alpha
-        has_invalid = self.dist.has_invalid
-        alpha_ma = self.dist.alpha_ma
+    @overload
+    def sample(self, size: int) -> Array: ...
 
-        if has_invalid:
-            if size is None:
-                rv = np.zeros(alpha.size)
-                rv[alpha_ma] = self.rng.dirichlet(alpha=alpha[alpha_ma])
-            else:
-                rv = np.zeros((size, alpha.size))
-                rv[:, alpha_ma] = self.rng.dirichlet(alpha=alpha[alpha_ma], size=size)
-
-            return rv
-        else:
-            return self.rng.dirichlet(alpha=self.dist.alpha, size=size)
+    def sample(self, size: Optional[int] = None) -> Any:
+        """Draw one vector or an array shaped ``(size, dimension)``."""
+        alpha = self.dist.concentrations_for_dimension(self.dist.dim)
+        return np.asarray(self.rng.dirichlet(alpha=alpha, size=size), dtype=np.float64)
 
 
-class DirichletAccumulator(SequenceEncodableAccumulator):
+class DirichletAccumulator(
+    SequenceEncodableAccumulator[
+        DenseObservation, DirichletSufficientStatistics, EncodedDirichlet
+    ]
+):
+    """Accumulate weighted statistics for Dirichlet estimation."""
 
-    def __init__(self, dim, keys=None):
+    def __init__(self, dim: int, keys: Optional[str] = None) -> None:
+        """Initialize zero statistics for ``dim`` coordinates."""
         self.dim = dim
-        self.sumOfLogs = np.zeros(dim)
-        self.sum = np.zeros(dim)
-        self.sum2 = np.zeros(dim)
-        self.counts = 0
+        self.sum_of_logs = np.zeros(dim, dtype=np.float64)
+        self.sum = np.zeros(dim, dtype=np.float64)
+        self.sum2 = np.zeros(dim, dtype=np.float64)
+        self.counts = 0.0
         self.key = keys
 
-    def update(self, x, weight, estimate):
-        z = x > 0
-        if np.all(z):
-            self.sumOfLogs += log(x) * weight
-            self.sum += weight * x
-            self.sum2 += weight * x * x
-            self.counts += weight
-        else:
-            self.sumOfLogs[z] += log(x[z]) * weight
-            self.sum += weight * x
-            self.sum2 += weight * x * x
-            self.counts += weight
+    def update(
+        self, x: DenseObservation, weight: float, estimate: Optional[Model]
+    ) -> None:
+        """Add one weighted simplex observation."""
+        del estimate
+        value = np.asarray(x, dtype=np.float64)
+        positive = value > 0
+        self.sum_of_logs[positive] += np.log(value[positive]) * weight
+        self.sum += weight * value
+        self.sum2 += weight * value * value
+        self.counts += weight
 
-    def get_seq_lambda(self):
-        return [self.seq_update]
-
-    def seq_update(self, x, weights, estimate):
-        self.sumOfLogs += np.dot(weights, x[0])
-        self.counts += weights.sum()
+    def seq_update(
+        self, x: EncodedDirichlet, weights: Array, estimate: Optional[Model]
+    ) -> None:
+        """Add encoded observations with corresponding weights."""
+        del estimate
+        self.sum_of_logs += np.dot(weights, x[0])
+        self.counts += float(weights.sum())
         self.sum += np.dot(weights, x[1])
         self.sum2 += np.dot(weights, x[2])
 
-    def combine(self, suff_stat):
-        self.sumOfLogs += suff_stat[1]
-        self.sum += suff_stat[2]
-        self.sum2 += suff_stat[3]
-        self.counts += suff_stat[0]
+    def combine(
+        self, suff_stat: DirichletSufficientStatistics
+    ) -> "DirichletAccumulator":
+        """Merge another sufficient-statistic tuple."""
+        count, sum_of_logs, values, squares = suff_stat
+        self.counts += count
+        self.sum_of_logs += sum_of_logs
+        self.sum += values
+        self.sum2 += squares
         return self
 
-    def value(self):
-        return self.counts, self.sumOfLogs, self.sum, self.sum2
+    def value(self) -> DirichletSufficientStatistics:
+        """Return accumulated count, logs, values, and squared values."""
+        return self.counts, self.sum_of_logs, self.sum, self.sum2
 
-    def from_value(self, x):
-        self.counts = x[0]
-        self.sumOfLogs = x[1]
-        self.sum = x[2]
-        self.sum2 = x[3]
+    def from_value(self, x: DirichletSufficientStatistics) -> "DirichletAccumulator":
+        """Restore a sufficient-statistic tuple."""
+        self.counts, self.sum_of_logs, self.sum, self.sum2 = x
+        return self
 
-    def key_merge(self, stats_dict):
-        if self.key is not None:
-            if self.key in stats_dict:
-                stats_dict[self.key].combine(self.value())
-            else:
-                stats_dict[self.key] = self
+    def key_merge(self, stats_dict: MutableMapping[str, Any]) -> None:
+        """Merge statistics under the optional shared key."""
+        if self.key is None:
+            return
+        if self.key in stats_dict:
+            stats_dict[self.key].combine(self.value())
+        else:
+            stats_dict[self.key] = self
 
-    def key_replace(self, stats_dict):
-        if self.key is not None:
-            if self.key in stats_dict:
-                self.from_value(stats_dict[self.key].value())
+    def key_replace(self, stats_dict: MutableMapping[str, Any]) -> None:
+        """Restore statistics from the optional shared key."""
+        if self.key is not None and self.key in stats_dict:
+            self.from_value(stats_dict[self.key].value())
 
 
-class DirichletEstimator(ParameterEstimator):
+class DirichletAccumulatorFactory(
+    StatisticAccumulatorFactory[
+        DenseObservation, DirichletSufficientStatistics, EncodedDirichlet
+    ]
+):
+    """Create Dirichlet sufficient-statistic accumulators."""
+
+    def __init__(self, dim: int, keys: Optional[str] = None) -> None:
+        """Store the accumulator dimension and optional shared key."""
+        self.dim = dim
+        self.keys = keys
+
+    def make(self) -> DirichletAccumulator:
+        """Create a zeroed accumulator."""
+        return DirichletAccumulator(self.dim, self.keys)
+
+
+class DirichletEstimator(
+    ParameterEstimator[
+        DenseObservation,
+        DirichletParameters,
+        EncodedDirichlet,
+        DirichletSufficientStatistics,
+    ]
+):
+    """Estimate dense Dirichlet concentrations from sufficient statistics."""
 
     def __init__(
         self,
-        dim,
-        pseudo_count=None,
-        suff_stat=None,
-        delta=1.0e-8,
-        keys=None,
-        use_mpe=False,
-    ):
+        dim: int,
+        pseudo_count: Optional[float] = None,
+        suff_stat: Optional[Array] = None,
+        delta: float = 1.0e-8,
+        keys: Optional[str] = None,
+        use_mpe: bool = False,
+    ) -> None:
+        """Configure dimension, regularization, and solver tolerance."""
         self.dim = dim
         self.pseudo_count = pseudo_count
         self.delta = delta
@@ -298,65 +374,52 @@ class DirichletEstimator(ParameterEstimator):
         self.keys = keys
         self.use_mpe = use_mpe
 
-    def accumulatorFactory(self):
-        dim = self.dim
-        keys = self.keys
-        obj = type(
-            "", (object,), {"make": lambda self: DirichletAccumulator(dim, keys)}
-        )()
-        return obj
+    def accumulator_factory(self) -> DirichletAccumulatorFactory:
+        """Create an accumulator factory for this estimator."""
+        return DirichletAccumulatorFactory(self.dim, self.keys)
 
-    def estimate(self, nobs, suff_stat):
+    # The base estimator supports these legacy call forms via ``*args``.
+    # pylint: disable=arguments-differ
+    @overload
+    def estimate(
+        self, suff_stat: DirichletSufficientStatistics, /
+    ) -> DirichletDistribution: ...
 
-        nobs, sum_of_logs, sum_v, sum_v2 = suff_stat
-        dim = len(sum_of_logs)
+    @overload
+    def estimate(
+        self,
+        nobs: Optional[float],
+        suff_stat: DirichletSufficientStatistics,
+        /,
+    ) -> DirichletDistribution: ...
 
-        if self.pseudo_count is not None and self.suff_stat is None:
-            c1 = digamma(one) - digamma(dim)
-            c2 = sum_of_logs + c1 * self.pseudo_count
-            initialEstimate = c2 * (dim / sum(c2))
-            meanLogP = c2 / (nobs + self.pseudo_count)
-
-        elif self.pseudo_count is not None and self.suff_stat is not None:
-            c2 = sum_of_logs + self.suff_stat * self.pseudo_count
-            initialEstimate = c2 * (dim / sum(c2))
-            meanLogP = c2 / (nobs + self.pseudo_count)
-
+    def estimate(self, *args: Any) -> DirichletDistribution:
+        """Estimate concentrations using either legacy estimator call form."""
+        if len(args) == 1:
+            suff_stat = args[0]
+        elif len(args) == 2:
+            suff_stat = args[1]
         else:
-
-            sum_v = sum_v / nobs
-            sum_v2 = sum_v2 / nobs
-            sum_v[-1] = 1.0 - sum_v[:-1].sum()
-
-            """
-            #initialConst = (sum_v[0]-sum_v2[0])/(sum_v2[0]-sum_v[0]*sum_v[0])
-            initialConst1 = (sum_v - sum_v2).mean()
-            initialConst2 = (sum_v2 - sum_v*sum_v).mean()
-
-            if initialConst2 > 0 and initialConst1 > 0:
-                initialEstimate = (initialConst1/initialConst2)*sum_v
-            else:
-                initialEstimate = sum_of_logs * (dim / sum(sum_of_logs))
-
-            #initialEstimate = sum_of_logs*(dim/sum(sum_of_logs))
-
-            """
-            initialEstimate = sum_v
-
-            meanLogP = sum_of_logs / nobs
-
-        if nobs == 1.0:
-            return DirichletDistribution(initialEstimate)
-
+            raise TypeError("estimate expects statistics, with optional nobs")
+        count, sum_of_logs, sum_values, _ = suff_stat
+        dimension = len(sum_of_logs)
+        if count <= 0:
+            raise ValueError("Estimation requires positive observation weight.")
+        if self.pseudo_count is not None:
+            prior_stat = self.suff_stat
+            if prior_stat is None:
+                prior_stat = np.full(
+                    dimension, digamma(1.0) - digamma(dimension), dtype=np.float64
+                )
+            combined_logs = sum_of_logs + prior_stat * self.pseudo_count
+            initial = combined_logs * (dimension / combined_logs.sum())
+            mean_log_p = combined_logs / (count + self.pseudo_count)
         else:
-
-            if self.use_mpe:
-                alpha, its_cnt = find_alpha(
-                    np.asarray(initialEstimate), meanLogP, self.delta
-                )
-            else:
-                alpha, its_cnt = dirichlet_param_solve(
-                    np.asarray(initialEstimate), meanLogP, self.delta
-                )
-
-            return DirichletDistribution(alpha)
+            initial = sum_values / count
+            initial[-1] = 1.0 - initial[:-1].sum()
+            mean_log_p = sum_of_logs / count
+        if count == 1.0:
+            return DirichletDistribution(initial)
+        solver = find_alpha if self.use_mpe else dirichlet_param_solve
+        alpha, _ = solver(np.asarray(initial), mean_log_p, self.delta)
+        return DirichletDistribution(alpha)
