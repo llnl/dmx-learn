@@ -4,8 +4,8 @@ from typing import Any, Optional, Sequence, cast
 
 import numpy as np
 
-from dmx.bstats import ParameterEstimator
-from dmx.bstats.mixture import MixtureDistribution
+from dmx.bstats import MixtureDistribution, ParameterEstimator
+from dmx.bstats.dpm import DirichletProcessMixtureEstimator
 from dmx.mpi4py.utils import get_runtime_attr
 from dmx.utils.automatic import get_estimator
 
@@ -36,9 +36,6 @@ def get_dpm_mixture_mpi(
         MixtureDistribution: A mixture distribution model.
     """
     mpi = get_runtime_attr("mpi4py", "MPI")
-    dirichlet_process_mixture_estimator = get_runtime_attr(
-        "dmx.bstats.dpm", "DirichletProcessMixtureEstimator"
-    )
     optimize_mpi = get_runtime_attr("dmx.mpi4py.utils.bestimation", "optimize_mpi")
 
     # Get MPI communicator, rank, and size
@@ -57,7 +54,7 @@ def get_dpm_mixture_mpi(
     # broadcast estimator to each worker
     est = comm.bcast(est, root=0)
 
-    est = dirichlet_process_mixture_estimator([est] * max_comp)
+    est = DirichletProcessMixtureEstimator([est] * max_comp)
 
     # the model should live on world_rank == 0
     mix_model = optimize_mpi(data, est, max_its=max_its, rng=rng, print_iter=print_iter)

@@ -7,7 +7,7 @@ from typing import IO, List, Optional, Sequence, Tuple, TypeVar
 
 from numpy.random import RandomState
 
-from dmx.bstats.pdist import ParameterEstimator, ProbabilityDistribution
+from dmx.bstats import ParameterEstimator, ProbabilityDistribution
 from dmx.mpi4py.bstats import (
     initialize_mpi,
     seq_encode_mpi,
