@@ -60,9 +60,6 @@ poetry run mypy --explicit-package-bases \
   src/dmx/torch_stats \
   src/dmx/mpi4py \
   examples \
-  examples_mpi4py \
-  examples_spark \
-  examples_torch \
   tests
 ```
 
@@ -76,9 +73,6 @@ poetry run pylint src/dmx/mpi4py --jobs=1 --fail-under=10
 poetry run pylint src/dmx/utils --jobs=1 --fail-under=10
 poetry run pylint src/dmx/torch_utils --jobs=1 --fail-under=10
 poetry run pylint examples --jobs=1 --fail-under=10
-poetry run pylint examples_mpi4py --jobs=1 --fail-under=10
-poetry run pylint examples_spark --jobs=1 --fail-under=10
-poetry run pylint examples_torch --jobs=1 --fail-under=10
 poetry run pylint tests --jobs=1 --fail-under=10
 ```
 

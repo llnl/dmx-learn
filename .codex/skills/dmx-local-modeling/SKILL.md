@@ -173,7 +173,7 @@ coverage only; it does not turn the local fitting recipe into an MPI workflow.
 - Prefer adapting nearby runnable examples over inventing new scaffolding.
 - Start with `examples/stats_examples/gaussian_example.py` for the smallest
   fit-and-score flow.
-- Use `examples/detailed_estimation_example.py` for validation and repeated-fit
+- Use `examples/utils_examples/detailed_estimation_example.py` for validation and repeated-fit
   loops.
 - Use `examples/stats_examples/mixture_example.py` for structured mixtures and
   keyed shared-component implementations.

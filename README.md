@@ -106,7 +106,8 @@ poetry show
 
 ### Stats Examples (scipy-based)
 
-Examples using `stats` distributions (always available) are located in `./examples/`:
+Examples using `stats` distributions (always available) are located in
+`./examples/stats_examples/`:
 
 ```bash
 # Using Poetry
@@ -117,19 +118,37 @@ export PYTHONPATH=/path/to/dmx-learn:$PYTHONPATH
 python ./examples/stats_examples/mixture_example.py
 ```
 
-### Torch Examples (PyTorch-based)
+### Bayesian Stats Examples
 
-Examples using `torch_stats` (requires PyTorch) are located in `./examples_torch/`:
+Examples using `bstats` are located in `./examples/bstats_examples/`:
 
 ```bash
-poetry run python ./examples_torch/stats_examples/mixture_example.py
+poetry run python ./examples/bstats_examples/dpm_auto_example1.py
+```
+
+### Utility Examples
+
+Examples for automatic model selection, detailed estimation, embeddings, and
+random graphs are located in `./examples/utils_examples/`:
+
+```bash
+poetry run python ./examples/utils_examples/auto_example.py
+```
+
+### Torch Examples (PyTorch-based)
+
+Examples using `torch_stats` (requires PyTorch) are located in
+`./examples/torch_examples/`:
+
+```bash
+poetry run python ./examples/torch_examples/stats_examples/mixture_example.py
 ```
 
 ---
 
 ## 🌐 Running with Spark
 
-Examples that run with Apache Spark are located in `./examples_spark/`.
+Examples that run with Apache Spark are located in `./examples/spark_examples/`.
 
 First, build a wheel:
 
@@ -145,14 +164,14 @@ Then run with Spark:
 /path/to/spark/bin/spark-submit \
   --master local[*] \
   --py-files /path/to/dmx-learn/dist/dmx-learn-1.0.0-py3-none-any.whl \
-  ./examples_spark/mixture_example.py
+  ./examples/spark_examples/mixture_example.py
 ```
 
 ---
 
 ## 🚄 Running with MPI4PY
 
-Examples using mpi4py are located in `./examples_mpi4py/`.
+Examples using mpi4py are located in `./examples/mpi4py_examples/`.
 
 **Install MPI support:**
 ```bash
@@ -166,7 +185,7 @@ pip install /path/to/dmx-learn[optional]
 **Run with MPI:**
 ```bash
 # Run with 4 processes
-mpiexec -n 4 poetry run python ./examples_mpi4py/estimation_example.py
+mpiexec -n 4 poetry run python ./examples/mpi4py_examples/estimation_example.py
 ```
 
 ---
@@ -200,10 +219,10 @@ device = detect_device()  # Returns 'cuda', 'mps', or 'cpu'
 
 ### Running Torch Examples
 
-Examples using `torch_stats` are located in `./examples_torch/`:
+Examples using `torch_stats` are located in `./examples/torch_examples/`:
 
 ```bash
-poetry run python ./examples_torch/stats_examples/mixture_example.py
+poetry run python ./examples/torch_examples/stats_examples/mixture_example.py
 ```
 
 ### Testing with PyTorch

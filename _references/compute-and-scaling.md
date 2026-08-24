@@ -152,7 +152,7 @@ Only leave Numba enabled when the requested model materially depends on a
 Numba-backed path or when the point of the test is specifically to validate
 that path. The current example tests already make that exception for
 `hidden_markov_example.py` and `int_plsi_example.py` in
-[../tests/examples/example_stats_test.py](../tests/examples/example_stats_test.py).
+[../tests/examples/stats_examples_test.py](../tests/examples/stats_examples_test.py).
 
 So the practical rule is:
 

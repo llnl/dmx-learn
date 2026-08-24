@@ -17,7 +17,7 @@ comm = MPI.COMM_WORLD
 world_rank = comm.Get_rank()
 world_size = comm.Get_size()
 
-PATH_TO_DATA = "examples_mpi4py/data"
+PATH_TO_DATA = "examples/mpi4py_examples/data"
 
 if __name__ == "__main__":
 

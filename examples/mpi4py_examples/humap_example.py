@@ -1,6 +1,6 @@
 """Example of fitting heterogenous umap fitting with mpi4py.
 
-Run with mpiexec -n 4 python3 examples_mpi4py/humap_example.py
+Run with mpiexec -n 4 python3 examples/mpi4py_examples/humap_example.py
 
 """
 
@@ -15,7 +15,7 @@ from mpi4py import MPI  # pylint: disable=no-name-in-module
 from dmx.mpi4py.utils.humap import humap_mpi
 from dmx.mpi4py.utils.optsutil import pickle_on_master
 
-PATH_TO_DATA = "examples_mpi4py/data"
+PATH_TO_DATA = "examples/mpi4py_examples/data"
 
 comm = MPI.COMM_WORLD
 world_rank = comm.Get_rank()

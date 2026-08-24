@@ -5,7 +5,7 @@ integers, and trains an LDA model with Spark-based sequence estimation.
 
 Run from the repository root with:
 
-    spark-submit --master local[4] examples_spark/wikipedia_example.py
+    spark-submit --master local[4] examples/spark_examples/wikipedia_example.py
 """
 
 import os
@@ -28,7 +28,7 @@ from dmx.stats import (
     seq_log_density_sum,
 )
 
-data_loc = os.path.join(os.path.dirname(os.path.realpath(__file__)), "../data")
+data_loc = os.path.join(os.path.dirname(os.path.realpath(__file__)), "../../data")
 
 
 def load_wiki_data() -> tuple[list[list[str]], list[str]]:

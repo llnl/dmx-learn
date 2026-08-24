@@ -107,7 +107,7 @@ mechanism.
 
 Examples:
 - `examples/stats_examples/mixture_example.py`
-- `examples/detailed_estimation_example.py`
+- `examples/utils_examples/detailed_estimation_example.py`
 
 ### Mixtures over structured observations
 
@@ -123,7 +123,7 @@ Examples:
 - `examples/stats_examples/hierarchical_mixture_example.py`
 - `examples/stats_examples/heterogeneous_mixture_example.py`
 - `examples/stats_examples/semi_supervised_mixture_example.py`
-- `examples/detailed_estimation_example.py`
+- `examples/utils_examples/detailed_estimation_example.py`
 
 ### Low-rank conditional approximations with keyed components
 
@@ -267,16 +267,16 @@ Notes:
   non-Bayesian modeling.
 
 Examples:
-- `examples/htsne_example.py`
+- `examples/utils_examples/htsne_example.py`
 - `notebooks/dmx_advanced_embedding_plots.ipynb`
 
 ## Example File Map
 
 - Simple local EM fit: `examples/stats_examples/gaussian_example.py`
 - Nested or keyed mixtures: `examples/stats_examples/mixture_example.py`
-- Validation loop and held-out likelihood: `examples/detailed_estimation_example.py`
+- Validation loop and held-out likelihood: `examples/utils_examples/detailed_estimation_example.py`
 - Ranking: `examples/stats_examples/spearman_rho_example.py`
-- Local embeddings: `examples/htsne_example.py`
+- Local embeddings: `examples/utils_examples/htsne_example.py`
 - Bayesian automatic routing: `tests/bstats/structural_test.py` and
   `tests/bstats/discrete_primitives_test.py`
 - Local variational DPM and automatic conversion: `tests/bstats/dpm_test.py`
@@ -285,8 +285,8 @@ Examples:
 
 ## Out Of Scope
 
-- `examples_spark/`
-- `examples_mpi4py/`
+- `examples/spark_examples/`
+- `examples/mpi4py_examples/`
 - `src/dmx/stats/rdd_sampler.py`
 - `dmx.mpi4py.bstats`, `dmx.mpi4py.utils`, and `get_dpm_mixture_mpi`
 - Distributed or remote data loading

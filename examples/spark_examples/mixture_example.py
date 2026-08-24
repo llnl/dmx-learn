@@ -5,7 +5,7 @@ samples the data into a Spark RDD, and fits the model with EM-style updates.
 
 Run from the repository root with:
 
-    spark-submit --master local[4] examples_spark/mixture_example.py
+    spark-submit --master local[4] examples/spark_examples/mixture_example.py
 """
 
 import numpy as np

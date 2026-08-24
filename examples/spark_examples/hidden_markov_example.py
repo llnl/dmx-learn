@@ -6,7 +6,7 @@ training utilities.
 
 Run from the repository root with:
 
-    spark-submit --master local[4] examples_spark/hidden_markov_example.py
+    spark-submit --master local[4] examples/spark_examples/hidden_markov_example.py
 """
 
 import numpy as np

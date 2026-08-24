@@ -32,17 +32,17 @@ if __name__ == "__main__":
             {str(j): ((1.0 + cc) if i == j else cc) / (m * cc + 1) for j in range(m)}
         )
         dist4 = OptionalDistribution(PoissonDistribution((i + 1) * ss), p=0.1)
-        dist = SequenceDistribution(
+        sequence_dist = SequenceDistribution(
             CompositeDistribution((dist1, dist2, dist3, dist4)), len_dist
         )
-        components.append(dist)
+        components.append(sequence_dist)
         w[i] = np.prod(1 - pvec[:i]) * pvec[i]
 
     w[n:] = 1.0e-16
     w /= w.sum()
 
-    dist = MixtureDistribution(components, w)
-    data = dist.sampler(seed=1).sample(300)
+    mixture_dist = MixtureDistribution(components, w)
+    data = mixture_dist.sampler(seed=1).sample(300)
 
     est = get_estimator(data, use_bstats=True)
     model = get_dpm_mixture(data, rng=np.random.RandomState(1))
