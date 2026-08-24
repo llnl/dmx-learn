@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import numpy as np
 
-from dmx.bstats.bernoulli import BernoulliDistribution, BernoulliEstimator
+from dmx.bstats.bernoulli import BernoulliEstimator
 from dmx.bstats.beta import BetaDistribution
 from dmx.bstats.catdirichlet import DictDirichletDistribution
 from dmx.bstats.categorical import CategoricalDistribution, CategoricalEstimator

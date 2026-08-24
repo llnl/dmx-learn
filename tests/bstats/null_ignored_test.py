@@ -30,14 +30,14 @@ def _make_ignored_distribution() -> IgnoredDistribution:
     return IgnoredDistribution(
         BernoulliDistribution(
             0.7,
-            prior=BetaDistribution(2.0, 3.0),  # type: ignore[abstract, arg-type]
+            prior=BetaDistribution(2.0, 3.0),
         )
     )
 
 
 def _make_alternate_prior() -> BetaDistribution:
     """Create a distinct prior for delegation checks."""
-    return BetaDistribution(4.0, 5.0)  # type: ignore[abstract]
+    return BetaDistribution(4.0, 5.0)
 
 
 class TestNullDistribution(BayesianDistributionTests):

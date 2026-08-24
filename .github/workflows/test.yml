@@ -47,7 +47,7 @@ jobs:
 
       - name: Run tests (core + torch + utils, no mpi4py, CPU-only)
         run: |
-          poetry run pytest tests/stats/ tests/torch_stats/ tests/utils/ -v --tb=short
+          poetry run pytest tests/bstats/ tests/stats/ tests/torch_stats/ tests/utils/ -v --tb=short
         env:
           # Torch tests default to CPU, but explicitly set to ensure no MPS/CUDA
           TEST_TORCH_DEVICE: cpu
