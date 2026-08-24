@@ -1,4 +1,4 @@
-"""Helper functions for building RDD for pyspark estimation."""
+"""Build field parsers and estimators for comma-delimited Spark input."""
 
 from typing import Any, Callable, List, Optional, Tuple, cast
 
@@ -8,13 +8,13 @@ _STATS_NAMESPACE = {name: getattr(stats, name) for name in stats.__all__}
 
 
 def _eval_stats_expr(expr: str) -> Any:
-    """Evaluates a trusted stats expression from builder input."""
+    """Evaluate a trusted expression in the public :mod:`dmx.stats` namespace."""
     # pylint: disable=eval-used
     return eval(expr, _STATS_NAMESPACE.copy())
 
 
 def _build_value_mapper(mapstr: str) -> Optional[Callable[[Any], Any]]:
-    """Builds a trusted value-mapping function from builder input."""
+    """Build a trusted value-mapping function from a field specification."""
     if mapstr == "":
         return None
     # pylint: disable=eval-used
@@ -24,15 +24,21 @@ def _build_value_mapper(mapstr: str) -> Optional[Callable[[Any], Any]]:
 
 
 def read_index_csv(filename: str) -> List[List[str]]:
-    """
-    Reads a CSV file and extracts field information.
+    """Read field specifications from a comma-delimited text file.
+
+    Text after ``#`` on each line is discarded. Only lines that split into
+    exactly four fields (index, name, mapping expression, and estimator
+    expression) are returned; blank and malformed lines are ignored.
 
     Args:
-        filename (str): Path to the CSV file.
+        filename: Path to the UTF-8 encoded field specification.
 
     Returns:
-        list: A list of tuples, where each tuple contains four elements
-        extracted from the CSV file (index, name, lambda expression, distribution).
+        The four string fields from each valid line, without further
+        conversion.
+
+    Raises:
+        OSError: If the file cannot be opened or read.
     """
     with open(filename, "r", encoding="utf-8") as fin:
         line_parts = map(
@@ -45,17 +51,28 @@ def read_index_csv(filename: str) -> List[List[str]]:
 def get_indexed_rdd_pne(
     field_info: Optional[List[List[str]]] = None, filename: Optional[str] = None
 ) -> Tuple[Any, Callable[[str], Optional[Tuple[Any, ...]]]]:
-    """
-    Creates an indexed RDD parser and estimator based on field information.
+    """Create a composite estimator and parser from field specifications.
+
+    Each specification has the form ``[index, name, mapping, estimator]``.
+    Estimator and mapping expressions are evaluated as trusted Python input in
+    the public :mod:`dmx.stats` namespace. The returned parser splits input on
+    literal commas and returns ``None`` when a line has too few fields.
 
     Args:
-        field_info (list, optional): List of tuples containing field information
-        (index, name, lambda expression, distribution). Defaults to None.
-        filename (str, optional): Path to the CSV file containing field
-            information. Defaults to None.
+        field_info: Field specifications. Used directly when provided.
+        filename: File passed to :func:`read_index_csv` when ``field_info`` is
+            absent.
 
     Returns:
-        tuple: A tuple containing the CompositeEstimator and a line parser function.
+        A composite estimator containing the non-null estimator expressions
+        and a callable that converts a line to the corresponding value tuple.
+
+    Raises:
+        ValueError: If neither ``field_info`` nor ``filename`` supplies field
+            specifications.
+        OSError: If ``filename`` cannot be read.
+        SyntaxError: If a trusted mapping or estimator expression is invalid.
+        NameError: If an expression references an unavailable name.
     """
     if filename is not None and field_info is None:
         field_info = read_index_csv(filename)
@@ -63,15 +80,16 @@ def get_indexed_rdd_pne(
         raise ValueError("field_info or filename is required.")
 
     def entry_lambda(idx: int, mapstr: str) -> Callable[[List[str]], Any]:
-        """
-        Creates a lambda function for mapping values.
+        """Create a field extractor with an optional value expression.
 
         Args:
-            idx (int): Index of the field to map.
-            mapstr (str): Lambda expression as a string.
+            idx: Zero-based field index.
+            mapstr: Python expression evaluated with the extracted string
+                available as ``x``. An empty expression returns the string
+                unchanged.
 
         Returns:
-            function: A lambda function to process the entry.
+            A callable that extracts and optionally converts one split field.
         """
         temp_lambda_0 = _build_value_mapper(mapstr)
         if temp_lambda_0 is not None:
@@ -100,14 +118,14 @@ def get_indexed_rdd_pne(
             max_idx = idx_i if idx_i > max_idx else max_idx
 
     def line_parser(line: str) -> Optional[Tuple[Any, ...]]:
-        """
-        Parses a line and applies the defined parsers.
+        """Parse and convert the configured fields from one input line.
 
         Args:
-            line (str): A line of text to parse.
+            line: Comma-delimited input text.
 
         Returns:
-            tuple or None: A tuple of parsed values, or None if the line is invalid.
+            Converted values in specification order, or ``None`` if the line
+            does not contain the greatest configured field index.
         """
         parts = line.split(",")
         if len(parts) < (max_idx + 1):

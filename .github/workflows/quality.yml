@@ -162,5 +162,5 @@ jobs:
           poetry run pydocstyle src/dmx/stats/pdist.py \
                                src/dmx/bstats \
                                src/dmx/torch_stats/pdist.py \
-                               src/dmx/utils/optsutil.py \
-                               src/dmx/utils/vector.py
+                               src/dmx/arithmetic.py \
+                               src/dmx/utils

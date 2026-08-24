@@ -1,9 +1,8 @@
-"""
-This module defines mathematical constants and imports commonly used functions from NumPy.
+"""Expose the numerical functions and constants used throughout :mod:`dmx`.
 
-The constants and functions provided here can be used for various mathematical operations
-such as logarithms, exponentiation, and calculations involving pi, square roots, or infinity.
-
+The NumPy functions retain their NumPy scalar and array semantics. The scalar
+constants include common floating-point values and signed 32-bit integer limits
+used when deriving random seeds.
 """
 
 from numpy import abs  # Absolute value function

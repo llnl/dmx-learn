@@ -15,18 +15,24 @@ def classify(
     model: SequenceEncodableProbabilityDistribution,
     labels: Optional[Sequence[Any]] = None,
 ) -> Tuple[np.ndarray, np.ndarray, np.ndarray, Dict[Any, np.ndarray]]:
-    """Classifies iid observations from model predictions.
+    """Rank true labels using conditional model log densities.
 
-    Returns
+    For every observation value, the model scores a copy paired with each
+    candidate label. Scores are normalized with a softmax. Labels must be
+    sortable, and an explicit ``labels`` sequence must include every observed
+    true label.
+
     Args:
-        data (Sequence[T]): Sequence of iid observations for classification.
-        model (SequenceEncodableProbabilityDistribution): Distribution for
-            classification.
-        labels (Optional[List[T]]): List of labels for the data.
+        data: ``(true_label, value)`` pairs for independent observations.
+        model: Joint or conditional distribution that accepts the same pairs.
+        labels: Candidate labels. By default, use the sorted unique true
+            labels.
 
     Returns:
-        Tuple[np.ndarray, np.ndarray, np.ndarray, np.ndarray]
-
+        Four objects: zero-based true-label ranks with shape ``(n_samples,)``;
+        true-label probabilities with shape ``(n_samples,)``; true labels with
+        shape ``(n_samples,)``; and a mapping from each candidate label to its
+        probability vector of shape ``(n_samples,)``.
     """
     cnt = len(data)
     data_labels = [label for label, _ in data]
@@ -70,15 +76,18 @@ def classify(
 def roc_curve(
     pos_x: Union[List[float], np.ndarray], neg_x: Union[List[float], np.ndarray]
 ) -> Tuple[np.ndarray, np.ndarray]:
-    """Create ROC curve.
+    """Create an empirical ROC curve from positive and negative scores.
+
+    Scores are sorted in descending order; each returned position corresponds
+    to accepting one additional sample at that threshold.
 
     Args:
-        pos_x (Union[List[float], np.ndarray]): Probs for positive classifications.
-        neg_x (Union[List[float], np.ndarray]): Probs for negative classifications.
+        pos_x: One-dimensional scores for positive examples.
+        neg_x: One-dimensional scores for negative examples.
 
     Returns:
-        (total positive rate, 1 - false positive rate)
-
+        Cumulative true-positive and false-positive rates, each with shape
+        ``(len(pos_x) + len(neg_x),)``.
     """
     res = np.zeros((len(pos_x) + len(neg_x), 2))
     res[: len(pos_x), 0] = np.asarray(pos_x)
@@ -103,25 +112,23 @@ def roc_percentiles(
     neg_x: Union[List[float], np.ndarray],
     perc_points: Union[List[float], np.ndarray],
 ) -> np.ndarray:
-    """
-    Computes the ROC (Receiver Operating Characteristic) curve percentiles.
+    """Sample an empirical ROC curve at target true-positive rates.
 
-    This function calculates the false alarm rate (FA) and detection probability (PD)
-    at specified percentile points based on the ROC curve.
+    For each target, the greatest attainable true-positive rate not exceeding
+    that target is selected. Targets below the first attainable rate are
+    omitted rather than represented by a placeholder row.
 
     Args:
-        pos_x (Union[List[float], np.ndarray]): Scores or probabilities for
-            positive samples.
-        neg_x (Union[List[float], np.ndarray]): Scores or probabilities for
-            negative samples.
-        perc_points (Union[List[float], np.ndarray]): Percentile points at
-            which to compute the ROC values.
+        pos_x: One-dimensional scores for positive examples.
+        neg_x: One-dimensional scores for negative examples.
+        perc_points: Target true-positive rates, normally in ``[0, 1]``.
 
     Returns:
-        np.ndarray: A 2D array where each row contains [FA, PD] values
-            corresponding to the given percentiles.
+        Array with up to ``len(perc_points)`` rows and two columns containing
+        ``[false_positive_rate, true_positive_rate]``. If no target is
+        attainable, the current implementation returns an empty array with
+        shape ``(0,)``.
     """
-
     pd, fa = roc_curve(pos_x, neg_x)
     rv: List[List[float]] = []
 
@@ -144,33 +151,19 @@ def ranking_depth(
     k: Optional[int] = None,
     comp_func: Callable[[Any, Any], bool] = lambda a, b: a == b,
 ) -> Union[np.ndarray, List[np.ndarray]]:
-    """
-    Computes the ranking depth for a set of entries based on a comparison function.
+    """Find zero-based ranks of matching candidates in scored lists.
 
-    This function calculates the ranks of matching entries in a list of scored items
-    for each input entry. If `k` is specified, only the top `k` ranks are returned.
+    Candidates for each target are sorted by descending score before matching.
 
     Args:
-        x (List[Tuple[Any, List[Tuple[Any, float]]]]): A list of entries where
-            each entry is a tuple. The first element of the tuple is the
-            target value, and the second element is a list of tuples
-            containing candidate values and their associated scores.
-        k (Optional[int], optional): The number of top ranks to return for
-            each entry. If `None`, all ranks are returned. Defaults to `None`.
-        comp_func (Callable[[Any, Any], bool], optional): A comparison
-            function that determines whether a candidate value matches the
-            target value. Defaults to `lambda a, b: a == b`.
+        x: Pairs of a target value and a list of ``(candidate, score)`` pairs.
+        k: Number of matching ranks to retain. ``None`` retains all matches.
+        comp_func: Predicate applied as ``comp_func(target, candidate)``.
 
     Returns:
-        Union[np.ndarray, List[np.ndarray]]:
-            - If `k` is specified, returns a 2D NumPy array of shape
-              `(len(x), k)` where each row contains the ranks of the top `k`
-              matching entries for the corresponding input entry.
-            - If `k` is `None`, returns a list of 1D NumPy arrays, where each
-              array contains all ranks of matching entries for the
-              corresponding input entry.
+        When ``k`` is given, a float array of shape ``(len(x), k)`` padded
+        with NaN. Otherwise, a list of variable-length integer rank arrays.
     """
-
     all_ranks: List[np.ndarray] = []
     for entry in x:
 
