@@ -79,6 +79,7 @@ jobs:
             src/dmx/arithmetic.py \
             src/dmx/utils \
             src/dmx/stats \
+            src/dmx/bstats \
             src/dmx/torch_utils \
             src/dmx/torch_stats \
             src/dmx/mpi4py \
@@ -121,6 +122,7 @@ jobs:
       - name: Run pylint on core modules
         run: |
           poetry run pylint src/dmx/stats --jobs=1 --fail-under=10
+          poetry run pylint src/dmx/bstats --jobs=1 --fail-under=10
           poetry run pylint src/dmx/torch_stats --jobs=1 --fail-under=10
           poetry run pylint src/dmx/mpi4py --jobs=1 --fail-under=10
           poetry run pylint src/dmx/utils --jobs=1 --fail-under=10
@@ -164,6 +166,7 @@ jobs:
       - name: Run pydocstyle on core modules
         run: |
           poetry run pydocstyle src/dmx/stats/pdist.py \
+                               src/dmx/bstats \
                                src/dmx/torch_stats/pdist.py \
                                src/dmx/utils/optsutil.py \
                                src/dmx/utils/vector.py

@@ -162,6 +162,8 @@ def test_component_priors_propagate_positionally() -> None:
     )
 
     prior = estimator.get_prior()
+    assert isinstance(prior, CompositeDistribution)
+    assert isinstance(prior.dists[1], CompositeDistribution)
     assert prior.dists[1].dists[0] is replacement_first
     assert prior.dists[1].dists[1] is replacement_second
     assert isinstance(prior.dists[1].dists[0], NormalGammaDistribution)

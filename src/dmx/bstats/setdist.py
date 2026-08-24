@@ -47,6 +47,7 @@ class BernoulliSetDistribution(
         name: Optional[str] = None,
         prior: Optional[Model] = None,
     ) -> None:
+        """Initialize inclusion probabilities, metadata, and prior."""
         super().__init__()
         self.name = name
         self.prior = cast(Model, prior)
@@ -157,6 +158,7 @@ class BernoulliSetAccumulator(
     """Accumulate weighted label occurrences and observation weight."""
 
     def __init__(self) -> None:
+        """Initialize empty occurrence and observation counts."""
         self.pmap: defaultdict[Label, float] = defaultdict(float)
         self.tot_sum = 0.0
 
@@ -245,6 +247,7 @@ class BernoulliSetEstimator(
         prior: Model = default_prior,
         keys: tuple[None] = (None,),
     ) -> None:
+        """Initialize estimator metadata and common inclusion prior."""
         self.name = name
         self.prior = prior
         self.keys = keys
@@ -296,9 +299,11 @@ class BernoulliSetDataEncoder(DataSequenceEncoder[Iterable[Label], SetEncoded]):
     """Encode set-like observations into a flattened four-part tuple."""
 
     def __str__(self) -> str:
+        """Return the encoder name."""
         return "BernoulliSetDataEncoder"
 
     def __eq__(self, other: object) -> bool:
+        """Return whether the other object is the stateless set encoder."""
         return isinstance(other, BernoulliSetDataEncoder)
 
     def seq_encode(self, x: Iterable[Iterable[Label]]) -> "BernoulliSetEncodedData":

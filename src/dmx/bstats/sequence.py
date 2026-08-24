@@ -52,6 +52,7 @@ class SequenceDistribution(
         name: Optional[str] = None,
         len_normalized: bool = False,
     ) -> None:
+        """Initialize child, length, normalization, and naming configuration."""
         super().__init__()
         self.dist = dist
         self.len_dist = len_dist
@@ -215,6 +216,7 @@ class SequenceSampler(DistributionSampler[list[Any]]):
     """Draw a length followed by that many iid child observations."""
 
     def __init__(self, dist: SequenceDistribution, seed: Optional[int] = None) -> None:
+        """Initialize independently seeded child and length samplers."""
         super().__init__(dist, seed)
         self.distSampler = dist.dist.sampler(self.new_seed())
         if dist.len_dist is None:
@@ -241,6 +243,7 @@ class SequenceEstimatorAccumulator(
         len_accumulator: Optional[Accumulator],
         keys: tuple[Optional[str], Optional[str]],
     ) -> None:
+        """Initialize child accumulators and sequence metadata."""
         self.accumulator = accumulator
         self.len_accumulator = len_accumulator
         self.dist_key, self.len_key = keys
@@ -372,6 +375,7 @@ class SequenceEstimatorAccumulatorFactory(
         len_factory: Optional[AccumulatorFactory],
         keys: tuple[Optional[str], Optional[str]],
     ) -> None:
+        """Initialize child factories and sequence metadata."""
         self.factory = factory
         self.len_normalized = len_normalized
         self.len_factory = len_factory
@@ -398,6 +402,7 @@ class SequenceEstimator(
         name: Optional[str] = None,
         keys: tuple[Optional[str], Optional[str]] = (None, None),
     ) -> None:
+        """Initialize child estimators and sequence metadata."""
         self.name = name
         self.estimator = estimator
         self.len_estimator = len_estimator
@@ -459,13 +464,16 @@ class SequenceDataEncoder(DataSequenceEncoder[list[Any], SequenceEncoded]):
         encoder: DataSequenceEncoder[Any, Any],
         len_encoder: Optional[DataSequenceEncoder[Any, Any]],
     ) -> None:
+        """Initialize child and optional length encoders."""
         self.encoder = encoder
         self.len_encoder = len_encoder
 
     def __str__(self) -> str:
+        """Return a constructor-like representation."""
         return f"SequenceDataEncoder({self.encoder}, {self.len_encoder})"
 
     def __eq__(self, other: object) -> bool:
+        """Return whether child and length encoders match."""
         return (
             isinstance(other, SequenceDataEncoder)
             and self.encoder == other.encoder

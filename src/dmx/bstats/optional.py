@@ -231,6 +231,7 @@ class OptionalSampler(DistributionSampler[Any]):
     """Draw missing markers or child observations."""
 
     def __init__(self, dist: OptionalDistribution, seed: Optional[int] = None) -> None:
+        """Initialize child and missingness samplers from independent seeds."""
         super().__init__(dist, seed)
         self.obs_sampler = dist.dist.sampler(self.new_seed())
         self.mis_sampler = np.random.RandomState(self.new_seed())
@@ -256,6 +257,7 @@ class OptionalEstimatorAccumulator(
         name: Optional[str],
         keys: Optional[str],
     ) -> None:
+        """Initialize wrapper metadata and an empty sufficient statistic."""
         self.acc = accumulator
         self.name = name
         self.key = keys
@@ -356,6 +358,7 @@ class OptionalEstimatorAccumulatorFactory(
         name: Optional[str],
         keys: Optional[str],
     ) -> None:
+        """Initialize the child accumulator factory and wrapper metadata."""
         self.acc_factory = acc_factory
         self.missing_value = missing_value
         self.name = name
@@ -382,6 +385,7 @@ class OptionalEstimator(
         keys: Optional[str] = None,
         prior: Model = default_prior,
     ) -> None:
+        """Initialize child estimation and missingness configuration."""
         self.estimator = estimator
         self.missing_value = missing_value
         self.fixed_prob = fixed_prob
@@ -442,14 +446,17 @@ class OptionalDataEncoder(DataSequenceEncoder[Any, OptionalEncoded]):
     def __init__(
         self, encoder: DataSequenceEncoder[Any, Any], missing_value: Any
     ) -> None:
+        """Initialize the child encoder and missing-value marker."""
         self.encoder = encoder
         self.missing_value = missing_value
         self.mv_is_nan = _is_nan_scalar(missing_value)
 
     def __str__(self) -> str:
+        """Return a constructor-like representation."""
         return f"OptionalDataEncoder({self.encoder}, {self.missing_value!r})"
 
     def __eq__(self, other: object) -> bool:
+        """Return whether marker semantics and child encoders match."""
         if not isinstance(other, OptionalDataEncoder) or self.encoder != other.encoder:
             return False
         return (

@@ -15,6 +15,7 @@ Use this skill for changes under `tests/` and for final verification of Python c
   - classes: `Test*` or `*TestCase`
 - Put new tests beside the code family they exercise:
   - `tests/stats`
+  - `tests/bstats`
   - `tests/torch_stats`
   - `tests/utils`
   - `tests/mpi4py` for MPI-specific behavior
@@ -54,6 +55,7 @@ poetry run mypy --explicit-package-bases \
   src/dmx/arithmetic.py \
   src/dmx/utils \
   src/dmx/stats \
+  src/dmx/bstats \
   src/dmx/torch_utils \
   src/dmx/torch_stats \
   src/dmx/mpi4py \
@@ -68,6 +70,7 @@ Linting:
 
 ```bash
 poetry run pylint src/dmx/stats --jobs=1 --fail-under=10
+poetry run pylint src/dmx/bstats --jobs=1 --fail-under=10
 poetry run pylint src/dmx/torch_stats --jobs=1 --fail-under=10
 poetry run pylint src/dmx/mpi4py --jobs=1 --fail-under=10
 poetry run pylint src/dmx/utils --jobs=1 --fail-under=10
@@ -83,6 +86,7 @@ Docstring quality:
 
 ```bash
 poetry run pydocstyle src/dmx/stats/pdist.py \
+  src/dmx/bstats \
   src/dmx/torch_stats/pdist.py \
   src/dmx/utils/optsutil.py \
   src/dmx/utils/vector.py
@@ -91,7 +95,7 @@ poetry run pydocstyle src/dmx/stats/pdist.py \
 Test job command:
 
 ```bash
-TEST_TORCH_DEVICE=cpu poetry run pytest tests/stats/ tests/torch_stats/ tests/utils/ -v --tb=short
+TEST_TORCH_DEVICE=cpu poetry run pytest tests/bstats/ tests/stats/ tests/torch_stats/ tests/utils/ -v --tb=short
 ```
 
 ## Practical Workflow

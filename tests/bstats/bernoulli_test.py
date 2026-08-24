@@ -13,15 +13,14 @@ def _make_distribution() -> BernoulliDistribution:
     return BernoulliDistribution(
         0.7,
         name="coin",
-        # BetaDistribution still inherits the legacy stats base class.
-        prior=BetaDistribution(2.0, 3.0),  # type: ignore[abstract, arg-type]
+        prior=BetaDistribution(2.0, 3.0),
         keys="coin_key",
     )
 
 
 def _make_alternate_prior() -> BetaDistribution:
     """Create a distinct conjugate prior for the prior replacement check."""
-    return BetaDistribution(4.0, 5.0)  # type: ignore[abstract]
+    return BetaDistribution(4.0, 5.0)
 
 
 class TestBernoulliDistribution(BayesianDistributionTests):
