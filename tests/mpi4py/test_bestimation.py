@@ -40,6 +40,8 @@ def test_bestimation_optimize_mpi() -> None:
     model = optimize_mpi(data, est, max_its=10000, print_iter=10000, rng=rng)
 
     if world_rank == 0:
+        if model is None:
+            raise RuntimeError("optimize_mpi did not return a model on rank 0.")
         enc_data = seq_encode(data=data, model=true_model)
         kl, _, _ = empirical_kl_divergence(
             dist1=true_model, dist2=model, enc_data=enc_data
