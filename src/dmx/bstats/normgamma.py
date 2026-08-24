@@ -29,7 +29,12 @@ Model = ProbabilityDistribution[Any, Any, Any]
 class NormalGammaDistribution(
     ProbabilityDistribution[NormalGammaDatum, NormalGammaParameters, Any]
 ):
-    """Joint normal-gamma distribution over a location and precision."""
+    """Represent a prior or posterior over a Gaussian mean and precision.
+
+    Observations are ``(location, precision)`` pairs with finite location and
+    strictly positive finite precision. The gamma factor uses shape ``a`` and
+    rate ``b``; conditional location variance is ``1 / (lam * precision)``.
+    """
 
     def __init__(
         self,

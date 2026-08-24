@@ -38,7 +38,18 @@ Model = ProbabilityDistribution[Any, Any, Any]
 def dirichlet_param_solve(
     alpha: Array, mean_log_p: Array, delta: float
 ) -> tuple[Array, int]:
-    """Solve the Dirichlet fixed-point equation."""
+    """Solve the Dirichlet fixed-point equation.
+
+    Args:
+        alpha: Initial concentration vector of shape ``(d,)``.
+        mean_log_p: Mean log probabilities of shape ``(d,)``. Non-finite
+            coordinates are excluded from the iteration.
+        delta: Convergence threshold for relative absolute parameter change.
+
+    Returns:
+        Estimated concentrations of shape ``(d,)`` and iteration count.
+        Excluded coordinates are returned as zero.
+    """
     dimension = len(alpha)
     valid = np.isfinite(alpha) & (alpha > 0) & np.isfinite(mean_log_p)
     estimate = alpha[valid]
@@ -62,7 +73,16 @@ def dirichlet_param_solve(
 def mpe(
     initial: Array, update: Callable[[Array], Array], epsilon: float
 ) -> tuple[Array, int]:
-    """Accelerate fixed-point iteration with polynomial extrapolation."""
+    """Accelerate fixed-point iteration with polynomial extrapolation.
+
+    Args:
+        initial: Initial parameter vector of shape ``(d,)``.
+        update: Callable performing one fixed-point update on that shape.
+        epsilon: Absolute-residual convergence threshold.
+
+    Returns:
+        Extrapolated parameter vector of shape ``(d,)`` and update count.
+    """
     first = update(initial)
     second = update(first)
     third = update(second)
@@ -87,7 +107,15 @@ def mpe(
 
 
 def alpha_seq_lambda(mean_log_p: Array) -> Callable[[Array], Array]:
-    """Create the fixed-point update for Dirichlet concentrations."""
+    """Create the fixed-point update for Dirichlet concentrations.
+
+    Args:
+        mean_log_p: Mean log probabilities of shape ``(d,)``.
+
+    Returns:
+        Callable mapping a concentration vector of shape ``(d,)`` to its next
+        fixed-point iterate.
+    """
 
     def next_alpha(current_alpha: Array) -> Array:
         return np.asarray(
@@ -101,17 +129,41 @@ def alpha_seq_lambda(mean_log_p: Array) -> Callable[[Array], Array]:
 def find_alpha(
     current_alpha: Array, mean_log_p: Array, threshold: float
 ) -> tuple[Array, int]:
-    """Estimate concentrations using accelerated fixed-point iteration."""
+    """Estimate concentrations using accelerated fixed-point iteration.
+
+    Args:
+        current_alpha: Initial concentration vector of shape ``(d,)``.
+        mean_log_p: Mean log probabilities of shape ``(d,)``.
+        threshold: Absolute-residual convergence threshold.
+
+    Returns:
+        Estimated concentrations of shape ``(d,)`` and update count.
+    """
     return mpe(current_alpha, alpha_seq_lambda(mean_log_p), threshold)
 
 
 class DirichletDistribution(
     ProbabilityDistribution[DenseObservation, DirichletParameters, EncodedDirichlet]
 ):
-    """Dirichlet prior with dense or dimension-free symmetric parameters."""
+    """Represent a prior or posterior over dense categorical probabilities.
+
+    A vector ``alpha`` fixes dimension ``d`` and supplies one positive
+    concentration per coordinate. A scalar supplies the same concentration to
+    every coordinate and infers ``d`` from each scored observation. The support
+    is the interior of the ``d``-dimensional probability simplex.
+    """
 
     def __init__(self, alpha: Union[float, Sequence[float], Array]) -> None:
-        """Initialize positive vector or scalar concentrations."""
+        """Initialize positive vector or scalar concentrations.
+
+        Args:
+            alpha: Positive scalar or nonempty vector of positive
+                concentrations.
+
+        Raises:
+            ValueError: If concentrations are empty, non-finite, nonpositive,
+                or not scalar or one-dimensional.
+        """
         super().__init__()
         self.set_parameters(alpha)
 
@@ -127,7 +179,16 @@ class DirichletDistribution(
         return self.alpha
 
     def set_parameters(self, value: Union[float, Sequence[float], Array]) -> None:
-        """Replace concentrations and refresh cached dimensional state."""
+        """Replace concentrations and refresh cached dimensional state.
+
+        Args:
+            value: Positive scalar or nonempty vector of positive
+                concentrations.
+
+        Raises:
+            ValueError: If concentrations are empty, non-finite, nonpositive,
+                or not scalar or one-dimensional.
+        """
         if np.isscalar(value):
             concentration = float(value)  # type: ignore[arg-type]
             if not np.isfinite(concentration) or concentration <= 0:
@@ -150,7 +211,17 @@ class DirichletDistribution(
         )
 
     def concentrations_for_dimension(self, dimension: int) -> Array:
-        """Return dense concentrations for a requested dimension."""
+        """Return dense concentrations for a requested dimension.
+
+        Args:
+            dimension: Required number of simplex coordinates.
+
+        Returns:
+            Concentration vector of shape ``(dimension,)``.
+
+        Raises:
+            ValueError: If fixed vector parameters have another dimension.
+        """
         if isinstance(self.alpha, np.ndarray):
             if len(self.alpha) != dimension:
                 raise ValueError("Observation dimension does not match parameters.")
@@ -158,7 +229,19 @@ class DirichletDistribution(
         return np.full(dimension, self.alpha, dtype=np.float64)
 
     def cross_entropy(self, dist: Model) -> float:
-        """Return ``-E_self[log(dist)]`` for another Dirichlet prior."""
+        """Return ``-E_self[log(dist)]`` for another Dirichlet distribution.
+
+        Args:
+            dist: Distribution whose log-density is averaged.
+
+        Returns:
+            Analytic cross-entropy from this distribution to ``dist``.
+
+        Raises:
+            ValueError: If both distributions are dimension-free or their
+                fixed dimensions differ.
+            NotImplementedError: If ``dist`` is not a Dirichlet distribution.
+        """
         if not isinstance(dist, DirichletDistribution):
             return super().cross_entropy(dist)
         if self.dim == 0 and dist.dim == 0:
@@ -174,13 +257,29 @@ class DirichletDistribution(
         )
 
     def entropy(self) -> float:
-        """Return differential entropy for fixed-dimensional parameters."""
+        """Return differential entropy for fixed-dimensional parameters.
+
+        Raises:
+            ValueError: If the distribution has scalar, dimension-free
+                parameters.
+        """
         if self.dim == 0:
             raise ValueError("Entropy requires a known Dirichlet dimension.")
         return self.cross_entropy(self)
 
     def log_density(self, x: DenseObservation) -> float:
-        """Evaluate the log-density at a simplex point."""
+        """Evaluate the log-density at a dense simplex point.
+
+        Args:
+            x: Probability vector of shape ``(d,)`` with finite, strictly
+                positive entries summing to one.
+
+        Returns:
+            Log-density, or ``-inf`` when ``x`` is outside the simplex.
+
+        Raises:
+            ValueError: If ``x`` conflicts with fixed vector parameters.
+        """
         observation = np.asarray(x, dtype=np.float64)
         if observation.ndim != 1 or observation.size == 0:
             return float(-np.inf)
@@ -195,7 +294,20 @@ class DirichletDistribution(
         return float(np.dot(np.log(observation), alpha - 1.0) - log_const)
 
     def seq_log_density(self, x: EncodedDirichlet) -> Array:
-        """Evaluate log-densities for encoded simplex observations."""
+        """Evaluate log-densities for encoded simplex observations.
+
+        Args:
+            x: Tuple of log values, values, and squared values, each shaped
+                ``(n, d)`` as returned by :meth:`seq_encode`.
+
+        Returns:
+            Log-density array of shape ``(n,)``. Rows outside the simplex
+            receive ``-inf``.
+
+        Raises:
+            ValueError: If encoded values are not a matrix or their dimension
+                conflicts with fixed vector parameters.
+        """
         logs, values, _ = x
         if values.ndim != 2:
             raise ValueError("Encoded Dirichlet observations must be a matrix.")
@@ -210,17 +322,48 @@ class DirichletDistribution(
         return np.where(valid, result, -np.inf).astype(np.float64)
 
     def seq_encode(self, x: Iterable[DenseObservation]) -> EncodedDirichlet:
-        """Encode observations as logs, values, and squared values."""
+        """Encode observations as logs, values, and squared values.
+
+        Args:
+            x: Iterable of ``n`` dense observations with dimension ``d``.
+
+        Returns:
+            Tuple of log values, values, and squared values, each shaped
+            ``(n, d)``. Logs are clipped at the smallest positive float.
+        """
         values = np.asarray(x, dtype=np.float64)
         logs = np.log(np.maximum(values, sys.float_info.min))
         return logs, values, values * values
 
     def sampler(self, seed: Optional[int] = None) -> "DirichletSampler":
-        """Create a sampler for fixed-dimensional dense parameters."""
+        """Create a sampler for fixed-dimensional dense parameters.
+
+        Args:
+            seed: Optional deterministic random seed.
+
+        Returns:
+            Sampler for this distribution.
+
+        Raises:
+            ValueError: If the distribution has scalar, dimension-free
+                parameters.
+        """
         return DirichletSampler(self, seed)
 
     def estimator(self, pseudo_count: Optional[float] = None) -> "DirichletEstimator":
-        """Create an estimator for fixed-dimensional dense parameters."""
+        """Create an estimator for fixed-dimensional dense parameters.
+
+        Args:
+            pseudo_count: Optional regularization weight for a log-statistic
+                derived from the current concentrations.
+
+        Returns:
+            Estimator configured for this distribution's dimension.
+
+        Raises:
+            ValueError: If the distribution has scalar, dimension-free
+                parameters.
+        """
         if self.dim == 0:
             raise ValueError("Estimation requires a known Dirichlet dimension.")
         sufficient_statistic = None
@@ -262,10 +405,19 @@ class DirichletAccumulator(
         DenseObservation, DirichletSufficientStatistics, EncodedDirichlet
     ]
 ):
-    """Accumulate weighted statistics for Dirichlet estimation."""
+    """Accumulate weighted statistics for Dirichlet estimation.
+
+    The public statistic is ``(weight, sum_log_x, sum_x, sum_x_squared)``.
+    Each vector has shape ``(d,)`` and contains coordinate-wise weighted sums.
+    """
 
     def __init__(self, dim: int, keys: Optional[str] = None) -> None:
-        """Initialize zero statistics for ``dim`` coordinates."""
+        """Initialize zero statistics for ``dim`` coordinates.
+
+        Args:
+            dim: Number of simplex coordinates.
+            keys: Optional key used to share statistics between accumulators.
+        """
         self.dim = dim
         self.sum_of_logs = np.zeros(dim, dtype=np.float64)
         self.sum = np.zeros(dim, dtype=np.float64)
@@ -276,7 +428,13 @@ class DirichletAccumulator(
     def update(
         self, x: DenseObservation, weight: float, estimate: Optional[Model]
     ) -> None:
-        """Add one weighted simplex observation."""
+        """Add one weighted simplex observation.
+
+        Args:
+            x: Dense probability vector of shape ``(d,)``.
+            weight: Weight applied to the observation.
+            estimate: Current estimate; unused for Dirichlet statistics.
+        """
         del estimate
         value = np.asarray(x, dtype=np.float64)
         positive = value > 0
@@ -288,7 +446,13 @@ class DirichletAccumulator(
     def seq_update(
         self, x: EncodedDirichlet, weights: Array, estimate: Optional[Model]
     ) -> None:
-        """Add encoded observations with corresponding weights."""
+        """Add encoded observations with corresponding weights.
+
+        Args:
+            x: Encoded tuple whose arrays have shape ``(n, d)``.
+            weights: Observation weights of shape ``(n,)``.
+            estimate: Current estimate; unused for Dirichlet statistics.
+        """
         del estimate
         self.sum_of_logs += np.dot(weights, x[0])
         self.counts += float(weights.sum())
@@ -298,7 +462,14 @@ class DirichletAccumulator(
     def combine(
         self, suff_stat: DirichletSufficientStatistics
     ) -> "DirichletAccumulator":
-        """Merge another sufficient-statistic tuple."""
+        """Merge another sufficient-statistic tuple.
+
+        Args:
+            suff_stat: ``(weight, sum_log_x, sum_x, sum_x_squared)`` to add.
+
+        Returns:
+            This mutated accumulator.
+        """
         count, sum_of_logs, values, squares = suff_stat
         self.counts += count
         self.sum_of_logs += sum_of_logs
@@ -307,7 +478,7 @@ class DirichletAccumulator(
         return self
 
     def value(self) -> DirichletSufficientStatistics:
-        """Return accumulated count, logs, values, and squared values."""
+        """Return ``(weight, sum_log_x, sum_x, sum_x_squared)`` statistics."""
         return self.counts, self.sum_of_logs, self.sum, self.sum2
 
     def from_value(self, x: DirichletSufficientStatistics) -> "DirichletAccumulator":
@@ -355,7 +526,12 @@ class DirichletEstimator(
         DirichletSufficientStatistics,
     ]
 ):
-    """Estimate dense Dirichlet concentrations from sufficient statistics."""
+    """Estimate dense Dirichlet concentrations from sufficient statistics.
+
+    With ``pseudo_count``, the estimator adds weighted prior log-statistics
+    before solving the concentration fixed-point equation. Without it, the
+    empirical mean initializes the solver.
+    """
 
     def __init__(
         self,
@@ -366,7 +542,18 @@ class DirichletEstimator(
         keys: Optional[str] = None,
         use_mpe: bool = False,
     ) -> None:
-        """Configure dimension, regularization, and solver tolerance."""
+        """Configure dimension, regularization, and solver tolerance.
+
+        Args:
+            dim: Number of simplex coordinates.
+            pseudo_count: Optional weight assigned to prior log-statistics.
+            suff_stat: Optional prior mean-log vector of shape ``(dim,)``. A
+                symmetric unit-concentration value is used when omitted.
+            delta: Solver convergence threshold.
+            keys: Optional key used to share accumulator statistics.
+            use_mpe: Use polynomial extrapolation instead of direct fixed-point
+                iteration.
+        """
         self.dim = dim
         self.pseudo_count = pseudo_count
         self.delta = delta
@@ -394,7 +581,21 @@ class DirichletEstimator(
     ) -> DirichletDistribution: ...
 
     def estimate(self, *args: Any) -> DirichletDistribution:
-        """Estimate concentrations using either legacy estimator call form."""
+        """Estimate concentrations using either legacy estimator call form.
+
+        Args:
+            *args: Either one sufficient-statistic tuple, or ``nobs`` followed
+                by that tuple. ``nobs`` is accepted for protocol compatibility;
+                the tuple's accumulated weight is authoritative.
+
+        Returns:
+            Fixed-dimensional Dirichlet distribution with fitted
+            concentrations.
+
+        Raises:
+            TypeError: If called with any other number of arguments.
+            ValueError: If accumulated observation weight is not positive.
+        """
         if len(args) == 1:
             suff_stat = args[0]
         elif len(args) == 2:
