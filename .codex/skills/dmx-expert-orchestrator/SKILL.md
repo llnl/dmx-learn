@@ -1,6 +1,6 @@
 ---
 name: dmx-expert-orchestrator
-description: Main entry point for local `dmx-learn` modeling requests. Use to scope the problem, infer the observation structure, keep the workflow on local data, and route detailed implementation to narrower repo-local skills or references. Default to `dmx.stats` for explicit model construction. Do not use for Spark, MPI, or other distributed estimation workflows.
+description: Main entry point for local `dmx-learn` modeling requests. Use to scope the problem, infer the observation structure, keep the workflow on local data, and route detailed implementation to narrower repo-local skills or references. Default to explicit `dmx.stats` construction for ordinary non-Bayesian work and route Bayesian, variational, DPM, and automatic mixture work to `dmx.bstats`. Do not use for Spark, MPI, or other distributed estimation workflows.
 ---
 
 # Dmx Expert Orchestrator
@@ -13,26 +13,45 @@ Keep the first pass focused on five decisions:
 1. Is the request local and in scope for `dmx-learn`?
 2. Where is the data, and can it be inspected directly?
 3. What does one observation look like?
-4. Should the first model be a direct `dmx.stats` estimator or a composite or
-   mixture built from `dmx.stats` parts?
-5. Which narrower skill or reference should carry the detailed implementation?
+4. Does the objective call for ordinary non-Bayesian estimation or for priors,
+   variational inference, a DPM, or automatic Bayesian model construction?
+5. Should the first model be a base estimator, composite, or mixture, and which
+   narrower skill or reference should carry the detailed implementation?
 
-## Default Surface
+## Modeling Surface
 
-- Treat `dmx.stats` as the default modeling surface.
-- Prefer explicit estimator construction over broad automatic routing.
+- Treat explicit `dmx.stats` construction as the default for ordinary
+  non-Bayesian local modeling.
+- Choose `dmx.bstats` when the request requires Bayesian priors or expected
+  log-density behavior, local variational estimation, a truncated
+  Dirichlet-process mixture (DPM), or automatic construction intended to feed
+  a Bayesian mixture workflow.
+- Treat `get_estimator(data, use_bstats=True)` and `get_dpm_mixture(data, ...)`
+  from `dmx.utils.automatic` as first-class local routes for those use cases.
+  They are deliberate `bstats` paths, not fallbacks.
+- Prefer explicit estimator construction when the non-Bayesian model family is
+  known. Do not use automatic routing merely to avoid choosing a clear
+  `dmx.stats` estimator.
 - If the downstream task is not fully fixed, prefer fitting one reusable joint,
   composite, or composite-mixture model before narrowing to a task-specific
   conditional path.
+- For heterogeneous data with unknown latent subtype count, make a DPM over
+  `dmx.bstats.CompositeEstimator` components the main high-value Bayesian
+  route. The composite preserves field semantics while the truncated DPM and
+  variational optimizer infer a useful finite mixture.
 - Mention `torch_stats` only when the user's scale or repeated inference needs
   make accelerator-backed fitting a plausible next step.
-- Keep `bstats` out of the default path for ordinary local modeling.
 
 ## Hard Scope Boundary
 
 - This skill is for local and in-memory modeling workflows.
+- Local `dmx.bstats`, `dmx.bstats.bestimation`, and
+  `dmx.utils.automatic` workflows are in scope.
 - Do not use it for Spark, MPI, cluster scheduling, or other distributed
   estimation paths.
+- Do not substitute `get_dpm_mixture_mpi`, `dmx.mpi4py.bstats`, or
+  `dmx.mpi4py.utils` for the local helpers. Those are separate MPI-specific
+  workflows even when they operate on the same `bstats` model types.
 - If the user asks for distributed fitting, say it is out of scope and do not
   improvise a Spark or MPI workflow.
 
@@ -59,6 +78,9 @@ structure from the actual data, not from vague prompt wording.
 - Ask for rough data size, including sample count and typical sequence length
   when relevant.
 - Ask whether GPU use is acceptable before suggesting `torch_stats`.
+- Ask whether the user needs explicit priors, variational inference, automatic
+  model construction, or an unknown number of latent components; any of these
+  can change the surface choice from `dmx.stats` to `dmx.bstats`.
 - Ask whether the user already has a fixed downstream task or just wants a good
   reusable fitted model.
 
@@ -127,6 +149,9 @@ When asking a follow-up, keep it narrow and tied to the next routing decision.
   composite for heterogeneous records, mixture-of-composites for latent
   subtypes, and joint mixtures for paired views where later conditioning or
   transfer is likely.
+- When that heterogeneous latent model is specifically Bayesian or should use
+  a DPM to infer the active component count, route to a `dmx.bstats` composite
+  inside a DPM rather than forcing the ordinary `dmx.stats` mixture path.
 - Only prefer a narrow task-specific model first when the downstream target is
   already fixed and the extra shared structure would not plausibly be reused.
 - Read `references/hierarchy-and-data-structure.md` before choosing
@@ -164,8 +189,10 @@ Good baseline patterns include:
 ## Output Expectations
 
 - Restate the inferred local modeling problem in `dmx-learn` terms.
-- Name the most likely `dmx.stats` starting point, explicitly noting when the
-  default is a reusable shared model rather than a narrow task-specific one.
+- Name the modeling surface and starting point: normally an explicit
+  `dmx.stats` estimator, or `dmx.bstats` for Bayesian, variational, DPM, and
+  automatic Bayesian-mixture work. Explicitly note when the default is a
+  reusable shared model rather than a narrow task-specific one.
 - For underspecified tasks, name one primary model and one baseline instead of
   proposing a broad candidate sweep.
 - Call out any scope boundary, especially distributed-workflow requests.
