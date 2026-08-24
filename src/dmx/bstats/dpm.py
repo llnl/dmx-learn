@@ -87,6 +87,23 @@ class DirichletProcessMixtureDistribution(
     ``g`` stores beta variational parameters and ``a`` the concentration.
     ``w`` is the normalized finite predictive approximation used for sampling
     and ordinary log-density.
+
+    There are ``K`` components, ``w`` has shape ``(K,)``, and ``g`` has shape
+    ``(K, 2)``. The legacy ``v`` attribute is an alias for ``w`` rather than a
+    vector of beta-stick means. Components must share an observation encoding.
+
+    Args:
+        components: Ordered homogeneous component distributions.
+        w: Finite nonnegative predictive weights, normalized on input.
+        a: Positive Dirichlet-process concentration parameter.
+        g: Positive beta variational parameters shaped ``(K, 2)``.
+        component_priors: Pre-update priors paired with the components.
+        name: Optional identifier for the mixture.
+        prior: Hyperprior for the concentration parameter.
+
+    Raises:
+        ValueError: If component counts or shapes disagree, or concentration,
+            weights, or beta parameters are invalid.
     """
 
     # Keep the established public constructor signature.
@@ -305,7 +322,17 @@ class DirichletProcessMixtureSampler(DistributionSampler[Any]):
 class DirichletProcessMixtureAccumulator(
     SequenceEncodableAccumulator[Any, DPMSuffStat, Any]
 ):
-    """Accumulate variational assignments and component statistics."""
+    """Accumulate variational assignments and component statistics.
+
+    The sufficient statistic is ``(component_counts, beta_counts, alpha,
+    previous_log_remainder, child_statistics)``. For truncation level ``K``,
+    the first two arrays have shapes ``(K,)`` and ``(K, 2)`` and the last item
+    is a length-``K`` tuple in component order. Updates use expected component
+    scores and current predictive log weights to form responsibilities.
+
+    The optional keys independently share beta counts and the complete child
+    accumulator collection. Child-level sharing remains active.
+    """
 
     def __init__(
         self, accumulators: Sequence[Accumulator], keys: DPMKeys = (None, None)
@@ -512,7 +539,21 @@ class DirichletProcessMixtureAccumulatorFactory(
 class DirichletProcessMixtureEstimator(
     ParameterEstimator[Any, DPMParameters, Any, DPMSuffStat]
 ):
-    """Perform the established coordinate update for a truncated DPM."""
+    """Perform the established coordinate update for a truncated DPM.
+
+    The number of component estimators fixes the truncation level. Estimation
+    updates beta-stick parameters and the concentration, estimates every
+    component, then stably sorts components and their pre-update priors by
+    decreasing effective count. The resulting normalized weights are the
+    finite predictive approximation, not beta-stick means.
+
+    Args:
+        estimators: Component estimators defining the truncation level.
+        name: Optional identifier copied to the estimated mixture.
+        prior: Hyperprior for the concentration parameter.
+        keys: Pair ``(weight_key, component_key)`` controlling independent
+            sufficient-statistic sharing.
+    """
 
     def __init__(
         self,

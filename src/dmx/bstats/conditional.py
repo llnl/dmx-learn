@@ -74,6 +74,19 @@ class ConditionalDistribution(
     If ``pass_value`` is false, the selected child receives only the second
     observation element. If true, it receives the complete
     ``(condition, value)`` pair.
+
+    The condition model is used to sample conditions and encode them, but its
+    density is not included in the conditional observation score. An unknown
+    condition is handled by ``default_dist``; the default ``null_dist`` means
+    the observation is assigned log density ``-inf`` and contributes no child
+    sufficient statistics.
+
+    Args:
+        dmap: Mapping from condition values to child distributions.
+        cond_dist: Fixed distribution used to sample and encode conditions.
+        default_dist: Child used for conditions absent from ``dmap``.
+        pass_value: Whether children receive the complete observation instead
+            of only its value element.
     """
 
     def __init__(
@@ -248,7 +261,14 @@ class ConditionalDistributionEstimatorAccumulator(
         ConditionalObservation, ConditionalSuffStat, ConditionalEncoded
     ]
 ):
-    """Accumulate explicit child statistics and optional default statistics."""
+    """Accumulate explicit child statistics and optional default statistics.
+
+    The public sufficient statistic is ``(explicit, default)``, where
+    ``explicit`` maps each configured condition to its child statistic and
+    ``default`` is the fallback statistic or ``None``. Unknown conditions are
+    ignored when no default accumulator is configured. Key sharing is
+    delegated to the explicit and default children.
+    """
 
     def __init__(
         self,
@@ -444,7 +464,21 @@ class ConditionalDistributionEstimator(
         ConditionalObservation, Any, ConditionalEncoded, ConditionalSuffStat
     ]
 ):
-    """Estimate explicit and default children while retaining the condition model."""
+    """Estimate explicit and default children while retaining the condition model.
+
+    The condition distribution is fixed: it supplies sampling keys and an
+    encoder but receives no sufficient statistics. Each explicit child is
+    estimated from the matching entry in the statistic mapping, and the
+    optional default child is estimated from the second statistic item.
+
+    Args:
+        estimator_map: Mapping from condition values to child estimators.
+        default_estimator: Estimator for conditions absent from the mapping,
+            or ``None`` to ignore those observations during fitting.
+        keys: Compatibility metadata retained by the accumulator factory.
+        cond_dist: Fixed distribution used to sample and encode conditions.
+        pass_value: Whether child estimators receive complete observations.
+    """
 
     def __init__(
         self,
@@ -504,7 +538,20 @@ class ConditionalDistributionEstimator(
 class ConditionalDataEncoder(
     DataSequenceEncoder[ConditionalObservation, ConditionalEncoded]
 ):
-    """Encode conditional observations into aligned per-condition groups."""
+    """Encode conditional observations into aligned per-condition groups.
+
+    The payload is ``(n, conditions, encoded_values, indices,
+    encoded_conditions)``. The three middle tuples have one entry per distinct
+    condition in first-observed order. Each index vector restores that group's
+    positions among the ``n`` observations. An unknown condition without a
+    default encoder has ``None`` as its encoded value.
+
+    Args:
+        encoder_map: Mapping from condition values to child encoders.
+        given_encoder: Encoder for the condition elements themselves.
+        default_encoder: Encoder for conditions absent from ``encoder_map``.
+        pass_value: Whether child encoders receive complete observations.
+    """
 
     def __init__(
         self,

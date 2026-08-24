@@ -72,7 +72,29 @@ def _encoded_value(x: Any) -> Any:
 
 
 class MixtureDistribution(ProbabilityDistribution[Any, MixtureParameters, Any]):
-    """Model observations with an ordered finite mixture."""
+    """Model observations with an ordered finite mixture.
+
+    All components must accept the same observation and encoded-sequence
+    representation. The length-``K`` weight vector is normalized on input and
+    paired positionally with ``K`` components. ``posterior`` returns a
+    length-``K`` responsibility vector, while ``seq_posterior`` returns an
+    ``(N, K)`` matrix for ``N`` encoded observations.
+
+    A complete prior is ``(weight_prior, component_priors)`` represented by a
+    nested :class:`CompositeDistribution`. Passing only a weight prior leaves
+    existing component priors unchanged.
+
+    Args:
+        components: Ordered homogeneous component distributions.
+        w: Finite nonnegative component weights with at least one positive
+            entry.
+        name: Optional identifier for the mixture.
+        prior: Weight prior, or a complete composite prior when set later.
+
+    Raises:
+        ValueError: If there are no components, counts differ, or weights are
+            invalid.
+    """
 
     def __init__(
         self,
@@ -290,7 +312,17 @@ class MixtureSampler(DistributionSampler[Any]):
 class MixtureEstimatorAccumulator(
     SequenceEncodableAccumulator[Any, MixtureSuffStat, Any]
 ):
-    """Accumulate counts and ordered child sufficient statistics."""
+    """Accumulate counts and ordered child sufficient statistics.
+
+    The sufficient statistic is ``(component_counts, child_statistics)``.
+    ``component_counts`` has shape ``(K,)`` and the second item is a
+    length-``K`` tuple in component order. Updates distribute each observation
+    weight according to posterior responsibilities.
+
+    The two optional keys independently share the component-count vector and
+    the complete collection of child statistics. Child accumulator keys are
+    also honored.
+    """
 
     def __init__(
         self, accumulators: Sequence[Accumulator], keys: MixtureKeys = (None, None)
@@ -459,7 +491,22 @@ class MixtureEstimatorAccumulatorFactory(
 class MixtureEstimator(
     ParameterEstimator[Any, MixtureParameters, Any, MixtureSuffStat]
 ):
-    """Estimate ordered components and normalized finite-mixture weights."""
+    """Estimate ordered components and normalized finite-mixture weights.
+
+    Each child estimator consumes the statistic at its component position.
+    With a Dirichlet weight prior, weights are posterior modes when that mode
+    has positive mass and posterior means otherwise. Without a conjugate
+    prior, normalized effective counts are used. ``fixed_w`` overrides both
+    rules while child components are still estimated.
+
+    Args:
+        estimators: Ordered homogeneous component estimators.
+        fixed_w: Optional fixed component weights, normalized on input.
+        name: Optional identifier copied to estimated mixtures.
+        prior: Prior for the component weights.
+        keys: Pair ``(weight_key, component_key)`` controlling independent
+            sufficient-statistic sharing.
+    """
 
     def __init__(
         self,
@@ -581,7 +628,14 @@ class MixtureEstimator(
 
 
 class MixtureDataEncoder(DataSequenceEncoder[Any, Any]):
-    """Encode homogeneous mixture observations with one child encoder."""
+    """Encode homogeneous mixture observations with one child encoder.
+
+    Every component must consume this common payload; component-specific
+    encodings are not stored separately.
+
+    Args:
+        encoder: Encoder shared by all mixture components.
+    """
 
     def __init__(self, encoder: Encoder) -> None:
         """Store the common component encoder."""

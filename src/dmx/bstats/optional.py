@@ -56,7 +56,25 @@ def _is_nan_scalar(value: Any) -> bool:
 class OptionalDistribution(
     ProbabilityDistribution[Any, tuple[float, Any], OptionalEncoded]
 ):
-    """Add an explicit missing outcome to a child distribution."""
+    """Add an explicit missing outcome to a child distribution.
+
+    ``p`` is the probability of the missing outcome; a present observation has
+    probability ``1 - p`` times its child density. Missing values match the
+    configured marker by identity, except that a scalar NaN marker matches any
+    scalar NaN. The parameter tuple is ``(p, child_parameters)`` and the prior
+    is ``(missingness_prior, child_prior)``.
+
+    Args:
+        dist: Distribution for present observations.
+        p: Probability that an observation is missing.
+        missing_value: Marker representing the missing outcome.
+        name: Optional identifier for the wrapper.
+        prior: Prior for the missing probability.
+        keys: Optional key sharing the complete optional sufficient statistic.
+
+    Raises:
+        ValueError: If ``p`` is not finite or is outside ``[0, 1]``.
+    """
 
     def __init__(
         self,
@@ -248,7 +266,13 @@ class OptionalSampler(DistributionSampler[Any]):
 class OptionalEstimatorAccumulator(
     SequenceEncodableAccumulator[Any, OptionalSuffStat, OptionalEncoded]
 ):
-    """Accumulate missing/present weights and child statistics."""
+    """Accumulate missing/present weights and child statistics.
+
+    The sufficient statistic is ``(missing_weight, present_weight,
+    child_statistics)``. Only present observations reach the child
+    accumulator. The optional wrapper key shares this complete tuple, after
+    which sharing configured by the child accumulator is also applied.
+    """
 
     def __init__(
         self,
@@ -374,7 +398,21 @@ class OptionalEstimatorAccumulatorFactory(
 class OptionalEstimator(
     ParameterEstimator[Any, tuple[float, Any], OptionalEncoded, OptionalSuffStat]
 ):
-    """Estimate missingness and child parameters."""
+    """Estimate missingness and child parameters.
+
+    A beta prior produces a posterior-mode missing probability and is updated
+    to the beta posterior stored on the result. Other priors use the empirical
+    missing fraction. ``fixed_prob`` overrides either probability calculation
+    without preventing child estimation.
+
+    Args:
+        estimator: Estimator for present observations.
+        missing_value: Marker representing the missing outcome.
+        fixed_prob: Optional fixed probability of missingness.
+        name: Optional identifier copied to estimated distributions.
+        keys: Optional key sharing the complete optional statistic.
+        prior: Prior for the missing probability.
+    """
 
     def __init__(
         self,
@@ -441,7 +479,16 @@ class OptionalEstimator(
 
 
 class OptionalDataEncoder(DataSequenceEncoder[Any, OptionalEncoded]):
-    """Encode optional observations with a child encoder."""
+    """Encode optional observations with a child encoder.
+
+    For ``n`` observations the payload is ``(n, present_indices,
+    missing_indices, encoded_present_values)``. Both index arrays are
+    one-dimensional, and the child encoder sees only present values.
+
+    Args:
+        encoder: Encoder for present observations.
+        missing_value: Marker representing the missing outcome.
+    """
 
     def __init__(
         self, encoder: DataSequenceEncoder[Any, Any], missing_value: Any
