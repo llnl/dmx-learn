@@ -45,7 +45,13 @@ default_prior = DictDirichletDistribution(1.0 + 1.0e-12)
 class CategoricalDistribution(
     ProbabilityDistribution[Key, CategoricalParameters, CategoricalEncoded]
 ):
-    """Categorical likelihood over arbitrary hashable category labels."""
+    """Represent a categorical likelihood over arbitrary hashable labels.
+
+    ``prob_map`` defines the explicit sampling support and sums to one before
+    legacy escape-mass normalization. A dictionary Dirichlet prior enables
+    posterior-expected scoring on the explicit categories; another prior uses
+    fixed-parameter scoring.
+    """
 
     def __init__(
         self,
@@ -165,7 +171,11 @@ class CategoricalDistribution(
         return mapped[indices]
 
     def seq_encode(self, x: Iterable[Key]) -> CategoricalEncoded:
-        """Encode values as unique levels and inverse indices."""
+        """Encode values as inverse indices and unique levels.
+
+        For ``n`` observations and ``m`` distinct labels, returns integer
+        indices of shape ``(n,)`` and levels of shape ``(m,)``.
+        """
         levels, indices = np.unique(tuple(x), return_inverse=True)
         return indices, levels
 
@@ -206,7 +216,7 @@ class CategoricalEstimatorAccumulator(
     SequenceEncodableAccumulator[Key, CategoricalSuffStat, CategoricalEncoded],
     DataFrameEncodableAccumulator[Key, CategoricalSuffStat, CategoricalEncoded],
 ):
-    """Accumulate weighted category counts and their total."""
+    """Accumulate a weighted category-count mapping and total weight."""
 
     def __init__(self, name: Optional[str], keys: tuple[Optional[str], ...]) -> None:
         """Initialize empty counts and optional sharing metadata."""
@@ -294,7 +304,13 @@ class CategoricalEstimator(
         Key, CategoricalParameters, CategoricalEncoded, CategoricalSuffStat
     ]
 ):
-    """Estimate categorical probabilities and update a Dirichlet posterior."""
+    """Estimate categorical probabilities from weighted category counts.
+
+    A dictionary Dirichlet prior is updated to posterior concentrations and
+    probabilities are set to its mode when defined, otherwise its mean. With
+    another prior, normalized observed counts determine the probabilities and
+    the prior is retained unchanged.
+    """
 
     def __init__(
         self,
@@ -325,7 +341,16 @@ class CategoricalEstimator(
     def estimate(  # pylint: disable=arguments-differ
         self, *args: Any
     ) -> CategoricalDistribution:
-        """Estimate probabilities from a weighted category-count mapping."""
+        """Estimate probabilities from a weighted category-count mapping.
+
+        Args:
+            *args: Either ``(count_map, total_weight)`` alone or legacy ``nobs``
+                followed by that tuple. Both count fields come from the
+                accumulator; ``nobs`` and ``total_weight`` are ignored here.
+
+        Returns:
+            Categorical likelihood on the observed and prior-defined keys.
+        """
         count_map, _ = args[-1]
         stats_sum = float(sum(count_map.values()))
         if isinstance(self.prior, DictDirichletDistribution):

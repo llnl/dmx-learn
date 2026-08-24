@@ -40,7 +40,12 @@ default_prior = NormalGammaDistribution(0.0, 1.0e-8, 0.500001, 1.0)
 
 
 class GaussianDistribution(ProbabilityDistribution[float, GaussianParameters, Array]):
-    """Univariate normal likelihood parameterized by mean and variance."""
+    """Represent a univariate Gaussian likelihood by mean and variance.
+
+    ``mu`` is finite and ``sigma2`` is a strictly positive finite variance. A
+    normal-gamma prior over mean and precision enables posterior-expected
+    scoring; another prior uses the fixed likelihood parameters.
+    """
 
     def __init__(
         self,
@@ -117,7 +122,7 @@ class GaussianDistribution(ProbabilityDistribution[float, GaussianParameters, Ar
         return float(x * (linear + x * quadratic) - expected_const + base_const)
 
     def seq_encode(self, x: Iterable[float]) -> Array:
-        """Encode observations as a floating-point array."""
+        """Encode ``n`` observations as a float array of shape ``(n,)``."""
         return np.asarray(tuple(x), dtype=np.float64)
 
     def seq_log_density(self, x: Array) -> Array:
@@ -160,7 +165,12 @@ class GaussianSampler(DistributionSampler[float]):
 
 
 class GaussianAccumulator(StatisticAccumulator[float, GaussianSuffStat, Array]):
-    """Accumulate legacy location and variance sufficient statistics."""
+    """Accumulate legacy location and variance sufficient statistics.
+
+    The tuple is ``(sum_x, sum_x_squared, variance_sum_x, mean_weight,
+    variance_weight)``. Separate keys allow mean and variance statistics to be
+    shared independently between model components.
+    """
 
     def __init__(
         self, name: Optional[str] = None, keys: GaussianKeys = (None, None)
@@ -311,7 +321,12 @@ class GaussianEstimatorAccumulatorFactory(
 class GaussianEstimator(
     ParameterEstimator[float, GaussianParameters, Array, GaussianSuffStat]
 ):
-    """Estimate Gaussian parameters and update a normal-gamma posterior."""
+    """Estimate Gaussian parameters from weighted first and second moments.
+
+    A normal-gamma prior is updated conjugately and attached as the posterior
+    of the returned likelihood. Otherwise, separate weighted maximum-likelihood
+    estimates are used for the mean and variance.
+    """
 
     def __init__(
         self,
@@ -340,7 +355,18 @@ class GaussianEstimator(
     def estimate(  # pylint: disable=arguments-differ
         self, *args: Any
     ) -> GaussianDistribution:
-        """Estimate from the five legacy Gaussian sufficient statistics."""
+        """Estimate from the five legacy Gaussian sufficient statistics.
+
+        Args:
+            *args: Either the statistic tuple alone or legacy ``nobs`` followed
+                by it. ``nobs`` is ignored. The tuple contains ``sum_x``,
+                ``sum_x_squared``, a separately shareable copy of ``sum_x``,
+                mean weight, and variance weight.
+
+        Returns:
+            Fitted Gaussian likelihood carrying an updated normal-gamma
+            posterior when the prior is conjugate.
+        """
         sum_x, sum_xx, sum_xxx, count_mean, count_variance = args[-1]
         if self.has_conj_prior:
             assert isinstance(self.prior, NormalGammaDistribution)

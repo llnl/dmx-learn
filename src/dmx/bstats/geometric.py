@@ -41,7 +41,12 @@ default_prior = BetaDistribution(1.0, 1.0)
 
 
 class GeometricDistribution(ProbabilityDistribution[int, float, GeometricEncoded]):
-    """Geometric likelihood on positive integer trial counts."""
+    """Represent a geometric likelihood on positive integer trial counts.
+
+    ``p`` is the probability of success on each trial, and an observation is
+    the number of trials through the first success. A beta prior enables
+    posterior-expected scoring; another prior uses the fixed probability.
+    """
 
     def __init__(
         self,
@@ -165,7 +170,7 @@ class GeometricDistribution(ProbabilityDistribution[int, float, GeometricEncoded
         return np.where(valid, result, -np.inf).astype(float)
 
     def seq_encode(self, x: Iterable[int]) -> GeometricEncoded:
-        """Encode trial counts as a floating-point NumPy array."""
+        """Encode ``n`` trial counts as a float array of shape ``(n,)``."""
         return np.asarray(tuple(x), dtype=np.float64)
 
     def sampler(self, seed: Optional[int] = None) -> "GeometricSampler":
@@ -296,7 +301,13 @@ class GeometricAccumulatorFactory(
 class GeometricEstimator(
     ParameterEstimator[int, float, GeometricEncoded, GeometricSuffStat]
 ):
-    """Estimate a geometric probability and update its beta posterior."""
+    """Estimate a geometric success probability from weighted trial counts.
+
+    A beta prior is updated with one success and ``x - 1`` failures per
+    observation, and its interior posterior mode is used when defined. Another
+    non-null prior produces a numerical MAP estimate; a null prior produces
+    the weighted maximum-likelihood value.
+    """
 
     def __init__(
         self,
@@ -327,7 +338,16 @@ class GeometricEstimator(
     def estimate(  # pylint: disable=arguments-differ
         self, *args: Any
     ) -> GeometricDistribution:
-        """Estimate from ``(observation_count, trial_count_sum)`` statistics."""
+        """Estimate from ``(observation_count, trial_count_sum)`` statistics.
+
+        Args:
+            *args: Either the statistic tuple alone or legacy ``nobs`` followed
+                by the tuple. ``nobs`` is ignored.
+
+        Returns:
+            Geometric likelihood carrying the updated posterior when the prior
+            is conjugate.
+        """
         count, trial_sum = args[-1]
         if self.has_conj_prior:
             assert isinstance(self.prior, BetaDistribution)

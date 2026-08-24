@@ -52,9 +52,20 @@ class CompositeDistribution(
 ):
     """Model an ordered tuple as a product of heterogeneous distributions.
 
+    An observation must contain one value per child. Direct and encoded
+    sequence operations preserve that order, and the joint log density is the
+    sum of the child log densities. The encoded payload and sufficient
+    statistic are tuples whose item ``i`` belongs to ``dists[i]``.
+
     ``name`` identifies the product itself. ``keys`` is copied into the
     estimator and controls whole-product sufficient-statistic sharing; it does
     not replace or reorder component-level keys.
+
+    Args:
+        dists: Child distributions in observation order.
+        name: Optional identifier for the complete product.
+        keys: Optional key used to share the complete tuple of child
+            sufficient statistics between accumulators.
     """
 
     def __init__(
@@ -390,7 +401,17 @@ class CompositeAccumulatorFactory(
 class CompositeEstimator(
     ParameterEstimator[Observation, Parameters, CompositeEncoded, CompositeSuffStat]
 ):
-    """Estimate an ordered product using one estimator per component."""
+    """Estimate an ordered product using one estimator per component.
+
+    Each child estimator consumes the statistic at the same tuple position.
+    ``keys`` shares the complete ordered statistic through the composite
+    accumulator; sharing configured on child estimators remains active.
+
+    Args:
+        estimators: Child estimators in observation order.
+        name: Optional identifier copied to the estimated product.
+        keys: Optional key for sharing the complete child-statistic tuple.
+    """
 
     def __init__(
         self,
@@ -447,7 +468,15 @@ class CompositeEstimator(
 
 
 class CompositeDataEncoder(DataSequenceEncoder[Observation, CompositeEncoded]):
-    """Encode each tuple position with its ordered child encoder."""
+    """Encode each tuple position with its ordered child encoder.
+
+    For ``n`` tuple observations and ``k`` children, the payload is a
+    length-``k`` tuple. Item ``i`` is the child-specific encoding of the ``n``
+    values at observation position ``i``.
+
+    Args:
+        encoders: Child encoders in observation order.
+    """
 
     def __init__(self, encoders: Sequence[Encoder]) -> None:
         """Store child encoders in component order."""

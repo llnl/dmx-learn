@@ -41,7 +41,11 @@ default_prior = GammaDistribution(1.0001, 1.0e6)
 
 
 class PoissonDistribution(ProbabilityDistribution[int, float, PoissonEncoded]):
-    """Poisson count likelihood with a gamma parameter prior."""
+    """Represent a Poisson likelihood with a positive finite rate.
+
+    Observations are nonnegative integers. A gamma shape-scale prior over the
+    rate enables posterior-expected scoring; another prior uses the fixed rate.
+    """
 
     def __init__(
         self,
@@ -145,7 +149,14 @@ class PoissonDistribution(ProbabilityDistribution[int, float, PoissonEncoded]):
         )
 
     def seq_log_density(self, x: PoissonEncoded) -> np.ndarray[Any, Any]:
-        """Evaluate log masses from encoded values and log-factorials."""
+        """Evaluate log masses from encoded values and log-factorials.
+
+        Args:
+            x: Count and log-factorial arrays, each shaped ``(n,)``.
+
+        Returns:
+            Log-mass array of shape ``(n,)``.
+        """
         values, log_factorials = x
         result = values * self.log_lambda - log_factorials - self.lam
         valid = np.isfinite(values) & (values >= 0.0) & (values == np.floor(values))
@@ -164,7 +175,14 @@ class PoissonDistribution(ProbabilityDistribution[int, float, PoissonEncoded]):
         return np.where(valid, result, -np.inf).astype(float)
 
     def seq_encode(self, x: Iterable[int]) -> PoissonEncoded:
-        """Encode count values and their log-factorials."""
+        """Encode count values and their log-factorials.
+
+        Args:
+            x: Iterable of ``n`` count observations.
+
+        Returns:
+            Count and log-factorial arrays, each shaped ``(n,)``.
+        """
         values = np.asarray(tuple(x), dtype=np.float64)
         return values, np.asarray(gammaln(values + 1.0), dtype=np.float64)
 
@@ -197,7 +215,7 @@ class PoissonSampler(DistributionSampler[int]):
 class PoissonEstimatorAccumulator(
     StatisticAccumulator[int, PoissonSuffStat, PoissonEncoded]
 ):
-    """Accumulate weighted observation count and count sum."""
+    """Accumulate weighted ``(observation_count, count_sum)`` statistics."""
 
     def __init__(self, name: Optional[str], keys: Optional[str]) -> None:
         """Initialize empty statistics and sharing metadata."""
@@ -292,7 +310,13 @@ class PoissonEstimatorAccumulatorFactory(
 
 
 class PoissonEstimator(ParameterEstimator[int, float, PoissonEncoded, PoissonSuffStat]):
-    """Estimate a Poisson rate and update its gamma posterior."""
+    """Estimate a Poisson rate from weighted count statistics.
+
+    A gamma shape-scale prior is updated conjugately, and the returned rate is
+    its positive-clipped posterior mode. Another non-null prior produces a
+    numerical MAP estimate; a null prior produces the weighted
+    maximum-likelihood rate.
+    """
 
     def __init__(
         self,
@@ -323,7 +347,16 @@ class PoissonEstimator(ParameterEstimator[int, float, PoissonEncoded, PoissonSuf
     def estimate(  # pylint: disable=arguments-differ
         self, *args: Any
     ) -> PoissonDistribution:
-        """Estimate from ``(observation_count, count_sum)`` statistics."""
+        """Estimate from ``(observation_count, count_sum)`` statistics.
+
+        Args:
+            *args: Either the statistic tuple alone or legacy ``nobs`` followed
+                by it. ``nobs`` is ignored.
+
+        Returns:
+            Poisson likelihood carrying the updated posterior when the prior is
+            conjugate.
+        """
         nobs, count_sum = args[-1]
         if self.has_conj_prior:
             assert isinstance(self.prior, GammaDistribution)

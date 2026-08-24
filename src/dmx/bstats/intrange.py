@@ -44,7 +44,13 @@ default_prior = DirichletDistribution(1.0 + 1.0e-12)
 class IntegerCategoricalDistribution(
     ProbabilityDistribution[int, Array, IntegerEncoded]
 ):
-    """Categorical likelihood supported on a contiguous integer range."""
+    """Represent a categorical likelihood on a contiguous integer range.
+
+    A probability vector of shape ``(k,)`` corresponds in order to integers
+    ``min_index`` through ``min_index + k - 1``. A dense or symmetric Dirichlet
+    prior enables posterior-expected scoring; another prior uses the fixed
+    probabilities. Values outside the range receive the configured escape mass.
+    """
 
     def __init__(
         self,
@@ -179,7 +185,7 @@ class IntegerCategoricalDistribution(
         return result
 
     def seq_encode(self, x: Iterable[int]) -> IntegerEncoded:
-        """Encode observations as an integer NumPy array."""
+        """Encode ``n`` observations as an integer array of shape ``(n,)``."""
         return np.asarray(tuple(x), dtype=int)
 
     def sampler(self, seed: Optional[int] = None) -> "IntegerCategoricalSampler":
@@ -219,7 +225,12 @@ class IntegerCategoricalSampler(DistributionSampler[int]):
 class IntegerCategoricalAccumulator(
     SequenceEncodableAccumulator[int, IntegerSuffStat, IntegerEncoded]
 ):
-    """Accumulate weighted counts over a dynamically growing integer range."""
+    """Accumulate weighted counts over a contiguous integer range.
+
+    The sufficient statistic is ``(minimum, count_vector)``, where entry ``i``
+    stores the weight for integer ``minimum + i``. Unless both constructor
+    bounds are supplied, the range grows to include observed values.
+    """
 
     def __init__(
         self,
@@ -350,7 +361,13 @@ class IntegerCategoricalAccumulatorFactory(
 class IntegerCategoricalEstimator(
     ParameterEstimator[int, Array, IntegerEncoded, IntegerSuffStat]
 ):
-    """Estimate integer categorical probabilities and update the posterior."""
+    """Estimate contiguous integer categorical probabilities from counts.
+
+    A dense or symmetric Dirichlet prior is updated to dense posterior
+    concentrations and probabilities are set to its mode when defined,
+    otherwise its mean. With another prior, normalized counts determine the
+    probabilities and the prior is retained.
+    """
 
     def __init__(
         self,
@@ -385,7 +402,16 @@ class IntegerCategoricalEstimator(
     def estimate(  # pylint: disable=arguments-differ
         self, *args: Any
     ) -> IntegerCategoricalDistribution:
-        """Estimate probabilities from ``(minimum, count_vector)``."""
+        """Estimate probabilities from ``(minimum, count_vector)``.
+
+        Args:
+            *args: Either the statistic tuple alone or legacy ``nobs`` followed
+                by it. ``nobs`` is ignored; the vector has one weighted count
+                per consecutive integer beginning at ``minimum``.
+
+        Returns:
+            Fitted integer categorical likelihood on the statistic's range.
+        """
         minimum, counts = args[-1]
         if isinstance(self.prior, DirichletDistribution):
             concentrations = self.prior.concentrations_for_dimension(len(counts))

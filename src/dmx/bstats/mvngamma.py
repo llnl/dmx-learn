@@ -37,7 +37,13 @@ class MultivariateNormalGammaDistribution(
         MultivariateNormalGammaDatum, MultivariateNormalGammaParameters, Any
     ]
 ):
-    """Product of coordinate-wise normal-gamma distributions."""
+    """Represent independent normal-gamma factors for diagonal parameters.
+
+    Each hyperparameter is a vector of shape ``(d,)``. Observations are pairs
+    ``(location, precision)`` of that shape, with finite locations and strictly
+    positive finite precisions. Instances represent current prior or posterior
+    hyperparameters for a diagonal Gaussian likelihood.
+    """
 
     def __init__(
         self,
@@ -51,10 +57,10 @@ class MultivariateNormalGammaDistribution(
         """Initialize vector normal-gamma hyperparameters.
 
         Args:
-            mu: Finite coordinate centers.
-            lam: Positive coordinate-wise relative precisions.
-            a: Positive gamma shapes for precision.
-            b: Positive gamma rates for precision.
+            mu: Finite coordinate centers of shape ``(d,)``.
+            lam: Positive coordinate-wise relative precisions of shape ``(d,)``.
+            a: Positive gamma shapes for precision of shape ``(d,)``.
+            b: Positive gamma rates for precision of shape ``(d,)``.
             name: Optional model name.
             prior: Optional metadata describing an earlier prior.
 

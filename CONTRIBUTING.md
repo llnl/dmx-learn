@@ -99,7 +99,11 @@ We follow strict code quality standards to maintain consistency and readability.
 
 ### Docstrings
 
-We use **Google-style docstrings** throughout the codebase:
+We use **Google-style docstrings** throughout the codebase. See the
+[docstring style guide](docs/docstring_style.rst) for the repository's section
+order, API policies, examples, and validation commands.
+
+For example:
 
 ```python
 def example_function(param1: int, param2: str) -> bool:
@@ -121,7 +125,8 @@ def example_function(param1: int, param2: str) -> bool:
     pass
 ```
 
-**Note:** Comprehensive docstring improvements are planned for Phase 3 of the documentation enhancement project. Current docstrings may not all follow this standard yet.
+Existing modules are being migrated incrementally; follow the guide for all
+new or updated public APIs.
 
 ## Running Quality Checks
 

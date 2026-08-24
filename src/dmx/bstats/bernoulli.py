@@ -40,7 +40,12 @@ default_prior = BetaDistribution(1.000001, 1.000001)
 
 
 class BernoulliDistribution(ProbabilityDistribution[bool, float, BernoulliEncoded]):
-    """Bernoulli likelihood on the two boolean observations."""
+    """Represent a Bernoulli likelihood on boolean observations.
+
+    ``p`` is the probability of ``True`` and must lie in ``[0, 1]``. A beta
+    prior enables posterior-expected scoring; any other prior is retained as
+    metadata and fixed-parameter scoring is used.
+    """
 
     def __init__(
         self,
@@ -142,7 +147,7 @@ class BernoulliDistribution(ProbabilityDistribution[bool, float, BernoulliEncode
         ).astype(float)
 
     def seq_encode(self, x: Iterable[bool]) -> BernoulliEncoded:
-        """Encode observations as a boolean NumPy array."""
+        """Encode ``n`` observations as a boolean array of shape ``(n,)``."""
         return np.asarray(tuple(x), dtype=bool)
 
     def dist_to_encoder(self) -> "BernoulliDataEncoder":
@@ -175,7 +180,7 @@ class BernoulliSampler(DistributionSampler[bool]):
 class BernoulliEstimatorAccumulator(
     StatisticAccumulator[bool, BernoulliSuffStat, BernoulliEncoded]
 ):
-    """Accumulate weighted true and false counts."""
+    """Accumulate weighted ``(true_count, false_count)`` statistics."""
 
     def __init__(self, name: Optional[str], keys: Optional[str]) -> None:
         """Initialize empty counts and optional sharing metadata."""
@@ -270,7 +275,12 @@ class BernoulliEstimatorAccumulatorFactory(
 class BernoulliEstimator(
     ParameterEstimator[bool, float, BernoulliEncoded, BernoulliSuffStat]
 ):
-    """Estimate a Bernoulli parameter and update its beta posterior."""
+    """Estimate a Bernoulli probability from weighted outcome counts.
+
+    A beta prior is updated to its posterior and the returned probability is
+    its interior mode when defined. Another non-null prior produces a numerical
+    MAP estimate; a null prior produces the weighted maximum-likelihood value.
+    """
 
     def __init__(
         self,
@@ -301,7 +311,16 @@ class BernoulliEstimator(
     def estimate(  # pylint: disable=arguments-differ
         self, *args: Any
     ) -> BernoulliDistribution:
-        """Estimate from ``(true_count, false_count)`` statistics."""
+        """Estimate from ``(true_count, false_count)`` statistics.
+
+        Args:
+            *args: Either the statistic tuple alone or legacy ``nobs`` followed
+                by the tuple. ``nobs`` is ignored.
+
+        Returns:
+            Bernoulli likelihood carrying the updated posterior when the prior
+            is conjugate.
+        """
         psum, nsum = args[-1]
         if self.has_conj_prior:
             assert isinstance(self.prior, BetaDistribution)

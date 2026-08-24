@@ -54,6 +54,19 @@ def empirical_kl_divergence(
     Returns the discrete KL estimate and the number of non-finite log scores
     produced by each distribution. At least one jointly finite score is
     required.
+
+    Args:
+        dist1: Distribution defining the empirical reference probabilities.
+        dist2: Distribution compared with ``dist1``.
+        enc_data: Sequence of ``(count, encoded_data)`` chunks accepted by both
+            distributions.
+
+    Returns:
+        Tuple containing the empirical divergence, the number of non-finite
+        scores from ``dist1``, and the number from ``dist2``.
+
+    Raises:
+        ValueError: If no observation has finite log-density under both models.
     """
     chunks = seq_log_density(enc_data, estimate=(dist1, dist2), is_list=True)
     likelihoods = np.hstack(chunks)
@@ -80,7 +93,19 @@ def empirical_kl_divergence(
 
 
 def k_fold_split_index(sz: int, k: int, rng: RandomState) -> np.ndarray[Any, Any]:
-    """Return a randomized fold identifier for each observation index."""
+    """Return a randomized fold identifier for each observation index.
+
+    Args:
+        sz: Number of observations.
+        k: Number of folds.
+        rng: Random state used to permute observations.
+
+    Returns:
+        Integer array of shape ``(sz,)`` with fold identifiers in ``[0, k)``.
+
+    Raises:
+        ValueError: If ``k`` is not positive.
+    """
     if k <= 0:
         raise ValueError("k must be positive.")
     sorted_indices = np.argsort(rng.rand(sz))
@@ -93,7 +118,19 @@ def k_fold_split_index(sz: int, k: int, rng: RandomState) -> np.ndarray[Any, Any
 def partition_data_index(
     sz: int, pvec: Sequence[float] | np.ndarray[Any, Any], rng: RandomState
 ) -> list[np.ndarray[Any, Any]]:
-    """Return randomized index partitions with proportions from ``pvec``."""
+    """Return randomized index partitions with proportions from ``pvec``.
+
+    Partition boundaries are rounded cumulative proportions of ``sz``. The
+    proportions are used as supplied and need not sum to one.
+
+    Args:
+        sz: Number of observation indices to partition.
+        pvec: Proportion assigned to each output partition.
+        rng: Random state used to permute the indices.
+
+    Returns:
+        One one-dimensional index array per requested proportion.
+    """
     sorted_indices = np.argsort(rng.rand(sz))
     result: list[np.ndarray[Any, Any]] = []
     total = 0.0
@@ -111,7 +148,16 @@ def partition_data(
     pvec: Sequence[float] | np.ndarray[Any, Any],
     rng: RandomState,
 ) -> list[list[T]]:
-    """Randomly partition data with proportions from ``pvec``."""
+    """Randomly partition observations with proportions from ``pvec``.
+
+    Args:
+        data: Observations to partition.
+        pvec: Proportion assigned to each output partition.
+        rng: Random state used to permute observations.
+
+    Returns:
+        Lists of observations corresponding to :func:`partition_data_index`.
+    """
     indices = partition_data_index(len(data), pvec, rng)
     return [[data[int(index)] for index in partition] for partition in indices]
 
@@ -133,7 +179,38 @@ def best_of(
     out: IO[str] = sys.stdout,
     print_iter: int = 1,
 ) -> tuple[float, Model]:
-    """Run randomized variational fits and return the best validation model."""
+    """Run randomized variational fits and return the best validation model.
+
+    Each trial initializes a model from a Bernoulli subsample of the training
+    data. Updates stop when training log-likelihood improvement is below
+    ``delta``; ``None`` disables both that stopping rule and rejection of
+    likelihood-decreasing updates.
+
+    Args:
+        data: Raw training observations.
+        vdata: Raw validation observations used to select the returned model.
+        est: Estimator used for every variational update.
+        trials: Number of independent randomized initializations.
+        max_its: Maximum updates per trial.
+        init_p: Probability that an observation participates in initialization.
+        delta: Minimum training log-likelihood improvement, or ``None`` to run
+            every update.
+        rng: Random state for initialization, or ``None`` for a fresh state.
+        init_estimator: Optional estimator used only during initialization.
+        enc_data: Optional pre-encoded training chunks of the form
+            ``(observation_count, encoded_data)``.
+        enc_vdata: Optional pre-encoded validation chunks in the same form.
+        out: Text stream receiving progress messages.
+        print_iter: Emit training progress every this many updates.
+
+    Returns:
+        Best validation log-likelihood and its fitted model.
+
+    Raises:
+        ValueError: If ``trials`` is not positive or ``init_p`` is outside
+            ``(0, 1]``.
+        RuntimeError: If no trial produces a selectable model.
+    """
     _validate_init_p(init_p)
     if trials <= 0:
         raise ValueError("trials must be positive.")
@@ -197,6 +274,33 @@ def optimize(
     Progress lines expose ``LL``, ``dLL``, ``MLL``, ``dMLL``, and ``VLL``;
     a line prefixed by ``Terminating`` records convergence before returning the
     best retained validation model.
+
+    Args:
+        data: Raw training observations.
+        estimator: Estimator used for initialization and updates. It must also
+            provide ``model_log_density(model)`` for the reported ``MLL``.
+        max_its: Maximum number of variational updates.
+        delta: Minimum training log-likelihood improvement, or ``None`` to run
+            every update and retain likelihood-decreasing proposals.
+        init_estimator: Optional estimator used only during initialization.
+        init_p: Probability that an observation participates in initialization.
+        rng: Random state for initialization, or ``None`` for a fresh state.
+        prev_estimate: Existing model to update instead of initializing one.
+        vdata: Validation observations, defaulting to ``data``.
+        enc_data: Optional pre-encoded training chunks of the form
+            ``(observation_count, encoded_data)``.
+        enc_vdata: Optional pre-encoded validation chunks in the same form.
+        out: Text stream receiving progress messages.
+        print_iter: Emit progress every this many updates.
+
+    Returns:
+        Model with the highest validation log-likelihood among retained
+        estimates.
+
+    Raises:
+        ValueError: If initialization is needed and ``init_p`` is outside
+            ``(0, 1]``.
+        AttributeError: If ``estimator`` has no ``model_log_density`` method.
     """
     active_rng = _random_state(rng)
     initialization_estimator = estimator if init_estimator is None else init_estimator
@@ -268,7 +372,27 @@ def iterate(
     init_estimator: Optional[Estimator] = None,
     print_iter: int = 1,
 ) -> Model:
-    """Run exactly ``max_its`` updates and report mean iteration time."""
+    """Run exactly ``max_its`` updates and report mean iteration time.
+
+    Args:
+        data: Raw observations, or encoded chunks when ``is_encoded`` is true.
+        estimator: Estimator used for initialization and every update.
+        max_its: Number of variational updates to run.
+        prev_estimate: Existing model to update instead of initializing one.
+        init_p: Probability that an observation participates in initialization.
+        rng: Random state for initialization, or ``None`` for a fresh state.
+        out: Text stream receiving timing messages.
+        is_encoded: Whether ``data`` already contains encoded chunks.
+        init_estimator: Optional estimator used only during initialization.
+        print_iter: Emit mean elapsed time every this many updates.
+
+    Returns:
+        Model produced by the final update.
+
+    Raises:
+        ValueError: If encoded data is supplied without ``prev_estimate``, or
+            initialization is needed and ``init_p`` is outside ``(0, 1]``.
+    """
     active_rng = _random_state(rng)
     initialization_estimator = estimator if init_estimator is None else init_estimator
     if prev_estimate is None:
@@ -310,7 +434,27 @@ def hill_climb(
     out: IO[str] = sys.stdout,
     print_iter: int = 1,
 ) -> Model:
-    """Return the update with best metric, breaking ties by validation LL."""
+    """Return the update with best metric, breaking ties by validation LL.
+
+    Args:
+        data: Raw training observations.
+        vdata: Raw validation observations passed to ``metric_lambda``.
+        estimator: Estimator used for each update.
+        prev_estimate: Model from which to begin updating.
+        max_its: Number of updates to evaluate.
+        metric_lambda: Callable returning a score to maximize for a validation
+            data and model pair.
+        best_estimate: Optional incumbent model included in the comparison.
+        enc_data: Optional pre-encoded training chunks of the form
+            ``(observation_count, encoded_data)``.
+        enc_vdata: Optional pre-encoded validation chunks in the same form.
+        out: Text stream receiving progress messages.
+        print_iter: Emit progress every this many updates.
+
+    Returns:
+        Model with the largest metric value, using validation log-likelihood to
+        break exact metric ties.
+    """
     model = prev_estimate
     training = (
         list(enc_data)

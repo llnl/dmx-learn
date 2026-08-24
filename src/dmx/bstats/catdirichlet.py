@@ -28,10 +28,24 @@ Observation = Mapping[Key, float]
 class DictDirichletDistribution(
     ProbabilityDistribution[Observation, DictDirichletParameters, Any]
 ):
-    """Dirichlet prior whose fixed parameters retain category keys."""
+    """Represent a prior or posterior over keyed categorical probabilities.
+
+    Mapping parameters fix the category set and assign one positive
+    concentration per key. A scalar parameter applies the same concentration
+    to the keys of each scored observation, but does not provide enough support
+    information for sampling or entropy.
+    """
 
     def __init__(self, alpha: Union[Mapping[Key, float], float]) -> None:
-        """Initialize mapping concentrations or a dimension-free scalar."""
+        """Initialize mapping concentrations or a dimension-free scalar.
+
+        Args:
+            alpha: Nonempty mapping of category keys to concentrations, or one
+                positive concentration shared by observation-defined keys.
+
+        Raises:
+            ValueError: If concentrations are empty, non-finite, or nonpositive.
+        """
         super().__init__()
         self.set_parameters(alpha)
 
@@ -44,7 +58,14 @@ class DictDirichletDistribution(
         return self.alpha
 
     def set_parameters(self, value: Union[Mapping[Key, float], float]) -> None:
-        """Replace concentrations and record whether support is unbounded."""
+        """Replace fixed-key or dimension-free concentrations.
+
+        Args:
+            value: Nonempty concentration mapping or positive shared scalar.
+
+        Raises:
+            ValueError: If concentrations are empty, non-finite, or nonpositive.
+        """
         if isinstance(value, Mapping):
             concentrations = {key: float(item) for key, item in value.items()}
             if not concentrations:
@@ -67,7 +88,17 @@ class DictDirichletDistribution(
     def concentrations_for_keys(
         self, keys: list[Key]
     ) -> np.ndarray[Any, np.dtype[np.float64]]:
-        """Return dense concentrations in the requested key order."""
+        """Return dense concentrations in the requested key order.
+
+        Args:
+            keys: Ordered category keys for the returned vector.
+
+        Returns:
+            Concentration array of shape ``(len(keys),)``.
+
+        Raises:
+            ValueError: If ``keys`` differ from fixed mapping parameters.
+        """
         if isinstance(self.alpha, float):
             return np.full(len(keys), self.alpha, dtype=np.float64)
         if set(keys) != set(self.alpha):
@@ -75,7 +106,20 @@ class DictDirichletDistribution(
         return np.asarray([self.alpha[key] for key in keys], dtype=np.float64)
 
     def log_density(self, x: Observation) -> float:
-        """Evaluate the log-density of a keyed simplex observation."""
+        """Evaluate the log-density of a keyed simplex observation.
+
+        Args:
+            x: Mapping of category keys to finite, strictly positive
+                probabilities summing to one.
+
+        Returns:
+            Log-density, or ``-inf`` when the probabilities are outside the
+            simplex.
+
+        Raises:
+            ValueError: If observation keys differ from fixed mapping
+                parameters.
+        """
         if not x:
             return float(-np.inf)
         keys = list(x)
@@ -91,7 +135,19 @@ class DictDirichletDistribution(
         return float(np.dot(np.log(values), alpha - 1.0) - log_const)
 
     def cross_entropy(self, dist: Any) -> float:
-        """Return ``-E_self[log(dist)]`` for a compatible keyed prior."""
+        """Return ``-E_self[log(dist)]`` for a compatible keyed distribution.
+
+        Args:
+            dist: Distribution whose log-density is averaged.
+
+        Returns:
+            Analytic cross-entropy from this distribution to ``dist``.
+
+        Raises:
+            ValueError: If neither distribution defines keys or their fixed
+                key sets differ.
+            NotImplementedError: If ``dist`` is not dictionary Dirichlet.
+        """
         if not isinstance(dist, DictDirichletDistribution):
             return super().cross_entropy(dist)
         if isinstance(self.alpha, float) and isinstance(dist.alpha, float):
@@ -108,13 +164,27 @@ class DictDirichletDistribution(
         )
 
     def entropy(self) -> float:
-        """Return differential entropy for fixed dictionary parameters."""
+        """Return differential entropy for fixed dictionary parameters.
+
+        Raises:
+            ValueError: If scalar parameters do not define category keys.
+        """
         if isinstance(self.alpha, float):
             raise ValueError("Entropy requires known dictionary keys.")
         return self.cross_entropy(self)
 
     def sampler(self, seed: Optional[int] = None) -> "DictDirichletSampler":
-        """Create a keyed sampler for fixed dictionary parameters."""
+        """Create a keyed sampler for fixed dictionary parameters.
+
+        Args:
+            seed: Optional deterministic random seed.
+
+        Returns:
+            Sampler preserving the parameter mapping's key order.
+
+        Raises:
+            ValueError: If scalar parameters do not define category keys.
+        """
         if isinstance(self.alpha, float):
             raise ValueError("Sampling requires known dictionary keys.")
         return DictDirichletSampler(self, seed)

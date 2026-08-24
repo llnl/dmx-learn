@@ -25,7 +25,11 @@ Model = ProbabilityDistribution[Any, Any, Any]
 
 
 class BetaDistribution(ProbabilityDistribution[float, BetaParameters, Any]):
-    """Beta distribution parameterized by positive shapes ``a`` and ``b``."""
+    """Represent a prior or posterior over a Bernoulli probability.
+
+    Positive shapes ``a`` and ``b`` parameterize the distribution on the open
+    interval ``(0, 1)``.
+    """
 
     def __init__(
         self,

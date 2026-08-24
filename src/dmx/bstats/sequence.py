@@ -43,7 +43,21 @@ SequenceSuffStat = tuple[Any, Any]
 class SequenceDistribution(
     ProbabilityDistribution[list[Any], tuple[Any, Any], SequenceEncoded]
 ):
-    """Model a variable-length list of iid child observations."""
+    """Model a variable-length list of iid child observations.
+
+    Each list element is scored by ``dist`` and the integer list length by
+    ``len_dist``. A ``None`` or null length distribution contributes no length
+    score. With ``len_normalized=True``, nonempty sequences use the mean child
+    log score and distribute their weight evenly over child statistics; the
+    length contribution is never normalized.
+
+    Args:
+        dist: Distribution shared by all sequence elements.
+        len_dist: Distribution for nonnegative integer sequence lengths.
+        name: Optional identifier for the sequence model.
+        len_normalized: Whether to average child contributions over each
+            nonempty sequence.
+    """
 
     def __init__(
         self,
@@ -234,7 +248,13 @@ class SequenceSampler(DistributionSampler[list[Any]]):
 class SequenceEstimatorAccumulator(
     SequenceEncodableAccumulator[list[Any], SequenceSuffStat, SequenceEncoded]
 ):
-    """Accumulate flattened child statistics and length statistics."""
+    """Accumulate flattened child statistics and length statistics.
+
+    The sufficient statistic is ``(child_statistics, length_statistics)``;
+    the second item is ``None`` when no length accumulator is configured. Each
+    non-``None`` wrapper key aliases this complete pair, and child and length
+    accumulator keys are additionally merged and replaced.
+    """
 
     def __init__(
         self,
@@ -392,7 +412,22 @@ class SequenceEstimatorAccumulatorFactory(
 class SequenceEstimator(
     ParameterEstimator[list[Any], tuple[Any, Any], SequenceEncoded, SequenceSuffStat]
 ):
-    """Estimate child and optional length models."""
+    """Estimate child and optional length models.
+
+    The estimator consumes ``(child_statistics, length_statistics)`` and
+    preserves the distribution's child-first prior order. When
+    ``len_normalized`` is enabled, each nonempty input sequence contributes
+    its total observation weight, rather than that weight once per element, to
+    child estimation.
+
+    Args:
+        estimator: Estimator shared by all sequence elements.
+        len_estimator: Estimator for sequence lengths, or ``None``.
+        len_normalized: Whether to normalize child sufficient-statistic
+            weights by nonzero sequence length.
+        name: Optional identifier copied to estimated sequence models.
+        keys: Optional keys that each share the complete paired statistic.
+    """
 
     def __init__(
         self,
@@ -457,7 +492,17 @@ class SequenceEstimator(
 
 
 class SequenceDataEncoder(DataSequenceEncoder[list[Any], SequenceEncoded]):
-    """Encode flattened child values and sequence lengths."""
+    """Encode flattened child values and sequence lengths.
+
+    For ``n`` sequences the payload is ``(indices, inverse_lengths, nonempty,
+    child_data, length_data)``. ``indices`` maps every flattened child value to
+    its source row. The next two arrays have shape ``(n,)``; empty rows have
+    inverse length zero. ``length_data`` is ``None`` without a length encoder.
+
+    Args:
+        encoder: Encoder shared by flattened child values.
+        len_encoder: Encoder for the ``n`` sequence lengths, or ``None``.
+    """
 
     def __init__(
         self,
