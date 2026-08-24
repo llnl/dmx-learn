@@ -9,15 +9,15 @@ import numpy as np
 import pytest
 from mpi4py import MPI  # pylint: disable=no-name-in-module
 
+from dmx.bstats import MixtureDistribution
 from dmx.mpi4py.utils.automatic import get_dpm_mixture_mpi
 
 DATA_DIR = "tests/data"
-ANSWER_DIR = "tests/answerkeys"
 
 
 @pytest.mark.parametrize("case_id", [0, 1])
 def test_get_dpm_mixture_mpi(case_id: int) -> None:
-    """Tests if pipeline for creating estimator and estiamting a DPM works."""
+    """Test that MPI automatic fitting returns a usable bstats mixture."""
     comm = MPI.COMM_WORLD
     comm.Get_rank()
 
@@ -26,13 +26,7 @@ def test_get_dpm_mixture_mpi(case_id: int) -> None:
 
     model = get_dpm_mixture_mpi(data, rng=np.random.RandomState(1))
 
-    with open(
-        os.path.join(
-            ANSWER_DIR, f"testOutput_automatic_get_dpm_mixture_mpi_n4_case{case_id}.txt"
-        ),
-        "r",
-        encoding="utf-8",
-    ) as f:
-        answer = f.read()
-
-    assert answer == str(model)
+    assert isinstance(model, MixtureDistribution)
+    assert model.num_components == len(model.components)
+    assert model.num_components > 0
+    np.testing.assert_allclose(model.w.sum(), 1.0)

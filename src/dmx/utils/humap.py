@@ -1,15 +1,13 @@
 """Heterogenous UMAP for embedding tuples of heterogenous data in lower-dimensions."""
 
-from typing import Any, Dict, Optional, Sequence, Tuple, TypeVar, Union
+from typing import Any, Dict, Optional, Sequence, Tuple, TypeVar
 
 import numpy as np
 import umap  # type: ignore[import-untyped]
 from numpy.random import RandomState
 from umap import UMAP
 
-from dmx.bstats import MixtureDistribution as BstatsMixtureDistribution
-from dmx.stats.mixture import MixtureDistribution as StatsMixtureDistribution
-from dmx.utils.automatic import prepare_mixture_model
+from dmx.utils.automatic import MixtureModel, prepare_mixture_model
 
 DATUM_TYPE = TypeVar("DATUM_TYPE")
 
@@ -41,13 +39,11 @@ def humap(
     print_iter: int = 100,
     seed: Optional[int] = None,
     comp_estimator: Optional[Any] = None,
-    mix_model: Optional[
-        Union[StatsMixtureDistribution, BstatsMixtureDistribution]
-    ] = None,
+    mix_model: Optional[MixtureModel] = None,
     umap_kwargs: Optional[Dict[str, Any]] = None,
 ) -> Tuple[
     Any,
-    Union[StatsMixtureDistribution, BstatsMixtureDistribution],
+    MixtureModel,
     UMAP,
     np.ndarray,
 ]:
