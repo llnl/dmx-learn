@@ -16,6 +16,7 @@ Contents
    :maxdepth: 1
 
    installation.rst
+   docstring_style.rst
    base_distributions.rst
    combinators.rst
    mixture_models.rst
