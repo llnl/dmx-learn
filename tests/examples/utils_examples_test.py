@@ -1,8 +1,8 @@
-"""Run pytests on all py files in examples folder."""
+"""Run pytests on utility example scripts."""
 
 from . import run_example
 
-EXAMPLES_PATH = "examples"
+EXAMPLES_PATH = "examples/utils_examples"
 
 
 def test_auto_example() -> None:

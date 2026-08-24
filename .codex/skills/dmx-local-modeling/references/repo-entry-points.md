@@ -183,9 +183,9 @@ Recommended embedding pattern:
 
 - `examples/stats_examples/gaussian_example.py`: smallest local fit-and-score example.
 - `examples/stats_examples/mixture_example.py`: mixed latent structure and keyed estimators.
-- `examples/detailed_estimation_example.py`: validation likelihood tracking and repeated estimation.
+- `examples/utils_examples/detailed_estimation_example.py`: validation likelihood tracking and repeated estimation.
 - `examples/stats_examples/spearman_rho_example.py`: ranking model fit.
-- `examples/htsne_example.py`: local embedding workflow.
+- `examples/utils_examples/htsne_example.py`: local embedding workflow.
 - `tests/bstats/dpm_test.py`: local variational DPM and automatic conversion.
 - `tests/bstats/composite_test.py`: Bayesian composites inside mixture and DPM
   containers.

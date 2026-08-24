@@ -1,4 +1,4 @@
-"""Run pytests on all examples/examples_stats files."""
+"""Run pytests on stats example scripts."""
 
 from . import run_example
 

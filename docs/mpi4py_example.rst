@@ -1,7 +1,7 @@
 MPI4PY Estimation Example
 ======================================
 
-This guide explains how to run `estimation_example.py` to fit statistical models in parallel using `mpi4py` and the dmx-learn package. Each step below includes the relevant Python code snippet. The file is found in `dmx/mpi4py/examples`
+This guide explains how to run `estimation_example.py` to fit statistical models in parallel using `mpi4py` and the dmx-learn package. Each step below includes the relevant Python code snippet. The file is found in `examples/mpi4py_examples`.
 
 Running the Script
 ------------------
@@ -10,7 +10,7 @@ To launch the script with 4 MPI processes:
 
 .. code-block:: bash
 
-   mpiexec -n 4 python3 estimation_example.py
+   mpiexec -n 4 python3 examples/mpi4py_examples/estimation_example.py
 
 Step 1: Import Libraries and Set Up MPI
 ---------------------------------------
