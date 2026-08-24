@@ -1,13 +1,11 @@
 """Heterogenous TSNE for embedding tuples of heterogenous data in lower-dimensions."""
 
-from typing import Any, Optional, Sequence, Tuple, TypeVar, Union
+from typing import Any, Optional, Sequence, Tuple, TypeVar
 
 import numpy as np
 from numpy.random import RandomState
 
-from dmx.bstats import MixtureDistribution as BstatsMixtureDistribution
-from dmx.stats.mixture import MixtureDistribution as StatsMixtureDistribution
-from dmx.utils.automatic import prepare_mixture_model
+from dmx.utils.automatic import MixtureModel, prepare_mixture_model
 
 T = TypeVar("T")
 
@@ -391,9 +389,7 @@ def htsne(
     max_alpha_its: int = 3,
     seed: Optional[int] = None,
     comp_estimator: Optional[Any] = None,
-    mix_model: Optional[
-        Union[StatsMixtureDistribution, BstatsMixtureDistribution]
-    ] = None,
+    mix_model: Optional[MixtureModel] = None,
     variable_length: bool = False,
 ) -> np.ndarray:
     """Performs Heterogeneous t-SNE embedding.

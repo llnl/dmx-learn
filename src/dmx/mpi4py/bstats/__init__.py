@@ -19,7 +19,8 @@ import numpy as np
 from mpi4py import MPI
 from numpy.random import RandomState
 
-from dmx.bstats.pdist import ParameterEstimator, ProbabilityDistribution
+from dmx.bstats import ParameterEstimator, ProbabilityDistribution
+from dmx.bstats.pdist import SequenceEncodableAccumulator
 
 
 def seq_encode_mpi(
@@ -168,7 +169,7 @@ def initialize_mpi(
         accumulator.key_merge(merged_stats_dict)
         accumulator.key_replace(merged_stats_dict)
 
-        return cast(ProbabilityDistribution, estimator.estimate(accumulator.value()))
+        return estimator.estimate(accumulator.value())
 
     return None
 
@@ -216,7 +217,7 @@ def seq_estimate_mpi(
     active_prev_estimate = cast(
         ProbabilityDistribution, comm.bcast(estimate_for_bcast, root=0)
     )
-    local_accumulator = factory.make()
+    local_accumulator = cast(SequenceEncodableAccumulator, factory.make())
     nobs = 0.0
 
     for sz, x in enc_data:
@@ -236,7 +237,7 @@ def seq_estimate_mpi(
         accumulator.key_merge(stats_dict)
         accumulator.key_replace(stats_dict)
 
-        return cast(ProbabilityDistribution, estimator.estimate(accumulator.value()))
+        return estimator.estimate(accumulator.value())
 
     return None
 

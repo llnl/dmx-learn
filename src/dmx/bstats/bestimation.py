@@ -1,7 +1,23 @@
+"""Local variational estimation helpers for Bayesian models.
+
+Initialization uses the established per-observation Bernoulli subsample and
+delegates randomized allocation to each estimator accumulator. ``optimize``
+reports data log likelihood (``LL``), its change (``dLL``), model-prior and
+entropy terms (``MLL``/``dMLL``), and validation log likelihood (``VLL``).
+For a DPM, ``LL`` is the block variational objective returned by its sequence
+scorer. A proposed update is retained only when LL does not decrease, and the
+returned model is the retained estimate with the best validation score.
+"""
+
+from __future__ import annotations
+
 import sys
 import time
+from collections.abc import Callable, Sequence
+from typing import IO, Any, Optional, TypeVar, cast
 
 import numpy as np
+from numpy.random import RandomState
 
 from dmx.bstats import (
     initialize,
@@ -10,323 +26,320 @@ from dmx.bstats import (
     seq_log_density,
     seq_log_density_sum,
 )
+from dmx.bstats.pdist import ParameterEstimator, ProbabilityDistribution
+
+T = TypeVar("T")
+Model = ProbabilityDistribution[Any, Any, Any]
+Estimator = ParameterEstimator[Any, Any, Any, Any]
+EncodedChunk = tuple[int, Any]
+EncodedChunks = Sequence[EncodedChunk]
 
 
-def empirical_kl_divergence(dist1, dist2, enc_data):
-
-    ll = seq_log_density(enc_data, estimate=(dist1, dist2), is_list=True)
-
-    r1 = 0.0
-    r2 = 0
-    r3 = 0
-
-    ll = np.hstack(ll)
-
-    l1 = ll[0, :]
-    l2 = ll[1, :]
-    g1 = np.bitwise_and(l1 != -np.inf, ~np.isnan(l1))
-    g2 = np.bitwise_and(l2 != -np.inf, ~np.isnan(l2))
-    gg = np.bitwise_and(g1, g2)
-
-    max_l1 = np.max(l1[gg])
-    max_l2 = np.max(l2[gg])
-
-    p1 = np.exp(l1[gg] - max_l1)
-    p1 /= p1.sum()
-
-    p2 = np.exp(l2[gg] - max_l2)
-    p2 /= p2.sum()
-
-    r1 = (p1[gg] * (np.log(p1[gg]) - np.log(p2[gg]))).sum()
-    r2 = (~g1).sum()
-    r3 = (~g2).sum()
-
-    return r1, r2, r3
+def _random_state(rng: Optional[RandomState]) -> RandomState:
+    """Return the supplied random state or a fresh local state."""
+    return RandomState() if rng is None else rng
 
 
-def k_fold_split_index(sz, k, rng):
-
-    idx = rng.rand(sz)
-    sidx = np.argsort(idx)
-
-    rv = np.zeros(sz, dtype=int)
-    for i in k:
-        rv[sidx[np.arange(start=i, stop=sz, step=k, dtype=int)]] = i
-
-    return rv
+def _validate_init_p(init_p: float) -> None:
+    """Validate the initialization sampling proportion."""
+    if not 0.0 < init_p <= 1.0:
+        raise ValueError("init_p must be greater than 0 and at most 1.")
 
 
-def partition_data_index(sz, pvec, rng):
+def empirical_kl_divergence(
+    dist1: Model, dist2: Model, enc_data: EncodedChunks
+) -> tuple[float, int, int]:
+    """Estimate KL divergence on encoded support shared by two models.
 
-    idx = rng.rand(sz)
-    sidx = np.argsort(idx)
+    Returns the discrete KL estimate and the number of non-finite log scores
+    produced by each distribution. At least one jointly finite score is
+    required.
+    """
+    chunks = seq_log_density(enc_data, estimate=(dist1, dist2), is_list=True)
+    likelihoods = np.hstack(chunks)
+    first = likelihoods[0, :]
+    second = likelihoods[1, :]
+    valid_first = np.isfinite(first)
+    valid_second = np.isfinite(second)
+    shared = valid_first & valid_second
+    if not np.any(shared):
+        raise ValueError("Empirical KL requires at least one jointly finite score.")
 
-    rv = []
-    p_tot = 0
-    prev_idx = 0
-
-    for p in pvec:
-        next_idx = int(round(sz * (p_tot + p), 0))
-        rv.append(sidx[prev_idx:next_idx])
-        p_tot += p
-        prev_idx = next_idx
-
-    return rv
-
-
-def partition_data(data, pvec, rng):
-
-    idx_list = partition_data_index(len(data), pvec, rng)
-
-    return [[data[i] for i in u] for u in idx_list]
+    first_probability = np.exp(first[shared] - np.max(first[shared]))
+    first_probability /= first_probability.sum()
+    second_probability = np.exp(second[shared] - np.max(second[shared]))
+    second_probability /= second_probability.sum()
+    divergence = np.sum(
+        first_probability * (np.log(first_probability) - np.log(second_probability))
+    )
+    return (
+        float(divergence),
+        int(np.count_nonzero(~valid_first)),
+        int(np.count_nonzero(~valid_second)),
+    )
 
 
+def k_fold_split_index(sz: int, k: int, rng: RandomState) -> np.ndarray[Any, Any]:
+    """Return a randomized fold identifier for each observation index."""
+    if k <= 0:
+        raise ValueError("k must be positive.")
+    sorted_indices = np.argsort(rng.rand(sz))
+    result = np.zeros(sz, dtype=int)
+    for fold in range(k):
+        result[sorted_indices[fold:sz:k]] = fold
+    return result
+
+
+def partition_data_index(
+    sz: int, pvec: Sequence[float] | np.ndarray[Any, Any], rng: RandomState
+) -> list[np.ndarray[Any, Any]]:
+    """Return randomized index partitions with proportions from ``pvec``."""
+    sorted_indices = np.argsort(rng.rand(sz))
+    result: list[np.ndarray[Any, Any]] = []
+    total = 0.0
+    previous = 0
+    for proportion in pvec:
+        next_index = int(round(sz * (total + float(proportion)), 0))
+        result.append(sorted_indices[previous:next_index])
+        total += float(proportion)
+        previous = next_index
+    return result
+
+
+def partition_data(
+    data: Sequence[T],
+    pvec: Sequence[float] | np.ndarray[Any, Any],
+    rng: RandomState,
+) -> list[list[T]]:
+    """Randomly partition data with proportions from ``pvec``."""
+    indices = partition_data_index(len(data), pvec, rng)
+    return [[data[int(index)] for index in partition] for partition in indices]
+
+
+# Keep the current public call signature stable for now.
+# pylint: disable-next=too-many-positional-arguments
 def best_of(
-    data,
-    vdata,
-    est,
-    trials,
-    max_its,
-    init_p,
-    delta,
-    rng,
-    init_estimator=None,
-    enc_data=None,
-    enc_vdata=None,
-    out=sys.stdout,
-    print_iter=1,
-):
+    data: Sequence[T],
+    vdata: Sequence[T],
+    est: Estimator,
+    trials: int,
+    max_its: int,
+    init_p: float,
+    delta: Optional[float],
+    rng: Optional[RandomState],
+    init_estimator: Optional[Estimator] = None,
+    enc_data: Optional[EncodedChunks] = None,
+    enc_vdata: Optional[EncodedChunks] = None,
+    out: IO[str] = sys.stdout,
+    print_iter: int = 1,
+) -> tuple[float, Model]:
+    """Run randomized variational fits and return the best validation model."""
+    _validate_init_p(init_p)
+    if trials <= 0:
+        raise ValueError("trials must be positive.")
+    active_rng = _random_state(rng)
+    initialization_estimator = est if init_estimator is None else init_estimator
+    best_likelihood = float(-np.inf)
+    best_model: Optional[Model] = None
 
-    rv_ll = -np.inf
-    rv_mm = None
-
-    if init_estimator is None:
-        iest = est
-    else:
-        iest = init_estimator
-
-    for kk in range(trials):
-
-        mm = initialize(data, iest, rng, init_p)
-
-        if enc_data is None:
-            enc_data = seq_encode(data, mm)
-        if enc_vdata is None:
-            enc_vdata = seq_encode(vdata, mm)
-
-        _, old_ll = seq_log_density_sum(enc_data, mm)
-        # _, old_vll = seq_log_density_sum(enc_vdata, mm)
-
-        for i in range(max_its):
-
-            mm_next = seq_estimate(enc_data, est, mm)
-            _, ll = seq_log_density_sum(enc_data, mm_next)
-            # _, vll = seq_log_density_sum(enc_vdata, mm_next)
-
-            # dvll = vll - old_vll
-            dll = ll - old_ll
-
-            if (i + 1) % print_iter == 0:
-                out.write("Iteration %d. LL=%f, delta LL=%e\n" % (i + 1, ll, dll))
-
-            if (dll >= 0) or (delta is None):
-                mm = mm_next
-
-            if (delta is not None) and (dll < delta):
+    for trial in range(trials):
+        model = initialize(data, initialization_estimator, active_rng, init_p)
+        training = list(enc_data) if enc_data is not None else seq_encode(data, model)
+        validation = (
+            list(enc_vdata) if enc_vdata is not None else seq_encode(vdata, model)
+        )
+        _, old_likelihood = seq_log_density_sum(training, model)
+        for iteration in range(max_its):
+            proposed = seq_estimate(training, est, model)
+            _, likelihood = seq_log_density_sum(training, proposed)
+            change = likelihood - old_likelihood
+            if (iteration + 1) % print_iter == 0:
+                out.write(
+                    f"Iteration {iteration + 1}. LL={likelihood:f}, "
+                    f"delta LL={change:e}\n"
+                )
+            if change >= 0.0 or delta is None:
+                model = proposed
+            if delta is not None and change < delta:
                 break
+            old_likelihood = likelihood
 
-            old_ll = ll
-            # old_vll = vll
+        _, validation_likelihood = seq_log_density_sum(validation, model)
+        out.write(f"Trial {trial + 1}. VLL={validation_likelihood:f}\n")
+        if validation_likelihood > best_likelihood:
+            best_model = model
+            best_likelihood = validation_likelihood
 
-        _, vll = seq_log_density_sum(enc_vdata, mm)
-        out.write("Trial %d. VLL=%f\n" % (kk + 1, vll))
-
-        if vll > rv_ll:
-            rv_mm = mm
-            rv_ll = vll
-
-    return rv_ll, rv_mm
+    if best_model is None:
+        raise RuntimeError("No model was estimated.")
+    return best_likelihood, best_model
 
 
+# Keep the current public call signature stable for now.
+# pylint: disable-next=too-many-positional-arguments
 def optimize(
-    data,
-    estimator,
-    max_its=10,
-    delta=1.0e-6,
-    init_estimator=None,
-    init_p=0.1,
-    rng=np.random.RandomState(),
-    prev_estimate=None,
-    vdata=None,
-    enc_data=None,
-    enc_vdata=None,
-    out=sys.stdout,
-    print_iter=1,
-):
+    data: Sequence[T],
+    estimator: Estimator,
+    max_its: int = 10,
+    delta: Optional[float] = 1.0e-6,
+    init_estimator: Optional[Estimator] = None,
+    init_p: float = 0.1,
+    rng: Optional[RandomState] = None,
+    prev_estimate: Optional[Model] = None,
+    vdata: Optional[Sequence[T]] = None,
+    enc_data: Optional[EncodedChunks] = None,
+    enc_vdata: Optional[EncodedChunks] = None,
+    out: IO[str] = sys.stdout,
+    print_iter: int = 1,
+) -> Model:
+    """Optimize locally until LL improvement is below ``delta``.
 
-    div_error = np.geterr()
-    np.seterr(divide="ignore")
-
-    if init_estimator is None:
-        iest = estimator
-    else:
-        iest = init_estimator
-
+    Progress lines expose ``LL``, ``dLL``, ``MLL``, ``dMLL``, and ``VLL``;
+    a line prefixed by ``Terminating`` records convergence before returning the
+    best retained validation model.
+    """
+    active_rng = _random_state(rng)
+    initialization_estimator = estimator if init_estimator is None else init_estimator
     if prev_estimate is None:
-        mm = initialize(data, iest, rng, init_p)
+        _validate_init_p(init_p)
+        model = initialize(data, initialization_estimator, active_rng, init_p)
     else:
-        mm = prev_estimate
+        model = prev_estimate
+    validation_data = data if vdata is None else vdata
+    training = list(enc_data) if enc_data is not None else seq_encode(data, model)
+    validation = (
+        list(enc_vdata) if enc_vdata is not None else seq_encode(validation_data, model)
+    )
 
-    if vdata is None:
-        vdata = data
+    _, old_validation_likelihood = seq_log_density_sum(validation, model)
+    _, old_likelihood = seq_log_density_sum(training, model)
+    model_log_density = cast(
+        Callable[[Model], float], getattr(estimator, "model_log_density")
+    )
+    model_likelihood = model_log_density(model)
+    best_model = model
+    best_likelihood = old_validation_likelihood
 
-    if enc_data is None:
-        enc_data = seq_encode(data, mm)
+    with np.errstate(divide="ignore"):
+        for iteration in range(max_its):
+            proposed = seq_estimate(training, estimator, model)
+            old_model_likelihood = model_likelihood
+            model_likelihood = model_log_density(proposed)
+            _, validation_likelihood = seq_log_density_sum(validation, proposed)
+            _, likelihood = seq_log_density_sum(training, proposed)
+            model_change = model_likelihood - old_model_likelihood
+            change = likelihood - old_likelihood
 
-    if enc_vdata is None:
-        enc_vdata = seq_encode(vdata, mm)
-
-    vcnt, old_vll = seq_log_density_sum(enc_vdata, mm)
-    cnt, old_ll = seq_log_density_sum(enc_data, mm)
-
-    model_ll = estimator.model_log_density(mm)
-
-    best_model = mm
-    best_ll = old_vll
-
-    for i in range(max_its):
-
-        mm_next = seq_estimate(enc_data, estimator, mm)
-
-        old_model_ll = model_ll
-        model_ll = estimator.model_log_density(mm_next)
-        vcnt, vll = seq_log_density_sum(enc_vdata, mm_next)
-        cnt, ll = seq_log_density_sum(enc_data, mm_next)
-
-        dmll = model_ll - old_model_ll
-        dll = ll - old_ll
-        dvll = vll - old_vll
-
-        if (dll >= 0) or (delta is None):
-            mm = mm_next
-
-        if (delta is not None) and (dll < delta):
-            out.write(
-                "Terminating %d. LL=%f, dLL=%e, MLL=%f, dMLL=%e, VLL=%f\n"
-                % (i + 1, ll, dll, model_ll, dmll, vll)
-            )
-            break
-
-        if (i + 1) % print_iter == 0:
-            out.write(
-                "Iteration %d. LL=%f, dLL=%e, MLL=%f, dMLL=%e, VLL=%f\n"
-                % (i + 1, ll, dll, model_ll, dmll, vll)
-            )
-
-        old_ll = ll
-        old_vll = vll
-
-        if best_ll < vll:
-            best_ll = vll
-            best_model = mm
-
-    np.seterr(divide=div_error["divide"])
+            if change >= 0.0 or delta is None:
+                model = proposed
+            if delta is not None and change < delta:
+                out.write(
+                    f"Terminating {iteration + 1}. LL={likelihood:f}, "
+                    f"dLL={change:e}, MLL={model_likelihood:f}, "
+                    f"dMLL={model_change:e}, VLL={validation_likelihood:f}\n"
+                )
+                break
+            if (iteration + 1) % print_iter == 0:
+                out.write(
+                    f"Iteration {iteration + 1}. LL={likelihood:f}, "
+                    f"dLL={change:e}, MLL={model_likelihood:f}, "
+                    f"dMLL={model_change:e}, VLL={validation_likelihood:f}\n"
+                )
+            old_likelihood = likelihood
+            old_validation_likelihood = validation_likelihood
+            if best_likelihood < validation_likelihood:
+                best_likelihood = validation_likelihood
+                best_model = model
 
     return best_model
 
 
+# Keep the current public call signature stable for now.
+# pylint: disable-next=too-many-positional-arguments
 def iterate(
-    data,
-    estimator,
-    max_its,
-    prev_estimate=None,
-    init_p=0.1,
-    rng=np.random.RandomState(),
-    out=sys.stdout,
-    is_encoded=False,
-    init_estimator=None,
-    print_iter=1,
-):
-
-    if init_estimator is None:
-        iest = estimator
-    else:
-        iest = init_estimator
-
+    data: Sequence[T] | EncodedChunks,
+    estimator: Estimator,
+    max_its: int,
+    prev_estimate: Optional[Model] = None,
+    init_p: float = 0.1,
+    rng: Optional[RandomState] = None,
+    out: IO[str] = sys.stdout,
+    is_encoded: bool = False,
+    init_estimator: Optional[Estimator] = None,
+    print_iter: int = 1,
+) -> Model:
+    """Run exactly ``max_its`` updates and report mean iteration time."""
+    active_rng = _random_state(rng)
+    initialization_estimator = estimator if init_estimator is None else init_estimator
     if prev_estimate is None:
-        mm = initialize(data, iest, rng, init_p)
+        _validate_init_p(init_p)
+        if is_encoded:
+            raise ValueError("prev_estimate is required when data is encoded.")
+        model = initialize(data, initialization_estimator, active_rng, init_p)
     else:
-        mm = prev_estimate
+        model = prev_estimate
+    encoded = (
+        cast(EncodedChunks, data)
+        if is_encoded
+        else seq_encode(cast(Sequence[Any], data), model)
+    )
+    if hasattr(encoded, "cache"):
+        cast(Any, encoded).cache()
 
-    if is_encoded:
-        enc_data = data
-    else:
-        enc_data = seq_encode(data, mm)
-
-    if hasattr(enc_data, "cache"):
-        enc_data.cache()
-
-    t0 = time.time()
-    for i in range(max_its):
-
-        mm = seq_estimate(enc_data, estimator, mm)
-
-        if (i + 1) % print_iter == 0:
-            out.write(
-                "Iteration %d\t E[dT]=%f.\n"
-                % (i + 1, (time.time() - t0) / float(i + 1))
-            )
-
-    return mm
+    start = time.time()
+    for iteration in range(max_its):
+        model = seq_estimate(encoded, estimator, model)
+        if (iteration + 1) % print_iter == 0:
+            elapsed = (time.time() - start) / float(iteration + 1)
+            out.write(f"Iteration {iteration + 1}\t E[dT]={elapsed:f}.\n")
+    return model
 
 
+# Keep the current public call signature stable for now.
+# pylint: disable-next=too-many-positional-arguments
 def hill_climb(
-    data,
-    vdata,
-    estimator,
-    prev_estimate,
-    max_its,
-    metric_lambda,
-    best_estimate=None,
-    enc_data=None,
-    enc_vdata=None,
-    out=sys.stdout,
-    print_iter=1,
-):
-
-    mm = prev_estimate
-
-    if enc_data is None:
-        enc_data = mm.seq_encode(data)
-        enc_data = [(len(data), enc_data)]
-    if enc_vdata is None:
-        enc_vdata = mm.seq_encode(vdata)
-        enc_vdata = [(len(vdata), enc_vdata)]
-
+    data: Sequence[T],
+    vdata: Sequence[T],
+    estimator: Estimator,
+    prev_estimate: Model,
+    max_its: int,
+    metric_lambda: Callable[[Sequence[T], Model], float],
+    best_estimate: Optional[Model] = None,
+    enc_data: Optional[EncodedChunks] = None,
+    enc_vdata: Optional[EncodedChunks] = None,
+    out: IO[str] = sys.stdout,
+    print_iter: int = 1,
+) -> Model:
+    """Return the update with best metric, breaking ties by validation LL."""
+    model = prev_estimate
+    training = (
+        list(enc_data)
+        if enc_data is not None
+        else [(len(data), model.seq_encode(data))]
+    )
+    validation = (
+        list(enc_vdata)
+        if enc_vdata is not None
+        else [(len(vdata), model.seq_encode(vdata))]
+    )
     best_model = prev_estimate if best_estimate is None else best_estimate
-    _, best_ll = seq_log_density_sum(enc_vdata, best_model)
+    _, best_likelihood = seq_log_density_sum(validation, best_model)
     best_score = metric_lambda(vdata, best_model)
 
-    for i in range(max_its):
-
-        mm_next = seq_estimate(enc_data, estimator, mm)
-
-        _, next_ll = seq_log_density_sum(enc_vdata, mm_next)
-        next_score = metric_lambda(vdata, mm_next)
-
-        if (next_score > best_score) or (
-            (next_score == best_score) and (best_ll < next_ll)
+    for iteration in range(max_its):
+        proposed = seq_estimate(training, estimator, model)
+        _, next_likelihood = seq_log_density_sum(validation, proposed)
+        next_score = metric_lambda(vdata, proposed)
+        if next_score > best_score or (
+            next_score == best_score and best_likelihood < next_likelihood
         ):
-            best_model = mm_next
-            best_ll = next_ll
+            best_model = proposed
+            best_likelihood = next_likelihood
             best_score = next_score
-
-        if i % print_iter == 0:
+        if iteration % print_iter == 0:
             out.write(
-                "Iteration %d. LL=%f, Best LL=%f, Best Score=%f\n"
-                % (i + 1, next_ll, best_ll, best_score)
+                f"Iteration {iteration + 1}. LL={next_likelihood:f}, "
+                f"Best LL={best_likelihood:f}, Best Score={best_score:f}\n"
             )
-
-        mm = mm_next
-
+        model = proposed
     return best_model

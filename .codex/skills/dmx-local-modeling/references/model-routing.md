@@ -1,7 +1,10 @@
 # Model Routing
 
 Use this file when the user has described the data well enough that you need to
-map it to a concrete `dmx.stats` family.
+map it to a concrete local `dmx.stats` or `dmx.bstats` family. Default to an
+explicit `dmx.stats` estimator for ordinary non-Bayesian work; select
+`dmx.bstats` when priors, variational inference, a DPM, or intentional automatic
+Bayesian construction is part of the objective.
 
 ## Contents
 
@@ -9,6 +12,7 @@ map it to a concrete `dmx.stats` family.
 - Vector observations
 - Mixed and structured observations
 - Sequence and ranking observations
+- Bayesian, variational, and DPM routing
 - Latent structure and embeddings
 - Example file map
 - Out of scope
@@ -205,6 +209,48 @@ For tasks that rank candidate labels using heterogeneous observations:
 Do not force `SpearmanRankingEstimator` onto these problems unless the
 observation itself is a ranking or permutation.
 
+## Bayesian, Variational, And DPM Routing
+
+Choose `dmx.bstats` instead of `dmx.stats` when at least one of these is
+material to the requested model:
+
+- informative or inspectable parameter priors
+- expected log-density or other Bayesian distribution behavior
+- local variational estimation through `dmx.bstats.bestimation`
+- a truncated Dirichlet-process mixture
+- automatic estimator construction specifically intended for a Bayesian or
+  automatic mixture workflow
+
+The main high-value route is a DPM over composite distributions for
+heterogeneous observations:
+
+1. Represent each record with a `dmx.bstats.CompositeEstimator` whose children
+   match the field types.
+2. Use that composite as the repeated base estimator in a
+   `DirichletProcessMixtureEstimator`, or pass it as `estimator=` to
+   `dmx.utils.automatic.get_dpm_mixture`.
+3. Fit locally with `dmx.bstats.bestimation.optimize`, or let
+   `get_dpm_mixture` perform the variational fit and convert active components
+   to a finite `dmx.bstats.MixtureDistribution`.
+
+For intentional automatic structure inference, use
+`dmx.utils.automatic.get_estimator(data, use_bstats=True)`. This is a
+first-class `bstats` route for supported primitive and structural observations,
+not a substitute for explicit `dmx.stats` construction in a routine
+non-Bayesian task.
+
+Evidence anchors:
+
+- `tests/bstats/dpm_test.py`: DPM initialization, variational updates, local
+  optimization, and `get_dpm_mixture`
+- `tests/bstats/composite_test.py`: composite distributions inside finite
+  mixtures and DPM containers
+- `tests/bstats/structural_test.py` and
+  `tests/bstats/discrete_primitives_test.py`: automatic `bstats` routing
+
+These are local paths. Do not replace them with `get_dpm_mixture_mpi` or APIs
+under `dmx.mpi4py`; those belong to MPI-specific workflows.
+
 ## Latent Structure And Embeddings
 
 For 2D exploratory views of heterogeneous or mixture-like data:
@@ -216,8 +262,9 @@ For 2D exploratory views of heterogeneous or mixture-like data:
 
 Notes:
 - `prepare_mixture_model` is useful for local exploratory embedding workflows.
-- Avoid treating `dmx.utils.automatic.get_estimator` as the default router here.
-  It prefers `dmx.bstats`, which is outside the main scope of this skill.
+- Use `get_estimator(..., use_bstats=True)` when Bayesian automatic routing is
+  intended. Continue to prefer an explicit `dmx.stats` estimator for ordinary
+  non-Bayesian modeling.
 
 Examples:
 - `examples/htsne_example.py`
@@ -230,12 +277,18 @@ Examples:
 - Validation loop and held-out likelihood: `examples/detailed_estimation_example.py`
 - Ranking: `examples/stats_examples/spearman_rho_example.py`
 - Local embeddings: `examples/htsne_example.py`
+- Bayesian automatic routing: `tests/bstats/structural_test.py` and
+  `tests/bstats/discrete_primitives_test.py`
+- Local variational DPM and automatic conversion: `tests/bstats/dpm_test.py`
+- Composite distributions in mixtures and DPMs:
+  `tests/bstats/composite_test.py`
 
 ## Out Of Scope
 
 - `examples_spark/`
 - `examples_mpi4py/`
 - `src/dmx/stats/rdd_sampler.py`
+- `dmx.mpi4py.bstats`, `dmx.mpi4py.utils`, and `get_dpm_mixture_mpi`
 - Distributed or remote data loading
 
 Hand off those workflows to a separate distributed estimation skill.
