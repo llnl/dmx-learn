@@ -125,8 +125,8 @@ def example_function(param1: int, param2: str) -> bool:
     pass
 ```
 
-Existing modules are being migrated incrementally; follow the guide for all
-new or updated public APIs.
+Pydocstyle enforces this standard across all of `src/dmx` in CI and
+pre-commit. Follow the guide for all new or updated public APIs.
 
 ## Running Quality Checks
 
@@ -162,8 +162,8 @@ poetry run pylint src/dmx/utils/vector.py --jobs=1 --fail-under=10 --ignored-mod
 ### Docstring Checking
 
 ```bash
-# Check docstrings (manual only, not enforced in pre-commit yet)
-poetry run pydocstyle src/dmx/
+# Run the repository-wide check enforced by CI and pre-commit
+poetry run pydocstyle src/dmx
 ```
 
 ### Run All Checks
@@ -177,7 +177,7 @@ poetry run pylint src/dmx/stats/pdist.py --jobs=1 --fail-under=10
 poetry run pylint src/dmx/torch_stats/pdist.py --jobs=1 --fail-under=10
 poetry run pylint src/dmx/utils/optsutil.py --jobs=1 --fail-under=10
 poetry run pylint src/dmx/utils/vector.py --jobs=1 --fail-under=10 --ignored-modules=numpy,scipy,scipy.linalg,scipy.special
-poetry run pydocstyle src/dmx/
+poetry run pydocstyle src/dmx
 ```
 
 ## Testing
@@ -236,8 +236,7 @@ Pre-commit hooks run automatically before each commit to ensure code quality.
 - **Merge conflict check**
 - **Black formatting**
 - **isort import sorting**
-
-**Note:** Pydocstyle is configured but temporarily disabled until Phase 3 when docstrings are comprehensively improved.
+- **Pydocstyle checks for all of `src/dmx` using `pyproject.toml`**
 
 ### Skipping Hooks (Not Recommended)
 
@@ -274,6 +273,7 @@ poetry run pre-commit autoupdate
     poetry run pylint src/dmx/torch_stats/pdist.py --jobs=1 --fail-under=10
     poetry run pylint src/dmx/utils/optsutil.py --jobs=1 --fail-under=10
     poetry run pylint src/dmx/utils/vector.py --jobs=1 --fail-under=10 --ignored-modules=numpy,scipy,scipy.linalg,scipy.special
+    poetry run pydocstyle src/dmx
     poetry run pytest tests/
    ```
 
@@ -312,6 +312,7 @@ poetry run pre-commit autoupdate
 - Code must pass Black and isort checks
 - Mypy type checking should pass
 - The four CI-scoped pylint files must pass at `10.00/10`
+- Pydocstyle must pass for all of `src/dmx`
 - Documentation should be updated if needed
 
 ## Documentation
@@ -322,13 +323,12 @@ poetry run pre-commit autoupdate
 # Install docs dependencies
 poetry install --with docs
 
-# Build documentation
-cd docs/
-poetry run sphinx-build -b html . _build/html
+# Build documentation with warnings treated as errors
+poetry run sphinx-build -W -b html docs/ docs/_build/html
 
 # View documentation
-open _build/html/index.html  # macOS
-xdg-open _build/html/index.html  # Linux
+open docs/_build/html/index.html  # macOS
+xdg-open docs/_build/html/index.html  # Linux
 ```
 
 ### Documentation Style
