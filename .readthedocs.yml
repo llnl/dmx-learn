@@ -8,7 +8,6 @@ build:
     pre_install:
       - pip install poetry==2.3.3
     post_install:
-      - poetry config virtualenvs.create false --local
       - poetry install --no-interaction --with docs
 
 sphinx:
