@@ -29,7 +29,15 @@ from dmx.stats.pdist import (
 
 
 class CompositeDistribution(SequenceEncodableProbabilityDistribution):
-    """CompositeDistribution for modeling tuples of heterogeneous data.
+    """Model a tuple as independent draws from positional child distributions.
+
+    The support is the Cartesian product of the child supports and the density is
+    the product of the child densities. Consequently, the wrapper is normalized
+    when every child is normalized. Scoring, encoding, sampling, accumulation, and
+    estimation are all delegated position by position; children do not share state
+    unless their own estimators or the composite ``keys`` contract says otherwise.
+    At least one child is required, and every observation tuple must have the same
+    number and order of fields as ``dists``.
 
     Attributes:
         dists (Tuple[SequenceEncodableProbabilityDistribution, ...]): Distributions for
@@ -87,8 +95,7 @@ class CompositeDistribution(SequenceEncodableProbabilityDistribution):
         return rv
 
     def log_density(self, x: Tuple[Any, ...]) -> float:
-        """Evaluate log-density of CompositeDistribution for a single observation tuple
-        x.
+        """Evaluate the sum of child log densities for one observation tuple.
 
         Args:
             x (Tuple[Any, ...]): Tuple of length = len(dists), the k-th data type must
@@ -213,8 +220,10 @@ class CompositeSampler(DistributionSampler):
 
 
 class CompositeAccumulator(SequenceEncodableStatisticAccumulator):
-    """CompositeAccumulator for aggregating sufficient statistics of each component of
-    the CompositeDistribution.
+    """Aggregate a separate sufficient statistic for every tuple field.
+
+    Each observation weight is passed unchanged to every positional child. The
+    public sufficient statistic is a tuple in the same order as ``accumulators``.
 
     Attributes:
         accumulators (List[SequenceEncodableStatisticAccumulator]): List of accumulators
@@ -631,7 +640,13 @@ class CompositeEncodedDataSequence(EncodedDataSequence):
     """
 
     def __init__(self, data: Tuple[EncodedDataSequence, ...]):
+        """Store the positionally encoded child sequences.
+
+        Args:
+            data: One encoded sequence per tuple field, in child order.
+        """
         super().__init__(data)
 
     def __repr__(self) -> str:
+        """Return a representation containing the child encodings."""
         return f"CompositeEncodedDataSequence(data={self.data})"

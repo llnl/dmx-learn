@@ -160,6 +160,30 @@ jobs:
       - name: Run pydocstyle on core modules
         run: |
           poetry run pydocstyle src/dmx/stats/pdist.py \
+                               src/dmx/stats/composite.py \
+                               src/dmx/stats/conditional.py \
+                               src/dmx/stats/ignored.py \
+                               src/dmx/stats/null_dist.py \
+                               src/dmx/stats/optional.py \
+                               src/dmx/stats/select.py \
+                               src/dmx/stats/weighted.py \
+                               src/dmx/stats/binomial.py \
+                               src/dmx/stats/categorical.py \
+                               src/dmx/stats/catmultinomial.py \
+                               src/dmx/stats/dirichlet.py \
+                               src/dmx/stats/dmvn.py \
+                               src/dmx/stats/exponential.py \
+                               src/dmx/stats/gamma.py \
+                               src/dmx/stats/gaussian.py \
+                               src/dmx/stats/geometric.py \
+                               src/dmx/stats/int_spike.py \
+                               src/dmx/stats/intmultinomial.py \
+                               src/dmx/stats/intrange.py \
+                               src/dmx/stats/intsetdist.py \
+                               src/dmx/stats/log_gaussian.py \
+                               src/dmx/stats/mvn.py \
+                               src/dmx/stats/poisson.py \
+                               src/dmx/stats/vmf.py \
                                src/dmx/bstats \
                                src/dmx/torch_stats/pdist.py \
                                src/dmx/arithmetic.py \

@@ -1,8 +1,8 @@
-"""Create, estimate, and sample from an exponential distribution with scale beta.
+"""Exponential distributions, sampling, estimation, and sequence encoding.
 
-Defines the ExponentialDistribution, ExponentialSampler, ExponentialAccumulatorFactory,
-ExponentialAccumulator,
-ExponentialEstimator, and the ExponentialDataEncoder classes for use with dmx-learn.
+The distribution uses the scale parameterization with positive ``beta``.
+Scalar methods accept one real observation, while sequence methods consume the
+one-dimensional array produced by ``ExponentialDataEncoder``.
 """
 
 from typing import Any, Dict, List, Optional, Tuple, Union
@@ -22,7 +22,10 @@ from dmx.stats.pdist import (
 
 
 class ExponentialDistribution(SequenceEncodableProbabilityDistribution):
-    """Exponential distribution with scale parameter beta.
+    """Represent an exponential distribution with scale ``beta``.
+
+    The support is the nonnegative real line and the density is
+    ``exp(-x / beta) / beta``. Thus the rate is ``1 / beta``.
 
     Attributes:
         beta (float): Positive real number defining the scale of the exponential
@@ -38,10 +41,9 @@ class ExponentialDistribution(SequenceEncodableProbabilityDistribution):
         """Initialize ExponentialDistribution.
 
         Args:
-            beta (float): Positive real number defining the scale of the exponential
-                distribution.
-            name (Optional[str], optional): Name for the ExponentialDistribution object.
-            keys (Optional[str], optional): Key for parameters.
+            beta: Positive scale parameter.
+            name: Optional name for the distribution.
+            keys: Optional key for tying sufficient statistics.
         """
         super().__init__()
         self.beta = beta
@@ -60,10 +62,10 @@ class ExponentialDistribution(SequenceEncodableProbabilityDistribution):
         """Evaluate the density of the exponential distribution at x.
 
         Args:
-            x (float): Positive real-valued number.
+            x: Nonnegative scalar observation.
 
         Returns:
-            float: Density evaluated at x.
+            Probability density at ``x``, or zero below the support.
         """
         return float(np.exp(self.log_density(x)))
 
@@ -71,10 +73,10 @@ class ExponentialDistribution(SequenceEncodableProbabilityDistribution):
         """Evaluate the log-density of the exponential distribution at x.
 
         Args:
-            x (float): Positive real-valued number.
+            x: Nonnegative scalar observation.
 
         Returns:
-            float: Log-density evaluated at x.
+            Log-density at ``x``, or negative infinity below the support.
         """
         if x < 0:
             return -inf
@@ -84,10 +86,10 @@ class ExponentialDistribution(SequenceEncodableProbabilityDistribution):
         """Vectorized log-density for encoded data.
 
         Args:
-            x (ExponentialEncodedDataSequence): Encoded data sequence.
+            x: Encoded sequence containing ``N`` observations.
 
         Returns:
-            np.ndarray: Log-density values.
+            Array of shape ``(N,)`` containing one log-density per observation.
         """
         if not isinstance(x, ExponentialEncodedDataSequence):
             raise TypeError(
@@ -110,7 +112,10 @@ class ExponentialDistribution(SequenceEncodableProbabilityDistribution):
         return ExponentialSampler(dist=self, seed=seed)
 
     def estimator(self, pseudo_count: Optional[float] = None) -> "ExponentialEstimator":
-        """Return an ExponentialEstimator for this distribution.
+        """Create an estimator initialized from this distribution.
+
+        With ``pseudo_count``, the estimate of ``beta`` is shrunk toward this
+        distribution's scale.
 
         Args:
             pseudo_count (Optional[float], optional): Pseudo-count for regularization.
@@ -170,7 +175,11 @@ class ExponentialSampler(DistributionSampler):
 
 
 class ExponentialAccumulator(SequenceEncodableStatisticAccumulator):
-    """Accumulator for sufficient statistics of the exponential distribution.
+    """Accumulate weighted exponential sufficient statistics.
+
+    The sufficient-statistic tuple is ``(count, sum_x)``. Scalar updates ignore
+    negative observations; encoded sequence updates operate on encoder-validated
+    positive observations.
 
     Attributes:
         sum (float): Sum of observation values.
@@ -345,7 +354,11 @@ class ExponentialAccumulatorFactory(StatisticAccumulatorFactory):
 
 
 class ExponentialEstimator(ParameterEstimator):
-    """Estimator for the exponential distribution from aggregated sufficient statistics.
+    """Estimate an exponential scale from weighted sufficient statistics.
+
+    Without prior information, ``beta`` is the weighted sample mean. A
+    pseudo-count shrinks that mean toward ``suff_stat`` when supplied, or toward
+    one otherwise. Empty statistics produce scale one.
 
     Attributes:
         pseudo_count (Optional[float]): Used to weight sufficient statistics.
@@ -421,7 +434,12 @@ class ExponentialEstimator(ParameterEstimator):
 
 
 class ExponentialDataEncoder(DataSequenceEncoder):
-    """Encoder for sequences of iid exponential observations with data type float."""
+    """Encode positive exponential observations as a float array of shape ``(N,)``.
+
+    Although the distribution density is defined at zero, sequence encoding
+    follows the implementation's stricter requirement that every value be
+    positive.
+    """
 
     def __str__(self) -> str:
         """Return string representation of ExponentialDataEncoder."""
@@ -444,14 +462,13 @@ class ExponentialDataEncoder(DataSequenceEncoder):
         """Encode a sequence of exponential observations.
 
         Args:
-            x (Union[List[float], np.ndarray]): Sequence of iid exponential
-                observations.
+            x: One-dimensional sequence of ``N`` positive observations.
 
         Returns:
-            ExponentialEncodedDataSequence: Encoded data sequence.
+            Encoded sequence backed by a float array with shape ``(N,)``.
 
         Raises:
-            Exception: If any value in x is not positive or is NaN.
+            ValueError: If any value is nonpositive or NaN.
         """
         rv = np.asarray(x, dtype=float)
 
@@ -462,17 +479,17 @@ class ExponentialDataEncoder(DataSequenceEncoder):
 
 
 class ExponentialEncodedDataSequence(EncodedDataSequence):
-    """Encoded data sequence for vectorized function calls.
+    """Store exponential observations for vectorized operations.
 
     Attributes:
-        data (np.ndarray): Sequence of iid exponential observations.
+        data (np.ndarray): Float array with shape ``(N,)``.
     """
 
     def __init__(self, data: np.ndarray):
         """Initialize ExponentialEncodedDataSequence.
 
         Args:
-            data (np.ndarray): Sequence of iid exponential observations.
+            data: Float array with shape ``(N,)``.
         """
         super().__init__(data=data)
 

@@ -1,32 +1,9 @@
-""" "Create, estimate, and sample from a MultinomialDistribution.
+"""Multinomial count distributions over arbitrary category values.
 
-Defines the MultinomialDistribution, MultinomialSampler, MultinomialAccumulatorFactory,
-MultinomialAccumulator,
-MultinomialEstimator, and the MultinomialDataEncoder classes for use with dmx-learn.
-
-Let P_dist(V_k) be a distribution for a countable set of discrete observations of values
-V_k of type T. Denote
-
-    p_k = P_dist(V_k),
-
-as the probability of success for value V_k. Then sum_{k=0}^{inf} p_k = 1. Let x = (x_0,
-x_1,....,x_{n-1}) be a
-multinomial observation for a 'n' trials, where each x_i = (V_j, n_j) for some value V_j
-in the observation space and
-n_j is the associated number of success for the value. (note: sum n_j = n). Then,
-denoting p_j = p_mat(V_j), we have
-log-density:
-
-    log(p_mat(x)) = log(n!) - sum_{j=0}^{n-1} n_j * log(p_j) - log(n_j!) +
-    log(P_len(n)),
-
-where P_len(n) is a distribution for the number of trials in the multinomial having
-support on the non-negative
-integers.
-
-The multinomial is assumed to have data type: Sequence[Tuple[T, float]], where T is the
-data type of the 'categories'.
-
+An observation is a sparse sequence of ``(category, count)`` pairs. The category
+distribution supplies the mass of each category, and an optional length
+distribution models the sum of counts. Encoders flatten ``N`` sparse observations
+for vectorized category and length operations.
 """
 
 from __future__ import annotations
@@ -60,8 +37,12 @@ SS2 = TypeVar("SS2")  ## suff stat type for len_dist
 
 
 class MultinomialDistribution(SequenceEncodableProbabilityDistribution):
-    """Multinomial distribution over a countable support with optional distribution for
-    number of trials.
+    """Represent multinomial counts over a countable category support.
+
+    The scalar likelihood multiplies category masses raised to their counts and
+    the mass assigned to the total count. It intentionally omits the multinomial
+    combinatorial coefficient. With ``len_normalized``, category contributions
+    are divided by the total count.
 
     Args:
         dist (SequenceEncodableProbabilityDistribution): Distribution with at most a
@@ -92,7 +73,7 @@ class MultinomialDistribution(SequenceEncodableProbabilityDistribution):
         name: Optional[str] = None,
         keys: Optional[str] = None,
     ) -> None:
-        """Initializes a MultinomialDistribution object.
+        """Initialize category and total-count distributions.
 
         Args:
             dist (SequenceEncodableProbabilityDistribution): Distribution with at most a
@@ -266,7 +247,7 @@ class MultinomialSampler(DistributionSampler):
     def __init__(
         self, dist: MultinomialDistribution, seed: Optional[int] = None
     ) -> None:
-        """MultinomialSampler object.
+        """Initialize samplers for categories and total counts.
 
         Args:
             dist (MultinomialDistribution): An instance of a MultinomialDistribution
@@ -308,7 +289,9 @@ class MultinomialSampler(DistributionSampler):
 
 
 class MultinomialAccumulator(SequenceEncodableStatisticAccumulator):
-    """MultinomialAccumulator object.
+    """Accumulate category and total-count sufficient statistics.
+
+    The sufficient statistic is ``(category_statistic, length_statistic)``.
 
     Attributes:
         accumulator (SequenceEncodableStatisticAccumulator): Accumulator object for
@@ -339,7 +322,7 @@ class MultinomialAccumulator(SequenceEncodableStatisticAccumulator):
         name: Optional[str] = None,
         keys: Optional[str] = None,
     ) -> None:
-        """MultinomialAccumulator object.
+        """Initialize category and length accumulators.
 
         Args:
             accumulator (SequenceEncodableStatisticAccumulator): Accumulator object for
@@ -396,8 +379,7 @@ class MultinomialAccumulator(SequenceEncodableStatisticAccumulator):
             self.len_accumulator.update(ss, weight, estimate.len_dist)
 
     def _rng_initialize(self, rng: RandomState) -> None:
-        """Set RandomState member variables for initialize and seq_initialize
-        consistency.
+        """Set random states shared by scalar and sequence initialization.
 
         Args:
             rng (RandomState): RandomState object used to set member RandomState
@@ -466,8 +448,7 @@ class MultinomialAccumulator(SequenceEncodableStatisticAccumulator):
     def seq_initialize(
         self, x: "MultinomialEncodedDataSequence", weights: np.ndarray, rng: RandomState
     ) -> None:
-        """Initialize the accumulator with a sequence of encoded observations and random
-        state.
+        """Initialize from encoded observations and a random state.
 
         Args:
             x (MultinomialEncodedDataSequence): Encoded sequence of observations.
@@ -560,7 +541,7 @@ class MultinomialAccumulator(SequenceEncodableStatisticAccumulator):
 
 
 class MultinomialAccumulatorFactory(StatisticAccumulatorFactory):
-    """MultinomialAccumulatorFactory object for creating MultinomialAccumulator objects.
+    """Create multinomial accumulators.
 
     Attributes:
         est_factory (StatisticAccumulatorFactory): StatisticAccumulatorFactory for the
@@ -582,8 +563,7 @@ class MultinomialAccumulatorFactory(StatisticAccumulatorFactory):
         name: Optional[str] = None,
         keys: Optional[str] = None,
     ) -> None:
-        """MultinomialAccumulatorFactory object for creating MultinomialAccumulator
-        objects.
+        """Store category and length settings copied to each accumulator.
 
         Args:
             est_factory (StatisticAccumulatorFactory): StatisticAccumulatorFactory for
@@ -603,7 +583,7 @@ class MultinomialAccumulatorFactory(StatisticAccumulatorFactory):
         self.keys = keys
 
     def make(self) -> "MultinomialAccumulator":
-
+        """Create an empty multinomial accumulator."""
         return MultinomialAccumulator(
             accumulator=self.est_factory.make(),
             len_normalized=self.len_normalized,
@@ -614,8 +594,7 @@ class MultinomialAccumulatorFactory(StatisticAccumulatorFactory):
 
 
 class MultinomialEstimator(ParameterEstimator):
-    """MultinomialEstimator object for estimating MultinomialDistribution objects from
-    aggregated data.
+    """Estimate category and total-count distributions from statistics.
 
     Attributes:
         estimator (ParameterEstimator): ParameterEstimator for distribution of values.
@@ -642,7 +621,7 @@ class MultinomialEstimator(ParameterEstimator):
         name: Optional[str] = None,
         keys: Optional[str] = None,
     ) -> None:
-        """MultinomialEstimator object.
+        """Initialize category and length estimators.
 
         Args:
             estimator (ParameterEstimator): ParameterEstimator for distribution of
@@ -674,7 +653,7 @@ class MultinomialEstimator(ParameterEstimator):
         self.name = name
 
     def accumulator_factory(self) -> "MultinomialAccumulatorFactory":
-
+        """Create a compatible accumulator factory."""
         est_factory = self.estimator.accumulator_factory()
         len_factory = self.len_estimator.accumulator_factory()
         return MultinomialAccumulatorFactory(
@@ -688,8 +667,7 @@ class MultinomialEstimator(ParameterEstimator):
     def estimate(
         self, nobs: Optional[float], suff_stat: Tuple[SS1, Optional[SS2]]
     ) -> "MultinomialDistribution":
-        """Estimate a MultinomialDistribution object from aggregated data contained in
-        arg 'suff_stat'.
+        """Estimate a distribution from category and length statistics.
 
         Args:
             nobs (Optional[float]): Number of observations used in aggregation of
@@ -718,8 +696,7 @@ class MultinomialEstimator(ParameterEstimator):
 
 
 class MultinomialDataEncoder(DataSequenceEncoder):
-    """MultinomialDataEncoder object for encoding sequences of iid multinomial
-    observations.
+    """Encode sparse multinomial observations into flattened representations.
 
     Note: Arg encoders[0] must encoder data type T of multinomial, and encoders[1] must
         have support on the
@@ -736,7 +713,7 @@ class MultinomialDataEncoder(DataSequenceEncoder):
     def __init__(
         self, encoder: DataSequenceEncoder, len_encoder: DataSequenceEncoder
     ) -> None:
-        """MultinomialDataEncoder object.
+        """Initialize category and total-count encoders.
 
         Args:
             encoder (DataSequenceEncoder): DataSequenceEncoder corresponding to the
@@ -749,35 +726,29 @@ class MultinomialDataEncoder(DataSequenceEncoder):
         self.len_encoder = len_encoder
 
     def __eq__(self, other: object) -> bool:
+        """Return whether another encoder has the same length encoder."""
         if isinstance(other, MultinomialDataEncoder):
             return other.len_encoder == self.len_encoder
         return False
 
     def __str__(self) -> str:
+        """Return a representation containing the length encoder."""
         return "MultinomialDataEncoder(len_encoder=" + str(self.len_encoder) + ")"
 
     def seq_encode(
         self, x: Sequence[Sequence[Tuple[T, float]]]
     ) -> "MultinomialEncodedDataSequence":
-        """Encode a sequence of iid observations of multinomial distribution for use
-        with vectorized functions.
-
-        Returns a tuple of size 7 containing:
-            rv1 (ndarray[int]): Observation index of sequence values.
-            rv2 (ndarray[float]): Trial size for each observation.
-            rv3 (ndarray[float]): Non-zero trial size indices.
-            rv4 (EncodedDataSequence): Sequence encoded flattened list of values from x.
-            rv5 (Optional[EncodedDataSequence]): Sequence encoded flatted list of trial
-                sizes.
-            rv6 (np.ndarray[float]): Flattened array of counts for values.
-            rv7 (ndarray[float]): Flattened array of trial sizes.
+        """Encode ``N`` sparse multinomial observations.
 
         Args:
             x (Sequence[Sequence[Tuple[T, float]]]): Sequence of iid observations of
                 multinomial distributions.
 
         Returns:
-            MultinomialEncodedDataSequence: See above.
+            Encoded tuple ``(indices, inverse_totals, nonzero_totals,
+            encoded_categories, encoded_totals, counts, totals)``. ``indices``
+            and ``counts`` have shape ``(M,)`` for ``M`` category/count pairs;
+            the total-related arrays have shape ``(N,)``.
 
         """
         tx = []
@@ -816,7 +787,7 @@ class MultinomialDataEncoder(DataSequenceEncoder):
 
 
 class MultinomialEncodedDataSequence(EncodedDataSequence):
-    """MultinomialEncodedDataSequence object for MultinomialDistribution.
+    """Contain a flattened sequence of sparse multinomial observations.
 
     Data 'x' is a tuple of size 7 containing:
             x[0] (ndarray[int]): Observation index of sequence values.
@@ -847,14 +818,15 @@ class MultinomialEncodedDataSequence(EncodedDataSequence):
             np.ndarray,
         ],
     ):
-        """MultinomialEncodedDataSequence object.
+        """Store the seven-element flattened encoding.
 
         Args:
-            data (Tuple[np.ndarray, np.ndarray, np.ndarray, EncodedDataSequence,
-                Optional[EncodedDataSequence], np.ndarray, np.ndarray]): See above.
+            data: Encoded arrays and nested category and length sequences described
+                by the class.
 
         """
         super().__init__(data=data)
 
     def __repr__(self) -> str:
+        """Return a representation containing the encoded tuple."""
         return f"MultinomialEncodedDataSequence(data={self.data}"
