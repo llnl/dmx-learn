@@ -184,6 +184,7 @@ jobs:
                                src/dmx/stats/int_spike.py \
                                src/dmx/stats/int_edit_setdist.py \
                                src/dmx/stats/int_edit_stepsetdist.py \
+                               src/dmx/stats/int_markovchain.py \
                                src/dmx/stats/int_plsi.py \
                                src/dmx/stats/intmultinomial.py \
                                src/dmx/stats/intrange.py \
@@ -191,6 +192,7 @@ jobs:
                                src/dmx/stats/jmixture.py \
                                src/dmx/stats/lda.py \
                                src/dmx/stats/log_gaussian.py \
+                               src/dmx/stats/markovchain.py \
                                src/dmx/stats/mixture.py \
                                src/dmx/stats/mvn.py \
                                src/dmx/stats/poisson.py \
