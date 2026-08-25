@@ -218,10 +218,14 @@ jobs:
                                src/dmx/torch_stats/gamma.py \
                                src/dmx/torch_stats/gaussian.py \
                                src/dmx/torch_stats/geometric.py \
+                               src/dmx/torch_stats/heterogenous_mixture.py \
                                src/dmx/torch_stats/dmvn.py \
+                               src/dmx/torch_stats/int_plsi.py \
                                src/dmx/torch_stats/intmultinomial.py \
                                src/dmx/torch_stats/intrange.py \
                                src/dmx/torch_stats/intsetdist.py \
+                               src/dmx/torch_stats/jmixture.py \
+                               src/dmx/torch_stats/mixture.py \
                                src/dmx/torch_stats/mvn.py \
                                src/dmx/torch_stats/null_dist.py \
                                src/dmx/torch_stats/pdist.py \

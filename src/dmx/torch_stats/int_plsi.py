@@ -1,4 +1,13 @@
-"""Create, estimate, and sample from an integer PLSI model."""
+"""Provide torch-backed integer probabilistic latent semantic indexing models.
+
+An observation is a document identifier and sparse ``(term, count)`` pairs.
+Each token has a latent topic; document-topic and topic-term probabilities
+produce its marginal term probability. Encoded batches flatten ``M`` nonzero
+term entries from ``N`` documents, retaining document and observation indices.
+Model tensors move with ``to`` and use the vector-helper floating dtype,
+normally float64 and float32 on MPS; sufficient statistics and sampling are
+CPU NumPy based. This mirrors ``dmx.stats.int_plsi``.
+"""
 
 # pylint: disable=too-many-positional-arguments,duplicate-code
 
@@ -32,6 +41,7 @@ SS1 = TypeVar("SS1")  # type for value of length dist sufficient statistics.
 
 
 class IntegerPLSIDistribution(TorchProbabilityDistribution):
+    """Represent a document-topic-term model with an optional length child."""
 
     def __init__(
         self,
@@ -41,7 +51,7 @@ class IntegerPLSIDistribution(TorchProbabilityDistribution):
         len_dist: Optional[TorchProbabilityDistribution] = NullDistribution(),
         device: Optional[tn.device] = None,
     ) -> None:
-        """IntegerPLSIDistribution object defining an Integer PLSI distribution."""
+        """Initialize term-topic, document-topic, and document probabilities."""
         super().__init__(device)
         self.prob_mat = vec.tensor(state_word_mat, device=self._device)
         self.state_mat = vec.tensor(doc_state_mat, device=device)
@@ -54,6 +64,7 @@ class IntegerPLSIDistribution(TorchProbabilityDistribution):
         self.len_dist = len_dist if len_dist is not None else NullDistribution()
 
     def to(self, device: vec.DeviceLike) -> "IntegerPLSIDistribution":
+        """Move model and length-child tensors to ``device`` in place."""
         target_device = self._resolve_device_arg(device)
         self._device = target_device
         self.prob_mat = self.prob_mat.to(target_device)
@@ -64,7 +75,7 @@ class IntegerPLSIDistribution(TorchProbabilityDistribution):
         return self
 
     def __repr__(self) -> str:
-        """Return string representation of object instance."""
+        """Return a constructor-like representation using CPU parameters."""
         pmat = self.prob_mat.data.cpu().numpy()
         smat = self.state_mat.data.cpu().numpy()
 
@@ -86,12 +97,11 @@ class IntegerPLSIDistribution(TorchProbabilityDistribution):
         return f"IntegerPLSIDistribution([{s1}], [{s2}], [{s3}], len_dist={s4})"
 
     def density(self, x: Tuple[int, Sequence[Tuple[int, float]]]) -> float:
-        """Evaluate the density of PLSI model for an observation x."""
+        """Evaluate the marginal density of one sparse document observation."""
         return float(np.exp(self.log_density(x)))
 
     def log_density(self, x: Tuple[int, Sequence[Tuple[int, float]]]) -> float:
-        """Evaluate the log-density of PLSI model for an observation of x."""
-
+        """Marginalize latent topics for one sparse document observation."""
         d_id = x[0]
         xv = vec.int_tensor([u[0] for u in x[1]], device=self._device)
         xc = vec.tensor([u[1] for u in x[1]], device=self._device)
@@ -109,14 +119,14 @@ class IntegerPLSIDistribution(TorchProbabilityDistribution):
     def component_log_density(
         self, x: Tuple[int, Sequence[Tuple[int, float]]]
     ) -> tn.Tensor:
-        """Evaluate the log-density for each state in the PLSI."""
+        """Return per-topic token log densities with shape ``(K,)``."""
         xv = vec.int_tensor([u[0] for u in x[1]], device=self._device)
         xc = vec.tensor([u[1] for u in x[1]], device=self._device)
 
         return tn.matmul(tn.log(self.prob_mat[xv, :]).T, xc)
 
     def seq_log_density(self, x: "IntegerPLSITorchSequence") -> tn.Tensor:
-
+        """Return marginal document log densities with shape ``(N,)``."""
         if not isinstance(x, IntegerPLSITorchSequence):
             raise TypeError("IntegerPLSITorchSequence required for `seq_` calls")
 
@@ -141,13 +151,11 @@ class IntegerPLSIDistribution(TorchProbabilityDistribution):
         return rv
 
     def sampler(self, seed: Optional[int] = None) -> "IntegerPLSISampler":
-        """Return an IntegerPLSISampler object from IntegerPLSIDistribution instance."""
+        """Create a CPU sampler for documents, topics, terms, and lengths."""
         return IntegerPLSISampler(self, seed)
 
     def estimator(self, pseudo_count: Optional[float] = None) -> "IntegerPLSIEstimator":
-        """
-        Create an IntegerPLSIEstimator object from IntegerPLSIDistribution instance.
-        """
+        """Create an estimator with optional smoothing of all probability tables."""
         if pseudo_count is None:
             return IntegerPLSIEstimator(
                 num_vals=self.num_vals,
@@ -170,16 +178,17 @@ class IntegerPLSIDistribution(TorchProbabilityDistribution):
         )
 
     def dist_to_encoder(self) -> "IntegerPLSIDataEncoder":
-        """Returns IntegerPLSIDataEncoder object."""
+        """Create a sparse document encoder with the length child encoder."""
         return IntegerPLSIDataEncoder(len_encoder=self.len_dist.dist_to_encoder())
 
 
 class IntegerPLSISampler(DistributionSampler):
+    """Sample document identifiers, token topics, terms, and total lengths."""
 
     def __init__(
         self, dist: IntegerPLSIDistribution, seed: Optional[int] = None
     ) -> None:
-        """IntegerPLSISampler object for sampling from IntegerPLSIDistribution."""
+        """Initialize CPU NumPy copies of PLSI parameters and length sampler."""
         self.rng = np.random.RandomState(seed)
         self.doc_vec = dist.doc_vec.data.cpu().numpy()
         self.state_mat = dist.state_mat.data.cpu().numpy()
@@ -193,7 +202,7 @@ class IntegerPLSISampler(DistributionSampler):
         Tuple[int, Sequence[Tuple[int, float]]],
         Sequence[Tuple[int, Sequence[Tuple[int, float]]]],
     ]:
-        """Generate iid samples from PLSI model."""
+        """Draw one sparse document observation or ``size`` observations."""
         if size is None:
             d_id = self.rng.choice(self.num_docs, p=self.doc_vec)
             cnt = self.size_rng.sample()
@@ -218,6 +227,7 @@ class IntegerPLSISampler(DistributionSampler):
 
 
 class IntegerPLSIAccumulator(TorchStatisticAccumulator):
+    """Accumulate topic-term, document-topic, document, and length statistics."""
 
     def __init__(
         self,
@@ -232,10 +242,7 @@ class IntegerPLSIAccumulator(TorchStatisticAccumulator):
         ),
         device: vec.DeviceLike = None,
     ) -> None:
-        """
-        IntegerPLSIAccumulator object for aggregating sufficient statistics from
-        observed data.
-        """
+        """Initialize CPU count arrays for a fixed document/topic/term shape."""
         super().__init__(device)
         self.num_vals = num_vals
         self.num_states = num_states
@@ -252,6 +259,7 @@ class IntegerPLSIAccumulator(TorchStatisticAccumulator):
     def seq_initialize(
         self, x: "IntegerPLSITorchSequence", weights: tn.Tensor, tng: Generator
     ) -> None:
+        """Randomly allocate each flat term count across topics for initialization."""
         nn, (xv, xc, xd, xi, _, xm) = x.data
 
         # Equivalent to mixture-weights initialization, but sampled directly.
@@ -286,7 +294,7 @@ class IntegerPLSIAccumulator(TorchStatisticAccumulator):
         weights: tn.Tensor,
         estimate: IntegerPLSIDistribution,
     ) -> None:
-
+        """Update counts from posterior token-topic responsibilities."""
         nn, (xv, xc, xd, xi, _, xm) = x.data
 
         temp = xc * weights[xi]
@@ -317,7 +325,7 @@ class IntegerPLSIAccumulator(TorchStatisticAccumulator):
     def combine(
         self, suff_stat: Tuple[np.ndarray, np.ndarray, np.ndarray, Optional[SS1]]
     ) -> "IntegerPLSIAccumulator":
-        """Combine the sufficient statistics in arg 'suff_stat' with object instance."""
+        """Merge topic-term, document-topic, document, and length statistics."""
         self.word_count += suff_stat[0]
         self.comp_count += suff_stat[1]
         self.doc_count += suff_stat[2]
@@ -327,11 +335,13 @@ class IntegerPLSIAccumulator(TorchStatisticAccumulator):
         return self
 
     def value(self) -> Tuple[np.ndarray, np.ndarray, np.ndarray, Optional[Any]]:
+        """Return CPU statistics ``(topic_terms, doc_topics, docs, length)``."""
         return self.word_count, self.comp_count, self.doc_count, self.len_acc.value()
 
     def from_value(
         self, x: Tuple[np.ndarray, np.ndarray, np.ndarray, Optional[SS1]]
     ) -> "IntegerPLSIAccumulator":
+        """Replace all PLSI sufficient statistics from a tuple."""
         self.word_count = x[0]
         self.comp_count = x[1]
         self.doc_count = x[2]
@@ -340,7 +350,7 @@ class IntegerPLSIAccumulator(TorchStatisticAccumulator):
         return self
 
     def key_merge(self, stats_dict: Dict[str, Any]) -> None:
-        """Merge the sufficient statistics of object instance with matching keys."""
+        """Merge separately keyed topic-term, document-topic, and document counts."""
         if self.wc_key is not None:
             if self.wc_key in stats_dict:
                 stats_dict[self.wc_key] += self.word_count
@@ -362,9 +372,7 @@ class IntegerPLSIAccumulator(TorchStatisticAccumulator):
         self.len_acc.key_merge(stats_dict)
 
     def key_replace(self, stats_dict: Dict[str, Any]) -> None:
-        """
-        Set the sufficient statistics of object instance to matching key values in arg.
-        """
+        """Replace separately keyed statistics and recurse into the length child."""
         if self.wc_key is not None:
             if self.wc_key in stats_dict:
                 self.word_count = stats_dict[self.wc_key]
@@ -378,12 +386,13 @@ class IntegerPLSIAccumulator(TorchStatisticAccumulator):
         self.len_acc.key_replace(stats_dict)
 
     def acc_to_encoder(self) -> "IntegerPLSIDataEncoder":
-        """Return an IntegerPLSIDataEncoder object."""
+        """Create a sparse document encoder from the length accumulator."""
         len_encoder = self.len_acc.acc_to_encoder()
         return IntegerPLSIDataEncoder(len_encoder=len_encoder)
 
 
 class IntegerPLSIAccumulatorFactory(TorchStatisticAccumulatorFactory):
+    """Create PLSI accumulators with a fixed document/topic/term shape."""
 
     def __init__(
         self,
@@ -400,10 +409,7 @@ class IntegerPLSIAccumulatorFactory(TorchStatisticAccumulatorFactory):
         ),
         _device: Optional[tn.device] = None,
     ) -> None:
-        """
-        IntegerPLSIAccumulatorFactory object for creating IntegerPLSIAccumulator
-        objects.
-        """
+        """Initialize dimensions, length factory, and sufficient-statistic keys."""
         self.len_factory = (
             len_factory if len_factory is not None else NullAccumulatorFactory()
         )
@@ -413,7 +419,7 @@ class IntegerPLSIAccumulatorFactory(TorchStatisticAccumulatorFactory):
         self.num_docs = num_docs
 
     def make(self, device: Optional[tn.device] = None) -> "IntegerPLSIAccumulator":
-        """Returns IntegerPLSIAccumulator object."""
+        """Create a PLSI accumulator and length child associated with ``device``."""
         return IntegerPLSIAccumulator(
             self.num_vals,
             self.num_states,
@@ -425,6 +431,7 @@ class IntegerPLSIAccumulatorFactory(TorchStatisticAccumulatorFactory):
 
 
 class IntegerPLSIEstimator(TorchParameterEstimator):
+    """Estimate term-topic, document-topic, and document distributions."""
 
     def __init__(
         self,
@@ -444,9 +451,7 @@ class IntegerPLSIEstimator(TorchParameterEstimator):
             None,
         ),
     ) -> None:
-        """
-        IntegerPLSIEstimator for estimating integer PLSI distributions from aggregated.
-        """
+        """Initialize dimensions, priors, smoothing, keys, and length estimator."""
         self.suff_stat = suff_stat if suff_stat is not None else (None, None, None)
         self.pseudo_count = (
             pseudo_count if pseudo_count is not None else (None, None, None)
@@ -460,7 +465,7 @@ class IntegerPLSIEstimator(TorchParameterEstimator):
         self.keys = keys if keys is not None else (None, None, None)
 
     def accumulator_factory(self) -> "IntegerPLSIAccumulatorFactory":
-        """Returns IntegerPLSIAccumulatorFactory object."""
+        """Create an accumulator factory retaining dimensions and keys."""
         len_est = self.len_estimator.accumulator_factory()
         return IntegerPLSIAccumulatorFactory(
             self.num_vals, self.num_states, self.num_docs, len_est, self.keys
@@ -472,9 +477,7 @@ class IntegerPLSIEstimator(TorchParameterEstimator):
         suff_stat: Tuple[np.ndarray, np.ndarray, np.ndarray, Optional[SS1]],
         device: Optional[tn.device] = None,
     ) -> "IntegerPLSIDistribution":
-        """
-        Estimate IntegerPLSIDistribution from aggregated sufficient statistics in arg.
-        """
+        """Normalize aggregated counts into PLSI probabilities on ``device``."""
         word_count, comp_count, doc_count, len_suff_stats = suff_stat
 
         if self.pseudo_count[0] is not None and self.suff_stat[0] is not None:
@@ -536,24 +539,22 @@ class IntegerPLSIEstimator(TorchParameterEstimator):
 
 
 class IntegerPLSIDataEncoder(TorchSequenceEncoder):
+    """Flatten sparse document term counts and encode document lengths."""
 
     def __init__(
         self,
         len_encoder: Optional[TorchSequenceEncoder] = NullDataEncoder(),
         _device: Optional[str] = None,
     ) -> None:
-        """
-        IntegerPLSIDataEncoder object for encoding sequences of iid observations from a
-        PLSI.
-        """
+        """Initialize the optional sequence-length encoder."""
         self.len_encoder = len_encoder if len_encoder is not None else NullDataEncoder()
 
     def __str__(self) -> str:
-        """Returns a string representation of object instance."""
+        """Return a representation of the length encoder."""
         return f"IntegerPLSIDataEncoder(len_dist={self.len_encoder!r})"
 
     def __eq__(self, other: object) -> bool:
-        """Check if object is equivalent to instance of IntegerPLSIDataEncoder."""
+        """Return whether another encoder has the same length encoder."""
         if isinstance(other, IntegerPLSIDataEncoder):
             return other.len_encoder == self.len_encoder
         return False
@@ -563,8 +564,13 @@ class IntegerPLSIDataEncoder(TorchSequenceEncoder):
         x: Sequence[Tuple[int, Sequence[Tuple[int, float]]]],
         device: Optional[tn.device] = None,
     ) -> "IntegerPLSITorchSequence":
-        """
-        Encode a sequence of iid PLSI observations for use with vectorized functions.
+        """Encode ``N`` sparse documents with ``M`` total nonzero entries.
+
+        The flat tensors are ``(terms, counts, document_ids, observation_ids,
+        lengths, document_ids_per_observation)``. Terms, document IDs, and
+        observation IDs are integer tensors of shape ``(M,)``; counts also have
+        shape ``(M,)``. Lengths and document IDs per observation have shape
+        ``(N,)``. All tensors and the length encoding are created on ``device``.
         """
         xv: List[int] = []
         xc: List[float] = []
@@ -604,6 +610,8 @@ class IntegerPLSIDataEncoder(TorchSequenceEncoder):
 
 
 class IntegerPLSITorchSequence(TorchEncodedSequence):
+    """Store a length encoding and flattened sparse document-count tensors."""
+
     data: Tuple[
         TorchEncodedSequence,
         Tuple[tn.Tensor, tn.Tensor, tn.Tensor, tn.Tensor, tn.Tensor, tn.Tensor],
@@ -617,7 +625,9 @@ class IntegerPLSITorchSequence(TorchEncodedSequence):
         ],
         device: Optional[tn.device] = None,
     ) -> None:
+        """Initialize the sparse document encoding and associated device."""
         super().__init__(data=data, device=device)
 
     def __str__(self) -> str:
+        """Return a representation containing the encoded device."""
         return f"IntegerPLSITorchSequence(device={repr(self.device)})"
