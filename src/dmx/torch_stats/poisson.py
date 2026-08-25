@@ -16,6 +16,13 @@ else.
 
 """
 
+"""Torch-backed Poisson distributions, estimation, and sequence encoding.
+
+The rate ``lam`` and ``(count, sum)`` sufficient-statistic terms match
+``dmx.stats.poisson``. Vectorized likelihoods use torch tensors, while scalar
+methods and samplers retain their Python/NumPy behavior.
+"""
+
 # pylint: disable=too-many-positional-arguments,duplicate-code
 
 from math import log
@@ -39,6 +46,11 @@ from dmx.utils.vector import gammaln
 
 
 class PoissonDistribution(TorchProbabilityDistribution):
+    """Represent a Poisson distribution with rate ``lam``.
+
+    ``to`` only records the preferred device because ``lam`` is a Python float.
+    """
+
     """PoissonDistribution object defining Poisson distribution with mean lam > 0.0.
 
     Attributes:
@@ -304,6 +316,13 @@ class PoissonEstimator(TorchParameterEstimator):
 
 
 class PoissonDataEncoder(TorchSequenceEncoder):
+    """Encode nonnegative counts as a torch integer tensor of shape ``(n,)``.
+
+    The output follows ``vec.int_tensor`` dtype rules and is placed on the
+    requested CPU, CUDA, or MPS device. This is the material difference from
+    the NumPy-backed encoder in ``stats``.
+    """
+
     """Encode sequences of iid Poisson observations with data type int."""
 
     def __str__(self) -> str:
@@ -325,6 +344,8 @@ class PoissonDataEncoder(TorchSequenceEncoder):
 
 
 class PoissonTorchSequence(TorchEncodedSequence):
+    """Store integer Poisson encoded data and its requested device."""
+
     data: Tuple[tn.Tensor, tn.Tensor]
 
     def __init__(

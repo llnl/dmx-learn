@@ -1,10 +1,13 @@
-"""Create, estimate, and sample from the binomial distribution.
+"""Create, estimate, and sample torch-backed binomial distributions.
 
 Defines the BinomialDistribution, BinomialSampler,
 BinomialAccumulatorFactory, BinomialAccumulator, BinomialEstimator, and the
 BinomialDataEncoder classes for use with pysparkplug.
 
-Data type: int.
+Data type: int. Terminology and support match ``dmx.stats.binomial``. Scalar
+methods and sampling use Python/NumPy values; encoded data are torch integer
+tensors, and vectorized likelihoods retain the encoded tensors' device and
+floating calculation dtype.
 
 """
 
@@ -31,7 +34,7 @@ E = Tuple[tn.Tensor, tn.Tensor, tn.Tensor, int, int]
 
 
 class BinomialDistribution(TorchProbabilityDistribution):
-    """BinomialDistribution object used for x~Binomial(n,p).
+    """Represent a binomial distribution with trial count ``n`` and probability ``p``.
 
     Notes:
         Supports data types of int between (0, n-1) or (min_val,
@@ -511,7 +514,12 @@ class BinomialEstimator(TorchParameterEstimator):
 
 
 class BinomialDataEncoder(TorchSequenceEncoder):
-    """BinomialDataEncoder object used to encode Sequence[int] or ndarray[int]."""
+    """Encode count sequences for torch vectorized likelihood calculations.
+
+    The raw count tensor has shape ``(n,)`` and uses ``vec.int_tensor`` dtype
+    and device semantics. Unique values and inverse indices form the encoded
+    representation; the torch container is the difference from ``stats``.
+    """
 
     def __str__(self) -> str:
         """Creates string name of BinomialDataEncoder.
@@ -566,6 +574,8 @@ class BinomialDataEncoder(TorchSequenceEncoder):
 
 
 class BinomialTorchEncodedSequence(TorchEncodedSequence):
+    """Store unique counts, inverse indices, raw counts, and their range."""
+
     data: Tuple[tn.Tensor, tn.Tensor, tn.Tensor, int, int]
 
     def __init__(

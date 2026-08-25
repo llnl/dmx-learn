@@ -11,6 +11,13 @@ theta > 0.0 has log-density
 
 """
 
+"""Torch-backed gamma distributions, estimation, and sequence encoding.
+
+This mirrors ``dmx.stats.gamma`` parameterization and sufficient-statistic
+terminology. Scalar APIs use Python and NumPy values; encoded sequence APIs
+operate on torch tensors placed by the encoder.
+"""
+
 # pylint: disable=too-many-positional-arguments,duplicate-code
 
 import builtins
@@ -35,6 +42,12 @@ from dmx.utils.special import digamma, gammaln, trigamma
 
 
 class GammaDistribution(TorchProbabilityDistribution):
+    """Represent a gamma distribution with the stats module's parameters.
+
+    ``to`` records the preferred torch device. Parameters are Python floats,
+    so movement affects future tensor calculations rather than stored values.
+    """
+
     """GammaDistribution for shape k and scale theta.
 
     Attributes:
@@ -388,6 +401,13 @@ class GammaEstimator(TorchParameterEstimator):
 
 
 class GammaDataEncoder(TorchSequenceEncoder):
+    """Encode positive gamma observations as a floating tensor of shape ``(n,)``.
+
+    The encoder preserves ``vec.tensor`` dtype behavior and places data on the
+    requested CPU, CUDA, or MPS device. It differs from ``stats`` only by
+    returning a torch encoded-sequence container.
+    """
+
     """Encode sequences of iid Gamma observations with data type float."""
 
     def __str__(self) -> str:
@@ -422,6 +442,8 @@ class GammaDataEncoder(TorchSequenceEncoder):
 
 
 class GammaTorchEncodedSequence(TorchEncodedSequence):
+    """Store gamma encoded tensor data and its requested device."""
+
     data: Tuple[tn.Tensor, tn.Tensor]
 
     def __init__(
