@@ -846,29 +846,14 @@ class IntegerMarkovChainDataEncoder(DataSequenceEncoder):
     def seq_encode(
         self, x: List[Sequence[int]]
     ) -> "IntegerMarkovChainEncodedDataSequence":
-        """Encode sequence of iid observations from integer Markov chain.
-
-        Returns a Tuple of length 7 containing:
-            seq_len (ndarray[int]): Lengths of chains - lag. If less than lag length is
-                0.
-            init_idx (ndarray[int]): Observed sequence index of chains with lengths >=
-                lag.
-            seq_idx (ndarray[int]): Observed sequence index of chains with transitions.
-            u_seq_idx (ndarray[object]): Numpy array of tuples containing the unique
-                transitions.
-            u_seq_values (ndarray[object]): Numpy array of tuples containing the
-                transitions.
-            init_enc (Optional[E]): Sequence encoding of initial values (has type E).
-            len_enc (Optional[E2]): Sequence encoding of length values (has type E2).
+        """Encode independent observations from an integer Markov chain.
 
         Args:
-            x (List[Sequence[int]]): Sequence of iid observations from integer markov
-                chain distribution.
+            x: Integer-valued Markov-chain observations.
 
         Returns:
-            See above for details.
-
-
+            Encoded sequence lengths, observation indexes, unique transitions,
+            transition indexes, initial values, and sequence lengths.
         """
         lag = self.lag
 

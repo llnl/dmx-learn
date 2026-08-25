@@ -200,12 +200,12 @@ class DiagonalGaussianAccumulator(TorchStatisticAccumulator):
     """Aggregate sufficient statistics from iid observations.
 
     Attributes:
-         dim (Optional[int]): Optional dimension of Gaussian.
-         count (float): Used for tracking weighted observations counts.
-         sum (np.ndarray): Sum of observation vectors.
-         sum2 (np.ndarray): Sum of squared observation vectors.
-          key (Optional[str]): If set, merge sufficient statistics with
-              objects containing matching keys.
+        dim (Optional[int]): Optional dimension of Gaussian.
+        count (float): Used for tracking weighted observations counts.
+        sum (np.ndarray): Sum of observation vectors.
+        sum2 (np.ndarray): Sum of squared observation vectors.
+        key (Optional[str]): If set, merge sufficient statistics with
+            objects containing matching keys.
 
     """
 

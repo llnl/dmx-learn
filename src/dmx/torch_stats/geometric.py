@@ -1,15 +1,3 @@
-"""Create, estimate, and sample from a geometric distribution.
-
-Defines the GeometricDistribution, GeometricSampler,
-GeometricAccumulatorFactory, GeometricAccumulator, GeometricEstimator, and the
-GeometricDataEncoder classes for use with pysparkplug.
-
-Data type (int): The geometric distribution with probability of success p, has density
-
-    P(x=k) = (k-1)*log(1-p) + log(p), for k = 1,2,...
-
-"""
-
 """Torch-backed geometric distributions, estimation, and sequence encoding.
 
 The support and success-probability terminology match ``dmx.stats.geometric``.
@@ -45,21 +33,8 @@ class GeometricDistribution(TorchProbabilityDistribution):
     stores its probability as a Python float.
     """
 
-    """GeometricDistribution object with probability of success p.
-
-    Notes:
-        Mean: 1/p, Variance: (1-p)/p^2.
-
-    Attributes:
-        p (float): Probability of success, must between (0,1).
-        log_p (float): Log of probability of success p.
-        log_1p (float): Log of 1-p (prob of failure).
-        _device (device): Device for tensors.
-
-    """
-
     def __init__(self, p: float, device: Optional[tn.device] = None) -> None:
-        """GeometricDistribution object.
+        """Initialize the geometric distribution.
 
         Args:
             p (float): Must between (0,1).
@@ -72,9 +47,11 @@ class GeometricDistribution(TorchProbabilityDistribution):
         self.log_1p = float(np.log1p(-p))
 
     def __repr__(self) -> str:
+        """Return an evaluable representation."""
         return f"GeometricDistribution(p={repr(self.p)})"
 
     def to(self, device: vec.DeviceLike) -> "GeometricDistribution":
+        """Select the device used for subsequent tensor calculations."""
         self._device = self._resolve_device_arg(device)
         return self
 
@@ -82,7 +59,6 @@ class GeometricDistribution(TorchProbabilityDistribution):
         """Density of geometric distribution evaluated at x.
 
         Notes:
-
             P(x=k) = (k-1)*log(1-p) + log(p), for x = 1,2,..., else 0.0.
 
         Args:
@@ -111,7 +87,7 @@ class GeometricDistribution(TorchProbabilityDistribution):
         return float((x - 1) * self.log_1p + self.log_p)
 
     def seq_log_density(self, x: "GeometricTorchEncodedSequence") -> tn.Tensor:
-
+        """Evaluate log densities for an encoded sequence."""
         if not isinstance(x, GeometricTorchEncodedSequence):
             raise TypeError(
                 "Requires GeometricTorchEncodedSequence for `seq_` function calls."
@@ -124,15 +100,18 @@ class GeometricDistribution(TorchProbabilityDistribution):
         return rv
 
     def sampler(self, seed: Optional[int] = None) -> "GeometricSampler":
+        """Create a NumPy-backed sampler, optionally seeded."""
         return GeometricSampler(self, seed)
 
     def estimator(self, pseudo_count: Optional[float] = None) -> "GeometricEstimator":
+        """Create an estimator, optionally regularized toward this model."""
         if pseudo_count is None:
             return GeometricEstimator()
 
         return GeometricEstimator(pseudo_count=pseudo_count, suff_stat=self.p)
 
     def dist_to_encoder(self) -> "GeometricDataEncoder":
+        """Return the encoder for geometric observations."""
         return GeometricDataEncoder()
 
 
@@ -146,7 +125,7 @@ class GeometricSampler(DistributionSampler):
     """
 
     def __init__(self, dist: GeometricDistribution, seed: Optional[int] = None) -> None:
-        """GeometricSampler object.
+        """Initialize a sampler for ``dist``.
 
         Args:
             dist (GeometricDistribution): GeometricDistribution to sample from.
@@ -186,7 +165,7 @@ class GeometricAccumulator(TorchStatisticAccumulator):
     """
 
     def __init__(self, keys: Optional[str] = None, device: Optional[tn.device] = None):
-        """GeometricAccumulator object.
+        """Initialize an accumulator with an optional aggregation key.
 
         Args:
             keys (Optional[str]): GeometricAccumulator objects with same key
@@ -205,6 +184,7 @@ class GeometricAccumulator(TorchStatisticAccumulator):
         weights: tn.Tensor,
         estimate: Optional["GeometricDistribution"],
     ) -> None:
+        """Accumulate encoded observations with their weights."""
         self.sum += float(tn.dot(x.data, weights))
         self.count += float(tn.sum(weights))
 
@@ -214,26 +194,30 @@ class GeometricAccumulator(TorchStatisticAccumulator):
         weights: tn.Tensor,
         tng: Optional[tn.Generator],
     ) -> None:
+        """Initialize statistics from encoded observations and weights."""
         del tng
         self.seq_update(x, weights, None)
 
     def combine(self, suff_stat: Tuple[float, float]) -> "GeometricAccumulator":
+        """Merge a ``(count, sum)`` sufficient statistic."""
         self.sum += suff_stat[1]
         self.count += suff_stat[0]
 
         return self
 
     def value(self) -> Tuple[float, float]:
+        """Return the ``(count, sum)`` sufficient statistic."""
         return self.count, self.sum
 
     def from_value(self, x: Tuple[float, float]) -> "GeometricAccumulator":
+        """Replace state from a ``(count, sum)`` sufficient statistic."""
         self.count = x[0]
         self.sum = x[1]
 
         return self
 
     def key_merge(self, stats_dict: Dict[str, Any]) -> None:
-
+        """Merge this accumulator's keyed statistic into ``stats_dict``."""
         if self.key is not None:
             if self.key in stats_dict:
                 x0, x1 = stats_dict[self.key]
@@ -244,20 +228,25 @@ class GeometricAccumulator(TorchStatisticAccumulator):
                 stats_dict[self.key] = (self.count, self.sum)
 
     def key_replace(self, stats_dict: Dict[str, Any]) -> None:
-
+        """Replace state from its keyed statistic, when present."""
         if self.key is not None:
             if self.key in stats_dict:
                 self.count, self.sum = stats_dict[self.key]
 
     def acc_to_encoder(self) -> "GeometricDataEncoder":
+        """Return the compatible geometric encoder."""
         return GeometricDataEncoder()
 
 
 class GeometricAccumulatorFactory(TorchStatisticAccumulatorFactory):
+    """Create geometric accumulators with a shared optional key."""
+
     def __init__(self, keys: Optional[str] = None) -> None:
+        """Initialize the factory."""
         self.keys = keys
 
     def make(self, device: Optional[tn.device] = None) -> "GeometricAccumulator":
+        """Create an accumulator associated with ``device``."""
         return GeometricAccumulator(device=device, keys=self.keys)
 
 
@@ -278,7 +267,7 @@ class GeometricEstimator(TorchParameterEstimator):
         suff_stat: Optional[float] = None,
         keys: Optional[str] = None,
     ) -> None:
-        """GeometricEstimator object.
+        """Initialize geometric estimation settings.
 
         Args:
             pseudo_count (Optional[float]): Float value for re-weighting
@@ -296,6 +285,7 @@ class GeometricEstimator(TorchParameterEstimator):
         self.keys = keys
 
     def accumulator_factory(self) -> "GeometricAccumulatorFactory":
+        """Return a factory for compatible accumulators."""
         return GeometricAccumulatorFactory(keys=self.keys)
 
     def estimate(
@@ -304,6 +294,7 @@ class GeometricEstimator(TorchParameterEstimator):
         suff_stat: Tuple[float, float],
         device: Optional[tn.device] = None,
     ) -> "GeometricDistribution":
+        """Estimate a geometric model from ``(count, sum)`` statistics."""
         if self.pseudo_count is not None and self.suff_stat is not None:
             p = (suff_stat[0] + self.pseudo_count * self.suff_stat) / (
                 suff_stat[1] + self.pseudo_count
@@ -324,17 +315,18 @@ class GeometricDataEncoder(TorchSequenceEncoder):
     counterpart of the ``stats`` encoded sequence.
     """
 
-    """Encode sequences of iid geometric observations with data type int."""
-
     def __str__(self) -> str:
+        """Return the encoder name."""
         return "GeometricDataEncoder"
 
     def __eq__(self, other: object) -> bool:
+        """Return whether ``other`` is a geometric encoder."""
         return isinstance(other, GeometricDataEncoder)
 
     def seq_encode(
         self, x: Union[Sequence[int], np.ndarray], device: Optional[tn.device] = None
     ) -> "GeometricTorchEncodedSequence":
+        """Validate and encode positive integer observations on ``device``."""
         rv = vec.tensor(x, device=device)
         if tn.any(rv < 1) or tn.any(tn.isnan(rv)):
             raise ValueError(
@@ -350,7 +342,9 @@ class GeometricTorchEncodedSequence(TorchEncodedSequence):
     data: tn.Tensor
 
     def __init__(self, data: tn.Tensor, device: Optional[tn.device] = None) -> None:
+        """Initialize from tensor data and an optional target device."""
         super().__init__(data=data, device=device)
 
     def __str__(self) -> str:
+        """Return a representation including the stored device."""
         return f"GeometricTorchEncodedSequence(device={repr(self.device)})"

@@ -228,13 +228,9 @@ smallest relevant target while iterating::
 The repository configuration selects the Google convention, ignores module
 rule ``D100``, and excludes ``__init__.py`` files.  Consequently, manually
 review module and package overview docstrings even when pydocstyle reports no
-violations.  Run the current CI-scoped check with::
+violations.  Run the repository-wide check used by CI and pre-commit with::
 
-    poetry run pydocstyle src/dmx/stats/pdist.py \
-        src/dmx/bstats \
-        src/dmx/torch_stats/pdist.py \
-        src/dmx/utils/optsutil.py \
-        src/dmx/utils/vector.py
+    poetry run pydocstyle src/dmx
 
 Build all documentation with warnings treated as errors to validate Napoleon,
 cross-references, and MathJax markup::

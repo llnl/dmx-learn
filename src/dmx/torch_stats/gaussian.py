@@ -93,12 +93,10 @@ class GaussianDistribution(TorchProbabilityDistribution):
 
     def sampler(self, seed: Optional[int] = None) -> "GaussianSampler":
         """Create a NumPy-backed sampler, optionally seeded."""
-
         return GaussianSampler(self, seed)
 
     def estimator(self, pseudo_count: Optional[float] = None) -> "GaussianEstimator":
         """Create an estimator, optionally regularized toward this distribution."""
-
         if pseudo_count is not None:
             suff_stat = (self.mu, self.sigma2)
             return GaussianEstimator(
@@ -162,7 +160,6 @@ class GaussianAccumulator(TorchStatisticAccumulator):
         sum2 (float): Sum of weighted squared observations (sum_i w_i*X_i^2)
         count (float): Sum of weights for observations (sum_i w_i).
         count2 (float): Sum of weights for squared observations (sum_i w_i).
-        count (float): Tracks the sum of weighted observations used to form sum.
         key (Optional[str]): Key string used to aggregate all sufficient
             statistics with same keys values.
 
@@ -171,7 +168,7 @@ class GaussianAccumulator(TorchStatisticAccumulator):
     def __init__(
         self, keys: Optional[str] = None, device: Optional[tn.device] = None
     ) -> None:
-        """GaussianAccumulator object.
+        """Initialize the Gaussian sufficient-statistic accumulator.
 
         Args:
             keys (Optional[str]): Set key for GaussianAccumulator object.
@@ -304,7 +301,6 @@ class GaussianEstimator(TorchParameterEstimator):
         device: Optional[tn.device] = None,
     ) -> "GaussianDistribution":
         """Estimate Gaussian parameters from the supplied sufficient statistic."""
-
         nobs_loc1 = suff_stat[2]
         nobs_loc2 = suff_stat[3]
 

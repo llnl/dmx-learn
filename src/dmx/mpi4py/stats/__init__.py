@@ -1,18 +1,17 @@
-"""
-MPI-based sequence encoding and estimation utilities.
+"""Collective MPI primitives for :mod:`dmx.stats` models.
 
-This module provides functions for distributed sequence encoding, parameter
-initialization, estimation, and log density computation using MPI. It is
-designed to work with sequence-encodable probability distributions and
-related estimators/encoders from the dmx.stats.pdist module.
+The public ``*_mpi`` functions parallelize sequence encoding, initialization,
+estimation, and log-density evaluation for the NumPy/SciPy model protocols in
+:mod:`dmx.stats.pdist`. They extend the local package-level operations in
+:mod:`dmx.stats`; higher-level MPI optimization loops live in
+:mod:`dmx.mpi4py.utils.estimation`.
 
-Functions:
-    seq_encode_mpi: Distributes and encodes sequence data across MPI workers.
-    seq_initialize_mpi: Initializes model parameters in parallel.
-    seq_estimate_mpi: Estimates model parameters in parallel.
-    seq_log_density_mpi: Computes log densities of encoded data in parallel.
-    seq_log_density_sum_mpi: Computes sum of log densities and total
-        observations in parallel.
+Every rank in ``MPI.COMM_WORLD`` must participate in the collectives in the
+same order. Raw observations, encoders, and models are generally supplied on
+rank 0, while encoded chunks are rank-local and fitted models are generally
+returned only on rank 0. Importing this package requires the optional
+``mpi4py`` dependency. The functions do not accept the distinct
+:mod:`dmx.bstats` or :mod:`dmx.torch_stats` protocols.
 """
 
 __all__ = [

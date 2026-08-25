@@ -1,21 +1,3 @@
-"""Create, estimate, and sample from a Poisson distribution with rate lam > 0.0.
-
-Defines the PoissonDistribution, PoissonSampler,
-PoissonAccumulatorFactory, PoissonAccumulator, PoissonEstimator, and the
-PoissonDataEncoder classes for use with pysparkplug.
-
-Data type (int): The Poisson distribution with rate lam, has log-density
-
-    log(p_mat(x_mat=x; lam) = -x*log(lam) - log(x!) - lam,
-
-for x in {0,1,2,...}, and
-
-    log(p_mat(x_mat=x)) = -np.inf,
-
-else.
-
-"""
-
 """Torch-backed Poisson distributions, estimation, and sequence encoding.
 
 The rate ``lam`` and ``(count, sum)`` sufficient-statistic terms match
@@ -51,16 +33,8 @@ class PoissonDistribution(TorchProbabilityDistribution):
     ``to`` only records the preferred device because ``lam`` is a Python float.
     """
 
-    """PoissonDistribution object defining Poisson distribution with mean lam > 0.0.
-
-    Attributes:
-        lam (float): Mean of Poisson distribution.
-        log_lam (float): Log of attribute lam.
-
-    """
-
     def __init__(self, lam: float, device: Optional[tn.device] = None) -> None:
-        """PoissonDistribution object.
+        """Initialize the Poisson distribution.
 
         Args:
             lam (float): Positive real-valued number.
@@ -72,10 +46,12 @@ class PoissonDistribution(TorchProbabilityDistribution):
         self.log_lam = log(lam)
 
     def to(self, device: vec.DeviceLike) -> "PoissonDistribution":
+        """Select the device used for subsequent tensor calculations."""
         self._device = self._resolve_device_arg(device)
         return self
 
     def __repr__(self) -> str:
+        """Return an evaluable representation."""
         return f"PoissonDistribution({repr(self.lam)})"
 
     def density(self, x: int) -> float:
@@ -106,6 +82,7 @@ class PoissonDistribution(TorchProbabilityDistribution):
         return x * self.log_lam - gammaln(x + 1.0) - self.lam
 
     def seq_log_density(self, x: "PoissonTorchSequence") -> tn.Tensor:
+        """Evaluate log densities for an encoded sequence."""
         if not isinstance(x, PoissonTorchSequence):
             raise TypeError("Requires PoissonTorchSequence for `seq_` function calls.")
 
@@ -116,15 +93,18 @@ class PoissonDistribution(TorchProbabilityDistribution):
         return rv
 
     def sampler(self, seed: Optional[int] = None) -> "PoissonSampler":
+        """Create a NumPy-backed sampler, optionally seeded."""
         return PoissonSampler(self, seed)
 
     def estimator(self, pseudo_count: Optional[float] = None) -> "PoissonEstimator":
+        """Create an estimator, optionally regularized toward this rate."""
         if pseudo_count is None:
             return PoissonEstimator()
 
         return PoissonEstimator(pseudo_count=pseudo_count, suff_stat=self.lam)
 
     def dist_to_encoder(self) -> "PoissonDataEncoder":
+        """Return the encoder for Poisson observations."""
         return PoissonDataEncoder()
 
 
@@ -138,7 +118,7 @@ class PoissonSampler(DistributionSampler):
     """
 
     def __init__(self, dist: "PoissonDistribution", seed: Optional[int] = None) -> None:
-        """PoissonSampler object.
+        """Initialize a sampler for ``dist``.
 
         Args:
             dist (PoissonDistribution): Set PoissonDistribution to sample from.
@@ -181,7 +161,7 @@ class PoissonAccumulator(TorchStatisticAccumulator):
     def __init__(
         self, keys: Optional[str] = None, device: Optional[tn.device] = None
     ) -> None:
-        """PoissonAccumulator object.
+        """Initialize the Poisson sufficient-statistic accumulator.
 
         Args:
             keys (Optional[str]): Assign a string valued to key to object instance.
@@ -199,6 +179,7 @@ class PoissonAccumulator(TorchStatisticAccumulator):
         weights: tn.Tensor,
         tng: Optional[tn.Generator] = None,
     ) -> None:
+        """Initialize statistics from encoded observations and weights."""
         self.seq_update(x, weights, None)
 
     def seq_update(
@@ -207,26 +188,31 @@ class PoissonAccumulator(TorchStatisticAccumulator):
         weights: tn.Tensor,
         estimate: Optional["PoissonDistribution"] = None,
     ) -> None:
+        """Accumulate encoded observations with their weights."""
         xx = x.data[0].to(device=weights.device, dtype=weights.dtype)
         self.sum += float(tn.dot(xx, weights))
         self.count += float(weights.sum())
 
     def combine(self, suff_stat: Tuple[float, float]) -> "PoissonAccumulator":
+        """Merge a ``(count, sum)`` sufficient statistic."""
         self.sum += suff_stat[1]
         self.count += suff_stat[0]
 
         return self
 
     def value(self) -> Tuple[float, float]:
+        """Return the ``(count, sum)`` sufficient statistic."""
         return self.count, self.sum
 
     def from_value(self, x: Tuple[float, float]) -> "PoissonAccumulator":
+        """Replace state from a ``(count, sum)`` sufficient statistic."""
         self.count = x[0]
         self.sum = x[1]
 
         return self
 
     def key_merge(self, stats_dict: Dict[str, Any]) -> None:
+        """Merge this accumulator's keyed statistic into ``stats_dict``."""
         if self.key is not None:
             if self.key in stats_dict:
                 stats_dict[self.key].combine(self.value())
@@ -234,11 +220,13 @@ class PoissonAccumulator(TorchStatisticAccumulator):
                 stats_dict[self.key] = self
 
     def key_replace(self, stats_dict: Dict[str, Any]) -> None:
+        """Replace state from its keyed statistic, when present."""
         if self.key is not None:
             if self.key in stats_dict:
                 self.from_value(stats_dict[self.key].value())
 
     def acc_to_encoder(self) -> "PoissonDataEncoder":
+        """Return the compatible Poisson encoder."""
         return PoissonDataEncoder()
 
 
@@ -252,7 +240,7 @@ class PoissonAccumulatorFactory(TorchStatisticAccumulatorFactory):
     """
 
     def __init__(self, keys: Optional[str] = None) -> None:
-        """PoissonAccumulatorFactory object.
+        """Initialize the factory.
 
         Args:
             keys (Optional[str]): Assign keys to PoissonAccumulatorFactory object.
@@ -261,6 +249,7 @@ class PoissonAccumulatorFactory(TorchStatisticAccumulatorFactory):
         self.keys = keys
 
     def make(self, device: Optional[tn.device] = None) -> "PoissonAccumulator":
+        """Create an accumulator associated with ``device``."""
         return PoissonAccumulator(keys=self.keys, device=device)
 
 
@@ -281,7 +270,7 @@ class PoissonEstimator(TorchParameterEstimator):
         suff_stat: Optional[float] = None,
         keys: Optional[str] = None,
     ) -> None:
-        """PoissonEstimator object.
+        """Initialize Poisson estimation settings.
 
         Attributes:
             pseudo_count (Optional[float]): Re-weight suff_stat.
@@ -295,6 +284,7 @@ class PoissonEstimator(TorchParameterEstimator):
         self.keys = keys
 
     def accumulator_factory(self) -> "PoissonAccumulatorFactory":
+        """Return a factory for compatible accumulators."""
         return PoissonAccumulatorFactory(self.keys)
 
     def estimate(
@@ -303,6 +293,7 @@ class PoissonEstimator(TorchParameterEstimator):
         suff_stat: Tuple[float, float],
         device: Optional[tn.device] = None,
     ) -> "PoissonDistribution":
+        """Estimate a Poisson model from ``(count, sum)`` statistics."""
         nobs, psum = suff_stat
 
         if self.pseudo_count is not None and self.suff_stat is not None:
@@ -323,17 +314,18 @@ class PoissonDataEncoder(TorchSequenceEncoder):
     the NumPy-backed encoder in ``stats``.
     """
 
-    """Encode sequences of iid Poisson observations with data type int."""
-
     def __str__(self) -> str:
+        """Return the encoder name."""
         return "PoissonDataEncoder"
 
     def __eq__(self, other: object) -> bool:
+        """Return whether ``other`` is a Poisson encoder."""
         return isinstance(other, PoissonDataEncoder)
 
     def seq_encode(
         self, x: Union[np.ndarray, Sequence[int]], device: Optional[tn.device] = None
     ) -> "PoissonTorchSequence":
+        """Validate and encode nonnegative integer observations on ``device``."""
         rv1 = vec.tensor(x, device=device)
 
         if tn.any(rv1 < 0) or tn.any(tn.isnan(rv1)):
@@ -351,7 +343,9 @@ class PoissonTorchSequence(TorchEncodedSequence):
     def __init__(
         self, data: Tuple[tn.Tensor, tn.Tensor], device: Optional[tn.device] = None
     ) -> None:
+        """Initialize from tensor data and an optional target device."""
         super().__init__(data=data, device=device)
 
     def __str__(self) -> str:
+        """Return a representation including the stored device."""
         return f"PoissonTorchSequence(device={repr(self.device)})"

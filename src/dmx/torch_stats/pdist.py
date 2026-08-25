@@ -9,16 +9,9 @@ CPU, CUDA, or MPS where PyTorch supports the requested operation. A model's
 ``to`` method records its preferred device; it does not promise that arbitrary
 Python-valued parameters or externally supplied encoded data are moved.
 
-Classes:
-    TorchProbabilityDistribution: Abstract base class for torch probability
-        distributions.
-    DistributionSampler: Abstract sampler for probability distributions.
-    ConditionalSampler: Abstract sampler for conditional distributions.
-    TorchStatisticAccumulator: Abstract accumulator for sufficient statistics.
-    TorchStatisticAccumulatorFactory: Factory for creating statistic accumulators.
-    TorchParameterEstimator: Abstract estimator for distribution parameters.
-    TorchSequenceEncoder: Abstract encoder for data sequences.
-    TorchEncodedSequence: Container for encoded sequence data.
+The public classes cover probability distributions, samplers, statistic
+accumulators and factories, parameter estimators, sequence encoders, and
+encoded-sequence containers.
 
 """
 
