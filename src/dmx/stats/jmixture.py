@@ -1,22 +1,14 @@
-"""Create, estimate, and sample from a Joint mixture distribution.
+r"""Model paired observations with coupled component assignments.
 
-Defines the JointMixtureDistribution, JointMixtureSampler,
-JointMixtureAccumulatorFactory, JointMixtureAccumulator,
-JointMixtureEstimator, and the JointMixtureDataEncoder classes for use with dmx-learn.
+Each observation is ``(x1, x2)``. Latent indices ``Z1`` and ``Z2`` select components
+from separate banks for the two views. The joint density uses ``w1[i]`` and the
+conditional matrix ``taus12[i, j]``; ``w2`` and ``taus21`` store the reverse marginal
+and conditional representation. EM responsibilities therefore form an ``N`` by ``M``
+table for every observation, not a single component vector.
 
-Data type: Tuple[T0, T1].
-
-Consider a random variable X = (X_1, X_2). A joint mixture with N components for X_1,
-and M components for X_2 is
-given by
-
-    P(X) = sum_{i=1}^{N} w_i * f_i(X_1) * sum_{j=1}^{M} tau_{ij}*g_j(X_2),
-
-where w_i is the probability of sampling X_1 from distribution f_i() (data type T0),
-tau_{ij} is the probability of
-sampling X_2 from g_j() (data type T1) given X_1 was sampled from f_i().
-
-
+Unlike :mod:`hmixture`, the two values are paired views rather than items in a
+variable-length sequence. Unlike :mod:`heterogeneous_mixture`, each view has its own
+component bank. Unlike :mod:`ss_mixture`, neither tuple entry is a label prior.
 """
 
 from typing import Any, Dict, List, Optional, Sequence, Tuple, TypeVar, Union
@@ -97,7 +89,7 @@ class JointMixtureDistribution(SequenceEncodableProbabilityDistribution):
         ),
         name: Optional[str] = None,
     ) -> None:
-        """JointMixtureDistribution object.
+        """Initialize a joint mixture distribution.
 
         Args:
             components1(Sequence[SequenceEncodableProbabilityDistribution]): Mixture
@@ -140,6 +132,7 @@ class JointMixtureDistribution(SequenceEncodableProbabilityDistribution):
             self.name = name
 
     def __str__(self) -> str:
+        """Return a string representation of the distribution."""
         s1 = ",".join([str(u) for u in self.components1])
         s2 = ",".join([str(u) for u in self.components2])
         s3 = ",".join(map(str, self.w1))
@@ -155,9 +148,11 @@ class JointMixtureDistribution(SequenceEncodableProbabilityDistribution):
         )
 
     def density(self, x: Tuple[T0, T1]) -> float:
+        """Evaluate the density of one paired observation."""
         return float(exp(self.log_density(x)))
 
     def log_density(self, x: Tuple[T0, T1]) -> float:
+        """Evaluate the log-density of one paired observation."""
         ll1 = np.zeros((1, self.num_components1))
         ll2 = np.zeros((1, self.num_components2))
 
@@ -182,7 +177,7 @@ class JointMixtureDistribution(SequenceEncodableProbabilityDistribution):
         return float(rv)
 
     def seq_log_density(self, x: "JointMixtureEncodedDataSequence") -> np.ndarray:
-
+        """Evaluate log-densities for encoded paired observations."""
         if not isinstance(x, JointMixtureEncodedDataSequence):
             raise TypeError(
                 "JointMixtureEncodedDataSequence required for seq_log_density()."
@@ -215,11 +210,13 @@ class JointMixtureDistribution(SequenceEncodableProbabilityDistribution):
         return np.asarray(rv, dtype=float)
 
     def sampler(self, seed: Optional[int] = None) -> "JointMixtureSampler":
+        """Return a sampler for paired observations."""
         return JointMixtureSampler(self, seed)
 
     def estimator(
         self, pseudo_count: Optional[float] = None
     ) -> "JointMixtureEstimator":
+        """Return an estimator for both component banks and their coupling."""
         estimators1 = [comp1.estimator() for comp1 in self.components1]
         estimators2 = [comp2.estimator() for comp2 in self.components2]
 
@@ -235,6 +232,7 @@ class JointMixtureDistribution(SequenceEncodableProbabilityDistribution):
         )
 
     def dist_to_encoder(self) -> "DataSequenceEncoder":
+        """Return an encoder that separates the two observed views."""
         encoder1 = self.components1[0].dist_to_encoder()
         encoder2 = self.components2[0].dist_to_encoder()
         return JointMixtureDataEncoder(encoder1=encoder1, encoder2=encoder2)
@@ -255,7 +253,7 @@ class JointMixtureSampler(DistributionSampler):
     def __init__(
         self, dist: JointMixtureDistribution, seed: Optional[int] = None
     ) -> None:
-        """JointMixtureSampler object.
+        """Initialize a joint-mixture sampler.
 
         Args:
             dist (JointMixtureDistribution): Distribution to sample from.
@@ -276,7 +274,7 @@ class JointMixtureSampler(DistributionSampler):
     def sample(
         self, size: Optional[int] = None
     ) -> Union[Tuple[Any, Any], Sequence[Tuple[Any, Any]]]:
-
+        """Draw one paired observation or a collection of pairs."""
         if size is None:
             comp_state1 = self.rng.choice(
                 range(0, self.dist.num_components1), replace=True, p=self.dist.w1
@@ -299,7 +297,12 @@ class JointMixtureSampler(DistributionSampler):
 
 
 class JointMixtureEstimatorAccumulator(SequenceEncodableStatisticAccumulator):
-    """JointMixtureEstimatorAccumulator object for aggregating sufficient statistics.
+    """Aggregate sufficient statistics for both views and their latent pairing.
+
+    ``comp_counts1`` and ``comp_counts2`` are marginal responsibility vectors with
+    shapes ``(N,)`` and ``(M,)``. ``joint_counts`` has shape ``(N, M)`` and drives
+    both conditional matrices. Child accumulators receive the corresponding marginal
+    responsibilities for their view.
 
     Attributes:
         accumulators1 (Sequence[SequenceEncodableStatisticAccumulator]): Accumulators
@@ -348,7 +351,7 @@ class JointMixtureEstimatorAccumulator(SequenceEncodableStatisticAccumulator):
         ),
         name: Optional[str] = None,
     ) -> None:
-        """JointMixtureEstimatorAccumulator object.
+        """Initialize a joint-mixture accumulator.
 
         Args:
             accumulators1 (Sequence[SequenceEncodableStatisticAccumulator]):
@@ -382,6 +385,7 @@ class JointMixtureEstimatorAccumulator(SequenceEncodableStatisticAccumulator):
     def update(
         self, x: Tuple[T0, T1], weight: float, estimate: JointMixtureDistribution
     ) -> None:
+        """Leave scalar posterior updating unsupported; use :meth:`seq_update`."""
         pass
 
     def _rng_initialize(self, rng: RandomState) -> None:
@@ -398,7 +402,7 @@ class JointMixtureEstimatorAccumulator(SequenceEncodableStatisticAccumulator):
         self._rng_init = True
 
     def initialize(self, x: Tuple[T0, T1], weight: float, rng: RandomState) -> None:
-
+        """Initialize one pair with a random joint latent assignment."""
         if not self._rng_init:
             self._rng_initialize(rng)
 
@@ -429,6 +433,7 @@ class JointMixtureEstimatorAccumulator(SequenceEncodableStatisticAccumulator):
         weights: np.ndarray,
         rng: RandomState,
     ) -> None:
+        """Initialize encoded pairs with random joint latent assignments."""
         sz, enc1, enc2 = x.data
 
         if not self._rng_init:
@@ -470,6 +475,7 @@ class JointMixtureEstimatorAccumulator(SequenceEncodableStatisticAccumulator):
         weights: np.ndarray,
         estimate: JointMixtureDistribution,
     ) -> None:
+        """Accumulate posterior-weighted joint and marginal statistics."""
         sz, enc_data1, enc_data2 = x.data
         ll_mat1 = np.zeros((sz, self.num_components1, 1))
         ll_mat2 = np.zeros((sz, 1, self.num_components2))
@@ -523,7 +529,7 @@ class JointMixtureEstimatorAccumulator(SequenceEncodableStatisticAccumulator):
             np.ndarray, np.ndarray, np.ndarray, Tuple[E0, ...], Tuple[E1, ...]
         ],
     ) -> "JointMixtureEstimatorAccumulator":
-
+        """Merge another joint-mixture sufficient statistic."""
         cc1, cc2, jc, s1, s2 = suff_stat
 
         self.joint_counts += jc
@@ -539,6 +545,7 @@ class JointMixtureEstimatorAccumulator(SequenceEncodableStatisticAccumulator):
     def value(
         self,
     ) -> Tuple[np.ndarray, np.ndarray, np.ndarray, Tuple[Any, ...], Tuple[Any, ...]]:
+        """Return marginal counts, joint counts, and child statistics."""
         return (
             self.comp_counts1,
             self.comp_counts2,
@@ -551,7 +558,7 @@ class JointMixtureEstimatorAccumulator(SequenceEncodableStatisticAccumulator):
         self,
         x: Tuple[np.ndarray, np.ndarray, np.ndarray, Tuple[E0, ...], Tuple[E1, ...]],
     ) -> "JointMixtureEstimatorAccumulator":
-
+        """Replace accumulated statistics from a serialized value."""
         cc1, cc2, jc, s1, s2 = x
 
         self.comp_counts1 = cc1
@@ -566,6 +573,7 @@ class JointMixtureEstimatorAccumulator(SequenceEncodableStatisticAccumulator):
         return self
 
     def key_merge(self, stats_dict: Dict[str, Any]) -> None:
+        """Merge keyed latent-count and component statistics."""
         weight_key, acc1_key, acc2_key = self.keys
 
         if weight_key is not None:
@@ -590,6 +598,7 @@ class JointMixtureEstimatorAccumulator(SequenceEncodableStatisticAccumulator):
                 stats_dict[acc2_key] = tuple(acc.value() for acc in self.accumulators2)
 
     def key_replace(self, stats_dict: Dict[str, Any]) -> None:
+        """Replace statistics from matching keyed values."""
         weight_key, acc1_key, acc2_key = self.keys
         if weight_key is not None:
             if weight_key in stats_dict:
@@ -609,14 +618,14 @@ class JointMixtureEstimatorAccumulator(SequenceEncodableStatisticAccumulator):
                     self.accumulators2[i].from_value(u)
 
     def acc_to_encoder(self) -> "DataSequenceEncoder":
+        """Return an encoder for both child accumulator banks."""
         encoder1 = self.accumulators1[0].acc_to_encoder()
         encoder2 = self.accumulators2[0].acc_to_encoder()
         return JointMixtureDataEncoder(encoder1=encoder1, encoder2=encoder2)
 
 
 class JointMixtureEstimatorAccumulatorFactory(StatisticAccumulatorFactory):
-    """JointMixtureEstimatorAccumulatorFactory object for creating
-    JointMixtureEstimatorAccumulator objects.
+    """Create joint-mixture accumulators.
 
     Attributes:
         factories1 (Sequence[StatisticAccumulatorFactory]): List of mixture component
@@ -641,7 +650,7 @@ class JointMixtureEstimatorAccumulatorFactory(StatisticAccumulatorFactory):
         ),
         name: Optional[str] = None,
     ) -> None:
-        """JointMixtureEstimatorAccumulatorFactory object.
+        """Initialize a joint-mixture accumulator factory.
 
         Args:
             factories1 (Sequence[StatisticAccumulatorFactory]): List of mixture
@@ -660,14 +669,14 @@ class JointMixtureEstimatorAccumulatorFactory(StatisticAccumulatorFactory):
         self.name = name
 
     def make(self) -> "JointMixtureEstimatorAccumulator":
+        """Create a joint-mixture accumulator."""
         f1 = [self.factories1[i].make() for i in range(len(self.factories1))]
         f2 = [self.factories2[i].make() for i in range(len(self.factories2))]
         return JointMixtureEstimatorAccumulator(f1, f2, name=self.name, keys=self.keys)
 
 
 class JointMixtureEstimator(ParameterEstimator):
-    """JointMixtureEstimator object for estimating joint mixture distribution from
-    aggregated sufficient stats.
+    """Estimate a joint mixture from aggregated sufficient statistics.
 
     Notes:
         ``keys`` identifies the statistic blocks that may be shared with other
@@ -691,7 +700,7 @@ class JointMixtureEstimator(ParameterEstimator):
             X1.
         estimators2 (Sequence[ParameterEstimator]): Estimators for mixture component of
             X2.
-        suff_stat:
+        suff_stat (Optional[Tuple[Any, ...]]): Optional reference statistics.
         pseudo_count (Optional[Tuple[float, float, float]]): Used to re-weight the state
             counts in estimation.
         keys (Optional[Tuple[Optional[str], Optional[str], Optional[str]]]): Keys for
@@ -716,14 +725,14 @@ class JointMixtureEstimator(ParameterEstimator):
         ),
         name: Optional[str] = None,
     ) -> None:
-        """JointMixtureEstimator object.
+        """Initialize a joint-mixture estimator.
 
         Args:
             estimators1 (Sequence[ParameterEstimator]): Estimators for mixture component
                 of X1.
             estimators2 (Sequence[ParameterEstimator]): Estimators for mixture component
                 of X2.
-            suff_stat:
+            suff_stat (Optional[Tuple[Any, ...]]): Optional reference statistics.
             pseudo_count (Optional[Tuple[float, float, float]]): Used to re-weight the
                 state counts in estimation.
             keys (Optional[Tuple[Optional[str], Optional[str], Optional[str]]]): Keys
@@ -745,6 +754,7 @@ class JointMixtureEstimator(ParameterEstimator):
         self.name = name
 
     def accumulator_factory(self) -> "JointMixtureEstimatorAccumulatorFactory":
+        """Return a factory for the two component-estimator banks."""
         est_factories1 = [u.accumulator_factory() for u in self.estimators1]
         est_factories2 = [u.accumulator_factory() for u in self.estimators2]
         return JointMixtureEstimatorAccumulatorFactory(
@@ -758,6 +768,7 @@ class JointMixtureEstimator(ParameterEstimator):
             np.ndarray, np.ndarray, np.ndarray, Tuple[E0, ...], Tuple[E1, ...]
         ],
     ) -> "JointMixtureDistribution":
+        """Estimate component banks, marginals, and conditional matrices."""
         num_components1 = self.num_components1
         num_components2 = self.num_components2
         counts1, counts2, joint_counts, comp_suff_stats1, comp_suff_stats2 = suff_stat
@@ -809,8 +820,10 @@ class JointMixtureEstimator(ParameterEstimator):
 
 
 class JointMixtureDataEncoder(DataSequenceEncoder):
-    """JointMixtureDataEncoder object for encoding sequences of iid joint mixture
-    observations.
+    """Encode batches of paired joint-mixture observations.
+
+    A batch of size ``B`` becomes ``(B, enc_data1, enc_data2)``. Each child encoding
+    contains all ``B`` values from its view and retains observation order.
 
     Attributes:
         encoder1 (DataSequenceEncoder): DataSequenceEncoder for the components of X1.
@@ -821,7 +834,7 @@ class JointMixtureDataEncoder(DataSequenceEncoder):
     def __init__(
         self, encoder1: DataSequenceEncoder, encoder2: DataSequenceEncoder
     ) -> None:
-        """JointMixtureDataEncoder object.
+        """Initialize a joint-mixture data encoder.
 
         Args:
             encoder1 (DataSequenceEncoder): DataSequenceEncoder for the components of
@@ -834,6 +847,7 @@ class JointMixtureDataEncoder(DataSequenceEncoder):
         self.encoder2 = encoder2
 
     def __str__(self) -> str:
+        """Return a string representation of the encoder."""
         return (
             "JointMixtureDataEncoder(encoder0="
             + str(self.encoder1)
@@ -843,6 +857,7 @@ class JointMixtureDataEncoder(DataSequenceEncoder):
         )
 
     def __eq__(self, other: object) -> bool:
+        """Return whether both view encoders are equal."""
         if isinstance(other, JointMixtureDataEncoder):
             return self.encoder2 == other.encoder2 and self.encoder1 == other.encoder1
         return False
@@ -850,6 +865,7 @@ class JointMixtureDataEncoder(DataSequenceEncoder):
     def seq_encode(
         self, x: Sequence[Tuple[T0, T1]]
     ) -> "JointMixtureEncodedDataSequence":
+        """Split and encode a batch of paired observations."""
         rv0 = len(x)
         rv1 = self.encoder1.seq_encode([u[0] for u in x])
         rv2 = self.encoder2.seq_encode([u[1] for u in x])
@@ -858,9 +874,12 @@ class JointMixtureDataEncoder(DataSequenceEncoder):
 
 
 class JointMixtureEncodedDataSequence(EncodedDataSequence):
+    """Store batch size and aligned encodings for the two observed views."""
 
     def __init__(self, data: Tuple[int, EncodedDataSequence, EncodedDataSequence]):
+        """Initialize an encoded joint-mixture batch."""
         super().__init__(data=data)
 
     def __repr__(self) -> str:
+        """Return a representation of the encoded batch."""
         return f"JointMixtureEncodedDataSequence(data={self.data})"

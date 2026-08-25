@@ -1,15 +1,16 @@
-"""Create, estimate, and sample from a univariate Gaussian mixture distribution.
+r"""Create, estimate, and sample univariate Gaussian mixture models.
 
-This module defines the GaussianMixtureDistribution, GaussianMixtureSampler,
-GaussianMixtureAccumulatorFactory,
-GaussianMixtureAccumulator, GaussianMixtureEstimator, and GaussianMixtureDataEncoder
-classes for use with dmx-learn.
+For :math:`Z \in \{0, \ldots, K-1\}`, weights :math:`\pi_k=P(Z=k)`, means
+:math:`\mu_k`, and variances :math:`\sigma_k^2`, this module implements
 
-The GaussianMixtureDistribution allows users to key the variance parameter across all
-components. This differs from
-MixtureDistribution([GaussianDistribution()]*K), as you cannot key the variance
-parameter while allowing for different
-means in components.
+.. math::
+
+   f(x) = \sum_{k=0}^{K-1} \pi_k
+   \mathcal N(x; \mu_k, \sigma_k^2).
+
+Unlike a generic :class:`~dmx.stats.mixture.MixtureDistribution` of Gaussian
+components, this implementation can estimate one variance shared across components
+while retaining component-specific means.
 """
 
 from typing import Any, Dict, List, Optional, Sequence, Tuple, Union
@@ -34,7 +35,12 @@ SS = Tuple[np.ndarray, np.ndarray, np.ndarray, np.ndarray, np.ndarray]
 
 
 class GaussianMixtureDistribution(SequenceEncodableProbabilityDistribution):
-    """GaussianMixtureDistribution for a mixture of univariate Gaussian distributions.
+    r"""Represent a mixture of univariate Gaussian distributions.
+
+    ``mu[k]`` is :math:`\mu_k`, ``sigma2[k]`` is :math:`\sigma_k^2`, and
+    ``w[k]`` is :math:`\pi_k`. A scalar ``sigma2`` gives every component the same
+    variance. Component log densities exclude mixture weights, while posterior methods
+    return responsibilities :math:`r_k(x)=P(Z=k\mid X=x)`.
 
     Attributes:
         mu (np.ndarray): Means of each mixture component.
@@ -57,13 +63,14 @@ class GaussianMixtureDistribution(SequenceEncodableProbabilityDistribution):
         name: Optional[str] = None,
         keys: Tuple[Optional[str], Optional[str]] = (None, None),
     ) -> None:
-        """Initialize GaussianMixtureDistribution.
+        """Initialize a univariate Gaussian mixture distribution.
 
         Args:
-            mu (Union[Sequence[float], np.ndarray]): Means of each mixture component.
+            mu (Union[Sequence[float], np.ndarray]): Component means with shape
+                ``(K,)``.
             sigma2 (Union[Sequence[float], np.ndarray, float]): Variance for each
-                Gaussian.
-            w (Union[np.ndarray, List[float]]): Weights for each mixture component.
+                Gaussian, either a shared scalar or values with shape ``(K,)``.
+            w (Union[np.ndarray, List[float]]): Mixture weights with shape ``(K,)``.
             name (Optional[str], optional): Name for the object.
             keys (Tuple[Optional[str], Optional[str]], optional): Keys for weights and
                 parameters.
@@ -124,7 +131,7 @@ class GaussianMixtureDistribution(SequenceEncodableProbabilityDistribution):
         return float(np.exp(self.log_density(x)))
 
     def log_density(self, x: float) -> float:
-        """Evaluate the log-density of the mixture at x.
+        """Evaluate the mixture log density at one scalar observation.
 
         Args:
             x (float): Observation.
@@ -142,13 +149,13 @@ class GaussianMixtureDistribution(SequenceEncodableProbabilityDistribution):
         )
 
     def component_log_density(self, x: float) -> np.ndarray:
-        """Evaluate the log-density for each component at x.
+        """Evaluate unweighted component log densities at one observation.
 
         Args:
             x (float): Observation.
 
         Returns:
-            np.ndarray: Log-density for each component.
+            np.ndarray: Component log densities with shape ``(1, K)``.
         """
         return np.asarray(
             -0.5 * (x - self.mu) ** 2 / self.sigma2
@@ -158,13 +165,13 @@ class GaussianMixtureDistribution(SequenceEncodableProbabilityDistribution):
         )
 
     def posterior(self, x: float) -> np.ndarray:
-        """Compute the posterior probabilities for each component given x.
+        """Compute posterior responsibilities for one observation.
 
         Args:
             x (float): Observation.
 
         Returns:
-            np.ndarray: Posterior probabilities for each component.
+            np.ndarray: Responsibilities with shape ``(1, K)``.
         """
         comp_log_density = (
             -0.5 * (x - self.mu) ** 2 / self.sigma2
@@ -185,13 +192,14 @@ class GaussianMixtureDistribution(SequenceEncodableProbabilityDistribution):
     def seq_component_log_density(
         self, x: "GaussianMixtureEncodedDataSequence"
     ) -> np.ndarray:
-        """Vectorized log-density for each component for encoded data.
+        """Evaluate component log-density terms for an encoded iid sequence.
 
         Args:
             x (GaussianMixtureEncodedDataSequence): Encoded data sequence.
 
         Returns:
-            np.ndarray: Log-density matrix (n_samples, n_components).
+            np.ndarray: Component matrix with shape ``(N, K)``. Zero-weight
+                components are masked with negative infinity.
         """
         if not isinstance(x, GaussianMixtureEncodedDataSequence):
             raise TypeError(
@@ -204,13 +212,13 @@ class GaussianMixtureDistribution(SequenceEncodableProbabilityDistribution):
         return np.asarray(rv, dtype=float)
 
     def seq_log_density(self, x: "GaussianMixtureEncodedDataSequence") -> np.ndarray:
-        """Vectorized log-density for encoded data.
+        """Evaluate mixture log densities for an encoded iid sequence.
 
         Args:
             x (GaussianMixtureEncodedDataSequence): Encoded data sequence.
 
         Returns:
-            np.ndarray: Log-density values for each observation.
+            np.ndarray: Mixture log densities with shape ``(N,)``.
         """
         if not isinstance(x, GaussianMixtureEncodedDataSequence):
             raise TypeError(
@@ -248,13 +256,13 @@ class GaussianMixtureDistribution(SequenceEncodableProbabilityDistribution):
         return rv
 
     def seq_posterior(self, x: "GaussianMixtureEncodedDataSequence") -> np.ndarray:
-        """Vectorized posterior probabilities for encoded data.
+        """Compute posterior responsibilities for an encoded iid sequence.
 
         Args:
             x (GaussianMixtureEncodedDataSequence): Encoded data sequence.
 
         Returns:
-            np.ndarray: Posterior probabilities (n_samples, n_components).
+            np.ndarray: Responsibilities with shape ``(N, K)``.
         """
         if not isinstance(x, GaussianMixtureEncodedDataSequence):
             raise TypeError(
@@ -324,7 +332,10 @@ class GaussianMixtureDistribution(SequenceEncodableProbabilityDistribution):
 
 
 class GaussianMixtureSampler(DistributionSampler):
-    """Sampler for GaussianMixtureDistribution.
+    """Draw observations from a univariate Gaussian mixture.
+
+    Each draw first selects ``Z`` according to ``dist.w`` and then draws from the
+    selected univariate Gaussian component.
 
     Attributes:
         rng (RandomState): Random number generator.
@@ -458,7 +469,9 @@ class GaussianMixtureAccumulator(SequenceEncodableStatisticAccumulator):
         self._init_rng = True
 
     def initialize(self, x: float, weight: float, rng: RandomState) -> None:
-        """Initialize accumulator with a new observation.
+        """Randomly initialize statistics from one weighted observation.
+
+        A Dirichlet draw splits a nonzero weight across the ``K`` latent components.
 
         Args:
             x (float): Observation.
@@ -488,11 +501,14 @@ class GaussianMixtureAccumulator(SequenceEncodableStatisticAccumulator):
         weights: np.ndarray,
         rng: RandomState,
     ) -> None:
-        """Vectorized initialization for encoded data.
+        """Randomly initialize statistics from an encoded iid sequence.
+
+        Each positive observation weight is independently split across components by
+        a symmetric Dirichlet draw; nonpositive weights receive zero allocation.
 
         Args:
             x (GaussianMixtureEncodedDataSequence): Encoded data sequence.
-            weights (np.ndarray): Weights for each observation.
+            weights (np.ndarray): Observation weights with shape ``(N,)``.
             rng (RandomState): Random number generator.
         """
         if not self._init_rng:

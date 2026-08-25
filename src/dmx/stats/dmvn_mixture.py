@@ -1,11 +1,17 @@
-"""Create, estimate, and sample from a mixture distribution with homogeneous components.
+r"""Create, estimate, and sample diagonal multivariate normal mixtures.
 
-Defines DiagonalGaussianMixtureDistribution and related classes for use with dmx-learn.
+For :math:`Z \in \{0, \ldots, K-1\}`, weights :math:`\pi_k=P(Z=k)`, means
+:math:`\boldsymbol\mu_k`, and diagonal covariance matrices
+:math:`\operatorname{diag}(\boldsymbol v_k)`, this module implements
 
-MixtureEstimator([DiagonalGaussianEstimator()], keys=(None, 'comps')) keys both means
-and variances.
-DiagonalGaussianEstimator(tied=True) sets the covariance of each mixture component to be
-the same for each mixture component.
+.. math::
+
+   f(\boldsymbol x) = \sum_{k=0}^{K-1} \pi_k
+   \mathcal N(\boldsymbol x; \boldsymbol\mu_k,
+   \operatorname{diag}(\boldsymbol v_k)).
+
+The public classes cover distribution evaluation, posterior responsibilities,
+sampling, sufficient-statistic accumulation, estimation, and sequence encoding.
 """
 
 from typing import Any, Dict, List, Optional, Sequence, Tuple, Union
@@ -30,7 +36,12 @@ SS = Tuple[np.ndarray, np.ndarray, np.ndarray, np.ndarray, np.ndarray]
 
 
 class DiagonalGaussianMixtureDistribution(SequenceEncodableProbabilityDistribution):
-    """Represents a diagonal Gaussian mixture distribution.
+    r"""Represent a mixture of diagonal multivariate normal components.
+
+    ``mu[k]`` is :math:`\boldsymbol\mu_k`, ``covar[k]`` contains the diagonal
+    variances :math:`\boldsymbol v_k`, and ``w[k]`` is :math:`\pi_k`. Component log
+    densities exclude mixture weights. Posterior methods return responsibilities
+    :math:`r_k(\boldsymbol x)=P(Z=k\mid\boldsymbol X=\boldsymbol x)`.
 
     Attributes:
         mu (np.ndarray): Means of the mixture components (K x D).
@@ -55,15 +66,14 @@ class DiagonalGaussianMixtureDistribution(SequenceEncodableProbabilityDistributi
         name: Optional[str] = None,
         keys: Tuple[Optional[str], Optional[str]] = (None, None),
     ) -> None:
-        """
-        Initialize the diagonal Gaussian mixture distribution.
+        """Initialize a diagonal multivariate normal mixture.
 
         Args:
             mu (Union[Sequence[Sequence[float]], np.ndarray]): Means of the mixture
-                components (K x D).
+                components with shape ``(K, D)``.
             covar (Union[Sequence[float], Sequence[Sequence[float]], np.ndarray]):
-                Covariances of the mixture components (K x D).
-            w (Union[np.ndarray, List[float]]): Mixture weights (length K).
+                Diagonal variance vectors with shape ``(K, D)``.
+            w (Union[np.ndarray, List[float]]): Mixture weights with shape ``(K,)``.
             tied (bool, optional): If True, the covariance of each mixture component is
                 tied. Defaults to False.
             name (Optional[str], optional): Name for object. Defaults to None.
@@ -111,7 +121,7 @@ class DiagonalGaussianMixtureDistribution(SequenceEncodableProbabilityDistributi
         return float(np.exp(self.log_density(x)))
 
     def log_density(self, x: Union[Sequence[float], np.ndarray]) -> float:
-        """Compute the log density of the distribution at a given point.
+        """Compute the mixture log density at one vector observation.
 
         Args:
             x (Union[Sequence[float], np.ndarray]): Input data point.
@@ -132,14 +142,13 @@ class DiagonalGaussianMixtureDistribution(SequenceEncodableProbabilityDistributi
     def component_log_density(
         self, x: Union[Sequence[float], np.ndarray]
     ) -> np.ndarray:
-        """Compute the log density of the individual mixture components at a given
-        point.
+        """Compute unweighted component log densities for one observation.
 
         Args:
             x (Union[Sequence[float], np.ndarray]): Input data point.
 
         Returns:
-            np.ndarray: Log density values for each mixture component.
+            np.ndarray: Component log densities with shape ``(K,)``.
         """
         z2 = (np.asarray(x)[None, :] - self.mu) ** 2 / self.covar
         ll = (
@@ -150,14 +159,13 @@ class DiagonalGaussianMixtureDistribution(SequenceEncodableProbabilityDistributi
         return np.asarray(ll, dtype=float)
 
     def posterior(self, x: Union[Sequence[float], np.ndarray]) -> np.ndarray:
-        """Compute the posterior probabilities of the mixture components given a data
-        point.
+        """Compute posterior responsibilities for one vector observation.
 
         Args:
             x (Union[Sequence[float], np.ndarray]): Input data point.
 
         Returns:
-            np.ndarray: Posterior probabilities for each mixture component.
+            np.ndarray: Responsibilities with shape ``(K,)``.
         """
         ll = self.component_log_density(np.asarray(x))
         ll += self.log_w
@@ -168,14 +176,13 @@ class DiagonalGaussianMixtureDistribution(SequenceEncodableProbabilityDistributi
     def seq_component_log_density(
         self, x: "DiagonalGaussianMixtureEncodedDataSequence"
     ) -> np.ndarray:
-        """Compute the log density of the individual mixture components for a sequence
-        of data points.
+        """Compute component log densities for an encoded iid sequence.
 
         Args:
             x (DiagonalGaussianMixtureEncodedDataSequence): Encoded data sequence.
 
         Returns:
-            np.ndarray: Log density values for each mixture component.
+            np.ndarray: Unweighted component log densities with shape ``(N, K)``.
         """
         if not isinstance(x, DiagonalGaussianMixtureEncodedDataSequence):
             raise TypeError(
@@ -190,13 +197,13 @@ class DiagonalGaussianMixtureDistribution(SequenceEncodableProbabilityDistributi
     def seq_log_density(
         self, x: "DiagonalGaussianMixtureEncodedDataSequence"
     ) -> np.ndarray:
-        """Compute the log density for a sequence of data points.
+        """Compute mixture log densities for an encoded iid sequence.
 
         Args:
             x (DiagonalGaussianMixtureEncodedDataSequence): Encoded data sequence.
 
         Returns:
-            np.ndarray: Log density values for the sequence.
+            np.ndarray: Mixture log densities with shape ``(N,)``.
         """
         if not isinstance(x, DiagonalGaussianMixtureEncodedDataSequence):
             raise TypeError(
@@ -235,15 +242,14 @@ class DiagonalGaussianMixtureDistribution(SequenceEncodableProbabilityDistributi
     def seq_posterior(
         self, x: "DiagonalGaussianMixtureEncodedDataSequence"
     ) -> np.ndarray:
-        """Compute posterior probabilities for a sequence of data points.
+        """Compute posterior responsibilities for an encoded iid sequence.
 
         Args:
             x (DiagonalGaussianMixtureEncodedDataSequence): Encoded data sequence
                 containing input data points.
 
         Returns:
-            np.ndarray: Posterior probabilities with shape (N, K), where N is the number
-            of samples and K is the number of mixture components.
+            np.ndarray: Responsibilities with shape ``(N, K)``.
         """
         if not isinstance(x, DiagonalGaussianMixtureEncodedDataSequence):
             raise TypeError(
@@ -273,7 +279,7 @@ class DiagonalGaussianMixtureDistribution(SequenceEncodableProbabilityDistributi
     def fast_seq_posterior(
         self, x: "DiagonalGaussianMixtureEncodedDataSequence"
     ) -> np.ndarray:
-        """Compute posterior probabilities for a sequence of data points using numba.
+        """Compute sequence responsibilities using the Numba kernel.
 
         Args:
             x (DiagonalGaussianMixtureEncodedDataSequence): Encoded data sequence
@@ -349,7 +355,10 @@ class DiagonalGaussianMixtureDistribution(SequenceEncodableProbabilityDistributi
 
 
 class DiagonalGaussianMixtureSampler(DistributionSampler):
-    """Sampler for the diagonal Gaussian mixture distribution.
+    """Draw observations from a diagonal-MVN mixture.
+
+    Each draw first selects ``Z`` according to ``dist.w`` and then draws from the
+    selected diagonal multivariate normal component.
 
     Attributes:
         dist (DiagonalGaussianMixtureDistribution): The distribution to sample from.
@@ -359,8 +368,7 @@ class DiagonalGaussianMixtureSampler(DistributionSampler):
     def __init__(
         self, dist: DiagonalGaussianMixtureDistribution, seed: Optional[int] = None
     ) -> None:
-        """
-        Initialize the sampler for the diagonal Gaussian mixture distribution.
+        """Initialize the sampler for the diagonal Gaussian mixture distribution.
 
         Args:
             dist (DiagonalGaussianMixtureDistribution): The distribution to sample from.
@@ -372,14 +380,15 @@ class DiagonalGaussianMixtureSampler(DistributionSampler):
         self.dist = dist
 
     def sample(self, size: Optional[int] = None) -> Union[float, np.ndarray]:
-        """Sample from the diagonal Gaussian mixture distribution.
+        """Draw iid vectors from the diagonal-MVN mixture.
 
         Args:
             size (Optional[int], optional): Number of samples to generate. If None,
                 generates a single sample.
 
         Returns:
-            Union[float, np.ndarray]: Generated sample(s).
+            Union[float, np.ndarray]: An array with shape ``(1, D)`` when ``size`` is
+                ``None``; otherwise a list-like collection with shape ``(size, D)``.
         """
         comp_state = self.rng.choice(
             range(0, self.dist.num_components), size=size, replace=True, p=self.dist.w
@@ -392,8 +401,7 @@ class DiagonalGaussianMixtureSampler(DistributionSampler):
 
 
 class DiagonalGaussianMixtureAccumulator(SequenceEncodableStatisticAccumulator):
-    """Accumulator for sufficient statistics of the diagonal Gaussian mixture
-    distribution.
+    """Accumulate sufficient statistics for a diagonal-MVN mixture.
 
     Attributes:
         num_components (int): Number of mixture components.
@@ -411,8 +419,7 @@ class DiagonalGaussianMixtureAccumulator(SequenceEncodableStatisticAccumulator):
         keys: Tuple[Optional[str], Optional[str]] = (None, None),
         name: Optional[str] = None,
     ) -> None:
-        """
-        Initialize the accumulator for sufficient statistics.
+        """Initialize the accumulator for sufficient statistics.
 
         Args:
             num_components (int): Number of mixture components.
@@ -481,7 +488,9 @@ class DiagonalGaussianMixtureAccumulator(SequenceEncodableStatisticAccumulator):
         weight: float,
         rng: np.random.RandomState,
     ) -> None:
-        """Initialize accumulator with a new observation.
+        """Randomly initialize statistics from one weighted observation.
+
+        A Dirichlet draw splits a nonzero weight across the ``K`` latent components.
 
         Args:
             x (Union[List[float], np.ndarray]): Observation.
@@ -512,11 +521,14 @@ class DiagonalGaussianMixtureAccumulator(SequenceEncodableStatisticAccumulator):
         weights: np.ndarray,
         rng: np.random.RandomState,
     ) -> None:
-        """Vectorized initialization for encoded data.
+        """Randomly initialize statistics from an encoded iid sequence.
+
+        Each positive observation weight is independently split across components by
+        a symmetric Dirichlet draw; nonpositive weights receive zero allocation.
 
         Args:
             x (DiagonalGaussianMixtureEncodedDataSequence): Encoded data sequence.
-            weights (np.ndarray): Weights for each observation.
+            weights (np.ndarray): Observation weights with shape ``(N,)``.
             rng (np.random.RandomState): Random number generator.
         """
         if not self._init_rng:
@@ -689,8 +701,7 @@ class DiagonalGaussianMixtureAccumulatorFactory(StatisticAccumulatorFactory):
         name: Optional[str] = None,
         tied: bool = False,
     ) -> None:
-        """
-        Initialize the factory for creating accumulators.
+        """Initialize the factory for creating accumulators.
 
         Args:
             num_components (int): Number of mixture components.
@@ -770,8 +781,7 @@ class DiagonalGaussianMixtureEstimator(ParameterEstimator):
         keys: Tuple[Optional[str], Optional[str]] = (None, None),
         name: Optional[str] = None,
     ) -> None:
-        """
-        Initialize the estimator for diagonal Gaussian mixture distributions.
+        """Initialize a diagonal-MVN mixture estimator.
 
         Args:
             num_components (int): Number of mixture components.
@@ -1006,8 +1016,7 @@ def fast_seq_posterior(
     zw: np.ndarray,
     out: np.ndarray,
 ) -> None:
-    """Compute posterior probabilities for a sequence of data points using Numba for
-    optimization.
+    """Compute sequence responsibilities using Numba.
 
     Args:
         x (np.ndarray): Input data points (N x D).

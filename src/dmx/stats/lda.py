@@ -1,24 +1,18 @@
-"""Create, estimate, and sample from an integer latent Dirichlet allocation model (LDA).
+r"""Provide latent Dirichlet allocation for sparse counted documents.
 
+A document is a sparse sequence ``[(x_0, c_0), ..., (x_m, c_m)]`` whose values
+are accepted by each topic distribution and whose nonnegative counts give token
+multiplicity. For :math:`K` topics, the model draws document proportions
+:math:`\theta_d\sim\operatorname{Dirichlet}(\alpha)`, then assigns each token a
+topic :math:`z_{dn}\sim\operatorname{Categorical}(\theta_d)` and draws its value
+from the corresponding topic distribution. A separate length distribution supplies
+the number of tokens when sampling.
 
-Defines the LDADistribution, LDASampler, LDAAccumulatorFactory, LDAEstimatorAccumulator,
-LDAEstimator, and the
-LDADataEncoder classes for use with dmx-learn.
-
-LDA is a generative model for producing draws from multinomial distribution. The process
-for generating a document of
-length N from an LDA with L topics is given as follows:
-
-    (1) Draw theta ~ Dirichlet(alpha) (alpha is L dimensional)
-    (2) Draw topic-counts z_1,....,z_L ~ Multinomial(N, theta)
-    (3) From each topic l = 1,2,...,L draw z_l words w_{i,l}, w_{i+1,l},...,w_{z_l,l} ~
-    Categorical(beta_l),
-        where each topic has its own Categorical distribution parameterized by beta_l.
-
-A document is then given by the bag of words produced from this sampling process. Note
-that a length distribtion is
-used to sample the number of words in a given document.
-
+The distribution's ``log_density`` methods return the variational evidence lower
+bound (ELBO) computed by the document-posterior iteration, not the exact marginal
+log-likelihood. Accumulator updates use the resulting token-topic responsibilities.
+Random initialization draws document-topic proportions from the previous ``alpha``
+(or an all-ones vector) and randomly allocates topic statistics.
 """
 
 import sys
@@ -60,7 +54,13 @@ SS0 = TypeVar("SS0")
 
 
 class LDADistribution(SequenceEncodableProbabilityDistribution):
-    """LDADistribution object for defining a Latent Dirichlet allocation model.
+    """Represent a latent Dirichlet allocation model.
+
+    Model definition:
+        ``topics[k]`` is the conditional value distribution for latent topic ``k``;
+        ``alpha[k]`` is the positive Dirichlet concentration for its document-level
+        proportion. ``gamma_threshold`` controls only variational inference and is
+        not a model parameter.
 
     Attributes:
         topics (Sequence[SequenceEncodableProbabilityDistribution]): Topic distributions
@@ -85,7 +85,7 @@ class LDADistribution(SequenceEncodableProbabilityDistribution):
         keys: Tuple[Optional[str], Optional[str]] = (None, None),
         name: Optional[str] = None,
     ) -> None:
-        """LDADistribution object.
+        """Initialize an LDA distribution.
 
         Args:
             topics (Sequence[SequenceEncodableProbabilityDistribution]): Topic
@@ -96,6 +96,8 @@ class LDADistribution(SequenceEncodableProbabilityDistribution):
                 for length of documents.
                 Must be set to non-negative support distribution for sampling.
             gamma_threshold (float): For numerical stability in estimation.
+            keys: Keys for sharing alpha and topic sufficient statistics.
+            name: Optional model name.
 
         """
         super().__init__()
@@ -108,6 +110,7 @@ class LDADistribution(SequenceEncodableProbabilityDistribution):
         self.name = name
 
     def __str__(self) -> str:
+        """Return a constructor-like representation of the distribution."""
         s0 = ",".join([str(u) for u in self.topics])
         s1 = ",".join(map(str, self.alpha))
         s2 = repr(self.len_dist)
@@ -123,14 +126,21 @@ class LDADistribution(SequenceEncodableProbabilityDistribution):
         )
 
     def density(self, x: Sequence[Tuple[int, float]]) -> float:
+        """Exponentiate the variational lower bound for one document."""
         return float(np.exp(self.log_density(x)))
 
     def log_density(self, x: Sequence[Tuple[int, float]]) -> float:
+        """Return the variational evidence lower bound for one document."""
         enc_x = self.dist_to_encoder().seq_encode([x])
         return float(self.seq_log_density(enc_x)[0])
 
     def seq_log_density(self, x: "LDAEncodedDataSequence") -> np.ndarray:
+        """Return the variational evidence lower bound for encoded documents.
 
+        The returned vector has one entry per document. Despite the protocol method
+        name, these values are ELBOs obtained after iterative variational posterior
+        updates, rather than exact marginal log-likelihoods.
+        """
         if not isinstance(x, LDAEncodedDataSequence):
             raise TypeError("Requires LDAEncodedDataSequence for `seq` function calls.")
 
@@ -175,7 +185,7 @@ class LDADistribution(SequenceEncodableProbabilityDistribution):
         return np.asarray(elob, dtype=np.float64)
 
     def seq_component_log_density(self, x: "LDAEncodedDataSequence") -> np.ndarray:
-
+        """Return count-weighted value log-densities for each document and topic."""
         if not isinstance(x, LDAEncodedDataSequence):
             raise TypeError("Requires LDAEncodedDataSequence for `seq` function calls.")
 
@@ -197,6 +207,7 @@ class LDADistribution(SequenceEncodableProbabilityDistribution):
         return rv
 
     def seq_posterior(self, x: "LDAEncodedDataSequence") -> np.ndarray:
+        """Return normalized variational document-topic parameters."""
         if not isinstance(x, LDAEncodedDataSequence):
             raise TypeError("Requires LDAEncodedDataSequence for `seq` function calls.")
 
@@ -209,9 +220,11 @@ class LDADistribution(SequenceEncodableProbabilityDistribution):
         return np.asarray(document_gammas, dtype=np.float64)
 
     def sampler(self, seed: Optional[int] = None) -> "LDASampler":
+        """Create a sampler for this LDA distribution."""
         return LDASampler(self, seed)
 
     def estimator(self, pseudo_count: Optional[float] = None) -> "LDAEstimator":
+        """Create an estimator for the topic models and Dirichlet parameter."""
         if pseudo_count is None:
             return LDAEstimator(
                 estimators=[d.estimator() for d in self.topics],
@@ -226,12 +239,15 @@ class LDADistribution(SequenceEncodableProbabilityDistribution):
         )
 
     def dist_to_encoder(self) -> "LDADataEncoder":
+        """Create a document encoder using the first topic's value encoder."""
         return LDADataEncoder(encoder=self.topics[0].dist_to_encoder())
 
 
 class LDASampler(DistributionSampler):
+    """Sample sparse documents from an LDA distribution."""
 
     def __init__(self, dist: LDADistribution, seed: Optional[int] = None) -> None:
+        """Initialize an LDA sampler from ``dist`` and an optional seed."""
         super().__init__(dist, seed)
         self.dist = dist
         self.n_topics = dist.n_topics
@@ -257,7 +273,7 @@ class LDASampler(DistributionSampler):
     def sample(
         self, size: Optional[int] = None
     ) -> Union[Sequence[List[Tuple[Any, int]]], List[Tuple[Any, int]]]:
-        """Sample returns tuple of counted values"""
+        """Draw one document or a sequence of documents."""
         if size is None:
             return self._sample_single()
 
@@ -265,6 +281,12 @@ class LDASampler(DistributionSampler):
 
 
 class LDAEstimatorAccumulator(SequenceEncodableStatisticAccumulator):
+    """Accumulate variational LDA sufficient statistics.
+
+    The stored values are the previous Dirichlet parameter, sums of expected
+    log document-topic proportions, weighted document mass, topic responsibility
+    mass, and the sufficient statistics of each topic model.
+    """
 
     def __init__(
         self,
@@ -273,6 +295,14 @@ class LDAEstimatorAccumulator(SequenceEncodableStatisticAccumulator):
         keys: Optional[Tuple[Optional[str], Optional[str]]] = (None, None),
         prev_alpha: Optional[np.ndarray] = None,
     ) -> None:
+        """Initialize an LDA sufficient-statistic accumulator.
+
+        Args:
+            accumulators: One value-distribution accumulator per topic.
+            name: Optional accumulator name.
+            keys: Keys for sharing alpha-update and topic statistics.
+            prev_alpha: Dirichlet parameter used for random initialization.
+        """
         self.accumulators = accumulators
         self.num_topics = len(accumulators)
         self.sum_of_logs = np.zeros(self.num_topics)
@@ -292,6 +322,7 @@ class LDAEstimatorAccumulator(SequenceEncodableStatisticAccumulator):
         self.name = name
 
     def update(self, x: Any, weight: float, estimate: Any) -> None:
+        """Leave scalar observations unchanged; LDA updates require encoding."""
         pass
 
     def _rng_initialize(self, rng: RandomState) -> None:
@@ -311,7 +342,12 @@ class LDAEstimatorAccumulator(SequenceEncodableStatisticAccumulator):
         weights: np.ndarray,
         rng: np.random.RandomState,
     ) -> None:
+        """Randomly initialize sufficient statistics for encoded documents.
 
+        Document proportions are drawn from ``prev_alpha``, defaulting to an
+        all-ones vector, and token-topic weights are randomized before being passed
+        to each topic accumulator.
+        """
         num_documents, idx, counts, _old_gammas, enc_data = x.data
 
         if not self._init_rng:
@@ -350,7 +386,7 @@ class LDAEstimatorAccumulator(SequenceEncodableStatisticAccumulator):
     def initialize(
         self, x: Sequence[Tuple[Any, float]], weight: float, rng: np.random.RandomState
     ) -> None:
-
+        """Randomly initialize sufficient statistics for one sparse document."""
         if self.prev_alpha is None:
             self.prev_alpha = np.ones(self.num_topics)
 
@@ -393,7 +429,7 @@ class LDAEstimatorAccumulator(SequenceEncodableStatisticAccumulator):
         weights: np.ndarray,
         estimate: LDADistribution,
     ) -> None:
-
+        """Update statistics from variational token-topic responsibilities."""
         _num_documents, idx, counts, _old_gammas, enc_data = x.data
         log_density_gamma, final_gammas, _per_topic_log_densities = seq_posterior(
             estimate, x.data
@@ -423,7 +459,7 @@ class LDAEstimatorAccumulator(SequenceEncodableStatisticAccumulator):
             Optional[np.ndarray], np.ndarray, float, np.ndarray, Sequence[SS0]
         ],
     ) -> "LDAEstimatorAccumulator":
-
+        """Add another accumulator's sufficient statistics in place."""
         prev_alpha, sum_of_logs, doc_counts, topic_counts, topic_suff_stats = suff_stat
 
         if self.prev_alpha is None:
@@ -441,6 +477,7 @@ class LDAEstimatorAccumulator(SequenceEncodableStatisticAccumulator):
     def value(
         self,
     ) -> Tuple[Optional[np.ndarray], np.ndarray, float, np.ndarray, Sequence[Any]]:
+        """Return alpha-update, document, and per-topic sufficient statistics."""
         return (
             self.prev_alpha,
             self.sum_of_logs,
@@ -453,7 +490,7 @@ class LDAEstimatorAccumulator(SequenceEncodableStatisticAccumulator):
         self,
         x: Tuple[Optional[np.ndarray], np.ndarray, float, np.ndarray, Sequence[SS0]],
     ) -> "LDAEstimatorAccumulator":
-
+        """Replace the sufficient statistics and return this accumulator."""
         prev_alpha, sum_of_logs, doc_counts, topic_counts, topic_suff_stats = x
 
         self.prev_alpha = prev_alpha
@@ -468,7 +505,7 @@ class LDAEstimatorAccumulator(SequenceEncodableStatisticAccumulator):
         return self
 
     def key_merge(self, stats_dict: Dict[str, Any]) -> None:
-
+        """Merge alpha-update and topic statistics under configured keys."""
         if self.alpha_key is not None:
             if self.alpha_key in stats_dict:
 
@@ -500,7 +537,7 @@ class LDAEstimatorAccumulator(SequenceEncodableStatisticAccumulator):
             u.key_merge(stats_dict)
 
     def key_replace(self, stats_dict: Dict[str, Any]) -> None:
-
+        """Replace alpha-update and topic statistics from configured keys."""
         if self.alpha_key is not None:
             if self.alpha_key in stats_dict:
                 p_sol, p_doc, p_pa = stats_dict[self.alpha_key]
@@ -517,10 +554,13 @@ class LDAEstimatorAccumulator(SequenceEncodableStatisticAccumulator):
             u.key_replace(stats_dict)
 
     def acc_to_encoder(self) -> "LDADataEncoder":
+        """Create an LDA encoder from the first topic accumulator."""
         return LDADataEncoder(encoder=self.accumulators[0].acc_to_encoder())
 
 
 class LDAEstimatorAccumulatorFactory(StatisticAccumulatorFactory):
+    """Create LDA sufficient-statistic accumulators."""
+
     def __init__(
         self,
         factories: Sequence[StatisticAccumulatorFactory],
@@ -529,6 +569,15 @@ class LDAEstimatorAccumulatorFactory(StatisticAccumulatorFactory):
         keys: Optional[Tuple[Optional[str], Optional[str]]] = (None, None),
         prev_alpha: Optional[np.ndarray] = None,
     ) -> None:
+        """Initialize an LDA accumulator factory.
+
+        Args:
+            factories: One value-distribution accumulator factory per topic.
+            dim: Number of topics and factories to use.
+            name: Optional accumulator name.
+            keys: Keys for sharing alpha-update and topic statistics.
+            prev_alpha: Dirichlet parameter used during random initialization.
+        """
         self.factories = factories
         self.dim = dim
         self.keys = keys if keys is not None else (None, None)
@@ -536,6 +585,7 @@ class LDAEstimatorAccumulatorFactory(StatisticAccumulatorFactory):
         self.prev_alpha = prev_alpha
 
     def make(self) -> "LDAEstimatorAccumulator":
+        """Create an LDA sufficient-statistic accumulator."""
         return LDAEstimatorAccumulator(
             [self.factories[i].make() for i in range(self.dim)],
             name=self.name,
@@ -609,6 +659,7 @@ class LDAEstimator(ParameterEstimator):
         self.name = name
 
     def accumulator_factory(self) -> "LDAEstimatorAccumulatorFactory":
+        """Create a factory for compatible LDA accumulators."""
         est_factories = [u.accumulator_factory() for u in self.estimators]
         return LDAEstimatorAccumulatorFactory(
             factories=est_factories,
@@ -625,6 +676,18 @@ class LDAEstimator(ParameterEstimator):
             Optional[np.ndarray], np.ndarray, float, np.ndarray, Sequence[Any]
         ],
     ) -> LDADistribution:
+        """Estimate topic distributions and the Dirichlet concentration.
+
+        Args:
+            nobs: Ignored; weighted document mass is included in ``suff_stat``.
+            suff_stat: Previous alpha, summed expected log topic proportions,
+                weighted document mass, topic responsibility totals, and one set of
+                sufficient statistics per topic estimator.
+
+        Returns:
+            An LDA distribution with updated topics and either an updated or fixed
+            Dirichlet concentration.
+        """
         del nobs
 
         prev_alpha, sum_of_logs, doc_counts, topic_counts, topic_suff_stats = suff_stat
@@ -660,14 +723,18 @@ class LDAEstimator(ParameterEstimator):
 
 
 class LDADataEncoder(DataSequenceEncoder):
+    """Encode sparse counted documents for vectorized LDA operations."""
 
     def __init__(self, encoder: DataSequenceEncoder) -> None:
+        """Initialize the encoder used for flattened token values."""
         self.encoder = encoder
 
     def __str__(self) -> str:
+        """Return a constructor-like representation of the encoder."""
         return "LDADataEncoder(encoder=" + str(self.encoder) + ")"
 
     def __eq__(self, other: object) -> bool:
+        """Return whether two LDA encoders wrap equal value encoders."""
         if isinstance(other, LDADataEncoder):
             return self.encoder == other.encoder
         return False
@@ -675,21 +742,18 @@ class LDADataEncoder(DataSequenceEncoder):
     def seq_encode(
         self, x: Sequence[Sequence[Tuple[int, float]]]
     ) -> "LDAEncodedDataSequence":
-        """Encode a sequence of iid LDA observations for vectorized functions.
+        """Encode sparse documents for vectorized LDA operations.
 
-        Return value 'rv' is a Tuple containing:
-            rv[0] (int): Number of documents in corpus.
-            rv[1] (np.ndarray): Document id for flattened array of values.
-            rv[2] (np.ndarray): Flattened array of counts for each value in each
-            document.
-            rv[3] (Optional[np.ndarray]): Currently default to None
-            rv[4] (E0): Sequence encoded flattened values.
+        The encoded payload is ``(num_documents, idx, counts, gammas, enc_data)``.
+        ``idx`` maps each flattened distinct token to its document, ``counts`` stores
+        its multiplicity, ``gammas`` is initially ``None``, and ``enc_data`` is the
+        wrapped encoder's representation of the flattened token values.
 
         Args:
             x (Sequence[Sequence[Tuple[int, float]]]): Sequence of LDA documents.
 
         Returns:
-            See above for details.
+            The encoded document sequence.
 
         """
         num_documents = len(x)
@@ -716,6 +780,7 @@ class LDADataEncoder(DataSequenceEncoder):
 
 
 class LDAEncodedDataSequence(EncodedDataSequence):
+    """Store flattened documents and optional variational initialization values."""
 
     def __init__(
         self,
@@ -723,15 +788,27 @@ class LDAEncodedDataSequence(EncodedDataSequence):
             int, np.ndarray, np.ndarray, Optional[np.ndarray], EncodedDataSequence
         ],
     ):
+        """Initialize an encoded LDA sequence from its five-part payload."""
         super().__init__(data=data)
 
     def __repr__(self) -> str:
+        """Return a representation containing the encoded data."""
         return f"LDAEncodedDataSequence(data={self.data})"
 
 
 def update_alpha(
     alpha_curr: np.ndarray, mean_log_p: np.ndarray, alpha_threshold: float
 ) -> Tuple[np.ndarray, int]:
+    """Solve the Dirichlet fixed-point update for mean log proportions.
+
+    Args:
+        alpha_curr: Positive starting concentration vector.
+        mean_log_p: Mean expected log topic proportions.
+        alpha_threshold: Relative L1 convergence threshold.
+
+    Returns:
+        The updated concentration vector and iteration count.
+    """
     alpha = np.asarray(alpha_curr.copy(), dtype=np.float64)
     asum = float(alpha.sum())
     res = np.inf
@@ -750,6 +827,7 @@ def update_alpha(
 def mpe_update(
     x_mat: Optional[np.ndarray], y: np.ndarray, min_size: int = 2
 ) -> Tuple[np.ndarray, np.ndarray]:
+    """Append a fixed-point iterate and compute a minimal-polynomial extrapolation."""
     if x_mat is None:
         x_mat = np.reshape(y, (1, -1))
         return x_mat, y
@@ -772,6 +850,7 @@ def mpe_update(
 def mpe(
     x0: np.ndarray, f: Callable[[np.ndarray], np.ndarray], eps: float
 ) -> Tuple[np.ndarray, int]:
+    """Iterate a fixed-point map with minimal-polynomial extrapolation."""
     x1 = f(x0)
     x2 = f(x1)
     x3 = f(x2)
@@ -799,6 +878,8 @@ def mpe(
 
 
 def alpha_seq_lambda(mean_log_p: np.ndarray) -> Callable[[np.ndarray], np.ndarray]:
+    """Create the fixed-point map for a Dirichlet concentration update."""
+
     def next_alpha(alpha_current: np.ndarray) -> np.ndarray:
         return np.asarray(
             digammainv(mean_log_p + digamma(float(alpha_current.sum()))),
@@ -811,6 +892,7 @@ def alpha_seq_lambda(mean_log_p: np.ndarray) -> Callable[[np.ndarray], np.ndarra
 def find_alpha(
     current_alpha: np.ndarray, mlp: np.ndarray, thresh: float
 ) -> Tuple[np.ndarray, int]:
+    """Estimate a Dirichlet concentration using extrapolated fixed-point updates."""
     f = alpha_seq_lambda(mlp)
     return mpe(current_alpha, f, thresh)
 
@@ -818,12 +900,24 @@ def find_alpha(
 def seq_posterior2(
     estimate: LDADistribution, x: Tuple[int, np.ndarray, np.ndarray, Optional[Any], E0]
 ) -> Tuple[np.ndarray, np.ndarray, np.ndarray]:
+    """Delegate to :func:`seq_posterior` for backward compatibility."""
     return seq_posterior(estimate, x)
 
 
 def seq_posterior(
     estimate: LDADistribution, x: Tuple[int, np.ndarray, np.ndarray, Optional[Any], E0]
 ) -> Tuple[np.ndarray, np.ndarray, np.ndarray]:
+    """Compute the mean-field variational posterior for encoded documents.
+
+    Args:
+        estimate: LDA model supplying topics, ``alpha``, and convergence threshold.
+        x: Encoded payload ``(num_documents, idx, counts, gammas, enc_data)``.
+
+    Returns:
+        Token-topic responsibilities of shape ``(M, K)``, document Dirichlet
+        parameters of shape ``(D, K)``, and topic log-densities of shape ``(M, K)``,
+        where ``M`` is the number of distinct encoded document-token pairs.
+    """
     alpha = estimate.alpha
     topics = estimate.topics
     gamma_threshold = estimate.gamma_threshold
