@@ -5,7 +5,10 @@
 import os
 import sys
 
-sys.path.insert(0, os.path.abspath(".."))
+# The project uses a ``src`` layout.  Include it explicitly so autodoc can
+# import ``dmx`` even when documentation dependencies are installed outside
+# Poetry's project environment (as on Read the Docs).
+sys.path.insert(0, os.path.abspath("../src"))
 # -- Project information -----------------------------------------------------
 # https://www.sphinx-doc.org/en/master/usage/configuration.html#project-information
 
