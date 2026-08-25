@@ -1,22 +1,12 @@
-"""Create, estimate, and sample from a Spearman ranking distribution.
+r"""Provide a finite distribution over complete rankings.
 
-Defines the SpearmanRankingDistribution, SpearmanRankingSampler,
-SpearmanRankingAccumulatorFactory,
-SpearmanRankingAccumulator, SpearmanRankingEstimator, and the SpearmanRankingDataEncoder
-classes for use with dmx-learn.
-
-Data type: List[int] (Component-wise rank of K dimensional observation vector)
-
-The Spearman ranking distribution with dimension K, has probability function
-
-    p_mat(x_k;rho, sigma) = exp(-rho * ||x_k-sigma||^2 ) / sum_{k=0}^{K-1} exp(-rho *
-    ||x_k-sigma||^2 ), for k = 0,1,..,K-1
-
-where x_k list of integers containing a permutation of the integers 0,1,2,...K-1. Note
-sigma is a list of floats with
-dimension equal to K representing the mean of the rank variables, and rho is a
-correlation coefficient.
-
+The support is all permutations of ``range(dim)``. A ranking :math:`x` has
+mass proportional to :math:`\exp(-\rho\lVert x-\sigma\rVert^2)`, where
+``sigma`` is a reference rank vector and ``rho`` controls concentration.
+Normalization and sampling enumerate every permutation, so this implementation
+is suitable only for small dimensions. The estimator accumulates weighted rank
+sums, sets ``sigma`` to their ordering, and fixes ``rho`` to one when data are
+present; it is a ranking-center estimator, not a general correlation fit.
 """
 
 import itertools
@@ -37,6 +27,8 @@ from dmx.stats.pdist import (
 
 
 class SpearmanRankingDistribution(SequenceEncodableProbabilityDistribution):
+    """Represent a squared-rank-distance distribution over permutations."""
+
     """SpearmanRankingDistribution object for defining a Spearman ranking distribution.
 
     Attributes:
@@ -55,7 +47,7 @@ class SpearmanRankingDistribution(SequenceEncodableProbabilityDistribution):
         name: Optional[str] = None,
         keys: Optional[str] = None,
     ) -> None:
-        """SpearmanRankingDistribution object.
+        """Initialize a complete-ranking distribution.
 
         Args:
             sigma (np.ndarray]): Numpy array of means for the rank variables.
@@ -77,20 +69,23 @@ class SpearmanRankingDistribution(SequenceEncodableProbabilityDistribution):
         )
 
     def __str__(self) -> str:
+        """Return an evaluable distribution representation."""
         return (
             f"SpearmanRankingDistribution(sigma={repr(self.sigma.tolist())}, "
             f"rho={repr(self.rho)}, name={repr(self.name)}, keys={repr(self.keys)})"
         )
 
     def density(self, x: List[int]) -> float:
+        """Return the probability of one complete ranking."""
         return float(np.exp(self.log_density(x)))
 
     def log_density(self, x: List[int]) -> float:
+        """Return the log probability of one complete ranking."""
         temp = np.subtract(x, self.sigma)
         return float(-self.rho * np.dot(temp, temp) - self.log_const)
 
     def seq_log_density(self, x: "SpearmanRankingEncodedDataSequence") -> np.ndarray:
-
+        """Return log probabilities for an encoded ranking batch."""
         if not isinstance(x, SpearmanRankingEncodedDataSequence):
             raise TypeError(
                 "SpearmanRankingEncodedDataSequence required for seq_log_density()."
@@ -103,20 +98,25 @@ class SpearmanRankingDistribution(SequenceEncodableProbabilityDistribution):
         return np.asarray(rv, dtype=float)
 
     def sampler(self, seed: Optional[int] = None) -> "SpearmanRankingSampler":
+        """Create an exact enumerative ranking sampler."""
         return SpearmanRankingSampler(self, seed)
 
     def estimator(
         self, pseudo_count: Optional[float] = None
     ) -> "SpearmanRankingEstimator":
+        """Create the ranking-center estimator."""
         return SpearmanRankingEstimator(
             self.dim, pseudo_count=pseudo_count, name=self.name, keys=self.keys
         )
 
     def dist_to_encoder(self) -> "SpearmanRankingDataEncoder":
+        """Return the encoder for complete-ranking batches."""
         return SpearmanRankingDataEncoder()
 
 
 class SpearmanRankingSampler(DistributionSampler):
+    """Sample rankings by enumerating the finite permutation support."""
+
     """SpearmanRankingSampler object for sampling from SpearmanRankingDistribution.
 
     Attributes:
@@ -130,7 +130,7 @@ class SpearmanRankingSampler(DistributionSampler):
     def __init__(
         self, dist: SpearmanRankingDistribution, seed: Optional[int] = None
     ) -> None:
-        """SpearmanRankingSampler object..
+        """Initialize an enumerative ranking sampler.
 
         Args:
             dist (SpearmanRankingDistribution): Distribution to draw samples from.
@@ -146,6 +146,7 @@ class SpearmanRankingSampler(DistributionSampler):
     def sample(
         self, size: Optional[int] = None
     ) -> Union[List[int], Sequence[List[int]]]:
+        """Draw one ranking, or ``size`` independently drawn rankings."""
         idx = self.rng.choice(len(self.perms), p=self.probs, replace=True, size=size)
 
         if size is None:
@@ -154,6 +155,8 @@ class SpearmanRankingSampler(DistributionSampler):
 
 
 class SpearmanRankingAccumulator(SequenceEncodableStatisticAccumulator):
+    """Accumulate weighted rank sums for the ranking-center estimator."""
+
     """SpearmanRankingAccumulatorFactory object for creating SpearmanRankingAccumulator
     objects.
 
@@ -167,6 +170,7 @@ class SpearmanRankingAccumulator(SequenceEncodableStatisticAccumulator):
     def __init__(
         self, dim: int, name: Optional[str] = None, keys: Optional[str] = None
     ) -> None:
+        """Accumulate one weighted ranking."""
         """SpearmanRankingAccumulator object.
 
         Args:
@@ -186,12 +190,14 @@ class SpearmanRankingAccumulator(SequenceEncodableStatisticAccumulator):
         weight: float,
         estimate: Optional[SpearmanRankingDistribution],
     ) -> None:
+        """Initialize from one ranking without randomization."""
         self.sum += np.multiply(x, weight)
         self.count += weight
 
     def initialize(
         self, x: Union[List[int], np.ndarray], weight: float, rng: RandomState
     ) -> None:
+        """Accumulate a weighted encoded ranking batch."""
         del rng
         if weight != 0:
             self.sum += np.multiply(x, weight)
@@ -203,6 +209,7 @@ class SpearmanRankingAccumulator(SequenceEncodableStatisticAccumulator):
         weights: np.ndarray,
         estimate: Optional[SpearmanRankingDistribution],
     ) -> None:
+        """Initialize from an encoded ranking batch."""
         self.sum += np.dot(x.data.T, weights)
         self.count += weights.sum()
 
@@ -212,24 +219,29 @@ class SpearmanRankingAccumulator(SequenceEncodableStatisticAccumulator):
         weights: np.ndarray,
         rng: RandomState,
     ) -> None:
+        """Initialize from an encoded ranking batch."""
         self.seq_update(x, weights, None)
 
     def combine(
         self, suff_stat: Tuple[float, np.ndarray]
     ) -> "SpearmanRankingAccumulator":
+        """Combine rank-sum sufficient statistics."""
         self.sum += suff_stat[1]
         self.count += suff_stat[0]
         return self
 
     def value(self) -> Tuple[float, np.ndarray]:
+        """Return total weight and rank-sum vector."""
         return self.count, self.sum
 
     def from_value(self, x: Tuple[float, np.ndarray]) -> "SpearmanRankingAccumulator":
+        """Restore total weight and rank sums from a tuple."""
         self.sum = x[1]
         self.count = x[0]
         return self
 
     def key_merge(self, stats_dict: Dict[str, Any]) -> None:
+        """Merge keyed rank-sum sufficient statistics."""
         if self.keys is not None:
             if self.keys in stats_dict:
                 vals = stats_dict[self.keys]
@@ -238,6 +250,7 @@ class SpearmanRankingAccumulator(SequenceEncodableStatisticAccumulator):
                 stats_dict[self.keys] = (self.count, self.sum)
 
     def key_replace(self, stats_dict: Dict[str, Any]) -> None:
+        """Replace keyed rank-sum sufficient statistics."""
         if self.keys is not None:
             if self.keys in stats_dict:
                 vals = stats_dict[self.keys]
@@ -245,10 +258,13 @@ class SpearmanRankingAccumulator(SequenceEncodableStatisticAccumulator):
                 self.sum = vals[1]
 
     def acc_to_encoder(self) -> "SpearmanRankingDataEncoder":
+        """Return the ranking encoder."""
         return SpearmanRankingDataEncoder()
 
 
 class SpearmanRankingAccumulatorFactory(StatisticAccumulatorFactory):
+    """Create rank-sum accumulators for a fixed ranking dimension."""
+
     """SpearmanRankingAccumulatorFactory object for creating SpearmanRankingAccumulator
     objects.
 
@@ -262,7 +278,7 @@ class SpearmanRankingAccumulatorFactory(StatisticAccumulatorFactory):
     def __init__(
         self, dim: int, name: Optional[str] = None, keys: Optional[str] = None
     ) -> None:
-        """SpearmanRankingAccumulatorFactory object.
+        """Initialize a ranking accumulator factory.
 
         Args:
             dim (int): Dimension of rankings.
@@ -275,10 +291,13 @@ class SpearmanRankingAccumulatorFactory(StatisticAccumulatorFactory):
         self.name = name
 
     def make(self) -> "SpearmanRankingAccumulator":
+        """Create a fresh ranking accumulator."""
         return SpearmanRankingAccumulator(dim=self.dim, name=self.name, keys=self.keys)
 
 
 class SpearmanRankingEstimator(ParameterEstimator):
+    """Estimate a ranking center from weighted rank sums."""
+
     """SpearmanRankingEstimator object for estimating Spearman ranking distribution.
 
     Attributes:
@@ -298,7 +317,7 @@ class SpearmanRankingEstimator(ParameterEstimator):
         name: Optional[str] = None,
         keys: Optional[str] = None,
     ) -> None:
-        """SpearmanRankingEstimator object.
+        """Initialize a ranking-center estimator.
 
         Args:
             dim (int): Dimension of rankings.
@@ -323,12 +342,13 @@ class SpearmanRankingEstimator(ParameterEstimator):
         self.name = name
 
     def accumulator_factory(self) -> "SpearmanRankingAccumulatorFactory":
+        """Return a factory for rank-sum statistics."""
         return SpearmanRankingAccumulatorFactory(self.dim, self.name, self.keys)
 
     def estimate(
         self, nobs: Optional[float], suff_stat: Tuple[float, np.ndarray]
     ) -> "SpearmanRankingDistribution":
-
+        """Estimate the reference ranking and fixed concentration parameter."""
         count, vsum = suff_stat
 
         if count > 0:
@@ -345,20 +365,25 @@ class SpearmanRankingDataEncoder(DataSequenceEncoder):
     """Encoder for sequences of Spearman rho observations."""
 
     def __str__(self) -> str:
+        """Return an evaluable encoder representation."""
         return "SpearmanRankingDataEncoder"
 
     def __eq__(self, other: object) -> bool:
+        """Return whether ``other`` is a ranking encoder."""
         return isinstance(other, SpearmanRankingDataEncoder)
 
     def seq_encode(
         self, x: Sequence[List[int]]
     ) -> "SpearmanRankingEncodedDataSequence":
+        """Encode rankings as a two-dimensional integer array."""
         rv = np.asarray(x)
 
         return SpearmanRankingEncodedDataSequence(data=rv)
 
 
 class SpearmanRankingEncodedDataSequence(EncodedDataSequence):
+    """Hold encoded rankings with shape ``(N, dim)``."""
+
     """SpearmanRankingEncodedDataSequence object for vectorized function calls.
 
     Attributes:
@@ -367,7 +392,7 @@ class SpearmanRankingEncodedDataSequence(EncodedDataSequence):
     """
 
     def __init__(self, data: np.ndarray):
-        """SpearmanRankingEncodedDataSequence object.
+        """Initialize encoded rankings.
 
         Args:
             data (np.ndarray): Iid observations from spearman rho ranking distribution.
@@ -376,4 +401,5 @@ class SpearmanRankingEncodedDataSequence(EncodedDataSequence):
         super().__init__(data=data)
 
     def __repr__(self) -> str:
+        """Return a representation containing encoded rankings."""
         return f"SpearmanRankingEncodedDataSequence(data={self.data})"
