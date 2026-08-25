@@ -181,6 +181,7 @@ jobs:
                                src/dmx/stats/gmm.py \
                                src/dmx/stats/heterogeneous_mixture.py \
                                src/dmx/stats/hidden_association.py \
+                               src/dmx/stats/hidden_markov.py \
                                src/dmx/stats/hmixture.py \
                                src/dmx/stats/int_spike.py \
                                src/dmx/stats/int_edit_setdist.py \
