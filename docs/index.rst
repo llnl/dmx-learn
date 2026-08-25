@@ -18,5 +18,10 @@ Contents
    installation.rst
    docstring_style.rst
    stats/index.rst
+   bstats/index.rst
+   torch_stats/index.rst
+   utils/index.rst
+   torch_utils/index.rst
+   mpi4py/index.rst
    user_defined.rst
    mpi4py_example.rst

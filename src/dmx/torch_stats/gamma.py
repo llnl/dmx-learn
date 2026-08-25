@@ -1,16 +1,3 @@
-"""Create, estimate, and sample from a gamma distribution.
-
-Defines the GammaDistribution, GammaSampler, GammaAccumulatorFactory,
-GammaAccumulator, GammaEstimator, and the GammaDataEncoder classes for use with
-pysparkplug.
-
-Data type: (float): The GammaDistribution with shape k > 0.0 and scale
-theta > 0.0 has log-density
-    log(f(x;k,theta)) = -gammaln(k) - k*log(theta) + (k-1) * log(x) - x /
-    theta, for x > 0.0, else -np.inf
-
-"""
-
 """Torch-backed gamma distributions, estimation, and sequence encoding.
 
 This mirrors ``dmx.stats.gamma`` parameterization and sufficient-statistic
@@ -99,11 +86,9 @@ class GammaDistribution(TorchProbabilityDistribution):
     def log_density(self, x: float) -> float:
         """Log-density of gamma distribution evaluated at x.
 
-        Log-density given by,
-        If x > 0.0,
-            log(f(x;k,theta)) = -gammaln(k) - k*log(theta) + (k-1) * log(x) - x / theta,
-        else,
-            -np.inf
+        For positive ``x``, this evaluates the shape-scale gamma log-density.
+        Values outside the support have log-density ``-np.inf``.
+
         Args:
             x (float): Positive real-valued number.
 
@@ -419,7 +404,7 @@ class GammaDataEncoder(TorchSequenceEncoder):
     def seq_encode(
         self, x: Union[List[float], np.ndarray], device: Optional[tn.device] = None
     ) -> "GammaTorchEncodedSequence":
-        """Encode iid gamma observations for vectorized "seq_" function calls.
+        """Encode iid gamma observations for vectorized ``seq_`` function calls.
 
         Note: Each entry of x must be positive float.
 

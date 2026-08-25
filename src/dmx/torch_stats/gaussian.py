@@ -162,7 +162,6 @@ class GaussianAccumulator(TorchStatisticAccumulator):
         sum2 (float): Sum of weighted squared observations (sum_i w_i*X_i^2)
         count (float): Sum of weights for observations (sum_i w_i).
         count2 (float): Sum of weights for squared observations (sum_i w_i).
-        count (float): Tracks the sum of weighted observations used to form sum.
         key (Optional[str]): Key string used to aggregate all sufficient
             statistics with same keys values.
 
