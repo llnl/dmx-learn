@@ -171,18 +171,26 @@ jobs:
                                src/dmx/stats/categorical.py \
                                src/dmx/stats/catmultinomial.py \
                                src/dmx/stats/dirichlet.py \
+                               src/dmx/stats/dirac_length.py \
                                src/dmx/stats/dmvn.py \
+                               src/dmx/stats/dmvn_mixture.py \
                                src/dmx/stats/exponential.py \
                                src/dmx/stats/gamma.py \
                                src/dmx/stats/gaussian.py \
                                src/dmx/stats/geometric.py \
+                               src/dmx/stats/gmm.py \
                                src/dmx/stats/int_spike.py \
+                               src/dmx/stats/int_edit_setdist.py \
+                               src/dmx/stats/int_edit_stepsetdist.py \
                                src/dmx/stats/intmultinomial.py \
                                src/dmx/stats/intrange.py \
                                src/dmx/stats/intsetdist.py \
                                src/dmx/stats/log_gaussian.py \
+                               src/dmx/stats/mixture.py \
                                src/dmx/stats/mvn.py \
                                src/dmx/stats/poisson.py \
+                               src/dmx/stats/sequence.py \
+                               src/dmx/stats/setdist.py \
                                src/dmx/stats/vmf.py \
                                src/dmx/bstats \
                                src/dmx/torch_stats/pdist.py \

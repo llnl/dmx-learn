@@ -36,8 +36,11 @@ key_type = Union[Tuple[str, str], Tuple[None, None]]
 
 
 class DiracMixtureDistribution(SequenceEncodableProbabilityDistribution):
-    """DiracMixtureDistribution object defined by a length distribution, choice of Dirac
-    value, and p.
+    """Mix a length distribution with a point mass at one integer.
+
+    Observations are scalar integer lengths. With probability ``p`` an observation is
+    drawn from ``dist``; with probability ``1 - p`` it equals ``v``. At ``v`` the two
+    component probabilities are added, so ``dist`` may itself assign mass there.
 
     Attributes:
         p (float): Probability of being drawn from length distribution. Must be between
@@ -175,8 +178,7 @@ class DiracMixtureDistribution(SequenceEncodableProbabilityDistribution):
     def seq_component_log_density(
         self, x: "DiracMixtureEncodedDataSequence"
     ) -> np.ndarray:
-        """Vectorized evaluation of the log density for the components of the Dirac
-        mixture.
+        """Evaluate component log densities for encoded observations.
 
         The components are Dirac spike and `dist`.
 
@@ -244,8 +246,7 @@ class DiracMixtureDistribution(SequenceEncodableProbabilityDistribution):
         return rv
 
     def seq_posterior(self, x: "DiracMixtureEncodedDataSequence") -> np.ndarray:
-        """Vectorized evaluation of the posterior for the components of the Dirac
-        mixture.
+        """Evaluate component posterior probabilities for encoded observations.
 
         The components are Dirac spike and `dist`.
 
@@ -629,8 +630,7 @@ class DiracMixtureAccumulator(SequenceEncodableStatisticAccumulator):
 
 
 class DiracMixtureAccumulatorFactory(StatisticAccumulatorFactory):
-    """DiracMixtureAccumulatorFactory object for creating DiracMixtureAccumulator
-    objects.
+    """Create accumulators for the point-mass mixture and its child model.
 
     Attributes:
         factory (StatisticAccumulatorFactory): StatisticAccumulatorFactory for mixture
@@ -791,8 +791,10 @@ class DiracMixtureEstimator(ParameterEstimator):
 
 
 class DiracMixtureDataEncoder(DataSequenceEncoder):
-    """DiracMixtureDataEncoder object for encoding sequences of Dirac mixture
-    observations.
+    """Encode lengths for the mixture and its child distribution.
+
+    The encoded tuple identifies observations equal and unequal to the spike value and
+    also contains the child encoder's representation of every observation.
 
     Attributes:
         encoder (DataSequenceEncoder): DataSequenceEncoder for distribution with support

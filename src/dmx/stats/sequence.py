@@ -1,23 +1,13 @@
-"""Create, estimate, and sample from a sequence of iid sequence of base distribution
-'dist' with data type T. A
-length distribution for the lengths of the iid sequences can be specified as a discrete
-distribution compatible with
-non-negative integer values.
+r"""Model ordered, variable-length sequences of independent observations.
 
-Defines the SequenceDistribution, SequenceSampler, SequenceAccumulatorFactory,
-SequenceAccumulator,
-SequenceEstimator, and the SequenceDataEncoder classes for use with dmx-learn.
+For an ordered sequence :math:`x=(x_0,\ldots,x_{n-1})`, ``dist`` supplies the
+independent item factors and the optional ``len_dist`` supplies the probability of the
+non-negative integer length :math:`n`. Thus the ordinary likelihood is
+:math:`P_{len}(n)\prod_i P_{dist}(x_i)`. With ``len_normalized=True``, only the item
+factor is converted to its geometric mean; the length factor remains unchanged.
 
-Data type (T): Assume the sequence distribution has a base distribution 'dist'
-compatible with data type T and length
-distribution compatible with positive integers len_dist with respective densities
-P_dist() and P_len(). The density
-of the sequence distribution is given by
-
-p_mat(x) = P_dist(x[0])*...*P_dist(x[n-1])*P_len(n),
-
-for an observation x of data type Sequence[T] having length n.
-
+Estimation delegates item statistics and length statistics to separate child
+accumulators and estimators. A null length child disables length modeling.
 """
 
 from typing import Any, Dict, List, Optional, Sequence, Tuple, TypeVar
@@ -53,8 +43,7 @@ E = Tuple[np.ndarray, np.ndarray, np.ndarray, E1, Optional[E2]]
 
 
 class SequenceDistribution(SequenceEncodableProbabilityDistribution):
-    """SequenceDistribution object for sequence of iid observations from distribution a
-    of data type T.
+    """Model an ordered sequence using independent item and length factors.
 
     Attributes:
         dist (SequenceEncodableProbabilityDistribution): Base distribution of sequence
@@ -81,7 +70,7 @@ class SequenceDistribution(SequenceEncodableProbabilityDistribution):
         name: Optional[str] = None,
         keys: Optional[str] = None,
     ) -> None:
-        """SequenceDistribution object.
+        """Initialize a sequence distribution.
 
         Args:
             dist (SequenceEncodableProbabilityDistribution): Set base distribution of
@@ -105,6 +94,7 @@ class SequenceDistribution(SequenceEncodableProbabilityDistribution):
         self.null_len_dist = isinstance(self.len_dist, NullDistribution)
 
     def __str__(self) -> str:
+        """Return an evaluable representation of the distribution."""
         s1 = str(self.dist)
         s2 = str(self.len_dist)
         s3 = repr(self.len_normalized)
@@ -166,6 +156,7 @@ class SequenceDistribution(SequenceEncodableProbabilityDistribution):
         return rv
 
     def seq_ld_lambda(self) -> List[Any]:
+        """Return vectorized log-density callables for the active child models."""
         rv = self.dist.seq_ld_lambda()
 
         if not self.null_len_dist:
@@ -174,7 +165,7 @@ class SequenceDistribution(SequenceEncodableProbabilityDistribution):
         return rv
 
     def seq_log_density(self, x: "SequenceEncodedDataSequence") -> np.ndarray:
-
+        """Evaluate log densities for a batch of encoded ordered sequences."""
         if not isinstance(x, SequenceEncodedDataSequence):
             raise TypeError(
                 "SequenceEncodedDataSequence required for seq_log_density()."
@@ -199,6 +190,7 @@ class SequenceDistribution(SequenceEncodableProbabilityDistribution):
         return ll_sum
 
     def sampler(self, seed: Optional[int] = None) -> "SequenceSampler":
+        """Create a sampler, requiring a non-null length distribution."""
         if self.null_len_dist:
             raise RuntimeError(
                 "Error: len_dist cannot be none for "
@@ -207,6 +199,7 @@ class SequenceDistribution(SequenceEncodableProbabilityDistribution):
         return SequenceSampler(self.dist, self.len_dist, seed)
 
     def estimator(self, pseudo_count: Optional[float] = None) -> "SequenceEstimator":
+        """Create an estimator by delegating to both child distributions."""
         len_est = self.len_dist.estimator(pseudo_count=pseudo_count)
 
         return SequenceEstimator(
@@ -218,6 +211,7 @@ class SequenceDistribution(SequenceEncodableProbabilityDistribution):
         )
 
     def dist_to_encoder(self) -> "SequenceDataEncoder":
+        """Create an encoder composed from the item and length encoders."""
         dist_encoder = self.dist.dist_to_encoder()
         len_encoder = self.len_dist.dist_to_encoder()
         encoders = (dist_encoder, len_encoder)
@@ -247,7 +241,7 @@ class SequenceSampler(DistributionSampler):
         len_dist: SequenceEncodableProbabilityDistribution,
         seed: Optional[int] = None,
     ) -> None:
-        """SequenceSampler object.
+        """Initialize item and length samplers with independent random seeds.
 
         Args:
             dist (SequenceEncodableProbabilityDistribution): Set the base distribution
@@ -286,8 +280,12 @@ class SequenceSampler(DistributionSampler):
 
 
 class SequenceAccumulator(SequenceEncodableStatisticAccumulator):
-    """SequenceAccumulator object for aggregating sufficient statistics of sequence
-    distribution from observed data.
+    """Accumulate item and length statistics from ordered sequences.
+
+    Item observations are forwarded in sequence order to the item accumulator. The
+    length child receives one non-negative integer per sequence. When
+    ``len_normalized`` is true, each item receives the parent weight divided by the
+    sequence length while the length child still receives the full weight.
 
     Attributes:
         accumulator (SequenceEncodableStatisticAccumulator):
@@ -321,7 +319,7 @@ class SequenceAccumulator(SequenceEncodableStatisticAccumulator):
         name: Optional[str] = None,
         keys: Optional[str] = None,
     ) -> None:
-        """SequenceAccumulator object.
+        """Initialize the item and length accumulator wrapper.
 
         Args:
             accumulator (SequenceEncodableStatisticAccumulator): Set
@@ -355,6 +353,7 @@ class SequenceAccumulator(SequenceEncodableStatisticAccumulator):
     def update(
         self, x: Sequence[T], weight: float, estimate: Optional[SequenceDistribution]
     ) -> None:
+        """Add one weighted sequence to the item and length children."""
         if estimate is None:
             w = weight / len(x) if (self.len_normalized and len(x) > 0) else weight
 
@@ -436,6 +435,7 @@ class SequenceAccumulator(SequenceEncodableStatisticAccumulator):
         weights: np.ndarray,
         estimate: Optional["SequenceDistribution"],
     ) -> None:
+        """Add weighted encoded sequences to the child accumulators."""
         idx, icnt, _inz, enc_seq, enc_nseq = x.data
 
         w = weights[idx] * icnt[idx] if self.len_normalized else weights[idx]
@@ -450,6 +450,7 @@ class SequenceAccumulator(SequenceEncodableStatisticAccumulator):
             )
 
     def combine(self, suff_stat: Tuple[SS1, Optional[SS2]]) -> "SequenceAccumulator":
+        """Merge item and, when active, length sufficient statistics."""
         self.accumulator.combine(suff_stat[0])
 
         if not self.null_len_accumulator:
@@ -458,9 +459,11 @@ class SequenceAccumulator(SequenceEncodableStatisticAccumulator):
         return self
 
     def value(self) -> Tuple[Any, Optional[Any]]:
+        """Return the item and length sufficient-statistic pair."""
         return self.accumulator.value(), self.len_accumulator.value()
 
     def from_value(self, x: Tuple[SS1, Optional[SS2]]) -> "SequenceAccumulator":
+        """Restore item and length statistics from a paired value."""
         self.accumulator.from_value(x[0])
 
         if not self.null_len_accumulator:
@@ -469,6 +472,7 @@ class SequenceAccumulator(SequenceEncodableStatisticAccumulator):
         return self
 
     def get_seq_lambda(self) -> List[Any]:
+        """Return vectorized update helpers from the active child accumulators."""
         rv = self.accumulator.get_seq_lambda()
 
         if self.len_accumulator is not None:
@@ -477,6 +481,7 @@ class SequenceAccumulator(SequenceEncodableStatisticAccumulator):
         return rv
 
     def key_merge(self, stats_dict: Dict[str, Any]) -> None:
+        """Merge wrapper and child statistics through their configured keys."""
         if self.keys is not None:
             if self.keys in stats_dict:
                 stats_dict[self.keys].combine(self.value())
@@ -489,6 +494,7 @@ class SequenceAccumulator(SequenceEncodableStatisticAccumulator):
             self.len_accumulator.key_merge(stats_dict)
 
     def key_replace(self, stats_dict: Dict[str, Any]) -> None:
+        """Replace wrapper and child statistics through their configured keys."""
         if self.keys is not None:
             if self.keys in stats_dict:
                 self.from_value(stats_dict[self.keys].value())
@@ -499,6 +505,7 @@ class SequenceAccumulator(SequenceEncodableStatisticAccumulator):
             self.len_accumulator.key_replace(stats_dict)
 
     def acc_to_encoder(self) -> "SequenceDataEncoder":
+        """Create an encoder composed from both child accumulators."""
         encoder = self.accumulator.acc_to_encoder()
         len_encoder = self.len_accumulator.acc_to_encoder()
         encoders = (encoder, len_encoder)
@@ -506,7 +513,7 @@ class SequenceAccumulator(SequenceEncodableStatisticAccumulator):
 
 
 class SequenceAccumulatorFactory(StatisticAccumulatorFactory):
-    """SequenceAccumulatorFactory object for creating SequenceAccumulator objects.
+    """Create sequence accumulators from item and length child factories.
 
     Attributes:
         dist_factory (StatisticAccumulatorFactory): StatisticAccumulatorFactory for base
@@ -532,7 +539,7 @@ class SequenceAccumulatorFactory(StatisticAccumulatorFactory):
         keys: Optional[str] = None,
         name: Optional[str] = None,
     ) -> None:
-        """SequenceAccumulatorFactory object.
+        """Initialize the sequence accumulator factory.
 
         Args:
             dist_factory (StatisticAccumulatorFactory): StatisticAccumulatorFactory for
@@ -555,6 +562,7 @@ class SequenceAccumulatorFactory(StatisticAccumulatorFactory):
         self.name = name
 
     def make(self) -> "SequenceAccumulator":
+        """Create an accumulator with newly constructed child accumulators."""
         len_acc = self.len_factory.make()
         return SequenceAccumulator(
             accumulator=self.dist_factory.make(),
@@ -566,8 +574,7 @@ class SequenceAccumulatorFactory(StatisticAccumulatorFactory):
 
 
 class SequenceEstimator(ParameterEstimator):
-    """SequenceEstimator object for estimating SequenceDistribution from aggregated
-    sufficient statistics.
+    """Estimate item and length models from their paired statistics.
 
     Notes:
         Requires arg 'estimator' to be ParameterEstimator of data type T, compatible
@@ -620,7 +627,7 @@ class SequenceEstimator(ParameterEstimator):
         name: Optional[str] = None,
         keys: Optional[str] = None,
     ) -> None:
-        """SequenceEstimator object.
+        """Initialize a sequence estimator and its optional length model.
 
         Args:
             estimator (ParameterEstimator): Set ParameterEstimator for base
@@ -652,6 +659,7 @@ class SequenceEstimator(ParameterEstimator):
         self.name = name
 
     def accumulator_factory(self) -> "SequenceAccumulatorFactory":
+        """Create a factory backed by both child estimator factories."""
         len_factory = self.len_estimator.accumulator_factory()
         dist_factory = self.estimator.accumulator_factory()
 
@@ -666,6 +674,12 @@ class SequenceEstimator(ParameterEstimator):
     def estimate(
         self, nobs: Optional[float], suff_stat: Tuple[Any, Optional[Any]]
     ) -> "SequenceDistribution":
+        """Estimate child distributions and assemble a sequence distribution.
+
+        A null length estimator leaves ``len_dist`` fixed (or absent). Otherwise the
+        second sufficient statistic is passed to the length estimator. The first is
+        always passed to the item estimator.
+        """
         if isinstance(self.len_estimator, NullEstimator):
             return SequenceDistribution(
                 self.estimator.estimate(nobs, suff_stat[0]),
@@ -683,11 +697,9 @@ class SequenceEstimator(ParameterEstimator):
 
 
 class SequenceDataEncoder(DataSequenceEncoder):
-    """SequenceDataEncoder object for encoding sequences of iid observations from
-    sequence distributions.
+    """Encode ordered sequences for vectorized item and length operations.
 
     Notes:
-
         encoders[0] is a DataSequenceEncoder for data type T, producing encoded
         sequences of type T1.
         encoders[1] is a DataSequenceEncoder for data type int, production encoded
@@ -707,7 +719,7 @@ class SequenceDataEncoder(DataSequenceEncoder):
     def __init__(
         self, encoders: Tuple[DataSequenceEncoder, DataSequenceEncoder]
     ) -> None:
-        """SequenceDataEncoder object.
+        """Initialize an encoder from item and length child encoders.
 
         Args:
             encoders (Tuple[DataSequenceEncoder, DataSequenceEncoder]): Tuple of
@@ -721,6 +733,7 @@ class SequenceDataEncoder(DataSequenceEncoder):
         self.null_len_enc = isinstance(self.len_encoder, NullDataEncoder)
 
     def __str__(self) -> str:
+        """Return a representation of the composed encoder."""
         s = "SequenceDataEncoder("
         s += str(self.encoder) + ",len_encoder="
         s += str(self.len_encoder) + ")"
@@ -728,6 +741,7 @@ class SequenceDataEncoder(DataSequenceEncoder):
         return s
 
     def __eq__(self, other: object) -> bool:
+        """Compare both child encoders for equality."""
         if not isinstance(other, SequenceDataEncoder):
             return False
 
@@ -740,6 +754,12 @@ class SequenceDataEncoder(DataSequenceEncoder):
         return True
 
     def seq_encode(self, x: Sequence[Sequence[T]]) -> "SequenceEncodedDataSequence":
+        """Flatten ordered items and separately encode sequence lengths.
+
+        The encoding stores each flattened item's parent-sequence index, one inverse
+        length per parent sequence, a nonempty-sequence mask, the child item encoding,
+        and the optional child length encoding. Flattening preserves item order.
+        """
         tx = []
         nx = []
         tidx = []
@@ -766,7 +786,7 @@ class SequenceDataEncoder(DataSequenceEncoder):
 
 
 class SequenceEncodedDataSequence(EncodedDataSequence):
-    """SequenceEncodedDataSequence object for vectorized function calls.
+    """Store flattened items and encoded lengths for ordered sequences.
 
     Notes:
         data input E defined by
@@ -792,7 +812,7 @@ class SequenceEncodedDataSequence(EncodedDataSequence):
             np.ndarray, np.ndarray, np.ndarray, EncodedDataSequence, EncodedDataSequence
         ],
     ):
-        """SequenceEncodedDataSequence object.
+        """Initialize an encoded batch of sequences.
 
         Args:
             data (E): See above.
@@ -801,4 +821,5 @@ class SequenceEncodedDataSequence(EncodedDataSequence):
         super().__init__(data=data)
 
     def __repr__(self) -> str:
+        """Return a representation containing the encoded tuple."""
         return f"SequenceEncodedDataSequence(data={self.data})"
