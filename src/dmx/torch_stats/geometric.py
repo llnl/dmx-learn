@@ -10,6 +10,13 @@ Data type (int): The geometric distribution with probability of success p, has d
 
 """
 
+"""Torch-backed geometric distributions, estimation, and sequence encoding.
+
+The support and success-probability terminology match ``dmx.stats.geometric``.
+Scalar likelihoods and samples remain Python/NumPy values; encoded sequences
+are torch tensors.
+"""
+
 # pylint: disable=too-many-positional-arguments,duplicate-code
 
 from typing import Any, Dict, Optional, Sequence, Tuple, Union
@@ -32,6 +39,12 @@ from dmx.torch_stats.pdist import (
 
 
 class GeometricDistribution(TorchProbabilityDistribution):
+    """Represent a geometric distribution with success probability ``p``.
+
+    ``to`` changes the preferred device for future tensor work only; this model
+    stores its probability as a Python float.
+    """
+
     """GeometricDistribution object with probability of success p.
 
     Notes:
@@ -304,6 +317,13 @@ class GeometricEstimator(TorchParameterEstimator):
 
 
 class GeometricDataEncoder(TorchSequenceEncoder):
+    """Encode geometric observations as a torch tensor of shape ``(n,)``.
+
+    The encoder uses ``vec.int_tensor`` dtype semantics and places the result
+    on its requested CPU, CUDA, or MPS device. This is the torch-container
+    counterpart of the ``stats`` encoded sequence.
+    """
+
     """Encode sequences of iid geometric observations with data type int."""
 
     def __str__(self) -> str:
@@ -325,6 +345,8 @@ class GeometricDataEncoder(TorchSequenceEncoder):
 
 
 class GeometricTorchEncodedSequence(TorchEncodedSequence):
+    """Store integer encoded geometric observations and their device."""
+
     data: tn.Tensor
 
     def __init__(self, data: tn.Tensor, device: Optional[tn.device] = None) -> None:

@@ -211,7 +211,13 @@ jobs:
                                src/dmx/stats/tree_hmm.py \
                                src/dmx/stats/vmf.py \
                                src/dmx/bstats \
+                               src/dmx/torch_stats/binomial.py \
+                               src/dmx/torch_stats/exponential.py \
+                               src/dmx/torch_stats/gamma.py \
+                               src/dmx/torch_stats/gaussian.py \
+                               src/dmx/torch_stats/geometric.py \
                                src/dmx/torch_stats/pdist.py \
+                               src/dmx/torch_stats/poisson.py \
                                src/dmx/arithmetic.py \
                                src/dmx/utils \
                                src/dmx/torch_utils \
