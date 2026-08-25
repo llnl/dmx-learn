@@ -1,8 +1,8 @@
-"""Functions for estimating and validating dmx-learn models from observed data.
+"""Estimate and validate sequence-encodable models from observed data.
 
-Useful functions for estimating dmx-learn
-'SequenceEncodableProbabilityDistributions' from 'ParameterEstimator' objects.
-
+The module provides randomized data partitioning and iterative EM helpers for
+local encoded chunks or Spark RDDs. Callers may provide raw observations,
+pre-encoded data, or a previous model depending on the helper.
 """
 
 import sys
@@ -47,25 +47,26 @@ def empirical_kl_divergence(
     dist2: SequenceEncodableProbabilityDistribution,
     enc_data: EncodedChunks,
 ) -> Tuple[float, float, float]:
-    """Computes the emirical KL-divergence between two densities.
+    """Estimate KL divergence between two models on encoded observations.
 
-    Compute the KL-divergence between dist1 and dist2 for encoded sequence
-    data. Dists must both have the same encodings.
+    The log densities are normalized over the supplied observations and the
+    discrete divergence from ``dist1`` to ``dist2`` is computed. Both models
+    must accept the same encoding and at least one observation must have a
+    finite, non-NaN log density under both models.
 
     Args:
-        dist1 (SequenceEncodableProbabilityDistribution): Distribution
-            compatible with enc_data.
-        dist2 (SequenceEncodableProbabilityDistribution): Distribution
-            compatible with enc_data.
-        enc_data (EncodedChunks): Encoded local chunks or Spark RDD chunks
-            containing chunk size and encoded sequence for chunked data.
+        dist1: First distribution, which defines the KL weighting.
+        dist2: Second distribution using the same encoded representation.
+        enc_data: Local or Spark chunks represented as ``(chunk_size,
+            encoded_sequence)`` pairs.
 
     Returns:
-        Tuple of KL-div estiamte, number of 'bad' likelihood values for dist1,
-        'bad' likelihood values for dist2.
+        The empirical KL estimate, followed by the counts of non-finite or NaN
+        log densities under ``dist1`` and ``dist2``.
 
+    Raises:
+        ValueError: If there are no jointly valid log-density values.
     """
-
     log_density_chunks = seq_log_density(enc_data, estimate=(dist1, dist2))
     ll = np.hstack(log_density_chunks)
 
@@ -92,18 +93,19 @@ def empirical_kl_divergence(
 
 
 def k_fold_split_index(sz: int, k: int, rng: RandomState) -> np.ndarray:
-    """Returns integer numpy index vector for k-fold split.
+    """Assign observations to approximately balanced random folds.
 
-    Entry j is the fold-id for the j^{th} data point.
+    Random values drawn from ``rng`` determine a permutation, after which fold
+    identifiers are assigned round-robin. The random-state is advanced.
 
     Args:
-        sz (int): Integer length of data points in data set.
-        k (int): Integer number of folds for k-folds.
-        rng (RandomState): RandomState for setting seed.
+        sz: Number of observations.
+        k: Number of folds.
+        rng: Random state controlling the permutation.
 
     Returns:
-        1-d np.ndarray[int] of indices for each data points fold-id.
-
+        Integer array of shape ``(sz,)`` whose entry is the observation's
+        zero-based fold identifier.
     """
     idx = rng.rand(sz)
     sidx = np.argsort(idx)
@@ -118,16 +120,20 @@ def k_fold_split_index(sz: int, k: int, rng: RandomState) -> np.ndarray:
 def partition_data_index(
     sz: int, pvec: Union[List[float], np.ndarray], rng: RandomState
 ) -> List[np.ndarray]:
-    """Returns integer index arrays for data partitions proportional to pvec.
+    """Randomly partition observation indexes according to proportions.
+
+    The random state is advanced once per observation. Boundaries are obtained
+    by rounding cumulative proportions times ``sz``; ``pvec`` is not
+    normalized or validated, so proportions summing to less than one omit
+    trailing indexes.
 
     Args:
-        sz (int): Integer value of total number of data observations.
-        pvec (Union[List[float], np.ndarray]): Vector of proportions for each partition.
-        rng (RandomState): RandomState for setting seed of random partitioning.
+        sz: Number of observations.
+        pvec: One-dimensional sequence of partition proportions.
+        rng: Random state controlling the shuffled ordering.
 
     Returns:
-        List of numpy arrays containing indexes of each partition.
-
+        One integer index array per requested partition.
     """
     idx = rng.rand(sz)
     sidx = np.argsort(idx)
@@ -148,18 +154,16 @@ def partition_data_index(
 def partition_data(
     data: Sequence[T], pvec: Union[List[float], np.ndarray], rng: RandomState
 ) -> List[List[T]]:
-    """Partitions data into partitions of sizes proportional to pvec.
+    """Randomly partition observations according to proportions.
 
     Args:
-
-        data (Sequence[T]): Sequence of data observations, each entry of type T.
-        pvec (Union[List[float], np.ndarray]): List of length n containing the
-            proportion of data to be held in each data partition.
-        rng (RandomState): RandomState for setting seed on random partitioning of data.
+        data: Sequence of observations.
+        pvec: One-dimensional sequence of partition proportions. Values are
+            passed unchanged to :func:`partition_data_index`.
+        rng: Random state controlling the shuffled ordering; it is advanced.
 
     Returns:
-        List of List containing data partitions of proportion equal to pvec.
-
+        Materialized data partitions in the order of ``pvec``.
     """
     idx_list = partition_data_index(len(data), pvec, rng)
 
@@ -183,37 +187,45 @@ def best_of(
     out: IO = sys.stdout,
     print_iter: int = 1,
 ) -> Tuple[float, SequenceEncodableProbabilityDistribution]:
-    """Runs EM from randomized initial conditions and returns the best fit.
+    """Run EM from multiple randomized starts and return the best fit.
+
+    Every trial initializes from a random subset controlled by ``rng``. A
+    proposed EM update is retained only when training log likelihood does not
+    decrease (unless ``delta`` is ``None``), and a trial stops when its change
+    is less than ``delta``. Models are compared by validation log likelihood
+    when validation data is available, otherwise by training log likelihood.
+    Progress is written to ``out``.
 
     Args:
-        data (Optional[List[T]]): List of data of type T. If None is given,
-            enc_data must be provided as List[Tuple[int, enc_data_type]].
-        vdata (Optional[Sequence[T]]): Optional validation set.
-        est (ParameterEstimator): ParameterEstimator for model to be estimated.
-        trials (int): Integer number >= 1 of randomized initial conditions to
-            perform EM algorithm for.
-        max_its (int): Integer value >=1. Sets the maximum number of
-            iterations of EM to be performed as stopping criteria.
-        init_p (float): Value in (0.0,1.0] for randomizing the proportion of
-            data points used in initialization.
-        delta (float): Stopping criteria for EM when
-            |old-log-likelihood - new-log-likelihood| < delta.
-        rng (RandomState): RandomState for setting seed.
-        init_estimator (Optional[ParameterEstimator]): Optional
-            ParameterEstimator used for fitting.
-        enc_data (Optional[List[Tuple[int, E]]]): Optional encoded data. If
-            provided, data need not be provided. If None, enc_data is set from
-            data.
-        enc_vdata (Optional[List[Tuple[int, E0]]]): Optional sequence encoded
-            validation set.
-        out (I0): Text output stream.
-        print_iter (int): Print iterations, that is, log-likelihood
-            difference, every print_iter iterations.
+        data: Raw training observations, or ``None`` when ``enc_data`` is
+            supplied.
+        vdata: Optional raw validation observations.
+        est: Estimator used for EM updates.
+        trials: Number of randomized starts; values below one are treated as
+            one.
+        max_its: Maximum updates per trial; values below one are treated as
+            one.
+        init_p: Fraction of observations participating in randomized
+            initialization, in ``(0, 1]``.
+        delta: Stop a trial when the signed training log-likelihood change is
+            less than this value.
+        rng: Random state used for every trial and advanced in place.
+        init_estimator: Optional estimator used only for encoding and
+            initialization.
+        enc_data: Pre-encoded local chunks or Spark RDD. Takes precedence over
+            ``data``.
+        enc_vdata: Pre-encoded validation chunks. Takes precedence over
+            ``vdata``.
+        out: Text stream receiving iteration and trial summaries.
+        print_iter: Positive interval between iteration summaries.
 
     Returns:
-        Tuple of log-likelihood of best fitting model and the best fitting
-        model from number of trials.
+        Best validation log likelihood and its fitted model.
 
+    Raises:
+        ValueError: If both training representations are absent or ``init_p``
+            is outside ``(0, 1]``.
+        RuntimeError: If no trial produces a selectable model.
     """
     rv_ll = -np.inf
     rv_mm: Optional[SequenceEncodableProbabilityDistribution] = None
@@ -295,42 +307,48 @@ def optimize(
     print_iter: int = 1,
     num_chunks: int = 1,
 ) -> SequenceEncodableProbabilityDistribution:
-    """Estimation of 'estimator' via EM algorithm for max_its iterations or until
-        new_loglikelihood - old_loglikelihood < delta.
+    """Fit a model with EM and return the best validation-scoring estimate.
+
+    Raw data is encoded once, using ``prev_estimate`` when supplied or the
+    initialization estimator otherwise. Without a previous estimate, model
+    initialization samples observations according to ``init_p`` using ``rng``.
+    Updates that decrease training log likelihood are rejected unless
+    ``delta`` is ``None``. A non-``None`` ``delta`` stops optimization when the
+    signed change is smaller than the threshold. Progress is written to
+    ``out`` and model selection uses validation likelihood when available.
 
     Args:
-        data (Optional[List[T]]): List of data type T containing observed
-            data. Must be compatible with data type of estimator.
-        estimator (ParameterEstimator): ParameterEstimator used to specify the
-            to-be-estimated distribution for observed data.
-        max_its (int): Maximum number of EM iterations to be performed.
-            Default value is 10 iterations.
-        delta (Optional[float]): Stopping criteria for EM algorithm used if
-            max_its is not set. Iterate until
-            |old_loglikelihood - new_loglikelihood| < delta or iterations == max_its.
-        init_estimator (Optional[ParameterEstimator]): ParameterEstimator used
-            to initialize EM algorithm parameters. If None, estimator is used.
-            Must be consistent with estimator.
-        init_p (float): Value in (0.0,1.0] for randomizing the proportion of
-            data points used in initialization.
-        rng (RandomState): RandomState used to set seed for initializing EM algorithm.
-        vdata (Optional[Sequence[T]]): Optional validation set.
-        prev_estimate (Optional[SeqeuenceEncodableProbabilityDistribution]):
-            Optional model estimate used from prior fitting. Must be
-            consistent with estimator.
-        enc_data (Optional[List[Tuple[int, E]]]): Optional encoded data of form
-            List[Tuple[int, E]]. Formed from data if None.
-        enc_vdata (Optional[List[Tuple[int, E0]]]): Optional sequence encoded
-            validation set.
-        out (IO): IO stream to write out iterations of EM algorithm.
-        print_iter (int): Print iterations, that is, log-likelihood
-            difference, every print_iter iterations.
-        num_chunks (int): Number of chunks for encoded data.
+        data: Raw training observations, or ``None`` when ``enc_data`` is
+            supplied.
+        estimator: Estimator used for each EM update.
+        max_its: Maximum number of EM updates.
+        delta: Optional stopping threshold for signed training
+            log-likelihood improvement. ``None`` disables early stopping and
+            accepts decreasing updates.
+        init_estimator: Optional estimator used for encoding and randomized
+            initialization; ``estimator`` is used by default.
+        init_p: Initialization sampling fraction in ``(0, 1]``. Ignored when
+            ``prev_estimate`` is supplied.
+        rng: Random state used for initialization and advanced in place. The
+            default instance is shared across calls.
+        prev_estimate: Optional starting model, which also supplies the
+            encoder.
+        vdata: Optional raw validation observations.
+        enc_data: Pre-encoded local chunks or Spark RDD. Takes precedence over
+            ``data``.
+        enc_vdata: Pre-encoded validation chunks. Takes precedence over
+            ``vdata``.
+        out: Text stream receiving progress messages.
+        print_iter: Positive interval between progress messages.
+        num_chunks: Number of local encoded chunks created from raw data.
 
     Returns:
-        SequenceEncodableProbabilityDistribution corresponding to estimator
-        when stopping criteria of EM algorithm is met.
+        The fitted model with the greatest observed validation likelihood, or
+        training likelihood when no validation data is supplied.
 
+    Raises:
+        ValueError: If both training representations are absent, or if a new
+            model is requested with ``init_p`` outside ``(0, 1]``.
     """
     if data is None and enc_data is None:
         raise ValueError("Optimization called with empty data or enc_data.")
@@ -439,35 +457,35 @@ def iterate(
     init_estimator: Optional[ParameterEstimator] = None,
     print_iter: int = 1,
 ) -> SequenceEncodableProbabilityDistribution:
-    """Performs max_its iterations of EM and returns the next estimate.
+    """Perform a fixed number of EM updates and return the final estimate.
+
+    Unlike :func:`optimize`, this helper performs no likelihood-based stopping
+    or model selection. It optionally caches Spark encoded data and writes
+    average elapsed time at the requested interval.
 
     Args:
-        data (List[T]): List of data type compatible with estimator.
-        estimator (Optional[ParameterEstimator]): Optional ParameterEstimator
-            for distribution to be estimated from data by EM algorithm. Can be
-            None only if init_estimator is not None.
-        max_its (int): Total number of EM iterations to be performed before
-            returning estimate.
-        prev_estimate (Optional[SequenceEncodableProbabilityDistribution]):
-            Optional previous estimate of distribution for data. Must be
-            consistent with estimator or init_estimator.
-        init_p (float): Value in (0.0,1.0] for randomizing the proportion of
-            data points used in initialization.
-        rng (Optional[RandomState]): RandomState used to set seed for
-            initializing EM algorithm.
-        out (IO): IO stream to write out iterations of EM algorithm.
-        enc_data (Optional[List[Tuple[int, E]]]): Optional encoded data of form
-            List[Tuple[int, E]]. Formed from data if None.
-        init_estimator (Optional[ParameterEstimator]): ParameterEstimator used
-            to initialize EM algorithm parameters. If None, estimator is used.
-            Must be consistent with estimator.
-        print_iter (bool): Print iterations, that is, log-likelihood, every
-            print_iter iterations.
+        data: Raw training observations. Ignored when ``enc_data`` is supplied.
+        estimator: Estimator used for updates, or ``None`` to use
+            ``init_estimator``.
+        max_its: Exact number of updates to perform when positive.
+        prev_estimate: Optional starting model. Otherwise randomized
+            initialization is performed.
+        init_p: Initialization sampling fraction in ``(0, 1]``.
+        rng: Random state used for initialization and advanced in place.
+            ``None`` creates a fresh unseeded state; the default instance is
+            shared across calls.
+        out: Text stream receiving timing messages.
+        enc_data: Pre-encoded local chunks or Spark RDD.
+        init_estimator: Fallback estimator used when ``estimator`` is absent.
+        print_iter: Positive interval between timing messages.
 
     Returns:
-        SequenceEncodableProbabilityDistribution corresponding to
-        estimator/init_estimator after max_its iterations of EM algorithm.
+        The model after the requested updates.
 
+    Raises:
+        ValueError: If neither data representation is supplied, no estimator
+            is available, or randomized initialization receives an invalid
+            ``init_p``.
     """
     if data is None and enc_data is None:
         raise ValueError("Optimization called with empty data or enc_data.")
@@ -523,35 +541,32 @@ def hill_climb(
     out: IO = sys.stdout,
     print_iter: int = 1,
 ) -> SequenceEncodableProbabilityDistribution:
-    """Performs hill-climbing optimization to find the best model.
+    """Run fixed EM updates and retain the best metric-scoring model.
+
+    Every proposal becomes the starting point for the next update, regardless
+    of its score. The returned model maximizes ``metric_lambda`` on ``vdata``;
+    validation log likelihood breaks exact score ties. Progress is written to
+    ``out``.
 
     Args:
-        data (List[T]): The training data to be encoded and used in
-            optimization.
-        vdata (List[T]): Validation data for evaluating the model during
-            optimization.
-        estimator (ParameterEstimator): The parameter estimator used to update
-            the model.
-        prev_estimate (SequenceEncodableProbabilityDistribution): The initial
-            probability distribution estimate.
-        max_its (int): Maximum number of iterations for the optimization process.
-        metric_lambda (Callable[[EncodedDataSequence], Sequence]): A lambda
-            function to compute the metric score for the model.
-        best_estimate (Optional[SequenceEncodableProbabilityDistribution],
-            optional): The best model estimate to start with. Defaults to None.
-        enc_data (Optional[EncodedDataSequence], optional): Encoded training
-            data. If None, it will be computed from `data`. Defaults to None.
-        enc_vdata (Optional[EncodedDataSequence], optional): Encoded
-            validation data. If None, it will be computed from `vdata`.
-            Defaults to None.
-        out (file-like object, optional): Output stream for logging progress.
-            Defaults to `sys.stdout`.
-        print_iter (int, optional): Interval for printing progress during
-            iterations. Defaults to 1.
+        data: Raw training observations, encoded only when ``enc_data`` is
+            absent.
+        vdata: Raw validation observations used by ``metric_lambda`` and
+            encoded only when ``enc_vdata`` is absent.
+        estimator: Estimator used for each EM update.
+        prev_estimate: Starting model and source of encoders.
+        max_its: Number of EM proposals to evaluate.
+        metric_lambda: Callable receiving ``(vdata, model)`` and returning a
+            scalar score to maximize.
+        best_estimate: Optional incumbent model; defaults to ``prev_estimate``.
+        enc_data: Pre-encoded training chunks.
+        enc_vdata: Pre-encoded validation chunks.
+        out: Text stream receiving progress messages.
+        print_iter: Positive interval between progress messages.
 
     Returns:
-        SequenceEncodableProbabilityDistribution: The best model found during
-            the optimization process.
+        The incumbent or proposal with the best metric and likelihood tie
+        break.
     """
     mm = prev_estimate
 

@@ -1,4 +1,4 @@
-"""Heterogenous TSNE for embedding tuples of heterogenous data in lower-dimensions."""
+"""Embed heterogeneous observations with mixture-derived t-SNE affinities."""
 
 from typing import Any, Optional, Sequence, Tuple, TypeVar
 
@@ -11,15 +11,16 @@ T = TypeVar("T")
 
 
 def adj_perplexity(x: np.ndarray, ss: float) -> Tuple[float, np.ndarray]:
-    """Adjusts the perplexity of a given distribution.
+    """Convert a distance vector to probabilities at a given scale.
 
     Args:
-        x (np.ndarray): Input array representing distances or probabilities.
-        ss (float): Scaling factor for the perplexity adjustment.
+        x: One-dimensional distance array of shape ``(n_neighbors,)``.
+        ss: Positive distance scale. Its reciprocal acts as inverse
+            temperature.
 
     Returns:
-        Tuple[float, np.ndarray]: The entropy (H) and the adjusted
-            probability distribution (P).
+        Natural-log entropy and normalized probabilities with the same shape
+        as ``x``.
     """
     s = 1 / ss
     P = -x * s
@@ -32,14 +33,14 @@ def adj_perplexity(x: np.ndarray, ss: float) -> Tuple[float, np.ndarray]:
 
 
 def vec_perplexity(x: np.ndarray, s: float) -> float:
-    """Calculates the entropy for a given vector and scaling factor.
+    """Compute entropy for a distance vector at a given scale.
 
     Args:
-        x (np.ndarray): Input vector.
-        s (float): Scaling factor.
+        x: One-dimensional distance array.
+        s: Scale passed to :func:`adj_perplexity`.
 
     Returns:
-        float: The entropy value.
+        Natural-log entropy of the normalized probabilities.
     """
     H, _ = adj_perplexity(x, s)
     return H
@@ -48,17 +49,20 @@ def vec_perplexity(x: np.ndarray, s: float) -> float:
 def row_perplexity_solve(
     x: np.ndarray, a: float, s0: float, s1: float, d: int = 10
 ) -> float:
-    """Solves for the scaling factor that achieves a target perplexity.
+    """Bisect a scale interval to approach a target entropy.
+
+    At most ``d`` recursive bisections are performed. If the target is outside
+    the endpoint entropies, the corresponding endpoint is returned.
 
     Args:
-        x (np.ndarray): Input vector.
-        a (float): Target perplexity.
-        s0 (float): Lower bound for scaling factor.
-        s1 (float): Upper bound for scaling factor.
-        d (int): Maximum depth for recursion.
+        x: One-dimensional distance array.
+        a: Target natural-log entropy.
+        s0: Lower scale bound.
+        s1: Upper scale bound.
+        d: Remaining bisection depth.
 
     Returns:
-        float: Scaling factor that achieves the target perplexity.
+        Selected scale in the closed interval ``[s0, s1]``.
     """
     if d == 0:
         return (s0 + s1) / 2.0
@@ -79,14 +83,17 @@ def row_perplexity_solve(
 
 
 def fix_row_perplexity(P: np.ndarray, a: float) -> np.ndarray:
-    """Adjusts the rows of a probability matrix to match a target perplexity.
+    """Rescale each affinity row to a target perplexity.
+
+    Diagonal entries are excluded, then restored as zeros. The input is read
+    but not modified.
 
     Args:
-        P (np.ndarray): Input probability matrix.
-        a (float): Target perplexity.
+        P: Square positive affinity matrix of shape ``(n_samples, n_samples)``.
+        a: Positive target perplexity.
 
     Returns:
-        np.ndarray: Adjusted probability matrix.
+        Row-normalized matrix with the same shape as ``P``.
     """
     rv = np.zeros([P.shape[0]] * 2)
     ent_p = np.log2(a) * np.log(2)
@@ -108,17 +115,19 @@ def get_pmat_vlen(
     ll_mat: np.ndarray,
     targ_perplexity: Optional[float] = None,
 ) -> np.ndarray:
-    """Generates a probability matrix using variable-length encoding.
+    """Construct affinities for variable-length mixture observations.
 
     Args:
-        posterior_mat (np.ndarray): Posterior probabilities matrix.
-        ll_mat (np.ndarray): Log-likelihood matrix.
-        targ_perplexity (Optional[float]): Target perplexity.
+        posterior_mat: Component posteriors with shape ``(n_samples,
+            n_components)``.
+        ll_mat: Component log densities with the same shape.
+        targ_perplexity: Optional row perplexity target.
 
     Returns:
-        np.ndarray: Probability matrix.
+        Directed affinity matrix of shape ``(n_samples, n_samples)``, scaled
+        by ``1 / n_samples`` and with a zero diagonal unless numerical flooring
+        replaces it.
     """
-
     with np.errstate(divide="ignore"):
 
         n = len(posterior_mat)
@@ -150,18 +159,20 @@ def get_pmat(
     targ_perplexity: Optional[float] = None,
     vlen: bool = False,
 ) -> np.ndarray:
-    """Get high-dimensional affinity matrix P.
+    """Construct high-dimensional affinities from mixture responsibilities.
 
     Args:
-        posterior_mat (np.ndarray): Posterior probabilities matrix.
-        ll_mat (np.ndarray): Component log-likelihood matrix.
-        targ_perplexity (Optional[float]): Target perplexity.
-        vlen (bool): Whether to use variable-length encoding.
+        posterior_mat: Component posteriors with shape ``(n_samples,
+            n_components)``.
+        ll_mat: Component log densities with the same shape.
+        targ_perplexity: Optional row perplexity target.
+        vlen: Use the variable-length normalization implemented by
+            :func:`get_pmat_vlen`.
 
     Returns:
-        np.ndarray: High dimensional affinity matrix P.
+        Directed affinity matrix of shape ``(n_samples, n_samples)``, scaled
+        by ``1 / n_samples``.
     """
-
     if vlen:
         return get_pmat_vlen(posterior_mat, ll_mat, targ_perplexity)
 
@@ -190,15 +201,15 @@ def get_pmat(
 
 
 def t_cond_prob_mat(tx: np.ndarray, alpha: float) -> Tuple[np.ndarray, np.ndarray]:
-    """Computes conditional probabilities and distances low-dim affinities.
+    """Compute normalized Student-t affinities in an embedding.
 
     Args:
-        tx (np.ndarray): Input data matrix.
-        alpha (float): Scaling parameter.
+        tx: Embedding coordinates of shape ``(n_samples, n_dimensions)``.
+        alpha: Positive degrees-of-freedom parameter.
 
     Returns:
-        Tuple[np.ndarray, np.ndarray]: Conditional probabilities matrix and
-            distance matrix.
+        A pair of ``(Q, kernel)`` matrices, each with shape ``(n_samples,
+        n_samples)``. ``Q`` sums to one and has a zero diagonal.
     """
     n = tx.shape[0]
 
@@ -217,14 +228,15 @@ def t_cond_prob_mat(tx: np.ndarray, alpha: float) -> Tuple[np.ndarray, np.ndarra
 def t_cond_prob_mat_alpha(
     tx: np.ndarray, alpha: float
 ) -> Tuple[np.ndarray, np.ndarray]:
-    """Computes low-dim affinities for t-SNE with alpha scaling.
+    """Compute Student-t affinities and squared distances for alpha updates.
 
     Args:
-        tx (np.ndarray): Input data matrix.
-        alpha (float): Scaling parameter.
+        tx: Embedding coordinates of shape ``(n_samples, n_dimensions)``.
+        alpha: Positive degrees-of-freedom parameter.
 
     Returns:
-        Tuple[np.ndarray, np.ndarray]: Low-dim probabilities matrix and distance matrix.
+        Normalized affinity and squared-distance matrices, both with shape
+        ``(n_samples, n_samples)``.
     """
     n = tx.shape[0]
 
@@ -253,23 +265,26 @@ def update_embed(
     min_gain: float,
     min_value: float = 1.0e-128,
 ) -> Tuple[np.ndarray, np.ndarray, np.ndarray, np.ndarray]:
-    """Updates the embedding coordinates during optimization.
+    """Apply one momentum gradient update to an embedding.
+
+    The coordinates are updated in place and recentered to zero column means.
+    Sign changes between the gradient and previous increments increase gains;
+    matching signs decay them, subject to ``min_gain``.
 
     Args:
-        P (np.ndarray): High-dimensional probability matrix.
-        Y (np.ndarray): Current embedding coordinates.
-        iY (np.ndarray): Incremental updates to the embedding coordinates.
-        gains (np.ndarray): Gradient gains for optimization.
-        momentum (float): Momentum parameter for optimization.
-        eta (float): Learning rate.
-        alpha (float): Scaling parameter for t-SNE.
-        min_gain (float): Minimum value for gradient gains.
-        min_value (float): Minimum value for conditional probabilities.
+        P: Target affinities of shape ``(n_samples, n_samples)``.
+        Y: Coordinates of shape ``(n_samples, n_dimensions)``.
+        iY: Previous coordinate increments with the same shape as ``Y``.
+        gains: Per-coordinate gains with the same shape as ``Y``.
+        momentum: Multiplier applied to previous increments.
+        eta: Gradient learning rate.
+        alpha: Positive degrees-of-freedom parameter.
+        min_gain: Lower bound for adaptive gains.
+        min_value: Numerical floor applied to low-dimensional affinities.
 
     Returns:
-        Tuple[np.ndarray, np.ndarray, np.ndarray, np.ndarray]: Updated
-            embedding coordinates (Y), incremental updates (iY), gradient
-            gains, and low-dimensional probability matrix (Q).
+        Updated coordinates, increments, gains, and an affinity matrix of
+        shape ``(n_samples, n_samples)``.
     """
     nn, mm = Y.shape
 
@@ -307,22 +322,25 @@ def update_alpha(
     step: float = 0.1,
     eps: float = 1.0e-4,
 ) -> float:
-    """Optimizes the alpha parameter for t-SNE.
+    """Optimize the Student-t degrees-of-freedom parameter.
+
+    A bounded Newton-style update minimizes KL divergence, with each step
+    limited to a relative change of ``step``. Iteration stops at ``max_its`` or
+    when the KL reduction is less than ``eps``.
 
     Args:
-        P (np.ndarray): High-dimensional probability matrix.
-        Y (np.ndarray): Current embedding coordinates.
-        alpha (float): Current value of alpha.
-        min_alpha (float): Minimum value for alpha.
-        min_value (float): Minimum value for conditional probabilities.
-        max_its (int): Maximum number of iterations for optimization.
-        step (float): Step size for alpha updates.
-        eps (float): Convergence threshold.
+        P: Target affinities of shape ``(n_samples, n_samples)``.
+        Y: Coordinates of shape ``(n_samples, n_dimensions)``.
+        alpha: Starting value.
+        min_alpha: Lower bound for returned values.
+        min_value: Numerical floor for low-dimensional affinities.
+        max_its: Maximum alpha updates.
+        step: Maximum relative change per update.
+        eps: Minimum KL reduction required to continue.
 
     Returns:
-        float: Updated alpha value.
+        Optimized alpha value, no smaller than ``min_alpha``.
     """
-
     Q, e_ij = t_cond_prob_mat_alpha(Y, alpha)
     np.maximum(Q, min_value, out=Q)
     PQ = P - Q
@@ -392,36 +410,47 @@ def htsne(
     mix_model: Optional[MixtureModel] = None,
     variable_length: bool = False,
 ) -> np.ndarray:
-    """Performs Heterogeneous t-SNE embedding.
+    """Embed heterogeneous observations using mixture-derived affinities.
+
+    A supplied mixture is reused; otherwise a pruned Dirichlet-process mixture
+    is fitted. Its component posteriors and log densities define the target
+    affinity matrix. When ``Y`` is absent, ``seed`` controls both mixture
+    fitting and a small Gaussian coordinate initialization, followed by 100
+    early-exaggeration updates and then ``max_its`` regular updates. A supplied
+    NumPy ``Y`` may be updated in place. Progress is printed to standard output.
 
     Args:
-        data (Sequence[T]): Input data sequence.
-        emb_dim (int): Dimensionality of the embedding space.
-        alpha (float): Scaling parameter for t-SNE.
-        max_components (int): Maximum number of components for the mixture model.
-        mix_threshold_count (float): Threshold for mixture component selection.
-        Y (Optional[np.ndarray]): Initial embedding coordinates.
-        perplexity (Optional[int]): Target perplexity for probability matrix
+        data: Nonempty heterogeneous observations.
+        emb_dim: Output dimensionality when ``Y`` is absent.
+        alpha: Initial Student-t degrees-of-freedom parameter.
+        max_components: Maximum components used when fitting a mixture.
+        mix_threshold_count: Minimum effective component count retained after
+            mixture fitting.
+        Y: Optional initial coordinates of shape ``(len(data), emb_dim)``.
+        perplexity: Optional target row perplexity for affinity
             construction.
-        max_its (int): Maximum number of iterations for optimization.
-        print_iter (int): Iteration interval for printing progress.
-        eta (int): Learning rate.
-        momentum (float): Momentum parameter for optimization.
-        min_gain (float): Minimum value for gradient gains.
-        min_value (float): Minimum value for conditional probabilities.
-        optimize_alpha (bool): Whether to optimize the alpha parameter.
-        min_alpha (float): Minimum value for alpha.
-        max_alpha_its (int): Maximum iterations for alpha optimization.
-        seed (Optional[int]): Random seed for reproducibility.
-        comp_estimator (Optional[ParameterEstimator]): Component estimator for
-            mixture model.
-        mix_model (Optional[MixtureDistribution]): Precomputed mixture model.
-        variable_length (bool): Whether to use variable-length encoding.
+        max_its: Number of regular embedding updates.
+        print_iter: Positive interval for standard-output progress messages.
+        eta: Gradient learning rate.
+        momentum: Momentum for regular updates.
+        min_gain: Lower bound for adaptive gradient gains.
+        min_value: Numerical floor for affinities.
+        optimize_alpha: Optimize ``alpha`` after each embedding update.
+        min_alpha: Lower bound used during alpha optimization.
+        max_alpha_its: Maximum alpha updates per embedding iteration.
+        seed: Seed for a local legacy NumPy random state. ``None`` uses OS
+            entropy.
+        comp_estimator: Optional estimator for one mixture component.
+        mix_model: Optional pre-fitted mixture distribution.
+        variable_length: Use variable-length affinity normalization.
 
     Returns:
-        np.ndarray: Final embedding coordinates.
-    """
+        Centered embedding coordinates with shape ``(len(data), emb_dim)``.
 
+    Raises:
+        ValueError: If ``max_components`` is not an integer greater than one.
+        RuntimeError: If mixture fitting produces no components.
+    """
     rng = RandomState(seed) if seed is not None else RandomState()
     mix_model, enc_data, z_ij = prepare_mixture_model(
         data=data,
@@ -526,37 +555,34 @@ def dpmsne(
     max_alpha_its: int = 3,
     seed: Optional[int] = None,
 ) -> np.ndarray:
-    """Performs DPM-based het-SNE embedding.
+    """Embed a precomputed affinity matrix with the t-SNE optimizer.
+
+    ``P`` is converted with :func:`numpy.asarray` and normalized in place when
+    possible. When ``Y`` is absent, ``seed`` controls Gaussian initialization,
+    followed by 100 early-exaggeration updates and ``max_its`` regular updates.
+    A supplied NumPy ``Y`` may be updated in place. Progress is printed to
+    standard output.
 
     Args:
-        P (Optional[np.ndarray]): High-dimensional probability matrix.
-        data (Optional[Sequence]): Input data sequence.
-        emb_dim (int): Dimensionality of the embedding space.
-        alpha (float): Scaling parameter for t-SNE.
-        max_components (int): Maximum number of components for the mixture model.
-        mix_threshold_count (float): Threshold for mixture component selection.
-        Y (Optional[np.ndarray]): Initial embedding coordinates.
-        perplexity (Optional[int]): Target perplexity for probability matrix
-            construction.
-        max_its (int): Maximum number of iterations for optimization.
-        print_iter (int): Iteration interval for printing progress.
-        eta (int): Learning rate.
-        momentum (float): Momentum parameter for optimization.
-        min_gain (float): Minimum value for gradient gains.
-        min_value (float): Minimum value for conditional probabilities.
-        optimize_alpha (bool): Whether to optimize the alpha parameter.
-        min_alpha (float): Minimum value for alpha.
-        max_alpha_its (int): Maximum iterations for alpha optimization.
-        seed (Optional[int]): Random seed for reproducibility.
-        comp_estimator (Optional[ParameterEstimator]): Component estimator for
-            mixture model.
-        mix_model (Optional[MixtureDistribution]): Precomputed mixture model.
-        variable_length (bool): Whether to use variable-length encoding.
+        P: Floating-point square affinity matrix with shape ``(n_samples,
+            n_samples)``.
+        emb_dim: Output dimensionality when ``Y`` is absent.
+        alpha: Initial Student-t degrees-of-freedom parameter.
+        Y: Optional initial coordinates of shape ``(n_samples, emb_dim)``.
+        max_its: Number of regular embedding updates.
+        print_iter: Positive interval for standard-output progress messages.
+        eta: Gradient learning rate.
+        momentum: Momentum for regular updates.
+        min_gain: Lower bound for adaptive gradient gains.
+        min_value: Numerical floor for affinities.
+        optimize_alpha: Optimize ``alpha`` after each embedding update.
+        min_alpha: Lower bound used during alpha optimization.
+        max_alpha_its: Maximum alpha updates per embedding iteration.
+        seed: Seed for Gaussian initialization. Ignored when ``Y`` is supplied.
 
     Returns:
-        np.ndarray: Final embedding coordinates.
+        Centered embedding coordinates with shape ``(n_samples, emb_dim)``.
     """
-
     P = np.asarray(P)
     P /= np.sum(P)
 

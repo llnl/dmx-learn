@@ -45,6 +45,15 @@ def float_dtype_for_device(device: tn.device) -> tn.dtype:
 
 
 def set_default_float_dtype(dtype: tn.dtype) -> None:
+    """Set the module-local default floating point dtype.
+
+    This setting is used by the tensor factories in this module when no dtype is
+    supplied. It does not change PyTorch's global default dtype.
+
+    Args:
+        dtype (torch.dtype): Floating point dtype to use for subsequent helper
+            allocations.
+    """
     _DEFAULT_FLOAT_DTYPE_STATE["value"] = dtype
 
 
@@ -63,12 +72,33 @@ def _sample_dirichlet_with_generator(
 
 
 def seed_tng(seed: int, device: DeviceLike = None) -> tn.Generator:
+    """Create a seeded PyTorch generator.
+
+    Args:
+        seed (int): Seed value, coerced to `int`.
+        device (DeviceLike): Optional generator device. When `None`, no
+            auto-detection is performed and PyTorch creates its default
+            generator, normally on CPU.
+
+    Returns:
+        torch.Generator: Generator seeded with `seed`.
+    """
     return tn.Generator(device=_normalize_optional_device(device)).manual_seed(
         int(seed)
     )
 
 
 def seed_sample(n: int, tng: tn.Generator) -> tn.Tensor:
+    """Sample integer seeds from a generator.
+
+    Args:
+        n (int): Number of seeds to draw.
+        tng (torch.Generator): Generator whose state is advanced by sampling.
+
+    Returns:
+        torch.Tensor: An `int32` tensor on the generator device. When `n == 1`,
+        the return value is a scalar tensor; otherwise it has shape `(n,)`.
+    """
     if n == 1:
         return tn.randint(0, 2**31, size=(n,), generator=tng, dtype=DINT)[0]
 
@@ -80,6 +110,20 @@ def zeros(
     device: DeviceLike = None,
     dtype: Optional[tn.dtype] = None,
 ) -> tn.Tensor:
+    """Create a floating point tensor of zeros.
+
+    Args:
+        size (Union[int, Tuple[int, ...]]): Output tensor shape.
+        device (DeviceLike): Optional output device. When `None`, PyTorch's
+            default tensor device is used rather than `resolve_device`
+            auto-detection.
+        dtype (Optional[torch.dtype]): Optional output dtype. When omitted,
+            the module-local float dtype is used, except MPS allocations use
+            `float32`.
+
+    Returns:
+        torch.Tensor: Tensor of zeros with the requested shape, device, and dtype.
+    """
     target_device = _normalize_optional_device(device)
     return tn.zeros(
         size, dtype=_resolve_float_dtype(target_device, dtype), device=target_device
@@ -91,6 +135,20 @@ def ones(
     device: DeviceLike = None,
     dtype: Optional[tn.dtype] = None,
 ) -> tn.Tensor:
+    """Create a floating point tensor of ones.
+
+    Args:
+        size (Union[int, Tuple[int, ...]]): Output tensor shape.
+        device (DeviceLike): Optional output device. When `None`, PyTorch's
+            default tensor device is used rather than `resolve_device`
+            auto-detection.
+        dtype (Optional[torch.dtype]): Optional output dtype. When omitted,
+            the module-local float dtype is used, except MPS allocations use
+            `float32`.
+
+    Returns:
+        torch.Tensor: Tensor of ones with the requested shape, device, and dtype.
+    """
     target_device = _normalize_optional_device(device)
     return tn.ones(
         size, dtype=_resolve_float_dtype(target_device, dtype), device=target_device
@@ -98,10 +156,29 @@ def ones(
 
 
 def int_vec(size: Union[int, Tuple[int, ...]], device: DeviceLike = None) -> tn.Tensor:
+    """Create an integer tensor of zeros.
+
+    Args:
+        size (Union[int, Tuple[int, ...]]): Output tensor shape.
+        device (DeviceLike): Optional output device. When `None`, PyTorch's
+            default tensor device is used.
+
+    Returns:
+        torch.Tensor: `int32` tensor of zeros.
+    """
     return tn.zeros(size, dtype=DINT, device=_normalize_optional_device(device))
 
 
 def zeros_like(x: tn.Tensor) -> tn.Tensor:
+    """Create a floating point zero tensor shaped like another tensor.
+
+    Args:
+        x (torch.Tensor): Tensor providing shape and device.
+
+    Returns:
+        torch.Tensor: Zero tensor with the same shape and device as `x`. The
+        dtype is this module's default float dtype, except MPS uses `float32`.
+    """
     return tn.zeros_like(x, dtype=_resolve_float_dtype(x.device, None))
 
 
@@ -119,6 +196,21 @@ def tensor(
     device: DeviceLike = None,
     dtype: Optional[tn.dtype] = None,
 ) -> tn.Tensor:
+    """Convert array-like input to a detached tensor.
+
+    Tensor inputs are cloned and detached. When `device` is omitted, tensor
+    inputs keep their current device and non-tensor inputs use PyTorch's
+    default tensor device. Explicit dtype always wins; otherwise the
+    module-local float dtype is used, except MPS uses `float32`.
+
+    Args:
+        x: Tensor, NumPy array, or numeric sequence to convert.
+        device (DeviceLike): Optional target device.
+        dtype (Optional[torch.dtype]): Optional target dtype.
+
+    Returns:
+        torch.Tensor: Converted tensor on the requested or inferred device.
+    """
     target_device = _normalize_optional_device(device)
     target_device = (
         target_device
@@ -141,13 +233,37 @@ def int_tensor(
     device: DeviceLike = None,
     dtype: Optional[tn.dtype] = DINT,
 ) -> tn.Tensor:
+    """Convert array-like input to an integer tensor.
+
+    Args:
+        x: Tensor, NumPy array, or integer sequence to convert.
+        device (DeviceLike): Optional target device.
+        dtype (Optional[torch.dtype]): Integer dtype to request. Defaults to
+            this module's `int32` dtype.
+
+    Returns:
+        torch.Tensor: Converted tensor using `tensor` conversion semantics.
+    """
     return tensor(x, device=device, dtype=dtype)
 
 
 def choice(
     size: int, states: int, tng: tn.Generator, p: Optional[tn.Tensor] = None
 ) -> tn.Tensor:
+    """Sample state indices with replacement.
 
+    Args:
+        size (int): Number of state indices to sample.
+        states (int): Number of possible states when `p` is omitted.
+        tng (torch.Generator): Generator whose device receives the sampling
+            weights and whose state is advanced.
+        p (Optional[torch.Tensor]): Optional unnormalized weights. If supplied
+            on another device, the weights are copied to the generator device.
+
+    Returns:
+        torch.Tensor: Sampled indices with shape `(size,)` on the generator
+        device.
+    """
     device = tng.device
     if p is not None:
         alpha = p if p.device == device else p.to(device)
@@ -160,22 +276,34 @@ def choice(
 def randint(
     size: int, low: int, high: int, tng: tn.Generator, dtype: Optional[tn.dtype] = DINT
 ) -> tn.Tensor:
+    """Sample random integers on a generator's device.
+
+    Args:
+        size (int): Number of integers to sample.
+        low (int): Inclusive lower bound.
+        high (int): Exclusive upper bound.
+        tng (torch.Generator): Generator whose state is advanced.
+        dtype (Optional[torch.dtype]): Output integer dtype. Defaults to `int32`.
+
+    Returns:
+        torch.Tensor: Random integer tensor with shape `(size,)` on `tng.device`.
+    """
     return tn.randint(
         size=(size,), low=low, high=high, generator=tng, dtype=dtype, device=tng.device
     )
 
 
 def bincount_2d(x: tn.Tensor, w: tn.Tensor, minlength: int) -> tn.Tensor:
-    """Bincount 2-d Tensor by index x.
+    """Bincount rows of a 2-d tensor by shared integer ids.
 
     Args:
-        x (Tensor): tensor of ints corresponding to id of row in w.
-        w (Tensor): A 2-d (s by n) tensor with len(x) == n and s-states.
-        minlength (int): Number of values to count by.
+        x (Tensor): One-dimensional integer tensor of length `n` containing
+            bin ids.
+        w (Tensor): Two-dimensional weight tensor with shape `(s, n)`.
+        minlength (int): Minimum number of bins per row.
 
     Returns:
-        Tensor with dim (minlength by s).
-
+        Tensor with shape `(s, minlength)` on `w.device`.
     """
     rv = zeros((w.shape[0], minlength), device=w.device)
     for i in range(w.shape[0]):
@@ -187,14 +315,18 @@ def bincount_2d(x: tn.Tensor, w: tn.Tensor, minlength: int) -> tn.Tensor:
 def sample_dirichlet(alpha: tn.Tensor, size: int, tng: tn.Generator) -> tn.Tensor:
     """Sample from a Dirichlet distribution with shape alpha.
 
+    CPU and CUDA paths use and advance the supplied generator. MPS sampling is
+    performed on CPU from a temporary generator seeded with `tng.initial_seed()`
+    and copied back to the generator device.
+
     Args:
-        alpha (tn.Tensor): Shape parameter length equal to dim of simplex.
+        alpha (tn.Tensor): Shape parameter with length equal to simplex dimension.
         size (int): Number of samples to draw.
-        tng (Generator): Generator for sampling with device set.
+        tng (Generator): Generator identifying the target device.
 
     Returns:
-        Tensor of shape (size X len(alpha)) on device same as tng.
-
+        Tensor with shape `(size, len(alpha))`, dtype matching `alpha`, and
+        device matching `tng.device`.
     """
     k = alpha.shape[0]
     target_device = tng.device if tng.device is not None else alpha.device

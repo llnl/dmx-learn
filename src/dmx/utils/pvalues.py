@@ -16,17 +16,30 @@ def binomial_rank(
     ll_eps: float = 1.0e-4,
     max_len: Optional[int] = None,
 ) -> Tuple[np.ndarray, np.ndarray, Tuple[float, float, float]]:
-    """Approximates the log-density histogram for a composite of binomials.
+    """Approximate a composite-binomial log-density histogram.
+
+    Each input position defines a binomial count and success probability in
+    log space. Individual discrete log-density histograms are placed on a
+    shared grid and convolved. Entries with zero counts or deterministic
+    probabilities are skipped. At least one nondegenerate entry is required.
 
     Args:
-        log_p_vec: Vector with log probabilities for each binomial distribution
-        log_p1_vec: Optional vector with log one minus probabilities for each
-            binomial distribution (for high-precision)
-        count_vec: Vector with the number of draws for each binomial distribution
-        ll_eps: Bin spacing is determined so that |LL - floor(LL/space)*space| < ll_eps
-        max_len: Maximum number of bins for histogram
+        log_p_vec: One-dimensional log success probabilities of shape ``(m,)``.
+        log_p1_vec: Optional log failure probabilities with shape ``(m,)``.
+            When absent, they are computed with ``log1p(-exp(log_p_vec))``.
+        count_vec: Optional nonnegative, integer-valued binomial counts with
+            shape ``(m,)``; defaults to one per entry.
+        ll_eps: Maximum grid-alignment remainder used while halving automatic
+            bin spacing.
+        max_len: Optional approximate upper bound used to choose bin spacing.
+
     Returns:
-        log_density array, corresponding probs array, Tuple[ll0, dll, total_count]
+        Grid log densities and their normalized probabilities, both of shape
+        ``(n_bins,)``, plus ``(grid_origin, grid_spacing, total_count)``.
+
+    Raises:
+        ValueError: If no nondegenerate binomial entry remains or array shapes
+            cannot be combined.
     """
     entries: List[Tuple[np.ndarray, np.ndarray, float]] = []
     log_p_arr = np.asarray(log_p_vec, dtype=float)
