@@ -1,24 +1,19 @@
-"""Create, estimate, and sample from a Markov chain.
+r"""Provide first-order Markov chains over arbitrary state values.
 
-Defines the MarkovChainDistribution, MarkovChainDistributionSampler,
-MarkovChainDistributionAccumulatorFactory,
-MarkovChainDistributionAccumulator, MarkovChainDistributionEstimator, and the
-MarkovChainDistributionDataEncoder
-classes for use with dmx-learn.
+An observation is a finite state sequence :math:`x=(x_0,\ldots,x_{n-1})`, where
+each state has the generic type ``T``.  For a nonempty sequence, the model is
 
-The assumed data type for the stats-space is T.
+.. math::
 
-The density of Markov chain is given by for sequence of length n,
-x=[x[0],x[1],...,x[n-1]]
+   p(x) = p_N(n)\,p_0(x_0)\prod_{i=1}^{n-1}p(x_i\mid x_{i-1}).
 
-    p_mat(x) = p_mat(x[0])*p_mat(x[1]|x[0])*...*p_mat(x[n-1]|x[n-2])*P_len(n)
+``init_prob_map`` represents :math:`p_0`, ``transition_map`` represents the
+first-order conditional probabilities, and ``len_dist`` represents
+:math:`p_N`.  Sequence length is sampled independently; there is no terminal
+state.  The empty sequence has probability ``len_dist.density(0)``.
 
-where p_mat(x[i+1]|x[i]) is the transition probability, p_mat(x[0]) is the
-init-probability, and P_len(n) is given
-by the length distribution density.
-
-Note if len(x) = 0, only log(P_len(0)) is returned.
-
+The module provides the distribution, sampler, estimator, sufficient-statistic
+accumulator, and vectorized data encoder.
 """
 
 from typing import (
@@ -67,8 +62,11 @@ enc_data_type = Tuple[
 class MarkovChainDistribution(  # pylint: disable=too-many-instance-attributes
     SequenceEncodableProbabilityDistribution, Generic[T]
 ):
-    """MarkovChainDistribution object defining a Markov chain compatible with data type
-    T.
+    """Represent a first-order Markov chain over states of type ``T``.
+
+    Each observation is a complete state sequence.  Initial and transition maps
+    need only contain explicitly modeled states; ``default_value`` supplies mass
+    for missing entries using the implementation's fallback normalization.
 
     Attributes:
         init_prob_map (Dict[T, float]): Probability of each initial values of data type
@@ -96,7 +94,7 @@ class MarkovChainDistribution(  # pylint: disable=too-many-instance-attributes
             log_dv. (len == num_keys+1).
         trans_log_pvec (dok_matrix): Dictionary of keys for sparse log transition
             probabilities.
-        keys (Optional[str] = None): Set keys for distribution parameters
+        keys (Optional[str]): Key used to share accumulated sufficient statistics.
 
     """
 
@@ -111,7 +109,7 @@ class MarkovChainDistribution(  # pylint: disable=too-many-instance-attributes
         name: Optional[str] = None,
         keys: Optional[str] = None,
     ) -> None:
-        """MarkovChainDistribution object.
+        """Initialize a generic Markov-chain distribution.
 
         Args:
             init_prob_map (Dict[T, float]): Probability of each initial values of data
@@ -122,7 +120,7 @@ class MarkovChainDistribution(  # pylint: disable=too-many-instance-attributes
                 observation sequence.
             default_value (float): Default probability for value outside support.
             name (Optional[str]): Set name to MarkovChainDistribution object.
-            keys (Optional[str] = None): Set keys for distribution parameters
+            keys (Optional[str]): Key used to share accumulated sufficient statistics.
 
         """
         self.name = name
@@ -185,6 +183,7 @@ class MarkovChainDistribution(  # pylint: disable=too-many-instance-attributes
         self.keys = keys
 
     def __eq__(self, other: object) -> bool:
+        """Return whether two distributions have equal defining parameters."""
         if not isinstance(other, MarkovChainDistribution):
             return False
 
@@ -208,6 +207,7 @@ class MarkovChainDistribution(  # pylint: disable=too-many-instance-attributes
         return True
 
     def __str__(self) -> str:
+        """Return an evaluable representation of the distribution."""
         s1 = dict(sorted(self.init_prob_map.items(), key=lambda u: repr(u[0])))
         s1 = {k: float(v) for k, v in s1.items()}
         temp = sorted(self.transition_map.items(), key=lambda u: repr(u[0]))
@@ -267,6 +267,17 @@ class MarkovChainDistribution(  # pylint: disable=too-many-instance-attributes
         return float(rv)
 
     def seq_log_density(self, x: "MarkovChainEncodedDataSequence") -> np.ndarray:
+        """Evaluate log densities for an encoded batch of state sequences.
+
+        Args:
+            x: Batch produced by :class:`MarkovChainDataEncoder`.
+
+        Returns:
+            One log density per input sequence.
+
+        Raises:
+            TypeError: If ``x`` is not a compatible encoded batch.
+        """
         if not isinstance(x, MarkovChainEncodedDataSequence):
             raise TypeError(
                 "MarkovChainEncodedDataSequence required for seq_log_density()."
@@ -291,10 +302,11 @@ class MarkovChainDistribution(  # pylint: disable=too-many-instance-attributes
         return rv
 
     def sampler(self, seed: Optional[int] = None) -> "MarkovChainSampler":
+        """Create a sampler for complete state sequences."""
         return MarkovChainSampler(self, seed)
 
     def estimator(self, pseudo_count: Optional[float] = None) -> "MarkovChainEstimator":
-
+        """Create an estimator using this distribution's length model."""
         len_est = self.len_dist.estimator(pseudo_count=pseudo_count)
         return MarkovChainEstimator(
             pseudo_count=pseudo_count,
@@ -304,12 +316,13 @@ class MarkovChainDistribution(  # pylint: disable=too-many-instance-attributes
         )
 
     def dist_to_encoder(self) -> "MarkovChainDataEncoder":
+        """Create an encoder for batches of state sequences."""
         len_encoder = self.len_dist.dist_to_encoder()
         return MarkovChainDataEncoder(len_encoder=len_encoder)
 
 
 class MarkovChainSampler(DistributionSampler, Generic[T]):
-    """MarkovChainSampler object for sampling from Markov chain.
+    """Sample complete sequences from a generic Markov chain.
 
     Attributes:
         rng (RandomState): RandomState obejct for setting seed of random sampler.
@@ -327,7 +340,7 @@ class MarkovChainSampler(DistributionSampler, Generic[T]):
     def __init__(
         self, dist: "MarkovChainDistribution[T]", seed: Optional[int] = None
     ) -> None:
-        """MarkovChainSampler object.
+        """Initialize a Markov-chain sampler.
 
         Args:
             dist (MarkovChainDistribution): Instance of MarkovChainDistribution object
@@ -393,8 +406,7 @@ class MarkovChainSampler(DistributionSampler, Generic[T]):
     def sample_seq(
         self, size: Optional[int] = None, v0: Optional[T] = None
     ) -> Union[T, List[T]]:
-        """Sample a Markov chain sequence of length 'size' conditioned on initial state
-        'v0'.
+        """Sample a fixed-length chain, optionally from a supplied state.
 
         If size is None, draw a sequence of length 1, returning as type T.
 
@@ -443,8 +455,11 @@ class MarkovChainSampler(DistributionSampler, Generic[T]):
 
 
 class MarkovChainAccumulator(SequenceEncodableStatisticAccumulator, Generic[T]):
-    """MarkovChainAccumulator object for accumulating sufficient statistics from
-    observed data.
+    """Accumulate weighted counts for generic Markov-chain observations.
+
+    The sufficient statistic is ``(initial_counts, transition_counts,
+    length_statistic)``.  Empty sequences contribute only to the length
+    statistic.
 
     Attributes:
         init_count_map (Dict[T, float]): Dictionary for accumulating weighted counts of
@@ -471,7 +486,7 @@ class MarkovChainAccumulator(SequenceEncodableStatisticAccumulator, Generic[T]):
         name: Optional[str] = None,
         keys: Optional[str] = None,
     ) -> None:
-        """MarkovChainAccumulator object.
+        """Initialize a Markov-chain sufficient-statistic accumulator.
 
         Args:
             len_accumulator (Optional[SequenceEncodableStatisticAccumulator]):
@@ -494,6 +509,7 @@ class MarkovChainAccumulator(SequenceEncodableStatisticAccumulator, Generic[T]):
     def update(
         self, x: List[T], weight: float, estimate: MarkovChainDistribution
     ) -> None:
+        """Add a weighted state sequence to the sufficient statistics."""
         if x is not None:
             self.len_accumulator.update(len(x), weight, estimate.len_dist)
 
@@ -511,6 +527,7 @@ class MarkovChainAccumulator(SequenceEncodableStatisticAccumulator, Generic[T]):
                 x0 = u
 
     def initialize(self, x: List[T], weight: float, rng: RandomState) -> None:
+        """Initialize sufficient statistics from a weighted state sequence."""
         if x is not None:
             self.len_accumulator.initialize(len(x), weight, rng)
 
@@ -530,6 +547,7 @@ class MarkovChainAccumulator(SequenceEncodableStatisticAccumulator, Generic[T]):
     def seq_initialize(
         self, x: "MarkovChainEncodedDataSequence", weights: np.ndarray, rng: RandomState
     ) -> None:
+        """Initialize sufficient statistics from an encoded weighted batch."""
         _sz, idx0, idx1, init_x, prev_x, next_x, inv_key_map, len_enc = x.data
         self.len_accumulator.seq_initialize(len_enc, weights, rng)
 
@@ -562,7 +580,7 @@ class MarkovChainAccumulator(SequenceEncodableStatisticAccumulator, Generic[T]):
         weights: np.ndarray,
         estimate: MarkovChainDistribution,
     ) -> None:
-
+        """Add an encoded weighted batch to the sufficient statistics."""
         _sz, idx0, idx1, init_x, prev_x, next_x, inv_key_map, len_enc = x.data
 
         init_count = np.bincount(init_x, weights=weights[idx0])
@@ -590,7 +608,7 @@ class MarkovChainAccumulator(SequenceEncodableStatisticAccumulator, Generic[T]):
         self.len_accumulator.seq_update(len_enc, weights, estimate.len_dist)
 
     def combine(self, suff_stat: suff_stat_type) -> "MarkovChainAccumulator":
-
+        """Merge another set of sufficient statistics into this accumulator."""
         for item in suff_stat[0].items():
             self.init_count_map[item[0]] = (
                 self.init_count_map.get(item[0], 0.0) + item[1]
@@ -609,11 +627,11 @@ class MarkovChainAccumulator(SequenceEncodableStatisticAccumulator, Generic[T]):
         return self
 
     def value(self) -> suff_stat_type:
-
+        """Return initial counts, transition counts, and length statistics."""
         return self.init_count_map, self.trans_count_map, self.len_accumulator.value()
 
     def from_value(self, x: suff_stat_type) -> "MarkovChainAccumulator":
-
+        """Replace the accumulated sufficient statistics with ``x``."""
         self.init_count_map = x[0]
         self.trans_count_map = x[1]
         self.len_accumulator.from_value(x[2])
@@ -621,7 +639,7 @@ class MarkovChainAccumulator(SequenceEncodableStatisticAccumulator, Generic[T]):
         return self
 
     def key_merge(self, stats_dict: Dict[str, "MarkovChainAccumulator"]) -> None:
-
+        """Merge this accumulator into the entry selected by ``keys``."""
         if self.keys is not None:
             if self.keys in stats_dict:
                 stats_dict[self.keys].combine(self.value())
@@ -630,18 +648,19 @@ class MarkovChainAccumulator(SequenceEncodableStatisticAccumulator, Generic[T]):
                 stats_dict[self.keys] = self
 
     def key_replace(self, stats_dict: Dict[str, "MarkovChainAccumulator"]) -> None:
-
+        """Replace statistics from the entry selected by ``keys``."""
         if self.keys is not None:
             if self.keys in stats_dict:
                 self.from_value(stats_dict[self.keys].value())
 
     def acc_to_encoder(self) -> "MarkovChainDataEncoder":
+        """Create an encoder compatible with this accumulator."""
         len_encoder = self.len_accumulator.acc_to_encoder()
         return MarkovChainDataEncoder(len_encoder=len_encoder)
 
 
 class MarkovChainAccumulatorFactory(StatisticAccumulatorFactory, Generic[T]):
-    """MarkovChainAccumulatorFactory object for creating MarkovChainAccumulator objects.
+    """Create accumulators for generic Markov-chain sufficient statistics.
 
     Attributes:
         len_factory (StatisticAccumulatorFactory): StatisticAccumulatorFactory object
@@ -660,7 +679,7 @@ class MarkovChainAccumulatorFactory(StatisticAccumulatorFactory, Generic[T]):
         name: Optional[str] = None,
         keys: Optional[str] = None,
     ) -> None:
-        """MarkovChainAccumulatorFactory object.
+        """Initialize a Markov-chain accumulator factory.
 
         Args:
             len_factory (StatisticAccumulatorFactory): StatisticAccumulatorFactory
@@ -676,6 +695,7 @@ class MarkovChainAccumulatorFactory(StatisticAccumulatorFactory, Generic[T]):
         self.keys = keys
 
     def make(self) -> "MarkovChainAccumulator[T]":
+        """Create a new empty Markov-chain accumulator."""
         len_acc = self.len_factory.make()
         return MarkovChainAccumulator(
             len_accumulator=len_acc, keys=self.keys, name=self.name
@@ -683,8 +703,7 @@ class MarkovChainAccumulatorFactory(StatisticAccumulatorFactory, Generic[T]):
 
 
 class MarkovChainEstimator(ParameterEstimator, Generic[T]):
-    """MarkovChainEstimator object for estimating MarkovChainDistribution object from
-    aggregated data.
+    """Estimate a generic Markov chain from aggregated weighted counts.
 
     Notes:
         With ``pseudo_count=None``, initial-state and transition probabilities are
@@ -718,7 +737,7 @@ class MarkovChainEstimator(ParameterEstimator, Generic[T]):
         name: Optional[str] = None,
         keys: Optional[str] = None,
     ) -> None:
-        """MarkovChainEstimator object.
+        """Initialize a Markov-chain estimator.
 
         Args:
             pseudo_count (Optional[float]): Smoothing mass for initial-state and
@@ -742,6 +761,7 @@ class MarkovChainEstimator(ParameterEstimator, Generic[T]):
         self.keys = keys
 
     def accumulator_factory(self) -> "MarkovChainAccumulatorFactory[T]":
+        """Create a factory for compatible sufficient-statistic accumulators."""
         return MarkovChainAccumulatorFactory(
             len_factory=self.len_estimator.accumulator_factory(),
             keys=self.keys,
@@ -751,6 +771,7 @@ class MarkovChainEstimator(ParameterEstimator, Generic[T]):
     def estimate(
         self, nobs: Optional[float], suff_stat: suff_stat_type
     ) -> "MarkovChainDistribution[T]":
+        """Estimate parameters, applying pseudo-count smoothing when configured."""
         if self.pseudo_count is not None:
             return self.estimate1(nobs, suff_stat)
         return self.estimate0(nobs, suff_stat)
@@ -758,8 +779,7 @@ class MarkovChainEstimator(ParameterEstimator, Generic[T]):
     def estimate0(
         self, nobs: Optional[float], suff_stat: suff_stat_type
     ) -> "MarkovChainDistribution":
-        """Estimate MarkovChainDistribution from aggregated sufficient statistics from
-        observed data.
+        """Estimate an unsmoothed Markov chain from sufficient statistics.
 
         Maximum likelihood estimates for initial state probabilities, transition
         probabilities, and the length
@@ -801,8 +821,7 @@ class MarkovChainEstimator(ParameterEstimator, Generic[T]):
     def estimate1(
         self, nobs: Optional[float], suff_stat: suff_stat_type
     ) -> "MarkovChainDistribution[T]":
-        """Estimate MarkovChainDistribution from aggregated sufficient statistics from
-        observed data.
+        """Estimate a pseudo-count-smoothed chain from sufficient statistics.
 
         Maximum likelihood estimates for initial state probabilities, transition
         probabilities, and the length
@@ -876,8 +895,11 @@ class MarkovChainEstimator(ParameterEstimator, Generic[T]):
 
 
 class MarkovChainDataEncoder(DataSequenceEncoder, Generic[T]):
-    """MarkovChainDataEncoder used for sequence encoding data for use with vectorized
-    'seq_' functions.
+    """Encode batches of generic state sequences for vectorized operations.
+
+    States are dictionary-encoded once per batch.  Separate arrays identify each
+    nonempty sequence's initial state and every adjacent transition; sequence
+    lengths are delegated to ``len_encoder``.
 
     Attributes:
           len_encoder (DataSequenceEncoder): DataSequenceEncoder object that has support
@@ -886,7 +908,7 @@ class MarkovChainDataEncoder(DataSequenceEncoder, Generic[T]):
     """
 
     def __init__(self, len_encoder: DataSequenceEncoder = NullDataEncoder()) -> None:
-        """MarkovChainDataEncoder object.
+        """Initialize a generic Markov-chain data encoder.
 
         Args:
             len_encoder (DataSequenceEncoder): DataSequenceEncoder with data type int.
@@ -895,16 +917,17 @@ class MarkovChainDataEncoder(DataSequenceEncoder, Generic[T]):
         self.len_encoder = len_encoder
 
     def __str__(self) -> str:
+        """Return a representation of the encoder."""
         return "MarkovChainDataEncoder(len_encoder=" + str(self.len_encoder) + ")"
 
     def __eq__(self, other: object) -> bool:
+        """Return whether two encoders use equal length encoders."""
         if isinstance(other, MarkovChainDataEncoder):
             return other.len_encoder == self.len_encoder
         return False
 
     def seq_encode(self, x: List[List[T]]) -> "MarkovChainEncodedDataSequence":
-        """Sequence encoding a sequence of iid Markov chain observations with data type
-        T.
+        """Encode independent Markov-chain observations of state type ``T``.
 
         The returned value is (rv) is a Tuple of length 8 with entries:
 
@@ -930,7 +953,6 @@ class MarkovChainDataEncoder(DataSequenceEncoder, Generic[T]):
             MarkovChainEncodedDataSequence
 
         """
-
         init_entries: List[int] = []
         pair_entries: List[Tuple[int, int]] = []
         entries_idx0: List[int] = []
@@ -990,7 +1012,7 @@ class MarkovChainDataEncoder(DataSequenceEncoder, Generic[T]):
 
 
 class MarkovChainEncodedDataSequence(EncodedDataSequence):
-    """MarkovChainEncodedDataSequence object for vectorized function calls.
+    """Store an encoded batch of generic Markov-chain observations.
 
     Notes:
         E = Tuple[int, np.ndarray, np.ndarray, np.ndarray, np.ndarray, np.ndarray,
@@ -1014,7 +1036,7 @@ class MarkovChainEncodedDataSequence(EncodedDataSequence):
             EncodedDataSequence,
         ],
     ):
-        """MarkovChainEncodedDataSequence object.
+        """Initialize an encoded Markov-chain batch.
 
         Args:
             data (E): Encoded sequence of markov chain iid observations.
@@ -1023,4 +1045,5 @@ class MarkovChainEncodedDataSequence(EncodedDataSequence):
         super().__init__(data=data)
 
     def __repr__(self) -> str:
+        """Return a representation of the encoded batch."""
         return f"MarkovChainEncodedDataSequence(data={self.data})"

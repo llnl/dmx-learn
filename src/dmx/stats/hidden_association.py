@@ -1,43 +1,21 @@
-"""Create, estimate, and sample from a hidden association model.
+r"""Provide hidden-association models for paired bags of weighted values.
 
-Defines the HiddenAssociationDistribution, HiddenAssociationSampler,
-HiddenAssociationAccumulatorFactory,
-HiddenAssociationAccumulator, HiddenAssociationEstimator, and the
-HiddenAssociationDataEncoder classes for use with
-dmx-learn.
+An observation is ``(source, target)``.  Each bag is represented by
+``[(value, count), ...]`` with values of generic type ``T``.  Write source
+counts as :math:`c_v`, target counts as :math:`d_y`,
+:math:`M=\sum_v c_v`, and :math:`N=\sum_y d_y`.  For each target occurrence, a
+latent assignment :math:`A` selects a source value with
+:math:`P(A=v\mid source)=c_v/M`, then ``cond_dist`` generates the target from
+:math:`q(y\mid v)`.  Marginalizing the assignments gives
 
-Consider a set of value V = {v_1,v_2,...,v_K} with data type T. Let the given density be
-discrete probability density
-over the values in V,
+.. math::
 
-        P_g(X_i = v_k) = p_g(k), for k = 1,2,....,K
+   \log p(source,target) = \log p_G(source) + \log p_N(N)
+     + \sum_y d_y\log\left(\sum_v \frac{c_v}{M}q(y\mid v)\right).
 
-where sum_k p_g(k) = 1.0. Consider M samples from P_g() denoted x = (x_1,x_2,...,x_M).
-We then introduce the latent
-variable U, where
-
-    p_k(x) = p_mat(U = v_k | x) = (# of x_1,...,x_M that are = to v_k) / M, for k =
-    1,2,...,K.
-
-We then draw N a positive integer N from distribution P_len(), then draw N samples from
-the density above to get
-z = (z_1, z_2, ...., z_N). Last we sample from the conditional distribution defined for
-P_c(Y = v_k | z_i) to obtain
-y = (y_1,...,y_N).
-
-The log_density is given by,
-
-    log(p_mat(x,y)) = sum_{i=1}^{N} log(sum_{k=1}^{K} p_k(x)*P_c(y_i|v_k)) + log(P_g(x))
-    + log(P_len(N)).
-
-Note: That in this model we consider grouped-counts. So the given data type is
-
-    x: Tuple[List[Tuple[T, float]], List[Tuple[T, float]]] = [x[0], x[1]],
-
-where x[0] = [(value, count)] for the unique values of x_mat = (X_1,X_2,...,X_M) in V,
-and x[1] = [(value, count)] for
-the unique values of Y = (Y_1,...,Y_N) in V as well.
-
+``given_dist`` supplies :math:`p_G` and ``len_dist`` supplies :math:`p_N`.
+The accumulator computes posterior assignment weights and passes expected
+weighted pairs to the conditional-distribution accumulator.
 """
 
 import math
@@ -76,19 +54,21 @@ SS3 = TypeVar("SS3")  ### Data type for suff stats of length
 
 
 class HiddenAssociationDistribution(SequenceEncodableProbabilityDistribution):
-    """HiddenAssociationDistribution object for specifying hidden association models.
+    """Model associations between source and target bags of generic values.
+
+    The latent source assignment for each target occurrence is marginalized in
+    density evaluation and sampling returns grouped target counts.
 
     Attributes:
         cond_dist (ConditionalDistribution): ConditionalDistribution defining
-            distributions conditioned on the
-            number of states.
+            target-value distributions conditioned on source values.
         given_dist (SequenceEncodableProbabilityDistribution): Distribution for the
-            previous set. Defaults to
-            NullDistribution.
+            grouped source bag. Defaults to ``NullDistribution``.
         len_dist (SequenceEncodableProbabilityDistribution): Distribution for the length
-            of the observed emission.
+            of the target bag, measured by its total count.
         name (Optional[str]): Name for object instance.
-        keys (Tuple[Optional[str], Optional[str]]): Keys for weights and transitions.
+        keys (Tuple[Optional[str], Optional[str]]): Compatibility keys forwarded to the
+            estimator and accumulator factory.
 
     """
 
@@ -104,12 +84,11 @@ class HiddenAssociationDistribution(SequenceEncodableProbabilityDistribution):
         name: Optional[str] = None,
         keys: Optional[Tuple[Optional[str], Optional[str]]] = (None, None),
     ) -> None:
-        """HiddenAssociationDistribution object.
+        """Initialize a generic hidden-association distribution.
 
         Args:
             cond_dist (ConditionalDistribution): ConditionalDistribution defining
-                distributions conditioned on the
-                number of states.
+                target-value distributions conditioned on source values.
             given_dist (Optional[SequenceEncodableProbabilityDistribution]):
                 Distribution for the previous set. Must
                 be compatible with Tuple[T, float].
@@ -117,8 +96,8 @@ class HiddenAssociationDistribution(SequenceEncodableProbabilityDistribution):
                 for the length of the observed
                 emission. (Second set output).
             name (Optional[str]): Name for object instance.
-            keys (Optional[Tuple[Optional[str], Optional[str]]]): Keys for weights and
-                transitions.
+            keys (Optional[Tuple[Optional[str], Optional[str]]]): Compatibility keys
+                forwarded to estimation objects.
 
         """
         super().__init__()
@@ -129,6 +108,7 @@ class HiddenAssociationDistribution(SequenceEncodableProbabilityDistribution):
         self.keys = keys if keys is not None else (None, None)
 
     def __str__(self) -> str:
+        """Return an evaluable representation of the distribution."""
         s1 = repr(self.cond_dist)
         s2 = repr(self.given_dist)
         s3 = repr(self.len_dist)
@@ -141,11 +121,13 @@ class HiddenAssociationDistribution(SequenceEncodableProbabilityDistribution):
         )
 
     def density(self, x: Tuple[List[Tuple[T, float]], List[Tuple[T, float]]]) -> float:
+        """Evaluate the density of a paired source and target bag."""
         return float(exp(self.log_density(x)))
 
     def log_density(
         self, x: Tuple[List[Tuple[T, float]], List[Tuple[T, float]]]
     ) -> float:
+        """Evaluate the log density after marginalizing source assignments."""
         rv = 0.0
         nn = 0.0
         for x1, c1 in x[1]:
@@ -173,17 +155,24 @@ class HiddenAssociationDistribution(SequenceEncodableProbabilityDistribution):
         return float(rv)
 
     def seq_log_density(self, x: "HiddenAssociationEncodedDataSequence") -> np.ndarray:
+        """Evaluate log densities for an encoded batch of paired bags."""
         if not isinstance(x, HiddenAssociationEncodedDataSequence):
             raise TypeError("Requires HiddenAssociationEncodedDataSequence.")
 
         return np.asarray([self.log_density(xx) for xx in x.data])
 
     def sampler(self, seed: Optional[int] = None) -> "HiddenAssociationSampler":
+        """Create a sampler for paired source and target bags."""
         return HiddenAssociationSampler(self, seed)
 
     def estimator(
         self, pseudo_count: Optional[float] = None
     ) -> "HiddenAssociationEstimator":
+        """Create an estimator from the three component estimators.
+
+        The ``pseudo_count`` argument is accepted for protocol compatibility but
+        is not forwarded by this implementation.
+        """
         return HiddenAssociationEstimator(
             cond_estimator=self.cond_dist.estimator(),
             given_estimator=self.given_dist.estimator(),
@@ -193,14 +182,17 @@ class HiddenAssociationDistribution(SequenceEncodableProbabilityDistribution):
         )
 
     def dist_to_encoder(self) -> "HiddenAssociationDataEncoder":
+        """Create the pass-through encoder used by vectorized operations."""
         return HiddenAssociationDataEncoder()
 
 
 class HiddenAssociationSampler(DistributionSampler):
+    """Sample paired bags or target bags conditional on a source bag."""
 
     def __init__(
         self, dist: HiddenAssociationDistribution, seed: Optional[int] = None
     ) -> None:
+        """Initialize a generic hidden-association sampler."""
         if isinstance(dist.given_dist, NullDistribution):
             raise RuntimeError(
                 "HiddenAssociationSampler requires attribute dist.given_dist."
@@ -243,12 +235,14 @@ class HiddenAssociationSampler(DistributionSampler):
         Sequence[Tuple[List[Tuple[Any, float]], List[Tuple[Any, float]]]],
         Tuple[List[Tuple[Any, float]], List[Tuple[Any, float]]],
     ]:
+        """Draw one paired-bag observation or a batch of observations."""
         if size is None:
             return self._sample_single()
 
         return [self._sample_single() for i in range(size)]
 
     def sample_given(self, x: List[Tuple[T, float]]) -> List[Tuple[Any, float]]:
+        """Draw a grouped target bag conditional on source bag ``x``."""
         cnt = int(self.len_sampler.sample())
         rng = np.random.RandomState(self.idx_sampler.randint(0, maxrandint))
         rv: List[Any] = []
@@ -262,6 +256,12 @@ class HiddenAssociationSampler(DistributionSampler):
 
 
 class HiddenAssociationAccumulator(SequenceEncodableStatisticAccumulator):
+    """Accumulate expected latent assignments and component statistics.
+
+    The sufficient statistic is ``(conditional, source, length)``.  During an
+    update, posterior assignment probabilities distribute each target count
+    across source values before updating the conditional component.
+    """
 
     def __init__(
         self,
@@ -271,6 +271,7 @@ class HiddenAssociationAccumulator(SequenceEncodableStatisticAccumulator):
         name: Optional[str] = None,
         keys: Optional[Tuple[Optional[str], Optional[str]]] = (None, None),
     ) -> None:
+        """Initialize a generic hidden-association accumulator."""
         self.cond_accumulator = cond_acc
         self.given_accumulator = (
             given_acc if given_acc is not None else NullAccumulator()
@@ -286,6 +287,7 @@ class HiddenAssociationAccumulator(SequenceEncodableStatisticAccumulator):
         weight: float,
         estimate: HiddenAssociationDistribution,
     ) -> None:
+        """Add a weighted paired-bag observation using posterior assignments."""
         nn = 0.0
         pv = np.zeros(len(x[0]))
 
@@ -329,6 +331,7 @@ class HiddenAssociationAccumulator(SequenceEncodableStatisticAccumulator):
         weight: float,
         rng: np.random.RandomState,
     ) -> None:
+        """Initialize statistics with random source assignments per target value."""
         w = rng.dirichlet(np.ones(len(x[0])), size=len(x[1]))
         nn = 0.0
         for j, (x1, c1) in enumerate(x[1]):
@@ -348,6 +351,7 @@ class HiddenAssociationAccumulator(SequenceEncodableStatisticAccumulator):
         weights: np.ndarray,
         rng: np.random.RandomState,
     ) -> None:
+        """Initialize statistics from an encoded weighted batch."""
         for i, xx in enumerate(x.data):
             self.initialize(xx, weights[i], rng)
 
@@ -357,12 +361,14 @@ class HiddenAssociationAccumulator(SequenceEncodableStatisticAccumulator):
         weights: np.ndarray,
         estimate: HiddenAssociationDistribution,
     ) -> None:
+        """Add an encoded weighted batch using posterior assignments."""
         for xx, ww in zip(x.data, weights):
             self.update(xx, ww, estimate)
 
     def combine(
         self, suff_stat: Tuple[SS1, Optional[SS2], Optional[SS3]]
     ) -> "HiddenAssociationAccumulator":
+        """Merge conditional, source, and length sufficient statistics."""
         cond_acc, given_acc, size_acc = suff_stat
 
         cast(Any, self.cond_accumulator).combine(cond_acc)
@@ -372,6 +378,7 @@ class HiddenAssociationAccumulator(SequenceEncodableStatisticAccumulator):
         return self
 
     def value(self) -> Tuple[Any, Optional[Any], Optional[Any]]:
+        """Return conditional, source, and target-length statistics."""
         return (
             self.cond_accumulator.value(),
             self.given_accumulator.value(),
@@ -381,6 +388,7 @@ class HiddenAssociationAccumulator(SequenceEncodableStatisticAccumulator):
     def from_value(
         self, x: Tuple[SS1, Optional[SS2], Optional[SS3]]
     ) -> "HiddenAssociationAccumulator":
+        """Replace all component sufficient statistics with ``x``."""
         cond_acc, given_acc, size_acc = x
 
         cast(Any, self.cond_accumulator).from_value(cond_acc)
@@ -390,16 +398,20 @@ class HiddenAssociationAccumulator(SequenceEncodableStatisticAccumulator):
         return self
 
     def key_merge(self, stats_dict: Dict[str, Any]) -> None:
+        """Merge keyed component statistics into ``stats_dict``."""
         self.size_accumulator.key_merge(stats_dict)
 
     def key_replace(self, stats_dict: Dict[str, Any]) -> None:
+        """Replace keyed component statistics from ``stats_dict``."""
         self.size_accumulator.key_replace(stats_dict)
 
     def acc_to_encoder(self) -> "HiddenAssociationDataEncoder":
+        """Create the pass-through encoder used by this accumulator."""
         return HiddenAssociationDataEncoder()
 
 
 class HiddenAssociationAccumulatorFactory(StatisticAccumulatorFactory):
+    """Create generic hidden-association accumulators."""
 
     def __init__(
         self,
@@ -409,6 +421,7 @@ class HiddenAssociationAccumulatorFactory(StatisticAccumulatorFactory):
         name: Optional[str] = None,
         keys: Optional[Tuple[Optional[str], Optional[str]]] = (None, None),
     ) -> None:
+        """Initialize a hidden-association accumulator factory."""
         self.cond_factory = cond_factory
         self.given_factory = (
             given_factory if given_factory is not None else NullAccumulatorFactory()
@@ -420,6 +433,7 @@ class HiddenAssociationAccumulatorFactory(StatisticAccumulatorFactory):
         self.name = name
 
     def make(self) -> "HiddenAssociationAccumulator":
+        """Create a new accumulator with fresh component accumulators."""
         return HiddenAssociationAccumulator(
             self.cond_factory.make(),
             self.given_factory.make(),
@@ -430,8 +444,11 @@ class HiddenAssociationAccumulatorFactory(StatisticAccumulatorFactory):
 
 
 class HiddenAssociationEstimator(ParameterEstimator):
-    """HiddenAssociationEstimator for estimating HiddenAssociationDistribution from
-    sufficient statistics.
+    """Estimate a generic hidden-association distribution.
+
+    The conditional, source-bag, and target-length components are estimated
+    independently from their corresponding sufficient statistics.  Assignment
+    expectations are computed earlier by accumulator updates.
 
     Attributes:
         cond_estimator (ConditionalDistributionEstimator): Estimator for the conditional
@@ -458,7 +475,7 @@ class HiddenAssociationEstimator(ParameterEstimator):
         name: Optional[str] = None,
         keys: Optional[Tuple[Optional[str], Optional[str]]] = (None, None),
     ) -> None:
-        """HiddenAssociationEstimator object.
+        """Initialize a generic hidden-association estimator.
 
         Args:
             cond_estimator (ConditionalDistributionEstimator): Estimator for the
@@ -499,6 +516,7 @@ class HiddenAssociationEstimator(ParameterEstimator):
         self.name = name
 
     def accumulator_factory(self) -> "HiddenAssociationAccumulatorFactory":
+        """Create a factory for compatible sufficient-statistic accumulators."""
         len_factory = self.len_estimator.accumulator_factory()
         given_factory = self.given_estimator.accumulator_factory()
         cond_factory = self.cond_estimator.accumulator_factory()
@@ -513,7 +531,7 @@ class HiddenAssociationEstimator(ParameterEstimator):
     def estimate(
         self, nobs: Optional[float], suff_stat: Tuple[SS1, Optional[SS2], Optional[SS3]]
     ) -> "HiddenAssociationDistribution":
-
+        """Estimate all model components from aggregated statistics."""
         cond_stats, given_stats, size_stats = suff_stat
 
         cond_dist = cast(Any, self.cond_estimator).estimate(None, cond_stats)
@@ -529,22 +547,25 @@ class HiddenAssociationEstimator(ParameterEstimator):
 
 
 class HiddenAssociationDataEncoder(DataSequenceEncoder):
-    """HiddenAssociationDataEncoder object."""
+    """Wrap paired bags without transforming their generic values."""
 
     def __str__(self) -> str:
+        """Return a representation of the encoder."""
         return "HiddenAssociationDataEncoder"
 
     def __eq__(self, other: object) -> bool:
+        """Return whether ``other`` is a generic hidden-association encoder."""
         return isinstance(other, HiddenAssociationDataEncoder)
 
     def seq_encode(
         self, x: Sequence[Tuple[List[Tuple[T, float]], List[Tuple[T, float]]]]
     ) -> "HiddenAssociationEncodedDataSequence":
+        """Wrap a batch of paired source and target bags for vectorized calls."""
         return HiddenAssociationEncodedDataSequence(data=x)
 
 
 class HiddenAssociationEncodedDataSequence(EncodedDataSequence):
-    """HiddenAssociationEncodedDataSequence for vectorized calls.
+    """Store a batch of generic paired-bag observations.
 
     Attributes:
         data (Sequence[Tuple[List[Tuple[T, float]], List[Tuple[T, float]]]]): iid obs.
@@ -554,7 +575,7 @@ class HiddenAssociationEncodedDataSequence(EncodedDataSequence):
     def __init__(
         self, data: Sequence[Tuple[List[Tuple[T, float]], List[Tuple[T, float]]]]
     ) -> None:
-        """HiddenAssociationEncodedDataSequence object.
+        """Initialize an encoded batch without transforming its observations.
 
         Args:
             data (Sequence[Tuple[List[Tuple[T, float]], List[Tuple[T, float]]]]): iid
@@ -564,4 +585,5 @@ class HiddenAssociationEncodedDataSequence(EncodedDataSequence):
         super().__init__(data)
 
     def __repr__(self) -> str:
+        """Return a representation of the encoded batch."""
         return f"HiddenAssociationEncodedDataSequence(data={self.data})"

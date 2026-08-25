@@ -1,35 +1,24 @@
-"""Create, estimate, and sample from an integer hidden association model.
+r"""Provide low-rank hidden-association models for paired integer bags.
 
-Defines the IntegerHiddenAssociationDistribution, IntegerHiddenAssociationSampler,
-IntegerHiddenAssociationAccumulatorFactory, IntegerHiddenAssociationAccumulator,
-IntegerHiddenAssociationEstimator, and
-the IntegerHiddenAssociationDataEncoder classes for use with dmx-learn.
+An observation is ``(source, target)``; each bag contains ``(value, count)``
+pairs.  Source values lie in :math:`\{0,\ldots,V_1-1\}`, target values in
+:math:`\{0,\ldots,V_2-1\}`, and latent states in
+:math:`\{0,\ldots,K-1\}`.  Write source counts as :math:`c_v`, target counts as
+:math:`d_y`, and :math:`M=\sum_v c_v`.  For every target occurrence, a latent
+assignment selects source value :math:`v` with probability :math:`c_v/M`, then
+a latent state :math:`H` and target value are drawn using
+``cond_weights[v, h]`` and ``state_prob_mat[h, y]``.  With uniform-mixture
+weight ``alpha``, the marginalized target probability is
 
-The k-rank variant of SparseMarkovAssociation.
+.. math::
 
-Data type:  Tuple[List[Tuple[int, float]], List[Tuple[int, float]]].
+   q(y\mid source)=\frac{\alpha}{V_2}+(1-\alpha)
+     \sum_v\frac{c_v}{M}\sum_h W_{vh}Q_{hy}.
 
-The SparseMarkovAssociation model is a generative model for two sets of words S_1
-={w_{1,1},...,w_{1,n}} and
-S_2 ={w_{2,1},...,w_{2,m}} over W possible words. The model assumes a hidden set of
-states
-H_2 = {h_{2,1},...,h_{2,m}} where h_{2,j} takes on values in {1,2,...,k} and a hidden
-set of assignments
-A_2 = {a_{2,1},...,a_{2,m}} where a_{2,j} takes on values in {1,2,...,m}. The observed
-likelihood function is
-computed from P(S_1, S_2) = P(S_2 | S_1) P(S_1), where
-
-(1) log(P(S_2|S_1)) = sum_{i=1}^{m} log(P(w_{2,i}|w_{1,1},...,w_{1,n})
-    = sum_{i=1}^{m} log( (1/m)*sum_{j=1}^{n} (1-alpha)*sum_{k=1}^{K}P(w_{2,i} |
-    h_{2,k})*P(h_{2,k}|w_{1,j}) + alpha/W).
-(2) log(P(S_1)) = sum_{j=1}^{n} log((1-alpha)*P(w_{1,j}) + alpha/W ).
-
-This model is great when the conditional probability matrix is both large and dense. It
-can also be nested inside other
-graphical models like a mixture model.
-
-Note: This is the k-rank equivalent of SparseMarkovAssociationModel.
-
+The joint log density adds ``prev_dist.log_density(source)`` and the log
+density of the total target count under ``len_dist``.  EM updates accumulate
+expected ``(source value, latent state)`` and ``(latent state, target value)``
+counts for the low-rank association term.
 """
 
 import math
@@ -76,8 +65,11 @@ SS2 = TypeVar("SS2")  # suff stat len
 
 
 class IntegerHiddenAssociationDistribution(SequenceEncodableProbabilityDistribution):
-    """IntegerHiddenAssociationDistribution object for specifying integer Hidden
-    association distribution.
+    """Model associations between finite-domain source and target bags.
+
+    ``cond_weights`` has shape ``(V1, K)`` and contains latent-state
+    probabilities given source values.  ``state_prob_mat`` has shape ``(K, V2)``
+    and contains target probabilities given latent states.
 
     Attributes:
         cond_weights (np.ndarray): States given words in S1.
@@ -115,13 +107,13 @@ class IntegerHiddenAssociationDistribution(SequenceEncodableProbabilityDistribut
         keys: Tuple[Optional[str], Optional[str]] = (None, None),
         use_numba: bool = False,
     ) -> None:
-        """IntegerHiddenAssociationDistribution object.
+        """Initialize an integer hidden-association distribution.
 
         Args:
-            state_prob_mat (Union[List[List[float]], np.ndarray]): States given previous
-                words.
-            cond_weights (Union[List[List[float]], np.ndarray]): Words in S2 given
-                states.
+            state_prob_mat (Union[List[List[float]], np.ndarray]): Target probabilities
+                given latent states, with shape ``(K, V2)``.
+            cond_weights (Union[List[List[float]], np.ndarray]): Latent-state
+                probabilities given source values, with shape ``(V1, K)``.
             alpha (float): Probability of drawing from uniform vs transition density.
             prev_dist (Optional[SequenceEncodableProbabilityDistribution]): Distribution
                 for given P(S1).
@@ -150,6 +142,7 @@ class IntegerHiddenAssociationDistribution(SequenceEncodableProbabilityDistribut
         self.use_numba = use_numba
 
     def __str__(self) -> str:
+        """Return an evaluable representation of the distribution."""
         s1 = ",".join(
             [
                 "[" + ",".join(map(str, self.state_prob_mat[i, :])) + "]"
@@ -176,12 +169,13 @@ class IntegerHiddenAssociationDistribution(SequenceEncodableProbabilityDistribut
     def density(
         self, x: Tuple[List[Tuple[int, float]], List[Tuple[int, float]]]
     ) -> float:
+        """Evaluate the density of a paired source and target bag."""
         return float(exp(self.log_density(x)))
 
     def log_density(
         self, x: Tuple[List[Tuple[int, float]], List[Tuple[int, float]]]
     ) -> float:
-
+        """Evaluate log density after marginalizing assignments and latent states."""
         nw = self.num_vals2
         a = self.alpha / nw
         b = 1 - self.alpha
@@ -207,6 +201,12 @@ class IntegerHiddenAssociationDistribution(SequenceEncodableProbabilityDistribut
     def seq_log_density(
         self, x: "IntegerHiddenAssociationEncodedDataSequence"
     ) -> np.ndarray:
+        """Evaluate log densities for an encoded batch of paired integer bags.
+
+        The regular encoding follows :meth:`log_density`.  The historical Numba
+        kernel evaluates only the low-rank association term and does not apply
+        the ``alpha`` uniform mixture.
+        """
         if not isinstance(x, IntegerHiddenAssociationEncodedDataSequence):
             raise TypeError("Requires IntegerHiddenAssociationEncodedDataSequence.")
 
@@ -261,6 +261,7 @@ class IntegerHiddenAssociationDistribution(SequenceEncodableProbabilityDistribut
         return rv
 
     def sampler(self, seed: Optional[int] = None) -> "IntegerHiddenAssociationSampler":
+        """Create a sampler, requiring non-null source and length models."""
         if isinstance(self.prev_dist, NullDistribution):
             raise RuntimeError(
                 "HiddenAssociationSampler requires attribute dist.prev_dist."
@@ -274,6 +275,7 @@ class IntegerHiddenAssociationDistribution(SequenceEncodableProbabilityDistribut
     def estimator(
         self, pseudo_count: Optional[float] = None
     ) -> "IntegerHiddenAssociationEstimator":
+        """Create an estimator with matching domains and latent-state count."""
         n_vals = (self.num_vals1, self.num_vals2)
         prev_est = self.prev_dist.estimator()
         len_est = self.len_dist.estimator()
@@ -290,6 +292,7 @@ class IntegerHiddenAssociationDistribution(SequenceEncodableProbabilityDistribut
         )
 
     def dist_to_encoder(self) -> "IntegerHiddenAssociationDataEncoder":
+        """Create an encoder with this distribution's component encoders."""
         prev_encoder = self.prev_dist.dist_to_encoder()
         len_encoder = self.len_dist.dist_to_encoder()
         return IntegerHiddenAssociationDataEncoder(
@@ -298,10 +301,12 @@ class IntegerHiddenAssociationDistribution(SequenceEncodableProbabilityDistribut
 
 
 class IntegerHiddenAssociationSampler(DistributionSampler):
+    """Sample paired bags or target bags conditional on a source bag."""
 
     def __init__(
         self, dist: IntegerHiddenAssociationDistribution, seed: Optional[int] = None
     ) -> None:
+        """Initialize an integer hidden-association sampler."""
         super().__init__(dist, seed)
         self.dist = dist
 
@@ -322,6 +327,7 @@ class IntegerHiddenAssociationSampler(DistributionSampler):
         )
 
     def sample_given(self, x: List[Tuple[int, float]]) -> List[Tuple[int, float]]:
+        """Draw a grouped target bag conditional on source bag ``x``."""
         slen = int(self.size_sampler.sample())
         rng = np.random.RandomState(self.rng.randint(0, maxrandint))
 
@@ -359,7 +365,7 @@ class IntegerHiddenAssociationSampler(DistributionSampler):
         Sequence[Tuple[List[Tuple[int, float]], List[Tuple[int, float]]]],
         Tuple[List[Tuple[int, float]], List[Tuple[int, float]]],
     ]:
-
+        """Draw one paired-bag observation or a batch of observations."""
         if size is None:
             return self._sample_single()
         return [self._sample_single() for i in range(size)]
@@ -367,6 +373,19 @@ class IntegerHiddenAssociationSampler(DistributionSampler):
 
 # pylint: disable-next=too-many-instance-attributes
 class IntegerHiddenAssociationAccumulator(SequenceEncodableStatisticAccumulator):
+    """Accumulate expected latent assignments and component statistics.
+
+    ``weight_count[v, h]`` records expected source-to-state assignments and
+    ``state_count[h, y]`` records expected state-to-target assignments.
+    ``init_count`` records source counts but is not used by the estimator.
+    Source-bag and target-length statistics are delegated to their component
+    accumulators.
+
+    Update responsibilities are normalized over source values and latent states
+    for each target value.  They describe the low-rank association component;
+    the fixed uniform component selected by ``alpha`` is not included in these
+    responsibilities.
+    """
 
     def __init__(
         self,
@@ -378,6 +397,7 @@ class IntegerHiddenAssociationAccumulator(SequenceEncodableStatisticAccumulator)
         use_numba: bool = False,
         keys: Optional[Tuple[Optional[str], Optional[str]]] = (None, None),
     ) -> None:
+        """Initialize an integer hidden-association accumulator."""
         self.init_count = np.zeros(num_vals1, dtype=np.float64)
         self.weight_count = np.zeros((num_vals1, num_states), dtype=np.float64)
         self.state_count = np.zeros((num_states, num_vals2), dtype=np.float64)
@@ -401,6 +421,7 @@ class IntegerHiddenAssociationAccumulator(SequenceEncodableStatisticAccumulator)
         weight: float,
         estimate: IntegerHiddenAssociationDistribution,
     ) -> None:
+        """Add a weighted paired bag using posterior assignment counts."""
         vx = np.asarray([u[0] for u in x[0]], dtype=int)
         cx = np.asarray([u[1] for u in x[0]], dtype=float)
         vy = np.asarray([u[0] for u in x[1]], dtype=int)
@@ -442,7 +463,7 @@ class IntegerHiddenAssociationAccumulator(SequenceEncodableStatisticAccumulator)
         weight: float,
         rng: np.random.RandomState,
     ) -> None:
-
+        """Initialize association statistics with random latent allocations."""
         if not self._init_rng:
             self._rng_initialize(rng)
         assert self._rng_weight is not None
@@ -474,6 +495,7 @@ class IntegerHiddenAssociationAccumulator(SequenceEncodableStatisticAccumulator)
         weights: np.ndarray,
         rng: np.random.RandomState,
     ) -> None:
+        """Initialize statistics from an encoded weighted batch."""
         if not self._init_rng:
             self._rng_initialize(rng)
         assert self._rng_weight is not None
@@ -548,7 +570,7 @@ class IntegerHiddenAssociationAccumulator(SequenceEncodableStatisticAccumulator)
         weights: np.ndarray,
         estimate: IntegerHiddenAssociationDistribution,
     ) -> None:
-
+        """Add an encoded weighted batch using posterior assignment counts."""
         if not x.numba_enc:
             xx = x.data
 
@@ -613,7 +635,7 @@ class IntegerHiddenAssociationAccumulator(SequenceEncodableStatisticAccumulator)
             np.ndarray, np.ndarray, np.ndarray, Optional[SS1], Optional[SS2]
         ],
     ) -> "IntegerHiddenAssociationAccumulator":
-
+        """Merge association, source-bag, and length statistics."""
         init_count, weight_count, state_count, prev_acc, size_acc = suff_stat
 
         self.prev_accumulator.combine(prev_acc)
@@ -628,6 +650,7 @@ class IntegerHiddenAssociationAccumulator(SequenceEncodableStatisticAccumulator)
     def value(
         self,
     ) -> Tuple[np.ndarray, np.ndarray, np.ndarray, Optional[Any], Optional[Any]]:
+        """Return all association and component sufficient statistics."""
         pval = self.prev_accumulator.value()
         sval = self.size_accumulator.value()
 
@@ -636,7 +659,7 @@ class IntegerHiddenAssociationAccumulator(SequenceEncodableStatisticAccumulator)
     def from_value(
         self, x: Tuple[np.ndarray, np.ndarray, np.ndarray, Optional[SS1], Optional[SS2]]
     ) -> "IntegerHiddenAssociationAccumulator":
-
+        """Replace all sufficient statistics with ``x``."""
         init_count, weight_count, state_count, prev_acc, size_acc = x
 
         self.init_count = init_count
@@ -649,7 +672,7 @@ class IntegerHiddenAssociationAccumulator(SequenceEncodableStatisticAccumulator)
         return self
 
     def key_merge(self, stats_dict: Dict[str, Any]) -> None:
-
+        """Merge keyed association and component statistics."""
         if self.weight_key is not None:
             if self.weight_key in stats_dict:
                 stats_dict[self.weight_key] += self.weight_count
@@ -666,7 +689,7 @@ class IntegerHiddenAssociationAccumulator(SequenceEncodableStatisticAccumulator)
         self.size_accumulator.key_merge(stats_dict)
 
     def key_replace(self, stats_dict: Dict[str, Any]) -> None:
-
+        """Replace keyed association and component statistics."""
         if self.weight_key is not None:
             if self.weight_key in stats_dict:
                 self.weight_count = stats_dict[self.weight_key].copy()
@@ -679,6 +702,7 @@ class IntegerHiddenAssociationAccumulator(SequenceEncodableStatisticAccumulator)
         self.size_accumulator.key_replace(stats_dict)
 
     def acc_to_encoder(self) -> "DataSequenceEncoder":
+        """Create an encoder compatible with this accumulator."""
         prev_encoder = self.prev_accumulator.acc_to_encoder()
         len_encoder = self.size_accumulator.acc_to_encoder()
         return IntegerHiddenAssociationDataEncoder(
@@ -687,6 +711,7 @@ class IntegerHiddenAssociationAccumulator(SequenceEncodableStatisticAccumulator)
 
 
 class IntegerHiddenAssociationAccumulatorFactory(StatisticAccumulatorFactory):
+    """Create integer hidden-association accumulators."""
 
     def __init__(
         self,
@@ -698,6 +723,7 @@ class IntegerHiddenAssociationAccumulatorFactory(StatisticAccumulatorFactory):
         use_numba: bool = False,
         keys: Tuple[Optional[str], Optional[str]] = (None, None),
     ) -> None:
+        """Initialize an integer hidden-association accumulator factory."""
         self.len_factory = (
             len_factory if len_factory is not None else NullAccumulatorFactory()
         )
@@ -711,6 +737,7 @@ class IntegerHiddenAssociationAccumulatorFactory(StatisticAccumulatorFactory):
         self.num_states = num_states
 
     def make(self) -> "IntegerHiddenAssociationAccumulator":
+        """Create a new accumulator with fresh component accumulators."""
         len_acc = self.len_factory.make()
         prev_acc = self.prev_factory.make()
         return IntegerHiddenAssociationAccumulator(
@@ -725,9 +752,14 @@ class IntegerHiddenAssociationAccumulatorFactory(StatisticAccumulatorFactory):
 
 
 class IntegerHiddenAssociationEstimator(ParameterEstimator):
-    """IntegerHiddenAssociationEstimator object for estimating
-    IntegerHiddenAssociationDistribution from aggregated
-        sufficient statistics.
+    """Estimate an integer hidden-association distribution.
+
+    Rows of the source-to-state and state-to-target expected-count matrices are
+    normalized independently.  If ``pseudo_count`` is set, uniform mass is
+    added to both matrices in place before normalization.  Source-bag and
+    target-length distributions are estimated from their component statistics;
+    ``init_count`` and ``suff_stat`` are retained for compatibility but do not
+    affect the fitted distribution.
 
     Attributes:
         num_vals (Union[List[int], Tuple[int, int], int]): Number of values in S1 and
@@ -769,7 +801,7 @@ class IntegerHiddenAssociationEstimator(ParameterEstimator):
         name: Optional[str] = None,
         keys: Optional[Tuple[Optional[str], Optional[str]]] = (None, None),
     ) -> None:
-        """IntegerHiddenAssociationEstimator object.
+        """Initialize an integer hidden-association estimator.
 
         Args:
             num_vals (Union[List[int], Tuple[int, int], int]): Number of values in S1
@@ -820,6 +852,7 @@ class IntegerHiddenAssociationEstimator(ParameterEstimator):
             self.num_vals2 = num_vals
 
     def accumulator_factory(self) -> "IntegerHiddenAssociationAccumulatorFactory":
+        """Create a factory for compatible sufficient-statistic accumulators."""
         len_factory = self.len_estimator.accumulator_factory()
         prev_factory = self.prev_estimator.accumulator_factory()
 
@@ -840,7 +873,7 @@ class IntegerHiddenAssociationEstimator(ParameterEstimator):
             np.ndarray, np.ndarray, np.ndarray, Optional[SS1], Optional[SS2]
         ],
     ) -> "IntegerHiddenAssociationDistribution":
-
+        """Estimate model matrices and component distributions."""
         init_count, weight_count, state_count, prev_stats, size_stats = suff_stat
 
         len_dist = self.len_estimator.estimate(nobs, size_stats)
@@ -876,6 +909,13 @@ class IntegerHiddenAssociationEstimator(ParameterEstimator):
 
 
 class IntegerHiddenAssociationDataEncoder(DataSequenceEncoder):
+    """Encode paired integer bags for vectorized or Numba-backed operations.
+
+    The regular representation stores four arrays per observation.  The Numba
+    representation flattens values and counts across observations and records
+    per-observation unique-value counts and total source counts.  Both forms
+    also carry encoded source bags and target-count totals.
+    """
 
     def __init__(
         self,
@@ -883,11 +923,13 @@ class IntegerHiddenAssociationDataEncoder(DataSequenceEncoder):
         len_encoder: DataSequenceEncoder,
         use_numba: bool,
     ) -> None:
+        """Initialize an integer hidden-association encoder."""
         self.prev_encoder = prev_encoder
         self.len_encoder = len_encoder
         self.use_numba = use_numba
 
     def __str__(self) -> str:
+        """Return a representation of the encoder."""
         s = (
             "IntegerHiddenAssociationDataEncoder(prev_encoder="
             + str(self.prev_encoder)
@@ -897,6 +939,7 @@ class IntegerHiddenAssociationDataEncoder(DataSequenceEncoder):
         return s
 
     def __eq__(self, other: object) -> bool:
+        """Return whether two encoders have equal configuration."""
         if isinstance(other, IntegerHiddenAssociationDataEncoder):
             cond0 = self.prev_encoder == other.prev_encoder
             cond1 = self.len_encoder == other.len_encoder
@@ -971,7 +1014,6 @@ class IntegerHiddenAssociationDataEncoder(DataSequenceEncoder):
             See above.
 
         """
-
         if not self.use_numba:
             return self._seq_encode(x)
         x1: List[int] = []
@@ -1016,7 +1058,7 @@ class IntegerHiddenAssociationDataEncoder(DataSequenceEncoder):
 
 
 class IntegerHiddenAssociationEncodedDataSequence(EncodedDataSequence):
-    """IntegerHiddenAssociationEncodedDataSequence object for vectorized function calls.
+    """Store an encoded batch of paired integer-bag observations.
 
     Notes:
         E0 = Tuple[List[Tuple[np.ndarray, ...]], EncodedDataSequence,
@@ -1032,10 +1074,10 @@ class IntegerHiddenAssociationEncodedDataSequence(EncodedDataSequence):
     """
 
     def __init__(self, data: Union[E0, E1], use_numba: bool = False) -> None:
-        """IntegerHiddenAssociationEncodedDataSequence object.
+        """Initialize an encoded integer hidden-association batch.
 
         Args:
-            data (Union[E0, E1]): Encoded data. E0 is for numba use.
+            data (Union[E0, E1]): Encoded data; ``E1`` is the Numba form.
             use_numba (bool): If True, a numba encoding was passed.
 
         """
@@ -1043,6 +1085,7 @@ class IntegerHiddenAssociationEncodedDataSequence(EncodedDataSequence):
         self.numba_enc = use_numba
 
     def __repr__(self) -> str:
+        """Return a representation of the encoded batch."""
         return (
             f"IntegerHiddenAssociationEncodedDataSequence(data={self.data}, "
             f"use_numba={self.numba_enc})"
@@ -1072,6 +1115,7 @@ def numba_seq_log_density(  # pylint: disable=too-many-positional-arguments,unus
     b: float,
     out: np.ndarray,
 ) -> None:
+    """Evaluate low-rank association log densities into ``out``."""
     x_mat = np.zeros((max_len1, num_states), dtype=np.float64)
 
     for i in range(len(t0) - 1):
@@ -1123,6 +1167,7 @@ def numba_seq_update(  # pylint: disable=too-many-positional-arguments,unused-ar
     init_count: np.ndarray,
     weights: np.ndarray,
 ) -> None:
+    """Accumulate Numba-backed expected association counts in place."""
     x_mat = np.zeros((max_len1, num_states), dtype=np.float64)
     z_mat = np.zeros((max_len1, num_states), dtype=np.float64)
 
