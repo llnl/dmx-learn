@@ -163,4 +163,6 @@ jobs:
                                src/dmx/bstats \
                                src/dmx/torch_stats/pdist.py \
                                src/dmx/arithmetic.py \
-                               src/dmx/utils
+                               src/dmx/utils \
+                               src/dmx/torch_utils \
+                               src/dmx/mpi4py/utils

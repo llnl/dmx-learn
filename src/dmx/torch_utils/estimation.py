@@ -1,3 +1,5 @@
+"""Torch-backed estimation helpers for local and distributed EM fitting."""
+
 import sys
 from typing import IO, Any, List, Optional, Sequence, Tuple, TypeVar
 
@@ -49,10 +51,12 @@ def empirical_kl_divergence(
     dist2: TorchProbabilityDistribution,
     enc_data: List[Tuple[int, TorchEncodedSequence]],
 ) -> Tuple[float, float, float]:
-    """Computes the empirical KL-divergence between two densities.
+    """Compute the empirical KL-divergence between two densities.
 
     Compute the KL-divergence between `dist1` and `dist2` for an encoded
-    sequence of data. Both distributions must use the same encodings.
+    sequence of data. Both distributions must use the same encodings, and the
+    encoded tensors must already be on devices compatible with the two
+    distributions. Only the first encoded chunk in `enc_data` is evaluated.
 
     Args:
         dist1 (TorchProbabilityDistribution): Distribution compatible with enc_data.
@@ -64,9 +68,7 @@ def empirical_kl_divergence(
         Tuple[float, float, float]: KL-divergence estimate, number of bad
         likelihood values for `dist1`, and number of bad likelihood values for
         `dist2`.
-
     """
-
     l1 = dist1.seq_log_density(enc_data[0][1])
     l2 = dist2.seq_log_density(enc_data[0][1])
     g1 = tn.bitwise_and(l1 != -tn.inf, ~tn.isnan(l1))
@@ -110,42 +112,48 @@ def optimize(
 ) -> TorchProbabilityDistribution:
     """Estimate `estimator` via EM until convergence or `max_its`.
 
+    With `device=None`, the target device is auto-detected in CUDA, MPS, CPU
+    order. The module-local default float dtype is set to `float64`, except MPS
+    uses `float32`. Raw data are encoded on the target device; caller-supplied
+    encoded data are used as-is. A previous estimate is moved to the target
+    device in place before fitting.
+
     Args:
-        data (Optional[List[T]]): List of observed data of type `T`. Must be
+        data (Optional[Sequence[T]]): Observed data of type `T`. Must be
             compatible with the estimator.
-        estimator (ParameterEstimator): ParameterEstimator used to specify the
-            to-be-estimated distribution for observed data.
-        seed (Optional[int]): Seed for initializing.
+        estimator (TorchParameterEstimator): Estimator used to specify the
+            distribution for observed data.
+        seed (Optional[int]): Seed for initialization. If `None`, a seed is
+            drawn from NumPy's global random state.
         max_its (int): Maximum number of EM iterations to be performed.
             Default value is 10 iterations.
-        delta (Optional[float]): Stopping criteria for the EM algorithm when
-            `max_its` is not reached. Iterate until
-            `|old_loglikelihood - new_loglikelihood| < delta` or
-            `iterations == max_its`.
-        init_estimator (Optional[ParameterEstimator]): ParameterEstimator used
-            to initialize EM algorithm parameters.
-            If None, estimator is used. Must be consistent with estimator.
-        init_p (float): Value in `(0.0, 1.0]` for randomizing the proportion of
-            data points used in initialization.
+        delta (Optional[float]): Stop when the signed likelihood improvement
+            `new_loglikelihood - old_loglikelihood` is less than `delta`. If
+            `None`, likelihood-decreasing updates are accepted.
+        init_estimator (Optional[TorchParameterEstimator]): Estimator used to
+            initialize EM parameters. If `None`, `estimator` is used.
+        init_p (float): Proportion of data points used in initialization.
+            Values at or below zero become `0.1`; values above one are clamped
+            to one.
         device (DeviceLike): Device used for tensor calculations. Strings are
-            resolved to torch devices; None defaults to auto-detection.
-        tng (Generator): Set seed for initializing the EM algorithm.
-        vdata (Optional[Sequence[T]]): Optional validation set.
+            resolved to torch devices; `None` defaults to auto-detection.
         prev_estimate (Optional[TorchProbabilityDistribution]): Optional model
-            estimate from prior fitting. Must be consistent with estimator.
-        enc_data (Optional[List[Tuple[int, E]]]): Optional encoded data of form
-            List[Tuple[int, E]]. Formed from data if None.
-        enc_vdata (Optional[List[Tuple[int, E0]]]): Optional encoded validation
-            set.
-        out (IO): IO stream to write out iterations of EM algorithm.
-        print_iter (int): Print iterations, that is, log-likelihood
-            difference, every `print_iter` iterations.
+            estimate from prior fitting. Must be consistent with `estimator`.
+        vdata (Optional[Sequence[T]]): Optional validation set.
+        enc_data (Optional[List[Tuple[int, Any]]]): Optional encoded chunks.
+            Formed from `data` when `None`.
+        enc_vdata (Optional[List[Tuple[int, Any]]]): Optional encoded validation
+            chunks.
+        out (IO): IO stream to write EM progress.
+        print_iter (int): Print likelihood progress every `print_iter` iterations.
         num_chunks (int): Number of chunks for encoded data.
 
     Returns:
-        TorchProbabilityDistribution: Estimate returned when the EM stopping
-        criteria are met.
+        TorchProbabilityDistribution: Best model by validation likelihood, or
+        training likelihood when no validation data are supplied.
 
+    Raises:
+        ValueError: If both `data` and `enc_data` are `None`.
     """
     target_device = resolve_device(device)
     set_default_float_dtype(float_dtype_for_device(target_device))
@@ -269,43 +277,57 @@ def optimize_mp(
     print_iter: int = 1,
     num_chunks: int = 1,
 ) -> TorchProbabilityDistribution:
-    """Estimate `estimator` via distributed EM until convergence or `max_its`.
+    """Estimate `estimator` via distributed torch EM until convergence.
+
+    This helper assumes an initialized `torch.distributed` process group. Every
+    rank must call it in the same collective order, and `world_rank` and
+    `world_size` must match that process group. Raw data are scattered from rank
+    0 when encoded chunks are not supplied; pre-encoded chunks are expected to
+    be local to each rank and already on compatible devices. Rank 0 makes
+    update, stopping, and validation-selection decisions and broadcasts those
+    decisions to the other ranks.
 
     Args:
-        world_rank (int): Rank of worker
-        world_size (int): Total number of GPUs.
-        data (Optional[List[T]]): List of observed data of type `T`. Must be
-            compatible with the estimator.
-        estimator (ParameterEstimator): ParameterEstimator used to specify the
-            to-be-estimated distribution for observed data.
+        world_rank (int): Rank of this worker in the process group.
+        world_size (int): Number of workers in the process group.
+        data (Optional[Sequence[T]]): Observed data compatible with the
+            estimator. Required on rank 0 unless local `enc_data` is supplied.
+        estimator (TorchParameterEstimator): Estimator used to specify the
+            distribution for observed data. It should be equivalent on all ranks.
         max_its (int): Maximum number of EM iterations to be performed.
             Default value is 10 iterations.
-        delta (Optional[float]): Stopping criteria for the EM algorithm when
-            `max_its` is not reached. Iterate until
-            `|old_loglikelihood - new_loglikelihood| < delta` or
-            `iterations == max_its`.
-        init_estimator (Optional[ParameterEstimator]): ParameterEstimator used
-            to initialize EM algorithm parameters.
-            If None, estimator is used. Must be consistent with estimator.
-        init_p (float): Value in `(0.0, 1.0]` for randomizing the proportion of
-            data points used in initialization.
-        seed (Optional[int]): Set seed for initializing EM algorithm.
-        vdata (Optional[Sequence[T]]): Optional validation set.
+        delta (Optional[float]): Stop when rank 0 observes signed likelihood
+            improvement below `delta`. If `None`, likelihood-decreasing updates
+            are accepted.
+        init_estimator (Optional[TorchParameterEstimator]): Estimator used to
+            initialize EM parameters. If `None`, `estimator` is used.
+        init_p (float): Proportion of data points used in initialization.
+            Values at or below zero become `0.1`; values above one are clamped
+            to one.
+        seed (Optional[int]): Seed for initialization. If `None`, each rank
+            draws from its NumPy global random state before the collective
+            initialization call, so callers should synchronize this value when
+            reproducibility across ranks matters.
         prev_estimate (Optional[TorchProbabilityDistribution]): Optional model
-            estimate from prior fitting. Must be consistent with estimator.
-        enc_data (Optional[List[Tuple[int, E]]]): Optional encoded data of form
-            List[Tuple[int, E]]. Formed from data if None.
-        enc_vdata (Optional[List[Tuple[int, E0]]]): Optional encoded validation
-            set.
-        out (IO): IO stream to write out iterations of EM algorithm.
-        print_iter (int): Print iterations, that is, log-likelihood
-            difference, every `print_iter` iterations.
-        num_chunks (int): Number of chunks for encoded data.
+            estimate from prior fitting, expected to be available consistently
+            on all ranks.
+        vdata (Optional[Sequence[T]]): Optional validation set.
+        enc_data (Optional[Sequence[Tuple[int, Any]]]): Optional rank-local
+            encoded chunks. Formed from `data` when `None`.
+        enc_vdata (Optional[Sequence[Tuple[int, Any]]]): Optional rank-local
+            encoded validation chunks.
+        out (IO): Rank 0 output stream for EM progress.
+        print_iter (int): Print likelihood progress every `print_iter` iterations.
+        num_chunks (int): Currently unused in the distributed encode path.
 
     Returns:
-        TorchProbabilityDistribution: Estimate returned when the EM stopping
-        criteria are met.
+        TorchProbabilityDistribution: Best model by validation likelihood, or
+        training likelihood when no validation data are supplied, on each rank.
 
+    Raises:
+        ValueError: If both `data` and `enc_data` are `None`.
+        RuntimeError: If a distributed reduction or estimation step fails to
+            return the expected result.
     """
     # Kept for API symmetry with `optimize`, even though the mp path does not
     # currently chunk encoded data in the same way.
