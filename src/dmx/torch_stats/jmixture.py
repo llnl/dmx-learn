@@ -398,7 +398,7 @@ class JointMixtureEstimatorAccumulator(TorchStatisticAccumulator):
     def value(
         self,
     ) -> Tuple[np.ndarray, np.ndarray, np.ndarray, Tuple[Any, ...], Tuple[Any, ...]]:
-        """Return marginal counts, transition counts, and both child-statistic tuples."""
+        """Return marginal and joint counts plus both child-statistic tuples."""
         return (
             self.comp_counts1,
             self.comp_counts2,
@@ -631,7 +631,7 @@ class JointMixtureDataEncoder(TorchSequenceEncoder):
     def seq_encode(
         self, x: Sequence[Tuple[T0, T1]], device: Optional[tn.device] = None
     ) -> "JointMixtureTorchEncodedSequence":
-        """Encode ``N`` pairs as ``(N, first_encoding, second_encoding)`` on ``device``."""
+        """Encode pairs as first and second coordinate encodings on ``device``."""
         rv0 = len(x)
         rv1 = self.encoder1.seq_encode([u[0] for u in x], device=device)
         rv2 = self.encoder2.seq_encode([u[1] for u in x], device=device)

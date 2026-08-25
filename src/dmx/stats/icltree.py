@@ -33,9 +33,7 @@ from dmx.stats.pdist import (
 
 
 class ICLTreeDistribution(SequenceEncodableProbabilityDistribution):
-    """Represent a directed Chow--Liu tree over integer feature vectors."""
-
-    """ICLTreeDistribution object for integer Chow Liu tree distribution.
+    """Represent a directed Chow--Liu tree over integer feature vectors.
 
     Attributes:
         feature_order (Sequence[int]): Ordering of features. If None, ordering is
@@ -152,9 +150,7 @@ class ICLTreeDistribution(SequenceEncodableProbabilityDistribution):
 
 
 class ICLTreeSampler(DistributionSampler):
-    """Sample independent integer vectors from an ICL tree."""
-
-    """ICLTreeSampler for sampling iid ICL Tree sequences
+    """Sample independent integer vectors from an ICL tree.
 
     Attributes:
           rng (RandomState): RandomState for setting sampling seed.
@@ -389,11 +385,9 @@ class ICLTreeAccumulator(SequenceEncodableStatisticAccumulator):
 
     def key_merge(self, stats_dict: Dict[str, Any]) -> None:
         """Leave keyed merging unimplemented for this accumulator."""
-        pass
 
     def key_replace(self, stats_dict: Dict[str, Any]) -> None:
         """Leave keyed replacement unimplemented for this accumulator."""
-        pass
 
     def acc_to_encoder(self) -> "ICLTreeDataEncoder":
         """Return the encoder for accumulated integer vectors."""
@@ -549,9 +543,7 @@ class ICLTreeDataEncoder(DataSequenceEncoder):
 
 
 class ICLTreeEncodedDataSequence(EncodedDataSequence):
-    """Hold encoded integer vectors with batch-first shape ``(N, F)``."""
-
-    """ICLTreeEncodedDataSequence for vectorized function calls.
+    """Hold encoded integer vectors with batch-first shape ``(N, F)``.
 
     Attributes:
         data (np.ndarray): Numpy array of observations.

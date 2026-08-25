@@ -199,7 +199,6 @@ class IgnoredAccumulator(SequenceEncodableStatisticAccumulator):
         self, x: T, weight: float, estimate: Optional[IgnoredDistribution]
     ) -> None:
         """Ignore one observation and its weight."""
-        pass
 
     def seq_update(
         self,
@@ -208,11 +207,9 @@ class IgnoredAccumulator(SequenceEncodableStatisticAccumulator):
         estimate: Optional[IgnoredDistribution],
     ) -> None:
         """Ignore an encoded sequence and its weights."""
-        pass
 
     def initialize(self, x: T, weight: float, rng: Optional[RandomState]) -> None:
         """Ignore one initialization observation."""
-        pass
 
     def seq_initialize(
         self,
@@ -221,7 +218,6 @@ class IgnoredAccumulator(SequenceEncodableStatisticAccumulator):
         rng: Optional[RandomState],
     ) -> None:
         """Ignore an encoded initialization sequence."""
-        pass
 
     def combine(self, suff_stat: Any) -> "IgnoredAccumulator":
         """Ignore another statistic and return this accumulator."""
@@ -237,11 +233,9 @@ class IgnoredAccumulator(SequenceEncodableStatisticAccumulator):
 
     def key_merge(self, stats_dict: Dict[str, Any]) -> None:
         """Leave the shared-statistics dictionary unchanged."""
-        pass
 
     def key_replace(self, stats_dict: Dict[str, Any]) -> None:
         """Leave this no-op accumulator unchanged."""
-        pass
 
     def acc_to_encoder(self) -> "IgnoredDataEncoder":
         """Return an ignored wrapper around the retained child encoder."""

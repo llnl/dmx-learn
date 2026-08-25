@@ -335,8 +335,6 @@ class GaussianDataEncoder(TorchSequenceEncoder):
     torch encoded-sequence container.
     """
 
-    """Encode sequences of iid Gaussian observations with data type float."""
-
     def __str__(self) -> str:
         """Return the encoder name."""
         return "GaussianDataEncoder"
@@ -360,9 +358,7 @@ class GaussianDataEncoder(TorchSequenceEncoder):
 
 
 class GaussianTorchEncodedSequence(TorchEncodedSequence):
-    """Store encoded Gaussian observations in a tensor of shape ``(n,)``."""
-
-    """GaussianTorchEncodedSequence object for use with `seq_` function calls.
+    """Store encoded Gaussian observations in a tensor of shape ``(n,)``.
 
     Attributes:
         data (tn.Tensor): iid observations of Gaussian
@@ -373,8 +369,7 @@ class GaussianTorchEncodedSequence(TorchEncodedSequence):
     data: tn.Tensor
 
     def __init__(self, data: tn.Tensor, device: Optional[tn.device] = None) -> None:
-        """Initialize from tensor data and an optional target device."""
-        """GaussianTorchEncodedSequence object.
+        """Initialize from tensor data and an optional target device.
 
         Args:
             data (tn.Tensor): iid observations of Gaussian

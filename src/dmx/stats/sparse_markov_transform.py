@@ -74,10 +74,7 @@ E1 = Tuple[
 
 
 class SparseMarkovAssociationDistribution(SequenceEncodableProbabilityDistribution):
-    """Represent a sparse source-to-target bag association distribution."""
-
-    """SparseMarkovAssociationDistribution object for creating a sparse Markov
-    association model.
+    """Represent a sparse source-to-target bag association distribution.
 
     Attributes:
         init_prob_vec (np.ndarray): Probabilities for the first set of words S1.
@@ -597,11 +594,7 @@ class SparseMarkovAssociationAccumulatorFactory(StatisticAccumulatorFactory):
 
 
 class SparseMarkovAssociationEstimator(ParameterEstimator):
-    """Estimate sparse initial and conditional association probabilities."""
-
-    """SparseMarkovAssociationEstimator object for estimating
-    SparseMarkovAssociationModel objects from aggregated
-        sufficient statistics.
+    """Estimate sparse initial and conditional association probabilities.
 
     Attributes:
         num_vals (int): Number of values in S1.

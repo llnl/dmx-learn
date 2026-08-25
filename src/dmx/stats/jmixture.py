@@ -386,7 +386,6 @@ class JointMixtureEstimatorAccumulator(SequenceEncodableStatisticAccumulator):
         self, x: Tuple[T0, T1], weight: float, estimate: JointMixtureDistribution
     ) -> None:
         """Leave scalar posterior updating unsupported; use :meth:`seq_update`."""
-        pass
 
     def _rng_initialize(self, rng: RandomState) -> None:
         self._idx1_rng = RandomState(seed=rng.randint(0, maxrandint))

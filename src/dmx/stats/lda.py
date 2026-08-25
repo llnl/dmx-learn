@@ -323,7 +323,6 @@ class LDAEstimatorAccumulator(SequenceEncodableStatisticAccumulator):
 
     def update(self, x: Any, weight: float, estimate: Any) -> None:
         """Leave scalar observations unchanged; LDA updates require encoding."""
-        pass
 
     def _rng_initialize(self, rng: RandomState) -> None:
         if not self._init_rng:

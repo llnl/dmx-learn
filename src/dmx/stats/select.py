@@ -228,11 +228,9 @@ class SelectEstimatorAccumulator(SequenceEncodableStatisticAccumulator):
 
     def key_merge(self, stats_dict: Dict[str, Any]) -> None:
         """Leave the shared-statistics dictionary unchanged."""
-        pass
 
     def key_replace(self, stats_dict: Dict[str, Any]) -> None:
         """Leave all routed child statistics unchanged."""
-        pass
 
     def acc_to_encoder(self) -> "SelectDataEncoder":
         """Build a routed encoder from the child accumulator encoders."""

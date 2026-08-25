@@ -166,7 +166,6 @@ class NullAccumulator(SequenceEncodableStatisticAccumulator):
         self, x: Optional[Any], weight: float, estimate: Optional["NullDistribution"]
     ) -> None:
         """Ignore one observation, its weight, and its estimate."""
-        pass
 
     def seq_update(
         self,
@@ -175,7 +174,6 @@ class NullAccumulator(SequenceEncodableStatisticAccumulator):
         estimate: Optional["NullDistribution"],
     ) -> None:
         """Ignore an encoded sequence, weights, and estimate."""
-        pass
 
     def initialize(
         self, x: Optional[Any], weight: float, rng: Optional["np.random.RandomState"]
@@ -207,15 +205,11 @@ class NullAccumulator(SequenceEncodableStatisticAccumulator):
 
     def key_merge(self, stats_dict: Dict[str, Any]) -> None:
         """Register ``None`` under the configured key if it is absent."""
-        if self.key is not None:
-            if self.key in stats_dict:
-                pass
-            else:
-                stats_dict[self.key] = None
+        if self.key is not None and self.key not in stats_dict:
+            stats_dict[self.key] = None
 
     def key_replace(self, stats_dict: Dict[str, Any]) -> None:
         """Leave this stateless accumulator unchanged."""
-        pass
 
     def acc_to_encoder(self) -> "NullDataEncoder":
         """Return an encoder that discards every observation."""
