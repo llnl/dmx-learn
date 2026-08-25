@@ -173,6 +173,10 @@ jobs:
                                src/dmx/stats/intmultinomial.py \
                                src/dmx/stats/intrange.py \
                                src/dmx/stats/intsetdist.py \
+                               src/dmx/stats/log_gaussian.py \
+                               src/dmx/stats/mvn.py \
+                               src/dmx/stats/poisson.py \
+                               src/dmx/stats/vmf.py \
                                src/dmx/bstats \
                                src/dmx/torch_stats/pdist.py \
                                src/dmx/arithmetic.py \
