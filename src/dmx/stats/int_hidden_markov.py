@@ -754,11 +754,11 @@ class IntegerHiddenMarkovAccumulator(SequenceEncodableStatisticAccumulator):
         """Aggregate sufficient statistics with this accumulator.
 
         Args:
-            suff_stat (Tuple[np.ndarray, np.ndarray, np.ndarray, np.ndarray,
-                Optional[T2]]): Sufficient statistics to combine.
+            suff_stat: Initial-state, state, transition, emission, and length
+                sufficient statistics to combine.
 
         Returns:
-            IntegerHiddenMarkovAccumulator: Self after combining.
+            This accumulator after combining.
         """
         init_counts, state_counts, trans_counts, wcnts, len_acc_value = suff_stat
 

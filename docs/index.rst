@@ -17,9 +17,6 @@ Contents
 
    installation.rst
    docstring_style.rst
-   base_distributions.rst
-   combinators.rst
-   mixture_models.rst
-   pdist.rst
+   stats/index.rst
    user_defined.rst
    mpi4py_example.rst

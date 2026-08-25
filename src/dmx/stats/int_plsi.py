@@ -875,34 +875,15 @@ class IntegerPLSIDataEncoder(DataSequenceEncoder):
     def seq_encode(
         self, x: Sequence[Tuple[int, Sequence[Tuple[int, float]]]]
     ) -> "IntegerPLSIEncodedDataSequence":
-        """Encode a sequence of iid PLSI observations for use with vectorized functions.
-
-        Input arg 'x' is a sequence of iid PLSI observations having form
-
-        x = [ (doc_id, [(value, count),...]),... ].
-
-        The return value is a Tuple length 2. The first component contains data type
-        Optional[T1] corresponding to the
-        sequence encoding of the lengths. The second component is a Tuple of length 6
-        containing
-            xv (ndarray[int]): Numpy array of flattened word values.
-            xc (ndarray[float]): Numpy array of flattened counts for word values above.
-            xd (ndarray[int]): Document d_id for each word-count pair in the arrays
-                above.
-            xi (ndarray[int]): Observed sequence index for each word-count pair in the
-                arrays above.
-            xn (ndarray[float]): Numpy array of the total number of words in each
-                document.
-            xm (ndarray[float]): Flattened array of document d_id's for the lengths
-                above (len = len(x)).
+        """Encode independent PLSI observations for vectorized operations.
 
         Args:
-            x (Sequence[Tuple[int, Sequence[Tuple[int, float]]]]): See above for
-                details.
+            x: Observations represented as document identifiers paired with sparse
+                ``(token, count)`` sequences.
 
         Returns:
-            IntegerPLSIEncodedDataSequence
-
+            Encoded lengths plus flattened token values, counts, document
+            identifiers, observation indexes, and per-document totals.
         """
         xv: List[int] = []
         xc: List[float] = []
