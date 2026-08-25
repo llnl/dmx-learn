@@ -29,7 +29,14 @@ noname_instance_count: int = 0
 
 
 class ProbabilityDistribution(Generic[X, P, V]):
-    """Base contract for a Bayesian probability distribution."""
+    """Base contract for a Bayesian probability distribution.
+
+    Concrete likelihoods may attach a conjugate distribution through
+    :meth:`get_prior`; during variational fitting that object contains the
+    current prior or posterior hyperparameters. Prior-only distributions may
+    instead treat their ``prior`` attribute as metadata, as documented by the
+    concrete class.
+    """
 
     name: Optional[str] = None
     params: P
@@ -121,6 +128,10 @@ class ProbabilityDistribution(Generic[X, P, V]):
     def expected_log_density(self, x: X) -> float:
         """Evaluate the posterior expected log-density.
 
+        Concrete Bayesian likelihoods override this method to average over
+        their current parameter posterior. The base fallback has no separate
+        posterior calculation and evaluates the plug-in parameters.
+
         Args:
             x: Observation to evaluate.
 
@@ -154,11 +165,15 @@ class ProbabilityDistribution(Generic[X, P, V]):
     def seq_log_density(self, x: V) -> np.ndarray[Any, np.dtype[np.float64]]:
         """Evaluate log-densities for an iterable encoded sequence.
 
+        The base implementation requires ``x`` itself to be iterable and calls
+        :meth:`log_density` once per item. Concrete encoders may override this
+        contract with a vectorized representation.
+
         Args:
             x: Encoded observations.
 
         Returns:
-            One log-density per observation.
+            One-dimensional array containing one log-density per observation.
         """
         observations = cast(Iterable[X], x)
         return np.asarray(
@@ -168,11 +183,15 @@ class ProbabilityDistribution(Generic[X, P, V]):
     def seq_expected_log_density(self, x: V) -> np.ndarray[Any, np.dtype[np.float64]]:
         """Evaluate expected log-densities for an encoded sequence.
 
+        The base implementation iterates over ``x`` and applies
+        :meth:`expected_log_density`; concrete distributions may vectorize it.
+
         Args:
             x: Encoded observations.
 
         Returns:
-            One expected log-density per observation.
+            One-dimensional array containing one expected log-density per
+            observation.
         """
         observations = cast(Iterable[X], x)
         return np.asarray(
@@ -403,7 +422,12 @@ class StatisticAccumulatorFactory(Generic[X, SS, V]):
 
 
 class ParameterEstimator(Generic[X, P, V, SS]):
-    """Estimate a distribution from sufficient statistics."""
+    """Estimate a distribution from sufficient statistics.
+
+    Implementations accept either ``estimate(suff_stat)`` or the legacy
+    ``estimate(nobs, suff_stat)`` form. The sufficient-statistic tuple remains
+    authoritative when it already contains accumulated observation weight.
+    """
 
     @overload
     def estimate(self, suff_stat: SS, /) -> ProbabilityDistribution[X, P, V]: ...
@@ -417,7 +441,8 @@ class ParameterEstimator(Generic[X, P, V, SS]):
         """Estimate using either supported legacy call form.
 
         Args:
-            *args: Either ``suff_stat`` or ``nobs, suff_stat``.
+            *args: Either ``suff_stat`` or ``nobs, suff_stat``. Concrete
+                estimators document whether ``nobs`` is used.
 
         Raises:
             NotImplementedError: Always, unless implemented by a subclass.
@@ -604,7 +629,7 @@ class DataSequenceEncoder(Generic[X, E]):
 
 
 class EncodedDataSequence(Generic[E]):
-    """Contain data produced by a :class:`DataSequenceEncoder`."""
+    """Contain distribution-specific data produced by a sequence encoder."""
 
     def __init__(self, data: E) -> None:
         """Store encoded data.

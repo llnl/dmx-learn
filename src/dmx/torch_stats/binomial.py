@@ -1,10 +1,13 @@
-"""Create, estimate, and sample from the binomial distribution.
+"""Create, estimate, and sample torch-backed binomial distributions.
 
 Defines the BinomialDistribution, BinomialSampler,
 BinomialAccumulatorFactory, BinomialAccumulator, BinomialEstimator, and the
 BinomialDataEncoder classes for use with pysparkplug.
 
-Data type: int.
+Data type: int. Terminology and support match ``dmx.stats.binomial``. Scalar
+methods and sampling use Python/NumPy values; encoded data are torch integer
+tensors, and vectorized likelihoods retain the encoded tensors' device and
+floating calculation dtype.
 
 """
 
@@ -31,7 +34,7 @@ E = Tuple[tn.Tensor, tn.Tensor, tn.Tensor, int, int]
 
 
 class BinomialDistribution(TorchProbabilityDistribution):
-    """BinomialDistribution object used for x~Binomial(n,p).
+    """Represent a binomial distribution with trial count ``n`` and probability ``p``.
 
     Notes:
         Supports data types of int between (0, n-1) or (min_val,
@@ -62,7 +65,7 @@ class BinomialDistribution(TorchProbabilityDistribution):
         keys: Optional[str] = None,
         device: Optional[tn.device] = None,
     ) -> None:
-        """BinomialDistribution object.
+        """Initialize the binomial distribution.
 
         Args:
             p (float): Proportion for binomial distribution, between (0,1.0].
@@ -91,10 +94,12 @@ class BinomialDistribution(TorchProbabilityDistribution):
         self.min_val = min_val
 
     def to(self, device: vec.DeviceLike) -> "BinomialDistribution":
+        """Select the device used for subsequent tensor calculations."""
         self._device = self._resolve_device_arg(device)
         return self
 
     def __repr__(self) -> str:
+        """Return an evaluable representation."""
         return (
             f"BinomialDistribution(p={self.p!r}, n={self.n!r}, "
             f"min_val={self.min_val!r}, keys={self.keys!r})"
@@ -136,7 +141,7 @@ class BinomialDistribution(TorchProbabilityDistribution):
         )
 
     def seq_log_density(self, x: "BinomialTorchEncodedSequence") -> tn.Tensor:
-
+        """Evaluate log densities for an encoded sequence."""
         if not isinstance(x, BinomialTorchEncodedSequence):
             raise TypeError(
                 "Required BinomialTorchEncodedSequence for `seq_` function calls."
@@ -200,9 +205,10 @@ class BinomialDistribution(TorchProbabilityDistribution):
 
 
 class BinomialSampler(DistributionSampler):
+    """Draw NumPy samples from a binomial distribution."""
 
     def __init__(self, dist: BinomialDistribution, seed: Optional[int] = None) -> None:
-        """BinomialSampler object used to draw samples from BinomialDistribution.
+        """Initialize a sampler for ``dist``.
 
         Args:
             dist (BinomialDistribution): BinomialDistribution to sample from.
@@ -265,7 +271,7 @@ class BinomialAccumulator(TorchStatisticAccumulator):
         keys: Optional[str] = None,
         device: Optional[tn.device] = None,
     ) -> None:
-        """BinomialAccumulator object.
+        """Initialize the binomial sufficient-statistic accumulator.
 
         Args:
             max_val (Optional[int]): Largest integer value encountered while
@@ -290,6 +296,7 @@ class BinomialAccumulator(TorchStatisticAccumulator):
         weights: tn.Tensor,
         estimate: Optional["BinomialDistribution"],
     ) -> None:
+        """Accumulate encoded observations with their weights."""
         _, _, xx, min_val, max_val = x.data
 
         self.sum += float(tn.sum(xx * weights))
@@ -311,11 +318,13 @@ class BinomialAccumulator(TorchStatisticAccumulator):
         weights: tn.Tensor,
         tng: Optional[tn.Generator],
     ) -> None:
+        """Initialize statistics from encoded observations and weights."""
         self.seq_update(x, weights, None)
 
     def combine(
         self, suff_stat: Tuple[float, float, Optional[int], Optional[int]]
     ) -> "BinomialAccumulator":
+        """Merge a binomial sufficient-statistic tuple."""
         self.sum += suff_stat[1]
         self.count += suff_stat[0]
 
@@ -332,11 +341,13 @@ class BinomialAccumulator(TorchStatisticAccumulator):
         return self
 
     def value(self) -> Tuple[float, float, Optional[int], Optional[int]]:
+        """Return the binomial sufficient-statistic tuple."""
         return self.count, self.sum, self.min_val, self.max_val
 
     def from_value(
         self, x: Tuple[float, float, Optional[int], Optional[int]]
     ) -> "BinomialAccumulator":
+        """Replace state from a binomial sufficient-statistic tuple."""
         self.count = x[0]
         self.sum = x[1]
         self.min_val = x[2]
@@ -345,6 +356,7 @@ class BinomialAccumulator(TorchStatisticAccumulator):
         return self
 
     def key_merge(self, stats_dict: Dict[str, Any]) -> None:
+        """Merge this accumulator's keyed statistic into ``stats_dict``."""
         if self.key is not None:
             if self.key in stats_dict:
                 stats_dict[self.key].combine(self.value())
@@ -352,11 +364,13 @@ class BinomialAccumulator(TorchStatisticAccumulator):
                 stats_dict[self.key] = self
 
     def key_replace(self, stats_dict: Dict[str, Any]) -> None:
+        """Replace state from its keyed statistic, when present."""
         if self.key is not None:
             if self.key in stats_dict:
                 self.from_value(stats_dict[self.key].value())
 
     def acc_to_encoder(self) -> "BinomialDataEncoder":
+        """Return the compatible binomial encoder."""
         return BinomialDataEncoder()
 
 
@@ -378,7 +392,7 @@ class BinomialAccumulatorFactory(TorchStatisticAccumulatorFactory):
         keys: Optional[str] = None,
         _device: Optional[tn.device] = None,
     ) -> None:
-        """BinomialAccumulatorFactory object.
+        """Initialize the factory.
 
         Args:
             max_val (Optional[int]): Max value for binomial observations.
@@ -387,12 +401,12 @@ class BinomialAccumulatorFactory(TorchStatisticAccumulatorFactory):
                 merging suff_stats.
 
         """
-
         self.max_val = max_val
         self.min_val = min_val
         self.keys = keys
 
     def make(self, device: Optional[tn.device] = None) -> "BinomialAccumulator":
+        """Create an accumulator associated with ``device``."""
         return BinomialAccumulator(
             max_val=self.max_val, min_val=self.min_val, keys=self.keys, device=device
         )
@@ -419,7 +433,7 @@ class BinomialEstimator(TorchParameterEstimator):
         suff_stat: Optional[float] = None,
         keys: Optional[str] = None,
     ) -> None:
-        """BinomialEstimator object.
+        """Initialize binomial estimation settings.
 
         Args:
             max_val (Optional[int]): Set max value encountered.
@@ -438,6 +452,7 @@ class BinomialEstimator(TorchParameterEstimator):
         self.keys = keys
 
     def accumulator_factory(self) -> BinomialAccumulatorFactory:
+        """Return a factory for compatible accumulators."""
         return BinomialAccumulatorFactory(self.max_val, self.min_val, self.keys)
 
     def estimate(
@@ -511,7 +526,12 @@ class BinomialEstimator(TorchParameterEstimator):
 
 
 class BinomialDataEncoder(TorchSequenceEncoder):
-    """BinomialDataEncoder object used to encode Sequence[int] or ndarray[int]."""
+    """Encode count sequences for torch vectorized likelihood calculations.
+
+    The raw count tensor has shape ``(n,)`` and uses ``vec.int_tensor`` dtype
+    and device semantics. Unique values and inverse indices form the encoded
+    representation; the torch container is the difference from ``stats``.
+    """
 
     def __str__(self) -> str:
         """Creates string name of BinomialDataEncoder.
@@ -566,6 +586,8 @@ class BinomialDataEncoder(TorchSequenceEncoder):
 
 
 class BinomialTorchEncodedSequence(TorchEncodedSequence):
+    """Store unique counts, inverse indices, raw counts, and their range."""
+
     data: Tuple[tn.Tensor, tn.Tensor, tn.Tensor, int, int]
 
     def __init__(
@@ -573,7 +595,9 @@ class BinomialTorchEncodedSequence(TorchEncodedSequence):
         data: Tuple[tn.Tensor, tn.Tensor, tn.Tensor, int, int],
         device: Optional[tn.device] = None,
     ) -> None:
+        """Initialize from tensor data and an optional target device."""
         super().__init__(data=data, device=device)
 
     def __str__(self) -> str:
+        """Return a representation including the stored device."""
         return f"BinomialTorchEncodedSequence(device={repr(self.device)})"

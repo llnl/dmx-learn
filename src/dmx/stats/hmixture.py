@@ -1,38 +1,16 @@
-"""Create, estimate, and sample from a hierarchical mixture distribution with K
-components consisting of
-sequence mixture distribution with L topics shared across all K components.
+r"""Model sequences with outer clusters and shared inner topics.
 
-Defines the HierarchicalMixtureDistribution, HierarchicalMixtureSampler,
-HierarchicalMixtureEstimatorAccumulatorFactory,
-HierarchicalMixtureEstimatorAccumulator, HierarchicalMixtureEstimator, and the
-HierarchicalMixtureDataEncoder classes
-for use with dmx-learn.
+An observation is a variable-length sequence ``x = (x_1, ..., x_N)``. A sequence-level
+latent variable ``Z`` selects one of ``K`` outer mixtures with probability ``w[k]``.
+Conditional on ``Z=k``, every item has its own topic variable ``U_i`` with probability
+``taus[k, l]`` and is drawn from the shared topic distribution ``f_l``. An optional
+length distribution models ``N``. Thus the component responsibility is
+``p(Z=k | x)``, while topic responsibilities are item-specific and conditional on the
+outer state.
 
-Data type: Sequence[T], where 'T' is the type of the topic distributions.
-
-Note that this is a mixture with K 'outer-mixture' components consisting of L topic
-distributions
-{f_l(theta_l)}_{l=1}^{L}, with 'inner-mixture' weights {tau_{k,l}}_{l=1}^{L} for each of
-the K components.
-
-Sampling proceeds as follows. Each sample is a sequence of length 'N' (where can be
-modeled with a length distribution
-P_len()) from an outer-mixture component k with probability w_k. Sampling from mixture
-component 'k' consists of
-sampling from a mixture with topics {f_l(theta_l)}_{l=1}^{L} and 'inner-mixture' weights
-{tau_{k,l}}_{l=1}^{L}.
-
-Example: Let x = (x_1, x_2, x_3, ...., x_N) be an observation from a hierarchical
-    mixture distribution of length 'N'.
-Let Z and U be a random variables s.t. p_mat(Z=k) = w_k and p_mat(U=l | Z = k) =
-tau_{k,l}. Then
-
-    alpha_i = x_i | Z = k ~ sum_{l=1}^{L} f_l(theta_l)*tau_{k,l}, for i = 1,2,...,N.
-
-Further,
-
-    alpha_i | U=l ~ f_l(theta_l), for i = 1,2,3,...,N.
-
+Unlike :mod:`heterogeneous_mixture`, topics share one compatible observation type and
+encoder. Unlike :mod:`jmixture`, this family models a sequence rather than two paired
+views. Unlike :mod:`ss_mixture`, it accepts no label priors with an observation.
 """
 
 from typing import Any, Dict, List, Optional, Sequence, Tuple, TypeVar, Union
@@ -67,8 +45,7 @@ SS2 = TypeVar("SS2")  ## Suff stat type for length distribution.
 
 
 class HierarchicalMixtureDistribution(SequenceEncodableProbabilityDistribution):
-    """HierarchicalMixtureDistribution object defining a hierarchical mixture
-    distribution.
+    """Define a sequence mixture whose outer components share topic distributions.
 
     Attributes:
         topics (Sequence[SequenceEncodableProbabilityDistribution]): Topic distributions
@@ -101,7 +78,7 @@ class HierarchicalMixtureDistribution(SequenceEncodableProbabilityDistribution):
         name: Optional[str] = None,
         keys: Optional[Tuple[Optional[str], Optional[str]]] = (None, None),
     ) -> None:
-        """HierarchicalMixtureDistribution object.
+        """Initialize a hierarchical mixture distribution.
 
         Args:
             topics (Sequence[SequenceEncodableProbabilityDistribution]): Topic
@@ -148,8 +125,7 @@ class HierarchicalMixtureDistribution(SequenceEncodableProbabilityDistribution):
         )
 
     def density(self, x: Sequence[T]) -> float:
-        """Evaluate the density of an observation from hierarchical mixture
-        distribution.
+        """Evaluate the density of one sequence observation.
 
         Args:
             x (Sequence[T]): A sequence of type data type T's.
@@ -161,8 +137,7 @@ class HierarchicalMixtureDistribution(SequenceEncodableProbabilityDistribution):
         return float(np.exp(self.log_density(x)))
 
     def log_density(self, x: Sequence[T]) -> float:
-        """Evaluate the log density of an observation from hierarchical mixture
-        distribution.
+        """Evaluate the log-density of one sequence observation.
 
         Note: Observation is a sequence.
 
@@ -177,8 +152,7 @@ class HierarchicalMixtureDistribution(SequenceEncodableProbabilityDistribution):
         return float(self.seq_log_density(enc_x)[0])
 
     def posterior(self, x: Sequence[T]) -> np.ndarray:
-        """Compute the posterior over the mixture components for the outer-mixture at
-        observed value x.
+        """Compute outer-component responsibilities for one sequence.
 
         Args:
             x (Sequence[T]): An observed sequence of data type T.
@@ -191,8 +165,7 @@ class HierarchicalMixtureDistribution(SequenceEncodableProbabilityDistribution):
         return np.asarray(self.seq_posterior(enc_x)[0], dtype=float)
 
     def component_log_density(self, x: Sequence[T]) -> np.ndarray:
-        """Evaluate the component-wise log-density for an observation from a
-        hierarchical mixture model.
+        """Evaluate outer-component log-densities for one sequence.
 
         Args:
             x (Sequence[T]): An observation from a hierarchical mixture model.
@@ -245,8 +218,7 @@ class HierarchicalMixtureDistribution(SequenceEncodableProbabilityDistribution):
     def seq_component_log_density(
         self, x: "HierarchicalMixtureEncodedDataSequence"
     ) -> np.ndarray:
-        """Vectorized evaluation of the outer-mixture component-wise log-density for an
-        encoded sequence x.
+        """Evaluate outer-component log-densities for encoded observations.
 
         This returns a numpy array with shape (rv[0], 'num_mixtures').
 
@@ -305,6 +277,7 @@ class HierarchicalMixtureDistribution(SequenceEncodableProbabilityDistribution):
     def seq_log_density(
         self, x: "HierarchicalMixtureEncodedDataSequence"
     ) -> np.ndarray:
+        """Evaluate log-densities for encoded sequence observations."""
         if not isinstance(x, HierarchicalMixtureEncodedDataSequence):
             raise TypeError("Requires HierarchicalMixtureEncodedDataSequence.")
 
@@ -332,8 +305,7 @@ class HierarchicalMixtureDistribution(SequenceEncodableProbabilityDistribution):
         return np.asarray(rv, dtype=float)
 
     def seq_posterior(self, x: "HierarchicalMixtureEncodedDataSequence") -> np.ndarray:
-        """Vectorized evaluation of the posterior over each outer-mixture component for
-        an encoded sequence x.
+        """Evaluate outer-component responsibilities for encoded observations.
 
         Args:
             x (HierarchicalMixtureEncodedDataSequence): EncodedDataSequence for
@@ -366,11 +338,13 @@ class HierarchicalMixtureDistribution(SequenceEncodableProbabilityDistribution):
         return rv
 
     def sampler(self, seed: Optional[int] = None) -> "HierarchicalMixtureSampler":
+        """Return a sampler for this hierarchical mixture."""
         return HierarchicalMixtureSampler(self, seed)
 
     def estimator(
         self, pseudo_count: Optional[float] = None
     ) -> "HierarchicalMixtureEstimator":
+        """Return an estimator using one shared estimator per topic."""
         len_est = self.len_dist.estimator(pseudo_count=pseudo_count)
         comp_est = [u.estimator(pseudo_count=pseudo_count) for u in self.topics]
 
@@ -384,6 +358,7 @@ class HierarchicalMixtureDistribution(SequenceEncodableProbabilityDistribution):
         )
 
     def dist_to_encoder(self) -> "HierarchicalMixtureDataEncoder":
+        """Return an encoder for flattened items and sequence lengths."""
         topic_encoder = self.topics[0].dist_to_encoder()
         len_encoder = self.len_dist.dist_to_encoder()
         return HierarchicalMixtureDataEncoder(
@@ -406,7 +381,7 @@ class HierarchicalMixtureSampler(DistributionSampler):
     def __init__(
         self, dist: HierarchicalMixtureDistribution, seed: Optional[int] = None
     ) -> None:
-        """HierarchicalMixtureSampler object.
+        """Initialize a hierarchical mixture sampler.
 
         Args:
             dist (HierarchicalMixtureDistribution): HierarchicalMixtureDistribution
@@ -418,12 +393,16 @@ class HierarchicalMixtureSampler(DistributionSampler):
         self.sampler = dist.to_mixture().sampler(seed)
 
     def sample(self, size: Optional[int] = None) -> Union[Sequence[Any], Any]:
+        """Draw one sequence or a collection of sequences."""
         return self.sampler.sample(size=size)
 
 
 class HierarchicalMixtureEstimatorAccumulator(SequenceEncodableStatisticAccumulator):
-    """HierarchicalMixtureEstimatorAccumulator for accumulating sufficient statistics of
-    Hierarchical Mixture samples.
+    """Accumulate hierarchical-mixture sufficient statistics.
+
+    The count matrix has shape ``(num_mixtures, num_topics)``. Its cells aggregate
+    joint outer-state and item-topic responsibilities; child accumulators aggregate
+    topic-weighted items, and the length accumulator receives sequence weights.
 
     Attributes:
         accumulators (Sequence[SequenceEncodableStatisticAccumulator]): Accumulators for
@@ -467,7 +446,7 @@ class HierarchicalMixtureEstimatorAccumulator(SequenceEncodableStatisticAccumula
         keys: Optional[Tuple[Optional[str], Optional[str]]] = (None, None),
         name: Optional[str] = None,
     ) -> None:
-        """HierarchicalMixtureEstimatorAccumulator object.
+        """Initialize a hierarchical-mixture accumulator.
 
         Args:
             accumulators (Sequence[SequenceEncodableStatisticAccumulator]): Accumulators
@@ -504,6 +483,7 @@ class HierarchicalMixtureEstimatorAccumulator(SequenceEncodableStatisticAccumula
         self._len_rng: Optional[RandomState] = None
 
     def update(self, x: Any, weight: float, estimate: Any) -> None:
+        """Leave scalar updating unsupported; use :meth:`seq_update`."""
         pass
 
     def _rng_initialize(self, rng: RandomState) -> None:
@@ -516,6 +496,7 @@ class HierarchicalMixtureEstimatorAccumulator(SequenceEncodableStatisticAccumula
         self._init_rng = True
 
     def initialize(self, x: Sequence[T], weight: float, rng: RandomState) -> None:
+        """Leave scalar initialization unsupported; use :meth:`seq_initialize`."""
         pass
         # if not self._init_rng:
         #     self._rng_initialize(rng)
@@ -587,6 +568,7 @@ class HierarchicalMixtureEstimatorAccumulator(SequenceEncodableStatisticAccumula
         weights: np.ndarray,
         estimate: HierarchicalMixtureDistribution,
     ) -> None:
+        """Accumulate posterior-weighted outer and topic statistics."""
         sz, idx, _cnt, enc_data, enc_len = x.data
         tsz = len(idx)
 
@@ -643,6 +625,7 @@ class HierarchicalMixtureEstimatorAccumulator(SequenceEncodableStatisticAccumula
     def combine(
         self, suff_stat: Tuple[np.ndarray, Tuple[SS1, ...], Optional[SS2]]
     ) -> "HierarchicalMixtureEstimatorAccumulator":
+        """Merge another hierarchical-mixture sufficient statistic."""
         self.comp_counts += suff_stat[0]
         for i in range(self.num_topics):
             self.accumulators[i].combine(suff_stat[1][i])
@@ -652,7 +635,7 @@ class HierarchicalMixtureEstimatorAccumulator(SequenceEncodableStatisticAccumula
         return self
 
     def value(self) -> Tuple[np.ndarray, Tuple[Any, ...], Optional[Any]]:
-
+        """Return counts, topic statistics, and length statistics."""
         return (
             self.comp_counts,
             tuple(u.value() for u in self.accumulators),
@@ -662,6 +645,7 @@ class HierarchicalMixtureEstimatorAccumulator(SequenceEncodableStatisticAccumula
     def from_value(
         self, x: Tuple[np.ndarray, Tuple[SS1, ...], Optional[SS2]]
     ) -> "HierarchicalMixtureEstimatorAccumulator":
+        """Replace accumulated statistics from a serialized value."""
         self.comp_counts = x[0]
         for i in range(self.num_topics):
             self.accumulators[i].from_value(x[1][i])
@@ -671,6 +655,7 @@ class HierarchicalMixtureEstimatorAccumulator(SequenceEncodableStatisticAccumula
         return self
 
     def key_merge(self, stats_dict: Dict[str, Any]) -> None:
+        """Merge keyed count and topic statistics into a shared dictionary."""
         if self.weight_key is not None:
             if self.weight_key in stats_dict:
                 stats_dict[self.weight_key] += self.comp_counts
@@ -691,6 +676,7 @@ class HierarchicalMixtureEstimatorAccumulator(SequenceEncodableStatisticAccumula
         self.len_accumulator.key_merge(stats_dict)
 
     def key_replace(self, stats_dict: Dict[str, Any]) -> None:
+        """Replace count and topic statistics from shared keyed values."""
         if self.weight_key is not None:
             if self.weight_key in stats_dict:
                 self.comp_counts = stats_dict[self.weight_key]
@@ -706,6 +692,7 @@ class HierarchicalMixtureEstimatorAccumulator(SequenceEncodableStatisticAccumula
         self.len_accumulator.key_replace(stats_dict)
 
     def acc_to_encoder(self) -> "HierarchicalMixtureDataEncoder":
+        """Return the encoder required by the child accumulators."""
         topic_encoder = self.accumulators[0].acc_to_encoder()
         len_encoder = self.len_accumulator.acc_to_encoder()
         return HierarchicalMixtureDataEncoder(
@@ -714,9 +701,7 @@ class HierarchicalMixtureEstimatorAccumulator(SequenceEncodableStatisticAccumula
 
 
 class HierarchicalMixtureEstimatorAccumulatorFactory(StatisticAccumulatorFactory):
-    """HierarchicalMixtureEstimatorAccumulatorFactory object for creating
-    HierarchicalMixtureEstimatorAccumulator
-        objects.
+    """Create hierarchical-mixture accumulators.
 
     Attributes:
         factories (Sequence[StatisticAccumulatorFactory]): StatisticAccumulatorFactory
@@ -741,7 +726,7 @@ class HierarchicalMixtureEstimatorAccumulatorFactory(StatisticAccumulatorFactory
         name: Optional[str] = None,
         keys: Optional[Tuple[Optional[str], Optional[str]]] = (None, None),
     ):
-        """HierarchicalMixtureEstimatorAccumulatorFactory object.
+        """Initialize a hierarchical-mixture accumulator factory.
 
         Args:
             factories (Sequence[StatisticAccumulatorFactory]):
@@ -766,6 +751,7 @@ class HierarchicalMixtureEstimatorAccumulatorFactory(StatisticAccumulatorFactory
         self.keys = keys if keys is not None else (None, None)
 
     def make(self) -> "HierarchicalMixtureEstimatorAccumulator":
+        """Create a hierarchical-mixture accumulator."""
         return HierarchicalMixtureEstimatorAccumulator(
             accumulators=[self.factories[i].make() for i in range(self.dim)],
             num_mixtures=self.num_mixtures,
@@ -776,8 +762,7 @@ class HierarchicalMixtureEstimatorAccumulatorFactory(StatisticAccumulatorFactory
 
 
 class HierarchicalMixtureEstimator(ParameterEstimator):
-    """HierarchicalMixtureEstimator object for estimating hierarchical mixture
-    distribution for aggregated sufficient statistics.
+    """Estimate a hierarchical mixture from sufficient statistics.
 
     Notes:
         The accumulated count matrix has shape ``(num_mixtures, num_components)``:
@@ -833,7 +818,7 @@ class HierarchicalMixtureEstimator(ParameterEstimator):
         name: Optional[str] = None,
         keys: Optional[Tuple[Optional[str], Optional[str]]] = (None, None),
     ) -> None:
-        """HierarchicalMixtureEstimator object.
+        """Initialize a hierarchical-mixture estimator.
 
         Args:
             estimators (Sequence[ParameterEstimator]): ParameterEstimator objects for
@@ -886,6 +871,7 @@ class HierarchicalMixtureEstimator(ParameterEstimator):
         self.name = name
 
     def accumulator_factory(self) -> "HierarchicalMixtureEstimatorAccumulatorFactory":
+        """Return a factory sharing one child estimator per topic."""
         est_factories = [u.accumulator_factory() for u in self.estimators]
         len_factory = self.len_estimator.accumulator_factory()
         return HierarchicalMixtureEstimatorAccumulatorFactory(
@@ -955,8 +941,12 @@ class HierarchicalMixtureEstimator(ParameterEstimator):
 
 
 class HierarchicalMixtureDataEncoder(DataSequenceEncoder):
-    """HierarchicalMixtureDataEncoder object for encoding sequences of iid hierarchical
-    mixture observations.
+    """Encode variable-length hierarchical-mixture observations.
+
+    For ``B`` sequences containing ``M`` total items, the encoded tuple is
+    ``(B, idx, cnt, enc_data, enc_len)``. ``idx`` has shape ``(M,)`` and maps each
+    flattened item to its sequence; ``cnt`` has shape ``(B,)``; ``enc_data`` encodes
+    the flattened items; and ``enc_len`` encodes the ``B`` sequence lengths.
 
     Attributes:
         topic_encoder (DataSequenceEncoder): DataSequenceEncoder for topic
@@ -969,7 +959,7 @@ class HierarchicalMixtureDataEncoder(DataSequenceEncoder):
     def __init__(
         self, topic_encoder: DataSequenceEncoder, len_encoder: DataSequenceEncoder
     ) -> None:
-        """HierarchicalMixtureDataEncoder object.
+        """Initialize a hierarchical-mixture data encoder.
 
         Args:
             topic_encoder (DataSequenceEncoder): DataSequenceEncoder for topic
@@ -983,6 +973,7 @@ class HierarchicalMixtureDataEncoder(DataSequenceEncoder):
         self.len_encoder = len_encoder
 
     def __str__(self) -> str:
+        """Return a string representation of the encoder."""
         rv = (
             "HierarchicalMixtureDataEncoder(topic_encoder="
             + str(self.topic_encoder)
@@ -992,6 +983,7 @@ class HierarchicalMixtureDataEncoder(DataSequenceEncoder):
         return rv
 
     def __eq__(self, other: object) -> bool:
+        """Return whether both child encoders are equal."""
         if isinstance(other, HierarchicalMixtureDataEncoder):
             return (
                 other.topic_encoder == self.topic_encoder
@@ -1002,6 +994,7 @@ class HierarchicalMixtureDataEncoder(DataSequenceEncoder):
     def seq_encode(
         self, x: Sequence[Sequence[T]]
     ) -> "HierarchicalMixtureEncodedDataSequence":
+        """Flatten and encode a batch of sequence observations."""
         sx: List[T] = []
         idx: List[int] = []
         cnt: List[int] = []
@@ -1023,6 +1016,7 @@ class HierarchicalMixtureDataEncoder(DataSequenceEncoder):
 
 
 class HierarchicalMixtureEncodedDataSequence(EncodedDataSequence):
+    """Store flattened items, sequence membership, counts, and encoded lengths."""
 
     def __init__(
         self,
@@ -1030,7 +1024,9 @@ class HierarchicalMixtureEncodedDataSequence(EncodedDataSequence):
             int, np.ndarray, np.ndarray, EncodedDataSequence, EncodedDataSequence
         ],
     ):
+        """Initialize an encoded hierarchical-mixture batch."""
         super().__init__(data=data)
 
     def __repr__(self) -> str:
+        """Return a representation of the encoded batch."""
         return f"HierarchicalMixtureDataEncoder(data={self.data})"

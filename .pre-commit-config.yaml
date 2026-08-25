@@ -19,10 +19,10 @@ repos:
     hooks:
       - id: isort
 
-  # Pydocstyle temporarily disabled until Phase 3 (docstring enhancement)
-  # Will be enabled after docstrings are fixed
-  # - repo: https://github.com/pycqa/pydocstyle
-  #   rev: 6.3.0
-  #   hooks:
-  #     - id: pydocstyle
-  #       additional_dependencies: [tomli]
+  - repo: https://github.com/pycqa/pydocstyle
+    rev: 6.3.0
+    hooks:
+      - id: pydocstyle
+        args: [--config=pyproject.toml, src/dmx]
+        pass_filenames: false
+        additional_dependencies: [tomli]

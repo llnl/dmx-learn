@@ -55,14 +55,17 @@ D1 = float(digamma(1.0))
 
 
 def logpdet(x_mat: np.ndarray) -> float:
-    """Computes the log-pseudo-determinant for a symmetric dense matrix.
+    """Compute the log-pseudo-determinant of a symmetric dense matrix.
 
     Args:
-        x_mat (np.ndarray): 2-d Numpy array representing a matrix.
+        x_mat: Square matrix of shape ``(n, n)``.
 
     Returns:
-        float, log-pseudo-determinant.
+        Sum of logarithms of nonzero absolute eigenvalues, or negative
+        infinity when all eigenvalues are zero.
 
+    Raises:
+        np.linalg.LinAlgError: If eigenvalue computation does not converge.
     """
     eigs = np.abs(np.linalg.eig(x_mat))
     eigs = eigs[eigs != 0]
@@ -75,24 +78,17 @@ def logpdet(x_mat: np.ndarray) -> float:
 def polygamma_loc(
     n: int, y: float, out: Optional[np.ndarray] = None
 ) -> Union[np.ndarray, float]:
-    """
-    Computes the localized polygamma function.
+    """Evaluate a polygamma function through Hurwitz zeta.
 
-    This function calculates the polygamma function for a given order `n` and input `y`.
-    The calculation uses the Riemann zeta function and the Gamma function. If an `out`
-    array is provided, the result is stored in the array.
+    The result is ``(-1)**(n + 1) * gamma(n + 1) * zeta(n + 1, y)``.
 
     Args:
-        n (int): The order of the polygamma function (non-negative integer).
-        y (float): The input value for the polygamma function.
-        out (Optional[np.ndarray]): An optional array to store the result.
-            If provided, the computation result is stored in this array.
-            Defaults to `None`.
+        n: Nonnegative derivative order.
+        y: Scalar evaluation point.
+        out: Optional output array accepted by SciPy's zeta ufunc.
 
     Returns:
-        Union[np.ndarray, float]:
-            - If `out` is provided, returns the `out` array containing the result.
-            - If `out` is not provided, returns the computed result as a float.
+        ``out`` after in-place evaluation when provided, otherwise a scalar.
     """
     if out is not None:
         fac2 = zeta(n + 1, y, out=out)
@@ -107,14 +103,14 @@ def trigamma(
     y: Union[np.ndarray, int, float, Iterable, List[float]],
     out: Optional[np.ndarray] = None,
 ) -> Union[np.ndarray, float]:
-    """Trigamma function.
+    """Evaluate the trigamma function elementwise.
 
     Args:
-        y (Array-like): An array-like or float/int.
-        out (np.ndarray); Store output in this variable.
+        y: Scalar or array-like evaluation points.
+        out: Optional array receiving results in place.
 
     Returns:
-        Numpy array of trigamma function evaluated at y.
+        A scalar for scalar input or an array broadcast to the shape of ``y``.
 
     """
     return zeta(2, y, out=out)  # type: ignore[no-any-return]
@@ -123,15 +119,18 @@ def trigamma(
 def digammainv(
     y: Union[np.ndarray, float], out: Optional[np.ndarray] = None
 ) -> Union[np.ndarray, float]:
-    """Inverse digamma function evaluated on y.
+    """Approximate the inverse digamma function with five Newton steps.
+
+    Array inputs preserve their shape. Positive infinity maps to positive
+    infinity; other non-finite array entries remain zero. The ``out`` argument
+    is retained for compatibility but is ignored.
 
     Args:
-        y (Union[np.ndarray, float]): Numpy array of values to be evaluated
-            or single value.
-        out (Optional[np.ndarray]): Deprecated. Kept for consistency with other files.
+        y: Scalar or NumPy array of digamma values.
+        out: Deprecated and ignored.
 
     Returns:
-        Numpy array if y is numpy array else float.
+        Approximate inverse values, with the same shape as an array input.
 
     """
     _ = out
@@ -174,20 +173,20 @@ def digammainv(
 
 
 def stirling2(n: int, k: int) -> int:
-    """
-    Computes the Stirling number of the second kind.
+    """Compute a Stirling number of the second kind recursively.
 
-    The Stirling number of the second kind, S(n, k), represents the number of ways
-    to partition a set of `n` elements into `k` non-empty subsets. This function
-    uses a recursive approach to compute the value.
+    ``S(n, k)`` counts partitions of ``n`` labeled elements into ``k`` nonempty
+    unlabeled subsets.
 
     Args:
-        n (int): The total number of elements in the set (must be positive).
-        k (int): The number of non-empty subsets (must be positive).
+        n: Positive number of elements.
+        k: Positive number of subsets.
 
     Returns:
-        int: The Stirling number of the second kind, S(n, k).
+        The integer ``S(n, k)``.
 
+    Raises:
+        AssertionError: If ``n`` or ``k`` is not positive.
     """
     assert n > 0 and k > 0
 

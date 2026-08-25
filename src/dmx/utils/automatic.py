@@ -1,4 +1,9 @@
-"""Automatic estimations for input data files. Use in auto-estimation step of htsne."""
+"""Infer estimators from heterogeneous data and fit mixture models.
+
+The helpers inspect nested observations, select matching ``dmx.stats`` or
+``dmx.bstats`` estimators, and support the mixture-model preprocessing used by
+the heterogeneous embedding utilities.
+"""
 
 import math
 from collections import defaultdict
@@ -34,7 +39,7 @@ def _get_class(
     class_name: str,
     use_bstats: bool,
 ) -> Any:
-    """Select a stats class or a first-class bstats class."""
+    """Select a ``stats`` class or its eagerly imported ``bstats`` counterpart."""
     if use_bstats:
         return bstats_class
     return getattr(import_module(stats_module), class_name)
@@ -44,7 +49,19 @@ def encode_mixture_data(
     data: Sequence[Any],
     mix_model: MixtureModel,
 ) -> Any:
-    """Encode data using the API expected by the given mixture model."""
+    """Encode observations using the API implemented by a mixture model.
+
+    Args:
+        data: Observations accepted by the model's encoder.
+        mix_model: A ``dmx.stats`` or ``dmx.bstats`` mixture distribution.
+
+    Returns:
+        The model-specific encoded sequence. Its structure depends on the
+        component distribution.
+
+    Raises:
+        TypeError: If ``mix_model`` is not a supported mixture distribution.
+    """
     if isinstance(mix_model, StatsMixtureDistribution):
         return mix_model.dist_to_encoder().seq_encode(data)
     if isinstance(mix_model, BstatsMixtureDistribution):
@@ -64,7 +81,34 @@ def prepare_mixture_model(
     comp_estimator: Optional[Any] = None,
     mix_model: Optional[MixtureModel] = None,
 ) -> tuple[MixtureModel, Any, np.ndarray]:
-    """Fit or validate a mixture model and compute encoded posteriors."""
+    """Fit or reuse a mixture model and compute component posteriors.
+
+    When ``mix_model`` is absent, a Dirichlet-process mixture is fitted using
+    ``rng`` and the supplied optimization controls. A supplied model is used
+    unchanged. In either case, the observations are encoded with that model.
+
+    Args:
+        data: Observations to encode and, when needed, fit.
+        rng: Random state used to initialize mixture fitting.
+        max_components: Maximum number of mixture components; must be an
+            integer greater than one even when a model is supplied.
+        mix_threshold_count: Minimum effective component count retained after
+            fitting.
+        max_its: Maximum mixture-fitting iterations.
+        print_iter: Interval for mixture-fitting progress output.
+        comp_estimator: Optional estimator for a single mixture component.
+        mix_model: Optional pre-fitted mixture model.
+
+    Returns:
+        The mixture model, its model-specific encoded data, and an array of
+        component posterior probabilities with shape ``(n_observations,
+        n_components)``.
+
+    Raises:
+        ValueError: If ``max_components`` is not an integer greater than one.
+        RuntimeError: If the resulting mixture has no components.
+        TypeError: If the resulting model type cannot encode ``data``.
+    """
     if max_components <= 1 or not isinstance(max_components, (int, np.integer)):
         raise ValueError("max_components must be an integer greater than 1.")
 
@@ -91,15 +135,15 @@ def get_optional_estimator(
     missing_value: Optional[Any],
     use_bstats: bool = False,
 ) -> Any:
-    """Gets an optional estimator that handles missing values.
+    """Wrap an estimator so a designated missing value is modeled separately.
 
     Args:
-        est (ParameterEstimator): The base estimator to use.
-        missing_value (Optional[Any]): The value to treat as missing.
-        use_bstats (bool): Whether to use the `dmx.bstats` module.
+        est: Base estimator for non-missing values.
+        missing_value: Value treated as missing, including ``None`` or NaN.
+        use_bstats: Select the Bayesian ``dmx.bstats`` implementation.
 
     Returns:
-        OptionalEstimator: An estimator that handles missing values.
+        An optional estimator from the selected package.
     """
     OptionalEstimator = _get_class(
         "dmx.stats.optional",
@@ -114,14 +158,14 @@ def get_sequence_estimator(
     est: Union[ParameterEstimator, BstatsParameterEstimator],
     use_bstats: bool = False,
 ) -> Any:
-    """Gets a sequence estimator.
+    """Wrap an estimator to model variable-length sequences.
 
     Args:
-        est (ParameterEstimator): The base estimator to use.
-        use_bstats (bool): Whether to use the `dmx.bstats` module.
+        est: Estimator for individual sequence elements.
+        use_bstats: Select the Bayesian ``dmx.bstats`` implementation.
 
     Returns:
-        SequenceEstimator: An estimator for sequences.
+        A sequence estimator from the selected package.
     """
     SequenceEstimator = _get_class(
         "dmx.stats.sequence",
@@ -133,13 +177,13 @@ def get_sequence_estimator(
 
 
 def get_ignored_estimator(use_bstats: bool = False) -> Any:
-    """Gets an ignored estimator.
+    """Create an estimator that ignores its input field.
 
     Args:
-        use_bstats (bool): Whether to use the `dmx.bstats` module.
+        use_bstats: Select the Bayesian ``dmx.bstats`` implementation.
 
     Returns:
-        IgnoredEstimator: An estimator that ignores input data.
+        An ignored estimator from the selected package.
     """
     IgnoredEstimator = _get_class(
         "dmx.stats.ignored", BstatsIgnoredEstimator, "IgnoredEstimator", use_bstats
@@ -148,14 +192,14 @@ def get_ignored_estimator(use_bstats: bool = False) -> Any:
 
 
 def get_composite_estimator(ests: Sequence[Any], use_bstats: bool = False) -> Any:
-    """Gets a composite estimator.
+    """Combine field estimators into a fixed-width composite estimator.
 
     Args:
-        ests (Sequence[ParameterEstimator]): A list of estimators to combine.
-        use_bstats (bool): Whether to use the `dmx.bstats` module.
+        ests: Estimators in the same order as fields in each observation.
+        use_bstats: Select the Bayesian ``dmx.bstats`` implementation.
 
     Returns:
-        CompositeEstimator: An estimator that combines multiple estimators.
+        A composite estimator from the selected package.
     """
     CompositeEstimator = _get_class(
         "dmx.stats.composite",
@@ -172,16 +216,21 @@ def get_categorical_estimator(
     emp_suff_stat: bool = True,
     use_bstats: bool = False,
 ) -> Any:
-    """Gets a categorical estimator.
+    """Create a categorical estimator from weighted observed values.
+
+    For ``dmx.stats``, empirical sufficient statistics are normalized from
+    ``vdict`` when requested. The ``dmx.bstats`` estimator is returned with
+    its defaults and does not consume ``pseudo_count`` or ``emp_suff_stat``.
 
     Args:
-        vdict (dict): A dictionary of values and their counts.
-        pseudo_count (Optional[float]): A pseudo-count to use for smoothing.
-        emp_suff_stat (bool): Whether to use empirical sufficient statistics.
-        use_bstats (bool): Whether to use the `dmx.bstats` module.
+        vdict: Mapping from category values to nonnegative observation weights.
+        pseudo_count: Smoothing mass for the ``dmx.stats`` estimator.
+        emp_suff_stat: Whether to initialize ``dmx.stats`` probabilities from
+            normalized observed weights.
+        use_bstats: Select the Bayesian ``dmx.bstats`` implementation.
 
     Returns:
-        CategoricalEstimator: An estimator for categorical data.
+        A categorical estimator from the selected package.
     """
     if not use_bstats:
         CategoricalEstimator = _get_class(
@@ -213,16 +262,19 @@ def get_poisson_estimator(
     emp_suff_stat: bool = True,
     use_bstats: bool = False,
 ) -> Any:
-    """Gets a Poisson estimator.
+    """Create a Poisson estimator from weighted observed values.
+
+    The empirical sufficient statistic is the weighted mean of finite keys.
+    Bayesian estimators are returned with their defaults.
 
     Args:
-        vdict (Dict[Any, float]): A dictionary of values and their counts.
-        pseudo_count (Optional[float]): A pseudo-count to use for smoothing.
-        emp_suff_stat (bool): Whether to use empirical sufficient statistics.
-        use_bstats (bool): Whether to use the `dmx.bstats` module.
+        vdict: Mapping from numeric values to observation weights.
+        pseudo_count: Smoothing mass for the ``dmx.stats`` estimator.
+        emp_suff_stat: Whether to initialize from the weighted finite values.
+        use_bstats: Select the Bayesian ``dmx.bstats`` implementation.
 
     Returns:
-        PoissonEstimator: An estimator for Poisson-distributed data.
+        A Poisson estimator from the selected package.
     """
     if use_bstats:
         PoissonEstimator = _get_class(
@@ -258,16 +310,19 @@ def get_gaussian_estimator(
     emp_suff_stat: bool = True,
     use_bstats: bool = False,
 ) -> Any:
-    """Gets a Gaussian estimator.
+    """Create a Gaussian estimator from weighted observed values.
+
+    The empirical sufficient statistics are the weighted mean and population
+    variance of finite keys. Bayesian estimators are returned with defaults.
 
     Args:
-        vdict (Dict[Any, float]): A dictionary of values and their counts.
-        pseudo_count (Optional[float]): A pseudo-count to use for smoothing.
-        emp_suff_stat (bool): Whether to use empirical sufficient statistics.
-        use_bstats (bool): Whether to use the `dmx.bstats` module.
+        vdict: Mapping from numeric values to observation weights.
+        pseudo_count: Smoothing mass for both Gaussian sufficient statistics.
+        emp_suff_stat: Whether to initialize from the weighted finite values.
+        use_bstats: Select the Bayesian ``dmx.bstats`` implementation.
 
     Returns:
-        GaussianEstimator: An estimator for Gaussian-distributed data.
+        A Gaussian estimator from the selected package.
     """
     if use_bstats:
         GaussianEstimator = _get_class(
@@ -305,33 +360,37 @@ def get_gaussian_estimator(
 
 
 class DatumNode:
-    """Represents a node for processing data.
+    """Summarize values at one position in nested observations.
+
+    Tuples, lists, and non-string iterables create positional child nodes.
+    Scalar values are counted by value and classified for automatic estimator
+    selection.
 
     Attributes:
-        children (Sequence[DatumNode]): List of child nodes.
-        parent (DatumNode): Parent node.
-        vdict (defaultdict): Dictionary of value counts.
-        count (int): Total count of data points.
-        none_count (int): Count of None values.
-        nan_count (int): Count of NaN values.
-        inf_count (int): Count of infinite values.
-        str_count (int): Count of string values.
-        float_count (int): Count of float values.
-        int_count (int): Count of integer values.
-        bool_count (int): Count of boolean values.
-        obj_count (int): Count of object values.
-        neg_count (int): Count of negative values.
-        zero_count (int): Count of zero values.
+        children: Positional summaries for nested values.
+        parent: Parent summary, or ``None`` at the root.
+        vdict: Counts of scalar values.
+        count: Total values added at this node.
+        none_count: Number of ``None`` values.
+        nan_count: Number of floating-point NaN values.
+        inf_count: Number of infinite values.
+        str_count: Number of string values.
+        float_count: Number of finite, non-integral floating-point values.
+        int_count: Number of integer-valued numeric values.
+        bool_count: Number of boolean values classified as such.
+        obj_count: Number of values not covered by another scalar category.
+        neg_count: Number of negative finite floating-point values.
+        zero_count: Number of floating-point zeros.
     """
 
     def __init__(
         self, parent: Optional["DatumNode"] = None, data: Optional[Sequence[Any]] = None
     ) -> None:
-        """Initializes a DatumNode.
+        """Initialize a node and optionally summarize data.
 
         Args:
-            parent (Optional[DatumNode]): Parent node.
-            data (Sequence[Any]): Data to add to the node.
+            parent: Parent node.
+            data: Optional initial observations.
         """
         self.children: List[DatumNode] = []
         self.parent = parent
@@ -351,19 +410,20 @@ class DatumNode:
             self.add_data(data)
 
     def add_data(self, x: Iterable[Any]) -> None:
-        """Adds multiple data points to the node.
+        """Add each value from an iterable to the summary.
 
         Args:
-            x (iterable): Data points to add.
+            x: Values to summarize.
         """
         for xx in x:
             self.add_datum(xx)
 
     def add_datum(self, x: Any) -> None:
-        """Adds a single data point to the node.
+        """Add one scalar or nested value to the summary.
 
         Args:
-            x: The data point to add.
+            x: Value to summarize. Non-string iterables are expanded into
+                positional child nodes.
         """
         self.count += 1
         if isinstance(x, (tuple, list)):
@@ -379,10 +439,10 @@ class DatumNode:
             self._analyze_type(x)
 
     def copy(self) -> "DatumNode":
-        """Creates a copy of the node.
+        """Copy the node's children and scalar value counts.
 
         Returns:
-            DatumNode: A copy of the current node.
+            A new node with recursively copied children and ``vdict``.
         """
         rv = DatumNode(self.parent)
         rv.children = [u.copy() for u in self.children]
@@ -390,15 +450,14 @@ class DatumNode:
         return rv
 
     def merge(self, x: "DatumNode") -> "DatumNode":
-        """Merges another node into this one.
+        """Merge another summary into this node in place.
 
         Args:
-            x (DatumNode): The node to merge.
+            x: Node whose counts and children are added.
 
         Returns:
-            DatumNode: The merged node.
+            This mutated node.
         """
-
         self.count += x.count
         self.none_count += x.none_count
         self.nan_count += x.nan_count
@@ -419,13 +478,12 @@ class DatumNode:
         return self
 
     def _analyze_type(self, x: Any, v: int = 1) -> None:
-        """Analyzes the type of a data point.
+        """Add a scalar value's type characteristics to the counters.
 
         Args:
-            x (Any): The data point to analyze.
-            v (int): The count to increment.
+            x: Scalar value to classify.
+            v: Amount by which matching counters are incremented.
         """
-
         if isinstance(x, (float, np.floating)):
             if math.isnan(x):
                 self.nan_count += v
@@ -455,15 +513,22 @@ class DatumNode:
         emp_suff_stat: bool = True,
         use_bstats: bool = False,
     ) -> Any:
-        """Gets an estimator based on the node's data.
+        """Infer an estimator from the summarized observation structure.
+
+        Scalar strings and nonnegative integers become categorical fields;
+        non-integral floats become Gaussian fields. Fixed-width nested values
+        become composites, variable-width values become sequences, unsupported
+        values are ignored, and observed ``None`` or NaN values add optional
+        wrappers.
 
         Args:
-            pseudo_count (float): A pseudo-count to use for smoothing.
-            emp_suff_stat (bool): Whether to use empirical sufficient statistics.
-            use_bstats (bool): Whether to use the `dmx.bstats` module.
+            pseudo_count: Smoothing mass for inferred ``dmx.stats`` estimators.
+            emp_suff_stat: Whether to initialize supported estimators from
+                empirical counts.
+            use_bstats: Select Bayesian estimators from ``dmx.bstats``.
 
         Returns:
-            Estimator: An appropriate estimator for the node's data.
+            An estimator matching the inferred scalar or nested structure.
         """
         rv = get_ignored_estimator(use_bstats)
 
@@ -526,13 +591,13 @@ class DatumNode:
         return rv
 
     def _get_child_node(self, idx: int) -> "DatumNode":
-        """Gets the child node at a specific index.
+        """Return a positional child, creating missing children as needed.
 
         Args:
-            idx (int): The index of the child node.
+            idx: Zero-based child index.
 
         Returns:
-            DatumNode: The child node.
+            The child node at ``idx``.
         """
         while len(self.children) <= idx:
             self.children.append(DatumNode(self))
@@ -545,16 +610,17 @@ def get_estimator(
     emp_suff_stat: bool = True,
     use_bstats: bool = True,
 ) -> Any:
-    """Gets an estimator for the given data.
+    """Infer an estimator from a sequence of heterogeneous observations.
 
     Args:
-        data (Sequence[Any]): The data to estimate.
-        pseudo_count (float): A pseudo-count to use for smoothing.
-        emp_suff_stat (bool): Whether to use empirical sufficient statistics.
-        use_bstats (bool): Whether to use the `dmx.bstats` module.
+        data: Observations whose scalar or nested structure is inspected.
+        pseudo_count: Smoothing mass for inferred ``dmx.stats`` estimators.
+        emp_suff_stat: Whether to initialize supported estimators from
+            empirical counts.
+        use_bstats: Select Bayesian estimators from ``dmx.bstats``.
 
     Returns:
-        Estimator: An appropriate estimator for the data.
+        An estimator matching the inferred data structure.
     """
     return DatumNode(data=data).get_estimator(pseudo_count, emp_suff_stat, use_bstats)
 
@@ -570,19 +636,31 @@ def get_dpm_mixture(
     print_iter: int = 100,
     mix_threshold_count: float = 0.5,
 ) -> BstatsMixtureDistribution:
-    """Gets a Dirichlet Process Mixture model for the data.
+    """Fit and prune a finite Dirichlet-process mixture model.
+
+    The Bayesian optimizer initializes and updates at most ``max_comp``
+    copies of the component estimator. Components whose fitted weight is less
+    than ``mix_threshold_count / len(data)`` are removed. The optimizer and
+    this function write progress and retained weights to standard output.
 
     Args:
-        data (Sequence[Any]): The data to model.
-        estimator (Optional[ParameterEstimator]): The base estimator to use.
-        max_comp (int): Maximum number of components in the mixture.
-        rng (Optinal[numpy.random.RandomState]): Random number generator.
-        max_its (int): Maximum number of iterations for optimization.
-        print_iter (int): Frequency of printing iteration progress.
-        mix_threshold_count (float): Threshold for component weights.
+        data: Nonempty observations to model.
+        estimator: Component estimator. When absent, one is inferred from
+            ``data``.
+        max_comp: Maximum number of components used during fitting.
+        rng: Random state used by mixture initialization. When absent, the
+            Bayesian optimizer supplies its default random state.
+        max_its: Maximum number of optimizer iterations.
+        print_iter: Interval for optimizer progress output.
+        mix_threshold_count: Effective-count threshold for retaining a
+            component.
 
     Returns:
-        MixtureDistribution: A mixture distribution model.
+        A Bayesian mixture containing the retained components and their
+        weights.
+
+    Raises:
+        ZeroDivisionError: If ``data`` is empty.
     """
     if estimator is None:
         est = get_estimator(data, use_bstats=True)

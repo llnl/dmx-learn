@@ -1,6 +1,18 @@
-"""Initialization module for the stats package.
+"""NumPy/SciPy probability models and classical estimation interfaces.
 
-This module initializes the stats subpackage.
+This is the primary non-Bayesian backend for local or PySpark-based density
+estimation. The package root re-exports its supported distributions and
+estimators together with helpers for encoding observations, initialization,
+likelihood evaluation, and parameter estimation. Lower-level protocols,
+samplers, accumulators, and non-re-exported models remain available from their
+defining ``dmx.stats`` submodules.
+
+Models in this package use NumPy-oriented encoded data and should be paired
+with :mod:`dmx.utils` for local workflow helpers or :mod:`dmx.mpi4py.stats` for
+MPI collectives. Use :mod:`dmx.bstats` for prior-aware Bayesian and variational
+models, or :mod:`dmx.torch_stats` for tensor-backed execution. Although the
+backends share terminology, their distributions, estimators, and encodings are
+separate protocols rather than interchangeable implementations.
 """
 
 __all__ = [
@@ -520,9 +532,7 @@ def seq_log_density_sum(
     enc_data: Union[List[Tuple[int, EncodedDataSequence]], RDD],
     estimate: SequenceEncodableProbabilityDistribution,  # pylint: disable=redefined-outer-name
 ) -> Tuple[float, float]:
-    """Vectorized evaluation of the sum of log_density values for a given
-    SequenceEncodableProbabilityDistribution
-        over encoded data.
+    """Evaluate and sum vectorized log densities over encoded data.
 
     Notes:
         Returns a Tuple containing the sum of all observations in enc_data, and the sum
@@ -721,9 +731,7 @@ def seq_initialize(
     rng: np.random.RandomState,
     p: float = 0.1,
 ) -> "SequenceEncodableProbabilityDistribution":
-    """Vectorized initialization of a model corresponding to ParameterEstimator for
-    encoded sequences of iid data
-        observations.
+    """Initialize a model from encoded independent observations.
 
     Notes:
         Arg enc_data must type consistent with estimator (result of seq_encode() call).

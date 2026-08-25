@@ -44,7 +44,12 @@ def _matches(left: Any, right: Any) -> bool:
 
 
 class DiracDistribution(ProbabilityDistribution[Any, Any, DiracEncoded]):
-    """Point mass supported only at one fixed value."""
+    """Represent a point mass supported at one fixed value.
+
+    Equality is scalar equality for ordinary objects and exact element-wise
+    equality for NumPy arrays. Attached prior objects are metadata only;
+    scoring and estimation always retain the fixed support point.
+    """
 
     def __init__(self, value: Any) -> None:
         """Initialize the fixed support point."""
@@ -93,7 +98,7 @@ class DiracDistribution(ProbabilityDistribution[Any, Any, DiracEncoded]):
         return self.seq_log_density(x)
 
     def seq_encode(self, x: Iterable[Any]) -> DiracEncoded:
-        """Encode observations as an object array."""
+        """Encode observations in an object array along its leading axis."""
         return np.asarray(tuple(x), dtype=object)
 
     def sampler(self, seed: Optional[int] = None) -> "DiracSampler":

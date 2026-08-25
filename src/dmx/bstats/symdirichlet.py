@@ -23,10 +23,24 @@ Array = np.ndarray[Any, np.dtype[np.float64]]
 class SymmetricDirichletDistribution(
     SequenceEncodableDistribution[Sequence[float], float, Sequence[Sequence[float]]]
 ):
-    """Dirichlet prior with one concentration shared by every coordinate."""
+    """Represent a symmetric prior or posterior over probability vectors.
+
+    ``alpha`` is repeated across every simplex coordinate. The support is the
+    interior of the simplex; ``ndim`` fixes its dimension when supplied and is
+    otherwise inferred only for density evaluation.
+    """
 
     def __init__(self, alpha: float, ndim: Optional[int] = None) -> None:
-        """Initialize a symmetric concentration and optional dimension."""
+        """Initialize a symmetric concentration and optional dimension.
+
+        Args:
+            alpha: Positive concentration shared by all coordinates.
+            ndim: Optional positive simplex dimension.
+
+        Raises:
+            ValueError: If ``alpha`` is non-finite or nonpositive, or ``ndim``
+                is nonpositive.
+        """
         super().__init__()
         self.ndim = ndim
         self.set_parameters(alpha)
@@ -44,19 +58,37 @@ class SymmetricDirichletDistribution(
         return self.alpha
 
     def set_parameters(self, value: float) -> None:
-        """Replace the shared concentration."""
+        """Replace the shared concentration.
+
+        Args:
+            value: Positive finite concentration.
+
+        Raises:
+            ValueError: If ``value`` is non-finite or nonpositive.
+        """
         if not np.isfinite(value) or value <= 0:
             raise ValueError("Dirichlet concentrations must be finite and positive.")
         self.alpha = float(value)
 
     def dimension(self) -> int:
-        """Return the dimension required by non-scoring operations."""
+        """Return the dimension required by non-scoring operations.
+
+        Raises:
+            ValueError: If no explicit dimension was configured.
+        """
         if self.ndim is None:
             raise ValueError("This operation requires an explicit dimension.")
         return self.ndim
 
     def log_density(self, x: Sequence[float]) -> float:
-        """Evaluate the log-density, inferring dimension from ``x``."""
+        """Evaluate the log-density, inferring dimension from ``x``.
+
+        Args:
+            x: Finite, strictly positive probability vector summing to one.
+
+        Returns:
+            Log-density, or ``-inf`` outside the configured simplex support.
+        """
         observation = np.asarray(x, dtype=np.float64)
         if observation.ndim != 1 or observation.size == 0:
             return float(-np.inf)
@@ -73,7 +105,11 @@ class SymmetricDirichletDistribution(
         return float((self.alpha - 1.0) * np.log(observation).sum() - log_const)
 
     def entropy(self) -> float:
-        """Return differential entropy for the explicit dimension."""
+        """Return differential entropy for the explicit dimension.
+
+        Raises:
+            ValueError: If no explicit dimension was configured.
+        """
         dimension = self.dimension()
         alpha_sum = dimension * self.alpha
         log_beta = dimension * gammaln(self.alpha) - gammaln(alpha_sum)
@@ -84,7 +120,19 @@ class SymmetricDirichletDistribution(
         )
 
     def cross_entropy(self, dist: Any) -> float:
-        """Return ``-E_self[log(dist)]`` for a compatible symmetric prior."""
+        """Return ``-E_self[log(dist)]`` for a compatible symmetric prior.
+
+        Args:
+            dist: Distribution whose log-density is averaged.
+
+        Returns:
+            Analytic cross-entropy from this distribution to ``dist``.
+
+        Raises:
+            ValueError: If this distribution has no explicit dimension or the
+                configured dimensions differ.
+            NotImplementedError: If ``dist`` is not symmetric Dirichlet.
+        """
         if not isinstance(dist, SymmetricDirichletDistribution):
             return super().cross_entropy(dist)
         dimension = self.dimension()
@@ -98,7 +146,17 @@ class SymmetricDirichletDistribution(
         )
 
     def sampler(self, seed: Optional[int] = None) -> "SymmetricDirichletSampler":
-        """Create a sampler, requiring an explicit dimension."""
+        """Create a sampler, requiring an explicit dimension.
+
+        Args:
+            seed: Optional deterministic random seed.
+
+        Returns:
+            Sampler for this fixed-dimensional distribution.
+
+        Raises:
+            ValueError: If no explicit dimension was configured.
+        """
         self.dimension()
         return SymmetricDirichletSampler(self, seed)
 

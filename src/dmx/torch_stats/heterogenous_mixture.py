@@ -1,28 +1,14 @@
-"""
-Create, estimate, and sample from a heterogeneous mixture distribution.
+"""Provide torch-backed finite mixtures with heterogeneous components.
 
-Defines the HeterogeneousMixtureDistribution, HeterogeneousMixtureSampler,
-HeterogeneousMixtureAccumulatorFactory,
-HeterogeneousMixtureAccumulator, HeterogeneousMixtureEstimator, and the
-HeterogeneousMixtureDataEncoder classes for use
-with pysparkplug.
-
-HeterogeneousMixtureDistribution with data type T, is defined by the density of the
-form,
-
-p_mat(Y) = sum_{k=1}^{K} p_mat(Y|Z=k)*p_mat(Z=k),
-
-where p_mat(Z=k) is a mixture weight, and p_mat(Y|Z=k) is defined as a the k^{th}
-component distribution. Note that
-the component distributions p_mat(Y|Z=k) must only be compatible in data type T.
-
-Example: A heterogeneous mixture with weights [0.5, 0.5] and component distribution
-Exponential(beta) and Gamma(k,theta),
-has form
-    p_mat(x_mat) = 0.5*P_0(x; beta) + 0.5*P_1(x; k, theta), for x > 0.0,
-where
-    P_0(x;beta) is an exponential density and P_1(x; k, theta) is a Gamma density.
-
+A latent component ``Z`` is drawn from ``K`` weights and the observation is
+drawn from ``components[Z]``. Components accept the same raw observation type
+but may require different encoders. Equivalent encoders are grouped so each
+distinct representation is computed once. Component scores and posterior
+responsibilities have shape ``(N, K)`` and marginal scores have shape ``(N,)``.
+Parameters and children move with ``to``; floating tensors use the vector-helper
+dtype, normally float64 and float32 on MPS. Sampling and accumulated counts use
+CPU NumPy arrays. The filename spelling is preserved; terminology follows
+``dmx.stats.heterogeneous_mixture``.
 """
 
 # pylint: disable=too-many-positional-arguments,duplicate-code
@@ -56,18 +42,7 @@ def _sample_dirichlet_like(alpha: tn.Tensor, size: int, tng: tn.Generator) -> tn
 
 
 class HeterogeneousMixtureDistribution(TorchProbabilityDistribution):
-    """
-    HeterogeneousMixtureDistribution object for defining a mixture with heterogeneous
-    components.
-
-        Attributes:
-            w (tn.Tensor): Weights for the mixture.
-            zw (tn.Tensor): Boolean tensor, true if a weight is 0.
-            log_w (tn.Tensor): Log of the mixture weights.
-            components (Sequence[TorchProbabilityDistribution]): Mixture components.
-            num_components (int): Number of mixture components.
-
-    """
+    """Represent a finite mixture whose components use distinct encodings."""
 
     def __init__(
         self,
@@ -75,17 +50,7 @@ class HeterogeneousMixtureDistribution(TorchProbabilityDistribution):
         w: Union[np.ndarray, List[float], tn.Tensor],
         device: Optional[tn.device] = None,
     ) -> None:
-        """
-        HeterogeneousMixtureDistribution object.
-
-                Args:
-                    components (Sequence[TorchProbabilityDistribution]):
-                    Mixture components.
-                    w (tn.Tensor): Weights for the mixture.
-                    device (Optional[tn.device]): Device to declare model on.
-
-        """
-
+        """Initialize ``K`` components and their mixture-weight tensor."""
         super().__init__(device)
 
         self.w = vec.tensor(w, device=self._device)
@@ -96,6 +61,7 @@ class HeterogeneousMixtureDistribution(TorchProbabilityDistribution):
         self.num_components = len(components)
 
     def to(self, device: vec.DeviceLike) -> "HeterogeneousMixtureDistribution":
+        """Move weights and every component model to ``device`` in place."""
         target_device = self._resolve_device_arg(device)
         self._device = target_device
         self.w = self.w.to(target_device)
@@ -108,37 +74,18 @@ class HeterogeneousMixtureDistribution(TorchProbabilityDistribution):
         return self
 
     def __repr__(self) -> str:
+        """Return a constructor-like representation using CPU weights."""
         s1 = ",".join([str(u) for u in self.components])
         s2 = repr(self.w.data.cpu().tolist())
 
         return f"HeterogeneousMixtureDistribution([{s1}], {s2})"
 
     def density(self, x: T) -> float:
-        """
-        Evaluate density of Heterogeneous Mixture distribution at observation x.
-
-                Args:
-                    x: (T): Single observation from mixture distribution. T is
-                    data type of components.
-
-                Returns:
-                    float: Density at x.
-
-        """
+        """Evaluate the marginal density of one observation."""
         return float(np.exp(self.log_density(x)))
 
     def log_density(self, x: T) -> float:
-        """
-        Evaluate log-density of heterogeneous mixture distribution at observation x.
-
-                Args:
-                    x: (T): Single observation from heterogeneous mixture
-                    distribution. T is data type of components.
-
-                Returns:
-                    float: Log-density at x.
-
-        """
+        """Marginalize the latent component with a torch log-sum-exp."""
         rv = tn.logsumexp(
             vec.tensor([u.log_density(x) for u in self.components], device=self._device)
             + self.log_w,
@@ -147,12 +94,13 @@ class HeterogeneousMixtureDistribution(TorchProbabilityDistribution):
         return float(rv)
 
     def component_log_density(self, x: T) -> tn.Tensor:
+        """Return ``K`` unweighted component log densities for one observation."""
         return vec.tensor(
             [m.log_density(x) for m in self.components], device=self._device
         )
 
     def posterior(self, x: T) -> tn.Tensor:
-
+        """Return length-``K`` posterior component responsibilities."""
         comp_log_density = vec.tensor(
             [m.log_density(x) for m in self.components], device=self._device
         )
@@ -169,18 +117,7 @@ class HeterogeneousMixtureDistribution(TorchProbabilityDistribution):
     def seq_component_log_density(
         self, x: "HeterogeneousMixtureTorchSequence"
     ) -> tn.Tensor:
-        """
-        Vectorized evaluation of component-wise log-density for encoded sequence x.
-
-                Args:
-                    x (HeterogeneousMixtureTorchSequence): TorchEncodedSequence for
-                    HeterogeneousMixture.
-
-                Returns:
-                    tn.Tensor: log-density of mixture components evaluated at
-                    each observation.
-
-        """
+        """Return unweighted component log densities with shape ``(N, K)``."""
         if not isinstance(x, HeterogeneousMixtureTorchSequence):
             raise TypeError(
                 "Requires HeterogeneousMixtureTorchSequence for `seq_` function calls."
@@ -207,6 +144,7 @@ class HeterogeneousMixtureDistribution(TorchProbabilityDistribution):
         return ll_mat
 
     def seq_log_density(self, x: "HeterogeneousMixtureTorchSequence") -> tn.Tensor:
+        """Return marginal mixture log densities with shape ``(N,)``."""
         if not isinstance(x, HeterogeneousMixtureTorchSequence):
             raise TypeError(
                 "Requires HeterogeneousMixtureTorchSequence for `seq_` function calls."
@@ -260,19 +198,7 @@ class HeterogeneousMixtureDistribution(TorchProbabilityDistribution):
         return rv
 
     def seq_posterior(self, x: "HeterogeneousMixtureTorchSequence") -> tn.Tensor:
-        """
-        Vectorized evaluation of posterior of
-        HeterogeneousMixtureDistribution for encoded sequence x.
-
-                Args:
-                    x (HeterogeneousMixtureTorchSequence): TorchEncodedSequence for
-                    HeterogeneousMixture.
-
-                Returns:
-                    tn.Tensor: Tensor containing the posterior of each
-                    observation in encoded sequence.
-
-        """
+        """Return posterior responsibilities with shape ``(N, K)``."""
         if not isinstance(x, HeterogeneousMixtureTorchSequence):
             raise TypeError(
                 "Requires HeterogeneousMixtureTorchSequence for `seq_` function calls."
@@ -312,12 +238,13 @@ class HeterogeneousMixtureDistribution(TorchProbabilityDistribution):
         return ll_mat
 
     def sampler(self, seed: Optional[int] = None) -> "HeterogeneousMixtureSampler":
-
+        """Create a sampler for latent components and their observations."""
         return HeterogeneousMixtureSampler(self, seed)
 
     def estimator(
         self, pseudo_count: Optional[float] = None
     ) -> "HeterogeneousMixtureEstimator":
+        """Create component estimators and optional weight smoothing."""
         if pseudo_count is not None:
             return HeterogeneousMixtureEstimator(
                 [
@@ -329,37 +256,19 @@ class HeterogeneousMixtureDistribution(TorchProbabilityDistribution):
         return HeterogeneousMixtureEstimator([u.estimator() for u in self.components])
 
     def dist_to_encoder(self) -> "HeterogeneousMixtureDataEncoder":
+        """Create an encoder that groups equivalent component encoders."""
         encoders = [comp.dist_to_encoder() for comp in self.components]
 
         return HeterogeneousMixtureDataEncoder(encoders=encoders)
 
 
 class HeterogeneousMixtureSampler(DistributionSampler):
-    """
-    HeterogeneousMixtureSampler used to generate samples from instance of
-    HeterogeneousMixtureDistribution.
-
-        Attributes:
-            rng (RandomState): Seeded RandomState for sampling.
-            w (np.ndarray): Weights for the mixture components.
-            ncomps (int): Number of mixture components.
-            comp_samplers (List[DistributionSamplers]): List of
-            DistributionSampler objects for each mixture component.
-
-    """
+    """Draw a latent component and then an observation from that component."""
 
     def __init__(
         self, dist: HeterogeneousMixtureDistribution, seed: Optional[int] = None
     ):
-        """
-        HeterogeneousMixtureSampler object.
-
-                Args:
-                    dist (HeterogeneousMixtureDistribution): Assign
-                    HeterogeneousMixtureDistribution to draw samples from.
-                    seed (Optional[int]): Seed to set for sampling with RandomState.
-
-        """
+        """Initialize CPU component selection and independently seeded samplers."""
         rng_loc = np.random.RandomState(seed)
         self.rng = np.random.RandomState(rng_loc.randint(0, maxrandint))
         self.w = dist.w.data.cpu().numpy()
@@ -369,24 +278,7 @@ class HeterogeneousMixtureSampler(DistributionSampler):
         ]
 
     def sample(self, size: Optional[int] = None) -> Union[Any, List[Any]]:
-        """
-        Draw iid samples from a heterogeneous mixture distribution.
-
-                The data type drawn from 'comp_samplers' is type T,
-                corresponding to the data type of the mixture components.
-
-                If size is None, a single sample (of data type T) is drawn
-                and returned. If size is not None, 'size'-iid
-                heterogeneous mixture samples are drawn and returned as a
-                List with data type List[T].
-
-                Args:
-                    size (Optional[int]): Number of iid samples to draw.
-
-                Returns:
-                    Data type T or List[T].
-
-        """
+        """Draw one observation or a list of ``size`` observations."""
         comp_state = self.rng.choice(
             range(0, self.ncomps), size=size, replace=True, p=self.w
         )
@@ -397,6 +289,7 @@ class HeterogeneousMixtureSampler(DistributionSampler):
 
 
 class HeterogeneousMixtureAccumulator(TorchStatisticAccumulator):
+    """Accumulate component counts and responsibility-weighted child statistics."""
 
     def __init__(
         self,
@@ -404,6 +297,7 @@ class HeterogeneousMixtureAccumulator(TorchStatisticAccumulator):
         keys: Tuple[Optional[str], Optional[str]] = (None, None),
         device: Optional[tn.device] = None,
     ):
+        """Initialize ``K`` child accumulators and CPU component counts."""
         super().__init__()
         self._device = tn.device("cpu") if device is None else device
         self.accumulators = accumulators
@@ -419,6 +313,7 @@ class HeterogeneousMixtureAccumulator(TorchStatisticAccumulator):
         weights: tn.Tensor,
         estimate: "HeterogeneousMixtureDistribution",
     ) -> None:
+        """Update children using an ``(N, K)`` responsibility matrix."""
         tag_list, enc_data = x.data
         ll_mat: Optional[tn.Tensor] = None
         device = tn.device(self._device)
@@ -468,6 +363,7 @@ class HeterogeneousMixtureAccumulator(TorchStatisticAccumulator):
         weights: tn.Tensor,
         tng: tn.Generator,
     ) -> None:
+        """Randomly split ``(N,)`` weights across components with Dirichlet draws."""
         tag_list, enc_data = x.data
         device = tn.device(self._device)
 
@@ -494,6 +390,7 @@ class HeterogeneousMixtureAccumulator(TorchStatisticAccumulator):
     def combine(
         self, suff_stat: Tuple[np.ndarray, Tuple[Any, ...]]
     ) -> "HeterogeneousMixtureAccumulator":
+        """Merge component counts and the length-``K`` child-statistic tuple."""
         self.comp_counts += suff_stat[0]
         for i in range(self.num_components):
             self.accumulators[i].combine(suff_stat[1][i])
@@ -501,11 +398,13 @@ class HeterogeneousMixtureAccumulator(TorchStatisticAccumulator):
         return self
 
     def value(self) -> Tuple[np.ndarray, Tuple[Any, ...]]:
+        """Return CPU component counts and child sufficient statistics."""
         return self.comp_counts, tuple(u.value() for u in self.accumulators)
 
     def from_value(
         self, x: Tuple[np.ndarray, Tuple[Any, ...]]
     ) -> "HeterogeneousMixtureAccumulator":
+        """Replace component counts and child sufficient statistics."""
         self.comp_counts = x[0]
         for i in range(self.num_components):
             self.accumulators[i].from_value(x[1][i])
@@ -513,6 +412,7 @@ class HeterogeneousMixtureAccumulator(TorchStatisticAccumulator):
         return self
 
     def key_merge(self, stats_dict: Dict[str, Any]) -> None:
+        """Merge weight, component-list, and recursive child keys."""
         if self.weight_key is not None:
             if self.weight_key in stats_dict:
                 stats_dict[self.weight_key] += self.comp_counts
@@ -531,6 +431,7 @@ class HeterogeneousMixtureAccumulator(TorchStatisticAccumulator):
             u.key_merge(stats_dict)
 
     def key_replace(self, stats_dict: Dict[str, Any]) -> None:
+        """Replace weight, component-list, and recursive child keys."""
         if self.weight_key is not None:
             if self.weight_key in stats_dict:
                 self.comp_counts = stats_dict[self.weight_key]
@@ -544,44 +445,28 @@ class HeterogeneousMixtureAccumulator(TorchStatisticAccumulator):
             u.key_replace(stats_dict)
 
     def acc_to_encoder(self) -> "HeterogeneousMixtureDataEncoder":
+        """Create grouped encoders from all component accumulators."""
         encoders = [comp.acc_to_encoder() for comp in self.accumulators]
 
         return HeterogeneousMixtureDataEncoder(encoders=encoders)
 
 
 class HeterogeneousMixtureAccumulatorFactory(TorchStatisticAccumulatorFactory):
-    """
-    HeterogeneousMixtureAccumulatorFactory object for creating
-    HeterogeneousMixtureAccumulator objects.
-
-        Attributes:
-            factories (Sequence[TorchStatisticAccumulatorFactory]): Factories for the
-            mixture components.
-            keys (Tuple[Optional[str], Optional[str]]): Keys for weights and components.
-
-    """
+    """Create heterogeneous mixture accumulators from component factories."""
 
     def __init__(
         self,
         factories: Sequence[TorchStatisticAccumulatorFactory],
         keys: Tuple[Optional[str], Optional[str]] = (None, None),
     ):
-        """
-        HeterogeneousMixtureAccumulatorFactory object.
-
-                Args:
-                    factories (Sequence[TorchStatisticAccumulatorFactory]):
-                    Factories for the mixture components.
-                    keys (Tuple[Optional[str], Optional[str]]): Keys for
-                    weights and components.
-
-        """
+        """Initialize component factories and weight/component merge keys."""
         self.factories = factories
         self.keys = keys
 
     def make(
         self, device: Optional[tn.device] = None
     ) -> "HeterogeneousMixtureAccumulator":
+        """Create component accumulators on ``device`` when supplied."""
         if device is not None:
             factories = [factory.make(device=device) for factory in self.factories]
             return HeterogeneousMixtureAccumulator(
@@ -593,23 +478,7 @@ class HeterogeneousMixtureAccumulatorFactory(TorchStatisticAccumulatorFactory):
 
 
 class HeterogeneousMixtureEstimator(TorchParameterEstimator):
-    """
-    HeterogeneousMixtureEstimator object used to estimate
-    HeterogeneousMixtureDistribution from aggregated sufficient statistics.
-
-        Attributes:
-            estimators (Sequence[TorchParameterEstimator]): Sequence of
-            TorchParameterEstimator objects for the mixture
-                components.
-            fixed_weights (Optional[np.ndarray]): Treat mixture weights as fixed values.
-            Must sum to 1.0.
-            suff_stat (Optional[np.ndarray]): Weights of the mixture. Must sum to 1.0.
-            pseudo_count (Optional[float]): Used to re-weight the member
-            variable sufficient statistics in estimation.
-            keys (Tuple[Optional[str], Optional[str]]): Keys for the weights
-            and component distributions.
-
-    """
+    """Estimate heterogeneous component models and categorical weights."""
 
     def __init__(
         self,
@@ -619,22 +488,14 @@ class HeterogeneousMixtureEstimator(TorchParameterEstimator):
         pseudo_count: Optional[float] = None,
         keys: Tuple[Optional[str], Optional[str]] = (None, None),
     ) -> None:
-        """
-        HeterogeneousMixtureEstimator object.
+        """Initialize component estimators and weight-estimation controls.
 
-                Args:
-                    estimators (Sequence[TorchParameterEstimator]): Sequence of
-                    TorchParameterEstimator objects for the mixture
-                        components.
-                    fixed_weights (Optional[Union[List[float], np.ndarray]]):
-                    Set fixed values for mixture weights.
-                    suff_stat (Optional[np.ndarray]): Numpy array of floats
-                    with length equal to length of estimators.
-                    pseudo_count (Optional[float]): Used to re-weight the
-                    member variable sufficient statistics in estimation.
-                    keys (Tuple[Optional[str], Optional[str]]): Set keys for
-                    the weights and component distributions.
-
+        Args:
+            estimators: One estimator for each latent component.
+            fixed_weights: Optional fixed length-``K`` weight vector.
+            suff_stat: Optional length-``K`` prior proportions.
+            pseudo_count: Strength of uniform or supplied weight smoothing.
+            keys: Separate keys for weights and the component accumulator list.
         """
         self.num_components = len(estimators)
         self.estimators = estimators
@@ -647,6 +508,7 @@ class HeterogeneousMixtureEstimator(TorchParameterEstimator):
         )
 
     def accumulator_factory(self) -> "HeterogeneousMixtureAccumulatorFactory":
+        """Create a factory from the component estimator factories."""
         est_factories = [u.accumulator_factory() for u in self.estimators]
         return HeterogeneousMixtureAccumulatorFactory(est_factories, keys=self.keys)
 
@@ -656,7 +518,7 @@ class HeterogeneousMixtureEstimator(TorchParameterEstimator):
         suff_stat: Tuple[np.ndarray, Tuple[Any, ...]],
         device: Optional[tn.device] = None,
     ) -> "HeterogeneousMixtureDistribution":
-
+        """Estimate components from responsibilities and normalize weights."""
         num_components = self.num_components
         counts, comp_suff_stats = suff_stat
 
@@ -690,29 +552,14 @@ class HeterogeneousMixtureEstimator(TorchParameterEstimator):
 
 
 class HeterogeneousMixtureDataEncoder(TorchSequenceEncoder):
-    """
-    HeterogeneousMixtureDataEncoder used for sequence encoding data for use
-    with vectorized 'seq_' functions.
+    """Encode observations once per distinct component encoder.
 
-        Attributes:
-            encoder_dict (Dict[DataSequenceEncoder, List[int]]): Dictionary of distinct
-            DataSequenceEncoder objects
-                found in encoders list. Value of encoder_dict is a list of ids for the
-                components that are encoded by
-                'encoder_dict key.
-
+    Encoders are grouped by their string representation. Each group stores
+    the component indices that consume its encoded sequence.
     """
 
     def __init__(self, encoders: List[TorchSequenceEncoder]) -> None:
-        """
-        HeterogeneousMixtureDataEncoder object.
-
-                Args:
-                    encoders (List[DataSequenceEncoder]): List of
-                    DataSequenceEncoder objects for each heterogeneous mixture
-                        component.
-
-        """
+        """Initialize one encoder per component and group equivalent encoders."""
         encoder_dict: Dict[str, TorchSequenceEncoder] = {}
         idx_dict: Dict[str, List[int]] = {}
 
@@ -727,6 +574,7 @@ class HeterogeneousMixtureDataEncoder(TorchSequenceEncoder):
         self.idx_dict: Dict[str, List[int]] = idx_dict
 
     def __str__(self) -> str:
+        """Return grouped encoder representations and component indices."""
         s = "HeterogeneousMixtureDataEncoder(["
         item_list = list(self.idx_dict.items())
         for enc_str, comp_list in item_list[:-1]:
@@ -737,6 +585,7 @@ class HeterogeneousMixtureDataEncoder(TorchSequenceEncoder):
         return s
 
     def __eq__(self, other: object) -> bool:
+        """Return whether encoder groups map to the same components."""
         if not isinstance(other, HeterogeneousMixtureDataEncoder):
             return False
         for encoder, comp_list in self.encoder_dict.items():
@@ -747,6 +596,12 @@ class HeterogeneousMixtureDataEncoder(TorchSequenceEncoder):
     def seq_encode(
         self, x: Sequence[T], device: Optional[tn.device] = None
     ) -> "HeterogeneousMixtureTorchSequence":
+        """Encode ``N`` observations once for each distinct encoder group.
+
+        The result is ``(component_groups, encoded_groups)``. Each component
+        group is a CPU NumPy index array, and each matching child encoding
+        represents all ``N`` observations on ``device``.
+        """
         enc_data = []
         tag_list = []
 
@@ -760,14 +615,16 @@ class HeterogeneousMixtureDataEncoder(TorchSequenceEncoder):
 
 
 class HeterogeneousMixtureTorchSequence(TorchEncodedSequence):
+    """Store component-index groups and their full observation encodings."""
 
     def __init__(
         self,
         data: Tuple[List[np.ndarray], List[TorchEncodedSequence]],
         device: Optional[tn.device] = None,
     ):
+        """Initialize grouped component encodings and associated device."""
         super().__init__(data=data, device=device)
 
     def __str__(self) -> str:
-
+        """Return a representation containing the encoded device."""
         return f"HeterogeneousMixtureTorchSequence(device={repr(self.device)})"

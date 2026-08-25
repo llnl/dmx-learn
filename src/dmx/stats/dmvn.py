@@ -1,11 +1,4 @@
-r"""Create, estimate, and sample from a diagonal Gaussian distribution
-(independent-multivariate Gaussian).
-
-Defines the DiagonalGaussianDistribution, DiagonalGaussianSampler,
-DiagonalGaussianAccumulatorFactory,
-DiagonalGaussianAccumulator, DiagonalGaussianEstimator, and the
-DiagonalGaussianDataEncoder classes for use with
-dmx-learn.
+r"""Diagonal Gaussian distributions, estimation, and sequence encoding.
 
 The log-density of an ``n``-dimensional diagonal Gaussian observation :math:`x = (x_1,
 x_2, ..., x_n)` with mean
@@ -17,7 +10,8 @@ x_2, ..., x_n)` with mean
     \log p(x) = -0.5 \sum_{i=1}^n \frac{(x_i - m_i)^2}{s^2_i} - 0.5 \log(s^2_i) -
     \frac{n}{2} \log(2\pi)
 
-Data type: ``x`` (List[float], np.ndarray).
+Scalar methods accept one vector with shape ``(D,)``. Sequence methods consume
+the ``(N, D)`` matrix produced by ``DiagonalGaussianDataEncoder``.
 """
 
 from typing import Any, Dict, List, Optional, Sequence, Tuple, Union
@@ -38,8 +32,11 @@ from dmx.stats.pdist import (
 
 
 class DiagonalGaussianDistribution(SequenceEncodableProbabilityDistribution):
-    """Diagonal Gaussian distribution with mean ``mu`` and diagonal covariance
-    ``covar``.
+    """Represent a multivariate Gaussian with diagonal covariance.
+
+    The support is ``R^D``. ``mu`` and ``covar`` are length-``D`` vectors, and
+    ``covar[i]`` is the positive variance of coordinate ``i``; it is not a
+    standard deviation or a full covariance matrix.
 
     Attributes:
         dim (int): Dimension of the multivariate Gaussian.
@@ -63,11 +60,10 @@ class DiagonalGaussianDistribution(SequenceEncodableProbabilityDistribution):
         """Initialize a DiagonalGaussianDistribution object.
 
         Args:
-            mu (Union[Sequence[float], np.ndarray]): Mean of Gaussian distribution.
-            covar (Union[Sequence[float], np.ndarray]): Variance of each component.
-            name (Optional[str], optional): Name for object instance.
-            keys (Tuple[Optional[str], Optional[str]], optional): Key for mean and
-                covariance.
+            mu: Mean vector with shape ``(D,)``.
+            covar: Diagonal variance vector with shape ``(D,)``.
+            name: Optional name for the distribution.
+            keys: Optional keys for tying mean and variance statistics separately.
         """
         super().__init__()
         self.dim = len(mu)
@@ -94,10 +90,10 @@ class DiagonalGaussianDistribution(SequenceEncodableProbabilityDistribution):
         """Evaluate the density of the DiagonalGaussianDistribution.
 
         Args:
-            x (Union[Sequence[float], np.ndarray]): Observation from Diagonal Gaussian.
+            x: One observation with shape ``(D,)``.
 
         Returns:
-            float: Density at x.
+            Probability density at ``x``.
         """
         return float(np.exp(self.log_density(x)))
 
@@ -105,10 +101,10 @@ class DiagonalGaussianDistribution(SequenceEncodableProbabilityDistribution):
         """Evaluate the log-density of the DiagonalGaussianDistribution.
 
         Args:
-            x (Union[Sequence[float], np.ndarray]): Observation from Diagonal Gaussian.
+            x: One observation with shape ``(D,)``.
 
         Returns:
-            float: Log-density at x.
+            Log-density at ``x``.
         """
         xx = np.asarray(x, dtype=float)
         rv = np.dot(xx * xx, self.ca)
@@ -120,10 +116,10 @@ class DiagonalGaussianDistribution(SequenceEncodableProbabilityDistribution):
         """Vectorized log-density for encoded data.
 
         Args:
-            x (DiagonalGaussianEncodedDataSequence): Encoded data sequence.
+            x: Encoded sequence backed by an array with shape ``(N, D)``.
 
         Returns:
-            np.ndarray: Log-density values.
+            Array of shape ``(N,)`` containing one log-density per observation.
         """
         if not isinstance(x, DiagonalGaussianEncodedDataSequence):
             raise TypeError(
@@ -150,7 +146,12 @@ class DiagonalGaussianDistribution(SequenceEncodableProbabilityDistribution):
     def estimator(
         self, pseudo_count: Optional[float] = None
     ) -> "DiagonalGaussianEstimator":
-        """Return a DiagonalGaussianEstimator for this distribution.
+        """Create an estimator initialized from this distribution.
+
+        A supplied ``pseudo_count`` is applied to both mean and variance
+        estimation. The estimator returned here has no prior sufficient-statistic
+        vectors, so those pseudo-counts affect estimates only if priors are later
+        supplied directly to the estimator.
 
         Args:
             pseudo_count (Optional[float], optional): Pseudo-count for regularization.
@@ -218,7 +219,11 @@ class DiagonalGaussianSampler(DistributionSampler):
 
 
 class DiagonalGaussianAccumulator(SequenceEncodableStatisticAccumulator):
-    """Accumulator for aggregating sufficient statistics from iid observations.
+    """Accumulate weighted diagonal Gaussian sufficient statistics.
+
+    The sufficient-statistic tuple is ``(sum_x, sum_x2, count, count2)``. The two
+    arrays have shape ``(D,)``; separate counts permit mean and variance
+    statistics to be tied independently through ``keys``.
 
     Attributes:
         dim (Optional[int]): Optional dimension of Gaussian.
@@ -475,8 +480,12 @@ class DiagonalGaussianAccumulatorFactory(StatisticAccumulatorFactory):
 
 
 class DiagonalGaussianEstimator(ParameterEstimator):
-    """Estimator for diagonal Gaussian distributions from aggregated sufficient
-    statistics.
+    """Estimate diagonal Gaussian means and variances from weighted statistics.
+
+    The mean is the weighted first moment and the variance is the weighted second
+    central moment, coordinate by coordinate. The two pseudo-counts independently
+    regularize the mean toward ``prior_mu`` and the variance toward
+    ``prior_covar`` when the corresponding prior is present.
 
     Attributes:
         name (Optional[str]): Name for object instance.
@@ -566,8 +575,9 @@ class DiagonalGaussianEstimator(ParameterEstimator):
         """Estimate a DiagonalGaussianDistribution from sufficient statistics.
 
         Args:
-            nobs (Optional[float]): Number of observations.
-            suff_stat (Tuple[np.ndarray, np.ndarray, float]): Sufficient statistics.
+            nobs: Ignored; counts are read from ``suff_stat``.
+            suff_stat: ``(sum_x, sum_x2, count, count2)``. The arrays have shape
+                ``(D,)``; this implementation uses ``count`` for both estimates.
 
         Returns:
             DiagonalGaussianDistribution: Estimated distribution.
@@ -593,7 +603,10 @@ class DiagonalGaussianEstimator(ParameterEstimator):
 
 
 class DiagonalGaussianDataEncoder(DataSequenceEncoder):
-    """Encoder for sequences of iid diagonal-Gaussian observations.
+    """Encode sequences of diagonal Gaussian vectors as a dense matrix.
+
+    ``seq_encode`` reshapes the input to ``(N, D)``. If ``dim`` is omitted, it is
+    inferred from the first observation and retained by the encoder.
 
     Attributes:
         dim (Optional[int]): Dimension of Gaussian distribution.
@@ -630,11 +643,10 @@ class DiagonalGaussianDataEncoder(DataSequenceEncoder):
         """Create DiagonalGaussianEncodedDataSequence object.
 
         Args:
-            x (Sequence[Union[List[float], np.ndarray]]): Sequence of iid multivariate
-                Gaussian observations.
+            x: Sequence of ``N`` observations, each with shape ``(D,)``.
 
         Returns:
-            DiagonalGaussianEncodedDataSequence: Encoded data sequence.
+            Encoded sequence backed by an array with shape ``(N, D)``.
         """
         if self.dim is None:
             self.dim = len(x[0])
@@ -644,17 +656,17 @@ class DiagonalGaussianDataEncoder(DataSequenceEncoder):
 
 
 class DiagonalGaussianEncodedDataSequence(EncodedDataSequence):
-    """Encoded data sequence for vectorized functions.
+    """Store diagonal Gaussian observations for vectorized operations.
 
     Attributes:
-        data (np.ndarray): Numpy array of observations.
+        data (np.ndarray): Observation matrix with shape ``(N, D)``.
     """
 
     def __init__(self, data: np.ndarray) -> None:
         """Initialize DiagonalGaussianEncodedDataSequence.
 
         Args:
-            data (np.ndarray): Numpy array of observations.
+            data: Observation matrix with shape ``(N, D)``.
         """
         super().__init__(data=data)
 

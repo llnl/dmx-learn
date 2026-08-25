@@ -1,4 +1,4 @@
-"""Heterogenous UMAP for embedding tuples of heterogenous data in lower-dimensions."""
+"""MPI helpers for heterogeneous UMAP embeddings."""
 
 from typing import Any, Dict, Optional, Sequence, Tuple, TypeVar, Union
 
@@ -31,24 +31,41 @@ def humap_mpi(
     mix_model: Optional[MIX_TYPE] = None,
     umap_kwargs: Optional[Dict[str, Any]] = None,
 ) -> Optional[Tuple[Any, MIX_TYPE, UMAP, np.ndarray]]:
-    """Performs UMAP fit on posteriors of DPM mixture model.
+    """Fit UMAP on posteriors of a DPM mixture model.
+
+    This function participates in MPI collectives only when it fits a mixture
+    model. In that branch, every rank must call it in the same order and raw
+    `data` is required only on rank 0. If `mix_model` is precomputed, pass it
+    consistently on all ranks so every process follows the same collective
+    branch. Mixture fitting returns a model on all ranks, but posterior
+    evaluation and UMAP fitting happen only on rank 0.
 
     Args:
         data (Optional[Sequence[T]]): Input data sequence. Must be defined
-            on master node.
+            on rank 0.
         max_components (int): Maximum number of components for the mixture model.
         mix_threshold_count (float): Threshold for mixture component selection.
         max_its (int): Maximum number of DPM fitting iterations.
-        print_iter (int): Number of iteration to print fitting of DPM.
-        seed (Optional[int]): Random seed for reproducibility.
+        print_iter (int): Number of iteration to print while fitting the DPM.
+        seed (Optional[int]): Random seed for mixture fitting. UMAP randomness
+            is controlled through `umap_kwargs`, such as `random_state`.
         comp_estimator (Optional[ParameterEstimator]): Component estimator
             for mixture model.
-        mix_model (Optional[MIX_TYPE]): Precomputed mixture model.
-        umap_kwargs (Optional[Dict[str, Any]]): Kwargs for UMAP fit.
+        mix_model (Optional[MIX_TYPE]): Precomputed mixture model. Supplying one
+            skips collective mixture fitting.
+        umap_kwargs (Optional[Dict[str, Any]]): Kwargs for UMAP fit. The
+            dictionary is mutated in place to set `metric="hellinger"`.
 
     Returns:
-        embeddings, dpm mixture model, umap fit, posteriors  on master node.
+        Optional[Tuple[Any, MIX_TYPE, UMAP, numpy.ndarray]]: On rank 0, returns
+        embeddings with shape `(len(data), n_components)`, the mixture model,
+        fitted UMAP object, and posterior matrix with shape
+        `(len(data), mix_model.num_components)`. Worker ranks return `None`.
 
+    Raises:
+        ValueError: If `data` is missing on rank 0, `max_components <= 1`, or
+            the mixture has no components.
+        RuntimeError: If collective mixture fitting does not return a model.
     """
     # Get MPI communicator, rank, and size
     comm = MPI.COMM_WORLD

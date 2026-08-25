@@ -39,7 +39,23 @@ default_prior = BetaDistribution(1, 1)
 class BernoulliSetDistribution(
     ProbabilityDistribution[Iterable[Label], dict[Label, float], SetEncoded]
 ):
-    """Model inclusion of each known label independently."""
+    """Model inclusion of each known label independently.
+
+    Observations are iterables of labels from ``pmap``. Every known label is
+    treated as an independent Bernoulli outcome; absent labels contribute
+    exclusion mass. Order is irrelevant, but repeated labels are deliberately
+    counted repeatedly for legacy compatibility.
+
+    Nonnegative map values are inclusion probabilities. A negative value is
+    the legacy complement encoding for a probability near one: its magnitude
+    is the exclusion probability. The common prior applies independently to
+    every observed label.
+
+    Args:
+        pmap: Mapping from known labels to encoded inclusion probabilities.
+        name: Optional identifier for the distribution.
+        prior: Common prior for every label's inclusion probability.
+    """
 
     def __init__(
         self,
@@ -155,7 +171,12 @@ class BernoulliSetSampler(DistributionSampler[Iterable[Label]]):
 class BernoulliSetAccumulator(
     SequenceEncodableAccumulator[Iterable[Label], SetSuffStat, SetEncoded]
 ):
-    """Accumulate weighted label occurrences and observation weight."""
+    """Accumulate weighted label occurrences and observation weight.
+
+    The sufficient statistic is ``(label_occurrences, observation_weight)``.
+    Every repeated occurrence adds its observation's weight again; observations
+    are not converted to mathematical sets before accumulation.
+    """
 
     def __init__(self) -> None:
         """Initialize empty occurrence and observation counts."""
@@ -239,7 +260,20 @@ class BernoulliSetAccumulatorFactory(
 class BernoulliSetEstimator(
     ParameterEstimator[Iterable[Label], dict[Label, float], SetEncoded, SetSuffStat]
 ):
-    """Estimate per-label inclusion probabilities."""
+    """Estimate per-label inclusion probabilities.
+
+    A beta prior yields per-label posterior modes. A finite mixture of beta
+    distributions selects the highest-posterior prior component separately for
+    each label before taking its mode. Other priors use empirical inclusion
+    frequencies. Results retain the legacy negative complement encoding when
+    appropriate.
+
+    Args:
+        name: Optional identifier copied to the estimated distribution.
+        prior: Common prior for every label's inclusion probability.
+        keys: Compatibility placeholder; this estimator does not share
+            sufficient statistics by key.
+    """
 
     def __init__(
         self,
@@ -296,7 +330,13 @@ class BernoulliSetEstimator(
 
 
 class BernoulliSetDataEncoder(DataSequenceEncoder[Iterable[Label], SetEncoded]):
-    """Encode set-like observations into a flattened four-part tuple."""
+    """Encode set-like observations into a flattened four-part tuple.
+
+    For ``n`` observations the payload is ``(n, row_indices, levels,
+    inverse)``. ``row_indices`` maps each flattened occurrence to its source
+    observation, ``levels`` contains the distinct labels, and ``inverse`` maps
+    occurrences to levels. Repeated labels remain repeated occurrences.
+    """
 
     def __str__(self) -> str:
         """Return the encoder name."""

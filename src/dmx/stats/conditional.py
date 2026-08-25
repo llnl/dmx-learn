@@ -50,7 +50,20 @@ SS2 = TypeVar("SS2")
 
 
 class ConditionalDistribution(SequenceEncodableProbabilityDistribution):
-    """ConditionalDistribution object for data types x=Tuple[T0, T1].
+    """Model pairs with a keyed conditional law and an optional given law.
+
+    For a pair ``(x0, x1)``, the wrapper multiplies the density of ``given_dist``
+    at ``x0`` by the child density selected from ``dmap`` at ``x1``. Unknown keys
+    use ``default_dist`` when supplied and otherwise have scalar log density
+    negative infinity. The result is normalized when the given law is normalized
+    and every conditional law reachable from its support is normalized. A null
+    given law contributes a constant factor and is only a placeholder, so it does
+    not by itself define a normalized joint law over arbitrary conditioning values.
+
+    Encoding groups responses by conditioning value and delegates each group to
+    its selected child encoder. Sampling first draws the conditioning value and
+    then uses its keyed or default child. Estimation maintains independent child,
+    default, and given sufficient statistics.
 
     Attributes:
         dmap (Dict[T0, SequenceEncodableProbabilityDistribution]): Mapping from T0 to
@@ -333,7 +346,11 @@ class ConditionalDistributionSampler(ConditionalSampler, DistributionSampler):
 
 
 class ConditionalDistributionAccumulator(SequenceEncodableStatisticAccumulator):
-    """Accumulator for sufficient statistics of ConditionalDistribution.
+    """Accumulate keyed response, default-response, and given-value statistics.
+
+    Each pair is routed to exactly one response accumulator, while the conditioning
+    value is also sent to the given accumulator when one exists. Child accumulators
+    retain their own update, initialization, and key-sharing contracts.
 
     Attributes:
         accumulator_map (Dict[T0, SequenceEncodableStatisticAccumulator]): Sufficient
@@ -818,7 +835,11 @@ class ConditionalDistributionEstimator(ParameterEstimator):
 
 
 class ConditionalDistributionDataEncoder(DataSequenceEncoder):
-    """Encoder for ConditionalDistribution data.
+    """Group responses by conditioning value and delegate to child encoders.
+
+    When there is no default encoder, every conditioning value in an encoded batch
+    must be present in ``encoder_map``. The given encoder receives the full sequence
+    of conditioning values, while each response encoder receives only its group.
 
     Attributes:
         encoder_map (Dict[T0, DataSequenceEncoder]): Encoders for each conditional
@@ -955,8 +976,8 @@ class ConditionalEncodedDataSequence(EncodedDataSequence):
         """Initialize ConditionalEncodedDataSequence.
 
         Args:
-            data (Tuple[int, Tuple[T0, ...], Tuple[EncodedDataSequence],
-                Tuple[np.ndarray], Optional[EncodedDataSequence]]): Encoded data.
+            data: Total size, grouped conditioning values, response encodings,
+                original-position arrays, and the optional given-value encoding.
         """
         super().__init__(data=data)
 

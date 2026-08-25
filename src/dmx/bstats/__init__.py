@@ -1,8 +1,18 @@
-"""Bayesian statistical distributions and fitting helpers.
+"""Bayesian distributions, priors, and variational fitting interfaces.
 
-The package-level helpers accept local sequences and PySpark RDDs. The scalar
-fitting helpers additionally accept pandas DataFrames when the corresponding
-accumulator implements the DataFrame protocol.
+This package is the Bayesian counterpart to the NumPy/SciPy-oriented
+:mod:`dmx.stats` backend. It provides prior-aware distributions and estimators,
+including Dirichlet-process mixtures, and re-exports the commonly used model
+classes plus package-level encoding, likelihood, initialization, and estimation
+helpers. Import specialized priors and protocols from their defining
+``dmx.bstats`` submodules when they are not re-exported here.
+
+The package-level fitting helpers operate on local sequences and PySpark RDDs;
+some scalar paths also accept pandas DataFrames when the accumulator implements
+the DataFrame protocol. Use :mod:`dmx.torch_stats` instead when tensor device
+and dtype behavior is required, and :mod:`dmx.mpi4py.bstats` for collective MPI
+operations. Those neighboring backends use distinct model and encoded-data
+protocols and are not interchangeable implicitly.
 """
 
 from __future__ import annotations

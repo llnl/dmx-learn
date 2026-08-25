@@ -1,3 +1,10 @@
+"""Torch-backed univariate Gaussian distributions and their estimators.
+
+The module uses the same ``mu`` and variance ``sigma2`` terminology as
+``dmx.stats.gaussian``.  Parameters and scalar results remain Python floats;
+only encoded sequence operations use torch tensors.
+"""
+
 # pylint: disable=too-many-positional-arguments,duplicate-code
 
 from typing import Any, Dict, List, Optional, Tuple, Union, cast
@@ -19,8 +26,14 @@ from dmx.torch_stats.pdist import (
 
 
 class GaussianDistribution(TorchProbabilityDistribution):
+    """Represent a univariate Gaussian with mean ``mu`` and variance ``sigma2``.
+
+    ``to`` records the device for future tensor operations.  It does not move
+    parameters because this implementation stores them as Python floats.
+    """
 
     def __init__(self, mu: float, sigma2: float, device: Optional[tn.device] = None):
+        """Initialize the distribution and its preferred tensor device."""
         super().__init__(device)
         self.mu = mu
         self.sigma2 = 1.0 if (sigma2 <= 0 or isnan(sigma2) or isinf(sigma2)) else sigma2
@@ -28,10 +41,12 @@ class GaussianDistribution(TorchProbabilityDistribution):
         self.const = 1.0 / sqrt(2.0 * pi * self.sigma2)
 
     def to(self, device: vec.DeviceLike) -> "GaussianDistribution":
+        """Select the device for later torch calculations."""
         self._device = self._resolve_device_arg(device)
         return self
 
     def __repr__(self) -> str:
+        """Return an evaluable representation."""
         s0, s1 = repr(float(self.mu)), repr(float(self.sigma2))
         return f"GaussianDistribution(mu={s0}, sigma2={s1})"
 
@@ -62,6 +77,10 @@ class GaussianDistribution(TorchProbabilityDistribution):
         return float(self.log_const - 0.5 * (x - self.mu) * (x - self.mu) / self.sigma2)
 
     def seq_log_density(self, x: "GaussianTorchEncodedSequence") -> tn.Tensor:
+        """Evaluate log densities for an encoded tensor of shape ``(n,)``.
+
+        The returned tensor has the encoded tensor's device and floating dtype.
+        """
         if not isinstance(x, GaussianTorchEncodedSequence):
             raise TypeError("Requires GaussianTorchEncodedSequence for `seq_` calls.")
 
@@ -73,11 +92,11 @@ class GaussianDistribution(TorchProbabilityDistribution):
         return cast(tn.Tensor, rv)
 
     def sampler(self, seed: Optional[int] = None) -> "GaussianSampler":
-
+        """Create a NumPy-backed sampler, optionally seeded."""
         return GaussianSampler(self, seed)
 
     def estimator(self, pseudo_count: Optional[float] = None) -> "GaussianEstimator":
-
+        """Create an estimator, optionally regularized toward this distribution."""
         if pseudo_count is not None:
             suff_stat = (self.mu, self.sigma2)
             return GaussianEstimator(
@@ -87,6 +106,7 @@ class GaussianDistribution(TorchProbabilityDistribution):
         return GaussianEstimator()
 
     def dist_to_encoder(self) -> "GaussianDataEncoder":
+        """Return the encoder for one-dimensional Gaussian observations."""
         return GaussianDataEncoder()
 
 
@@ -102,7 +122,7 @@ class GaussianSampler(DistributionSampler):
     def __init__(
         self, dist: "GaussianDistribution", seed: Optional[int] = None
     ) -> None:
-        """GaussianSampler object.
+        """Initialize a NumPy-backed Gaussian sampler.
 
         Args:
             dist (GaussianDistribution): GaussianDistribution instance to sample from.
@@ -140,7 +160,6 @@ class GaussianAccumulator(TorchStatisticAccumulator):
         sum2 (float): Sum of weighted squared observations (sum_i w_i*X_i^2)
         count (float): Sum of weights for observations (sum_i w_i).
         count2 (float): Sum of weights for squared observations (sum_i w_i).
-        count (float): Tracks the sum of weighted observations used to form sum.
         key (Optional[str]): Key string used to aggregate all sufficient
             statistics with same keys values.
 
@@ -149,7 +168,7 @@ class GaussianAccumulator(TorchStatisticAccumulator):
     def __init__(
         self, keys: Optional[str] = None, device: Optional[tn.device] = None
     ) -> None:
-        """GaussianAccumulator object.
+        """Initialize the Gaussian sufficient-statistic accumulator.
 
         Args:
             keys (Optional[str]): Set key for GaussianAccumulator object.
@@ -169,6 +188,7 @@ class GaussianAccumulator(TorchStatisticAccumulator):
         weights: tn.Tensor,
         tng: Optional[tn.Generator],
     ) -> None:
+        """Initialize from an encoded sequence and matching tensor weights."""
         self.seq_update(x, weights, None)
 
     def seq_update(
@@ -177,6 +197,7 @@ class GaussianAccumulator(TorchStatisticAccumulator):
         weights: tn.Tensor,
         estimate: Optional[GaussianDistribution],
     ) -> None:
+        """Accumulate encoded values and weights, each with shape ``(n,)``."""
         self.sum += float(tn.dot(x.data, weights))
         self.sum2 += float(tn.dot(x.data * x.data, weights))
         w_sum = float(weights.sum())
@@ -186,6 +207,7 @@ class GaussianAccumulator(TorchStatisticAccumulator):
     def combine(
         self, suff_stat: Tuple[float, float, float, float]
     ) -> "GaussianAccumulator":
+        """Merge a ``(sum, sum2, count, count2)`` statistic."""
         self.sum += suff_stat[0]
         self.sum2 += suff_stat[1]
         self.count += suff_stat[2]
@@ -194,14 +216,17 @@ class GaussianAccumulator(TorchStatisticAccumulator):
         return self
 
     def value(self, _device: Optional[str] = None) -> Tuple[float, float, float, float]:
+        """Return the Gaussian sufficient-statistic tuple."""
         return self.sum, self.sum2, self.count, self.count2
 
     def from_value(self, x: Tuple[float, float, float, float]) -> "GaussianAccumulator":
+        """Replace accumulator state from a sufficient-statistic tuple."""
         self.sum, self.sum2, self.count, self.count2 = x
 
         return self
 
     def key_merge(self, stats_dict: Dict[str, Any]) -> None:
+        """Merge this accumulator's keyed statistic into ``stats_dict``."""
         if self.keys is not None:
             if self.keys in stats_dict:
                 self.sum, self.sum2, self.count, self.count2 = stats_dict[self.keys]
@@ -209,20 +234,25 @@ class GaussianAccumulator(TorchStatisticAccumulator):
                 stats_dict[self.keys] = (self.sum, self.sum2, self.count, self.count2)
 
     def key_replace(self, stats_dict: Dict[str, Any]) -> None:
+        """Replace state from its keyed statistic, when present."""
         if self.keys is not None:
             if self.keys in stats_dict:
                 self.sum, self.sum2, self.count, self.count2 = stats_dict[self.keys]
 
     def acc_to_encoder(self) -> "GaussianDataEncoder":
+        """Return the compatible Gaussian encoder."""
         return GaussianDataEncoder()
 
 
 class GaussianAccumulatorFactory(TorchStatisticAccumulatorFactory):
+    """Create Gaussian accumulators with a shared optional key."""
 
     def __init__(self, keys: Optional[str] = None):
+        """Initialize the factory."""
         self.keys = keys
 
     def make(self, device: Optional[tn.device] = None) -> "GaussianAccumulator":
+        """Create an accumulator that records ``device``."""
         return GaussianAccumulator(
             keys=self.keys, device=device if device is not None else None
         )
@@ -246,7 +276,7 @@ class GaussianEstimator(TorchParameterEstimator):
         suff_stat: Tuple[Optional[float], Optional[float]] = (None, None),
         keys: Optional[str] = None,
     ):
-        """GaussianEstimator object.
+        """Initialize Gaussian estimation settings.
 
         Args:
             pseudo_count (Tuple[Optional[float], Optional[float]]): Pseudo count
@@ -261,6 +291,7 @@ class GaussianEstimator(TorchParameterEstimator):
         self.keys = keys
 
     def accumulator_factory(self) -> "GaussianAccumulatorFactory":
+        """Return a factory for compatible accumulators."""
         return GaussianAccumulatorFactory(keys=self.keys)
 
     def estimate(
@@ -269,7 +300,7 @@ class GaussianEstimator(TorchParameterEstimator):
         suff_stat: Tuple[float, float, float, float],
         device: Optional[tn.device] = None,
     ) -> "GaussianDistribution":
-
+        """Estimate Gaussian parameters from the supplied sufficient statistic."""
         nobs_loc1 = suff_stat[2]
         nobs_loc2 = suff_stat[3]
 
@@ -297,12 +328,21 @@ class GaussianEstimator(TorchParameterEstimator):
 
 
 class GaussianDataEncoder(TorchSequenceEncoder):
+    """Encode one-dimensional observations as a torch tensor of shape ``(n,)``.
+
+    ``vec.tensor`` determines the floating dtype and places data on the
+    requested CPU, CUDA, or MPS device.  Unlike ``stats``, the result is a
+    torch encoded-sequence container.
+    """
+
     """Encode sequences of iid Gaussian observations with data type float."""
 
     def __str__(self) -> str:
+        """Return the encoder name."""
         return "GaussianDataEncoder"
 
     def __eq__(self, other: object) -> bool:
+        """Return whether ``other`` is a Gaussian encoder."""
         return isinstance(other, GaussianDataEncoder)
 
     def seq_encode(
@@ -310,6 +350,7 @@ class GaussianDataEncoder(TorchSequenceEncoder):
         x: Union[List[float], np.ndarray, tn.Tensor],
         device: Optional[tn.device] = None,
     ) -> "GaussianTorchEncodedSequence":
+        """Encode observations as a floating tensor on ``device``."""
         rv = vec.tensor(x, device=device)
 
         if tn.any(tn.isnan(rv)) or tn.any(tn.isinf(rv)):
@@ -319,6 +360,8 @@ class GaussianDataEncoder(TorchSequenceEncoder):
 
 
 class GaussianTorchEncodedSequence(TorchEncodedSequence):
+    """Store encoded Gaussian observations in a tensor of shape ``(n,)``."""
+
     """GaussianTorchEncodedSequence object for use with `seq_` function calls.
 
     Attributes:
@@ -330,6 +373,7 @@ class GaussianTorchEncodedSequence(TorchEncodedSequence):
     data: tn.Tensor
 
     def __init__(self, data: tn.Tensor, device: Optional[tn.device] = None) -> None:
+        """Initialize from tensor data and an optional target device."""
         """GaussianTorchEncodedSequence object.
 
         Args:
@@ -340,4 +384,5 @@ class GaussianTorchEncodedSequence(TorchEncodedSequence):
         super().__init__(data=data, device=device)
 
     def __str__(self) -> str:
+        """Return a representation including the stored device."""
         return f"GaussianTorchEncodedSequence(device={repr(self.device)})"

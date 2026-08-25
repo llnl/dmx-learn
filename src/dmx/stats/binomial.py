@@ -1,10 +1,8 @@
-"""Create, estimate, and sample from the binomial distribution.
+"""Binomial distributions, sampling, estimation, and sequence encoding.
 
-Defines the BinomialDistribution, BinomialSampler, BinomialAccumulatorFactory,
-BinomialAccumulator, BinomialEstimator,
-and the BinomialDataEncoder classes for use with dmx-learn.
-
-Data type: int.
+``BinomialDistribution`` models ``X = min_val + Y``, where ``Y`` has ``n``
+trials and success probability ``p``. Scalar methods accept one integer, while
+sequence methods consume data produced by ``BinomialDataEncoder``.
 """
 
 from typing import Any, Dict, List, Optional, Sequence, Tuple, Union
@@ -27,14 +25,19 @@ E = Tuple[np.ndarray, np.ndarray, np.ndarray, int, int]
 
 
 class BinomialDistribution(SequenceEncodableProbabilityDistribution):
-    """BinomialDistribution object used for Binomial
+    """Represent a shifted binomial distribution.
+
+    If ``min_val`` is omitted, the support is ``{0, ..., n}``. Otherwise the
+    support is ``{min_val, ..., min_val + n}``. The probability mass function
+    is that of ``x - min_val`` under a binomial distribution with ``n`` trials
+    and success probability ``p``.
 
     Attributes:
-        p (float): Probability of success, between (0, 1.0].
+        p (float): Probability of success, strictly between zero and one.
         log_p (float): Logarithm of p.
         log_1p (float): Logarithm of 1-p.
-        n (int): Number of trials, n > 0.
-        min_val (Optional[int]): Minimum value of the support.
+        n (int): Nonnegative number of trials.
+        min_val (Optional[int]): Lower endpoint of the support, or ``None`` for zero.
         name (Optional[str]): Name of the distribution.
         keys (Optional[str]): Key for identifying equivalent distributions.
     """
@@ -50,16 +53,15 @@ class BinomialDistribution(SequenceEncodableProbabilityDistribution):
         """Initialize BinomialDistribution.
 
         Args:
-            p (float): Probability of success, between (0, 1.0].
-            n (int): Number of trials, n > 0.
-            min_val (Optional[int], optional): Minimum value of the support. Defaults to
-                None.
-            name (Optional[str], optional): Name of the distribution. Defaults to None.
-            keys (Optional[str], optional): Key for identifying equivalent
-                distributions. Defaults to None.
+            p: Probability of success, strictly between zero and one.
+            n: Nonnegative number of trials.
+            min_val: Lower endpoint of the support. ``None`` is equivalent to zero.
+            name: Optional name for the distribution.
+            keys: Optional key for tying sufficient statistics.
 
         Raises:
-            Exception: If p is not in (0, 1) or n is not positive.
+            ValueError: If ``p`` is not strictly between zero and one, or if ``n``
+                is negative or non-finite.
         """
         super().__init__()
         if p <= 0.0 or p >= 1.0 or np.isnan(p):
@@ -88,10 +90,10 @@ class BinomialDistribution(SequenceEncodableProbabilityDistribution):
         """Return the probability mass at integer value x.
 
         Args:
-            x (int): Value for density evaluation.
+            x: Integer observation in the shifted support.
 
         Returns:
-            float: Probability mass at x. 0.0 if x is not in support.
+            Probability mass at ``x``.
         """
         return float(np.exp(self.log_density(x)))
 
@@ -99,10 +101,10 @@ class BinomialDistribution(SequenceEncodableProbabilityDistribution):
         """Return the log-probability mass at integer value x.
 
         Args:
-            x (int): Value for log-density evaluation.
+            x: Integer observation in the shifted support.
 
         Returns:
-            float: Log-probability mass at x. -inf if x is not in support.
+            Log-probability mass at ``x``.
         """
         n = self.n
         if self.min_val is not None:
@@ -119,13 +121,14 @@ class BinomialDistribution(SequenceEncodableProbabilityDistribution):
         )
 
     def seq_log_density(self, x: "BinomialEncodedDataSequence") -> np.ndarray:
-        """Vectorized log-density for encoded data.
+        """Evaluate log-probability masses for an encoded sequence.
 
         Args:
-            x (BinomialEncodedDataSequence): Encoded data sequence.
+            x: Encoded sequence containing ``N`` observations.
 
         Returns:
-            np.ndarray: Log-density values.
+            Array of shape ``(N,)`` containing one log-probability mass per
+            observation.
         """
         if not isinstance(x, BinomialEncodedDataSequence):
             raise TypeError(
@@ -163,7 +166,11 @@ class BinomialDistribution(SequenceEncodableProbabilityDistribution):
         return BinomialSampler(self, seed)
 
     def estimator(self, pseudo_count: Optional[float] = None) -> "BinomialEstimator":
-        """Create a BinomialEstimator for this distribution.
+        """Create an estimator initialized from this distribution.
+
+        With ``pseudo_count``, the estimator uses this distribution's ``n``,
+        ``min_val``, and expected success count as prior information. Without it,
+        the estimator infers the support endpoints from accumulated observations.
 
         Args:
             pseudo_count (Optional[float], optional): Pseudo-count for prior. Defaults
@@ -227,7 +234,9 @@ class BinomialSampler(DistributionSampler):
 
 
 class BinomialAccumulator(SequenceEncodableStatisticAccumulator):
-    """Accumulator for sufficient statistics of BinomialDistribution.
+    """Accumulate weighted binomial sufficient statistics.
+
+    The public sufficient-statistic value is ``(count, sum, min_val, max_val)``.
 
     Attributes:
         sum (float): Sum of data observations.
@@ -464,7 +473,13 @@ class BinomialAccumulatorFactory(StatisticAccumulatorFactory):
 
 
 class BinomialEstimator(ParameterEstimator):
-    """Estimator for BinomialDistribution.
+    """Estimate a shifted binomial distribution from weighted statistics.
+
+    The trial count is ``max_val - min_val``. The success probability is the
+    shifted weighted mean divided by that trial count. A pseudo-count either
+    shrinks the success count toward ``suff_stat`` or, when ``suff_stat`` is
+    absent, toward probability ``0.5``. Empty or zero-width data also produce
+    probability ``0.5``.
 
     Attributes:
         max_val (Optional[int]): Max value encountered.
@@ -569,7 +584,13 @@ class BinomialEstimator(ParameterEstimator):
 
 
 class BinomialDataEncoder(DataSequenceEncoder):
-    """Encoder for sequences of integers for BinomialDistribution."""
+    """Encode a one-dimensional sequence of nonnegative integer observations.
+
+    The encoded representation stores unique values with shape ``(U,)``, inverse
+    indices with shape ``(N,)``, the original values with shape ``(N,)``, and the
+    scalar minimum and maximum, where ``N`` is the number of observations and
+    ``U`` is the number of unique values.
+    """
 
     def __str__(self) -> str:
         """Return string representation."""
@@ -590,13 +611,14 @@ class BinomialDataEncoder(DataSequenceEncoder):
         """Encode a sequence of integers for vectorized operations.
 
         Args:
-            x (Sequence[int]): Sequence of integers.
+            x: Sequence of ``N`` nonnegative integers.
 
         Returns:
-            BinomialEncodedDataSequence: Encoded data sequence.
+            Encoded sequence with data ``(unique, inverse, values, minimum,
+            maximum)``.
 
         Raises:
-            Exception: If any value is negative or NaN.
+            ValueError: If any value is negative or NaN.
         """
         xx = np.array(x)
 
@@ -614,11 +636,11 @@ class BinomialDataEncoder(DataSequenceEncoder):
 
 
 class BinomialEncodedDataSequence(EncodedDataSequence):
-    """Encoded data sequence for BinomialDistribution.
+    """Store an encoded sequence of binomial observations.
 
     Attributes:
-        data (Tuple[np.ndarray, np.ndarray, np.ndarray, int, int]): Unique values,
-            inverse mapping, original values, min, max.
+        data: Tuple of unique values ``(U,)``, inverse indices ``(N,)``, original
+            values ``(N,)``, minimum, and maximum.
     """
 
     def __init__(

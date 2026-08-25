@@ -50,30 +50,49 @@ def optimize_mpi(
 ) -> Optional[ProbabilityDistribution]:
     """Run MPI EM estimation for a `dmx.bstats` estimator.
 
+    This is collective over `MPI.COMM_WORLD`; every rank must call it in the
+    same order. Raw `data` and `vdata` are required only on rank 0, but
+    pre-encoded `enc_data` and `enc_vdata` must be supplied on every rank
+    because their availability is checked with an all-reduce. Iterative model
+    objects live on rank 0, while worker ranks generally return `None` from the
+    lower-level estimation helpers. Likelihood sums are reduced across all
+    ranks and progress is written only by rank 0.
+
     Args:
-        data (Optional[List[T]]): Observed data compatible with `estimator`.
-        estimator (ParameterEstimator): Estimator for the target model.
+        data (Optional[Sequence[DATUM_TYPE]]): Observed data compatible with
+            `estimator`. Required on rank 0 unless encoded chunks are supplied
+            on all ranks.
+        estimator (ParameterEstimator): Estimator for the target model. Rank 0
+            must receive a usable estimator.
         max_its (int): Maximum number of EM iterations to perform.
-        delta (Optional[float]): Stop when
-            `|old_loglikelihood - new_loglikelihood| < delta`, or when
-            `max_its` is reached.
+        delta (Optional[float]): Stop when the signed likelihood improvement is
+            less than `delta`. If `None`, likelihood-decreasing updates are
+            accepted.
         init_estimator (Optional[ParameterEstimator]): Estimator used for
             initialization. If `None`, use `estimator`.
         init_p (float): Initialization proportion in `(0, 1]`.
-        rng (RandomState): RandomState used to set seed for initialization.
-        vdata (Optional[Sequence[T]]): Optional validation set.
+        rng (RandomState): RandomState used to set seeds for initialization.
+            The default object is process-local and is advanced across calls.
         prev_estimate (Optional[ProbabilityDistribution]): Optional previous
-            model estimate consistent with `estimator`.
-        enc_data (Optional[List[Tuple[int, E]]]): Optional encoded data of form
-            `List[Tuple[int, E]]`. Formed from `data` if `None`.
-        enc_vdata (Optional[List[Tuple[int, E0]]]): Optional sequence encoded
-            validation set.
-        out (IO): IO stream to write out iterations of EM algorithm.
+            model estimate, meaningful on rank 0 and consistent with
+            `estimator`.
+        vdata (Optional[Sequence[DATUM_TYPE]]): Optional validation set on rank 0.
+        enc_data (Optional[List[Tuple[int, ENCODED_SEQ]]]): Optional rank-local
+            encoded chunks. Formed from root `data` if omitted.
+        enc_vdata (Optional[List[Tuple[int, ENCODED_SEQ]]]): Optional
+            rank-local encoded validation chunks.
+        out (IO): Rank 0 stream for EM progress.
         print_iter (int): Print progress every `print_iter` iterations.
         num_chunks (int): Number of chunks for encoded data.
 
     Returns:
-        ProbabilityDistribution: Estimated model.
+        Optional[ProbabilityDistribution]: Estimated model on rank 0 and
+        `None` on worker ranks.
+
+    Raises:
+        ValueError: If rank 0 has no raw data and encoded data are not present
+            on every rank, or if `init_p` is outside `(0, 1]`.
+        RuntimeError: If encoded data expected on a rank are missing.
     """
     mpi = get_runtime_attr("mpi4py", "MPI")
     comm = mpi.COMM_WORLD

@@ -1,3 +1,5 @@
+"""Counting helpers for Python, NumPy, and PyTorch containers."""
+
 from typing import Dict, Sequence, TypeVar, Union
 
 import numpy as np
@@ -10,12 +12,14 @@ T1 = TypeVar("T1")
 def count_by_value(x: Union[Sequence[T], np.ndarray, tn.Tensor]) -> Dict[T, int]:
     """Count the number of observations of a given value in arg 'x'.
 
+    Values are used as yielded by the input container. Iterating a tensor yields
+    scalar tensor keys rather than converting them to Python scalars.
+
     Args:
-        x (Sequence[T]): A sequence of type T or numpy array of type T.
+        x (Union[Sequence[T], numpy.ndarray, torch.Tensor]): Values to count.
 
     Returns:
-        Dictionary mapping value (type T) to value-count.
-
+        Dict[T, int]: Dictionary mapping each observed value to its count.
     """
     rv: Dict[T, int] = {}
 
@@ -28,12 +32,15 @@ def count_by_value(x: Union[Sequence[T], np.ndarray, tn.Tensor]) -> Dict[T, int]
 def int_count_by_value(x: Union[Sequence[T], np.ndarray, tn.Tensor]) -> Dict[T, int]:
     """Count the number of observations of a given value in arg 'x'.
 
+    Each value is converted with `int` before counting. For tensor inputs, this
+    converts scalar tensor elements to host Python integers and may synchronize
+    the device.
+
     Args:
-        x (Sequence[T]): A sequence of type T or numpy array of type T.
+        x (Union[Sequence[T], numpy.ndarray, torch.Tensor]): Values to count.
 
     Returns:
-        Dictionary mapping value (type T) to value-count.
-
+        Dict[int, int]: Dictionary mapping integer values to counts.
     """
     rv: Dict[int, int] = {}
 
@@ -44,16 +51,17 @@ def int_count_by_value(x: Union[Sequence[T], np.ndarray, tn.Tensor]) -> Dict[T, 
 
 
 def bincount1(xv: tn.Tensor, w: tn.Tensor, nv: int) -> tn.Tensor:
-    """Take bincount S by N by ids in xv with total number of values nv.
+    """Bincount batched weights by one-dimensional ids.
 
     Args:
-        xv (Tensor): Tensor of integers containing the ids for bincount
-        w (S by N): Bin count weights
-        nv (int): Min length.
+        xv (Tensor): One-dimensional integer tensor with shape `(n,)`.
+        w (Tensor): Weight tensor with shape `(s, n)`. It must be on a device
+            compatible with `xv`.
+        nv (int): Number of bins in the result.
 
     Returns:
-        Len nv Tensor.
-
+        Tensor: Tensor with shape `(s, nv)`. Dtype and device follow the
+        behavior of `torch.bincount` for the supplied weights.
     """
     s, n = w.shape
     idx = tn.arange(s * n)

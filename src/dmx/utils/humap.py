@@ -1,4 +1,4 @@
-"""Heterogenous UMAP for embedding tuples of heterogenous data in lower-dimensions."""
+"""Embed heterogeneous observations using mixture posteriors and UMAP."""
 
 from typing import Any, Dict, Optional, Sequence, Tuple, TypeVar
 
@@ -47,22 +47,38 @@ def humap(
     UMAP,
     np.ndarray,
 ]:
-    """Performs UMAP fit on posteriors of DPM mixture model.
+    """Fit UMAP to mixture-component posterior probabilities.
+
+    A supplied mixture is reused; otherwise a pruned Dirichlet-process mixture
+    is fitted. ``seed`` controls only mixture fitting. UMAP randomness is
+    controlled independently through ``umap_kwargs`` (for example,
+    ``random_state``). Missing default UMAP options are inserted into a
+    caller-supplied dictionary in place.
 
     Args:
-        data (Sequence[DATUM_TYPE]): Input data sequence.
-        max_components (int): Maximum number of components for the mixture model.
-        mix_threshold_count (float): Threshold for mixture component selection.
-        seed (Optional[int]): Random seed for reproducibility.
-        comp_estimator (Optional[ParameterEstimator]): Component estimator
-            for mixture model.
-        mix_model (Optional[MixtureDistribution]): Precomputed mixture model.
-        umap_kwargs (Optional[Dict[str, Any]]): Kwargs for UMAP fit.
+        data: Nonempty heterogeneous observations.
+        max_components: Maximum components used when fitting a mixture.
+        mix_threshold_count: Minimum effective component count retained after
+            mixture fitting.
+        max_its: Maximum mixture-fitting iterations.
+        print_iter: Interval for mixture-fitting progress output.
+        seed: Seed for the local legacy NumPy random state used in mixture
+            fitting. ``None`` uses OS entropy.
+        comp_estimator: Optional estimator for one mixture component.
+        mix_model: Optional pre-fitted mixture distribution.
+        umap_kwargs: Options passed to :class:`umap.UMAP`. Defaults are added
+            for missing keys.
+
     Returns:
-        embeddings, dpm mixture model, umap fit, posteriors
+        The embedding with shape ``(len(data), n_components)``, fitted mixture
+        model, fitted UMAP object, and posterior matrix with shape
+        ``(len(data), n_mixture_components)``.
 
+    Raises:
+        ValueError: If ``max_components`` is not an integer greater than one,
+            or UMAP rejects its inputs or options.
+        RuntimeError: If mixture fitting produces no components.
     """
-
     rng = RandomState(seed) if seed is not None else RandomState()
     mix_model, _, posteriors = prepare_mixture_model(
         data,

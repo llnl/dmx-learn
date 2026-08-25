@@ -1,19 +1,17 @@
 """Abstract classes for PyTorch-based probability distributions.
 
-This module provides the torch-based equivalents of the
-`dmx.stats.pdist` classes, optimized for GPU computation and PyTorch
-tensor operations.
+This module provides torch-specific counterparts to the ``dmx.stats.pdist``
+protocols. They keep the same distribution, estimator, accumulator, and
+encoder terminology while accepting torch tensors for encoded sequence work.
 
-Classes:
-    TorchProbabilityDistribution: Abstract base class for torch probability
-        distributions.
-    DistributionSampler: Abstract sampler for probability distributions.
-    ConditionalSampler: Abstract sampler for conditional distributions.
-    TorchStatisticAccumulator: Abstract accumulator for sufficient statistics.
-    TorchStatisticAccumulatorFactory: Factory for creating statistic accumulators.
-    TorchParameterEstimator: Abstract estimator for distribution parameters.
-    TorchSequenceEncoder: Abstract encoder for data sequences.
-    TorchEncodedSequence: Container for encoded sequence data.
+Devices are explicit: ``device=None`` resolves to CPU, and callers may select
+CPU, CUDA, or MPS where PyTorch supports the requested operation. A model's
+``to`` method records its preferred device; it does not promise that arbitrary
+Python-valued parameters or externally supplied encoded data are moved.
+
+The public classes cover probability distributions, samplers, statistic
+accumulators and factories, parameter estimators, sequence encoders, and
+encoded-sequence containers.
 
 """
 
@@ -76,6 +74,7 @@ class TorchProbabilityDistribution:
         raise NotImplementedError
 
     def _resolve_device_arg(self, device: DeviceLike) -> TorchDevice:
+        """Resolve ``None`` to this object's current device."""
         return self._device if device is None else resolve_device(device)
 
     @abstractmethod
@@ -422,7 +421,10 @@ class TorchSequenceEncoder:
 class TorchEncodedSequence:
     """Container for encoded data sequences with PyTorch support.
 
-    Stores encoded data and tracks the device for PyTorch computation.
+    Stores encoded data and tracks the device requested by the encoder.
+
+    The container does not coerce dtype and does not itself move ``data``;
+    concrete encoders construct tensors with their documented dtype and device.
 
     Attributes:
         data: The encoded data.

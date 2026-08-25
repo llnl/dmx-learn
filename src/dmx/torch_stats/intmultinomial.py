@@ -1,22 +1,22 @@
-"""Evaluate, estimate, and sample from an integer multinomial distribution.
+"""Provide torch-backed multinomial counts over contiguous integer categories.
 
 Defines the IntegerMultinomialDistribution, IntegerMultinomialSampler,
 IntegerMultinomialAccumulatorFactory, IntegerMultinomialAccumulator,
 IntegerMultinomialEstimator, and the IntegerMultinomialDataEncoder classes for
 use with pysparkplug.
 
-Data type: Sequence[Tuple[int, float]]: Consider an observation of a
-multinomial consisting of integer-category counts of the form
-`x = (x_0,..,x_K)`, where K is the number of integers in the range
-`[min_val, max_val]`. The IntegerMultinomialDistribution with support
-`[min_val, max_value]`, number of trials `N`, and success probabilities
-`p = (p_0, ..., p_k)` is given by
+An observation is a sparse sequence of ``(integer, count)`` pairs. Its score
+is the sum of ``count * log(category_probability)`` plus the log mass assigned
+to the total count by the optional length distribution.
 
-    log(P(x,N|p)) = -log(n!)
-        - sum_{k=1}^{K} (x_k * log(p_k) + log(x_k!))
-        + log(P_len(N))
-
-where P_len(N) is a distribution for the number of trials in the multinomial.
+Probability-vector entry ``i`` represents category ``min_val + i``. Encoded
+sequences flatten all nonzero entries from ``N`` observations into tensors of
+shape ``(M,)`` plus an observation-index tensor and encoded total counts.
+Model tensors move in place with ``to``; scalar scoring reads parameters back
+as Python floats, while sequence scoring returns the vector-helper floating
+dtype on the model device. That dtype is normally float64 and is float32 on
+MPS. As in ``dmx.stats.intmultinomial``, the score omits the multinomial
+combinatorial coefficient.
 
 """
 
@@ -86,6 +86,7 @@ class IntegerMultinomialDistribution(TorchProbabilityDistribution):
             len_dist (Optional[TorchProbabilityDistribution]): Optional length
                 distribution for the number of trials.
             keys (Optional[str]): Set key for distribution.
+            device (Optional[tn.device]): Device for parameter tensors.
 
         """
         super().__init__(device)
@@ -102,6 +103,7 @@ class IntegerMultinomialDistribution(TorchProbabilityDistribution):
         self.keys = keys
 
     def to(self, device: vec.DeviceLike) -> "IntegerMultinomialDistribution":
+        """Move category and length-model parameters to ``device`` in place."""
         target_device = self._resolve_device_arg(device)
         self.p_vec = self.p_vec.to(target_device)
         self.log_p_vec = tn.log(self.p_vec)
@@ -110,6 +112,7 @@ class IntegerMultinomialDistribution(TorchProbabilityDistribution):
         return self
 
     def __repr__(self) -> str:
+        """Return a constructor-like representation with CPU probabilities."""
         s1 = repr(self.min_val)
         s2 = repr(self.p_vec.data.cpu().tolist())
         s3 = repr(self.len_dist)
@@ -166,6 +169,7 @@ class IntegerMultinomialDistribution(TorchProbabilityDistribution):
         return float(rv)
 
     def seq_log_density(self, x: "IntegerMultinomialTorchSequence") -> tn.Tensor:
+        """Return one log mass per encoded observation as a tensor of shape ``(N,)``."""
         if not isinstance(x, IntegerMultinomialTorchSequence):
             raise TypeError(
                 "Requires IntegerMultinomialTorchSequence for `seq_` function calls."
@@ -191,6 +195,7 @@ class IntegerMultinomialDistribution(TorchProbabilityDistribution):
         return ll
 
     def sampler(self, seed: Optional[int] = None) -> "IntegerMultinomialSampler":
+        """Create a sampler when a non-null total-count model is configured."""
         if isinstance(self.len_dist, NullDistribution):
             raise ValueError(
                 "IntegerMultinomialDistribution must have len_dist set to "
@@ -202,6 +207,7 @@ class IntegerMultinomialDistribution(TorchProbabilityDistribution):
     def estimator(
         self, pseudo_count: Optional[float] = None
     ) -> "IntegerMultinomialEstimator":
+        """Create an estimator retaining support and optional smoothing."""
         len_est = (
             NullEstimator()
             if self.len_dist is None
@@ -220,6 +226,7 @@ class IntegerMultinomialDistribution(TorchProbabilityDistribution):
         )
 
     def dist_to_encoder(self) -> "IntegerMultinomialDataEncoder":
+        """Create an encoder compatible with the total-count distribution."""
         len_encoder = self.len_dist.dist_to_encoder()
         return IntegerMultinomialDataEncoder(len_encoder=len_encoder)
 
@@ -240,7 +247,7 @@ class IntegerMultinomialSampler(DistributionSampler):
     def __init__(
         self, dist: IntegerMultinomialDistribution, seed: Optional[int] = None
     ) -> None:
-        """IntegerMultinomialSampler object.
+        """Initialize an integer multinomial sampler.
 
         Args:
             dist (IntegerMultinomialDistribution): Distribution instance to
@@ -315,7 +322,7 @@ class IntegerMultinomialAccumulator(TorchStatisticAccumulator):
         len_accumulator: Optional[TorchStatisticAccumulator] = None,
         device: Optional[tn.device] = None,
     ) -> None:
-        """IntegerMultinomialAccumulator object.
+        """Initialize an integer multinomial accumulator.
 
         Args:
             min_val (Optional[int]): Set minimum value for integer multinomial.
@@ -351,6 +358,7 @@ class IntegerMultinomialAccumulator(TorchStatisticAccumulator):
         weights: tn.Tensor,
         estimate: Optional[IntegerMultinomialDistribution],
     ) -> None:
+        """Accumulate ``N`` encoded sparse observations with ``(N,)`` weights."""
         _, idx, cnt, val, tenc = x.data
 
         min_x = int(val.min())
@@ -392,12 +400,14 @@ class IntegerMultinomialAccumulator(TorchStatisticAccumulator):
         weights: tn.Tensor,
         tng: Optional[tn.Generator],
     ) -> None:
+        """Add an encoded batch during initialization; ``tng`` is unused."""
         del tng
         self.seq_update(x, weights, None)
 
     def combine(
         self, suff_stat: Tuple[int, np.ndarray, Optional[SS]]
     ) -> "IntegerMultinomialAccumulator":
+        """Merge ``(min_val, category_counts, length_statistics)``."""
         if self.count_vec is None and suff_stat[1] is not None:
             self.min_val = suff_stat[0]
             self.max_val = suff_stat[0] + len(suff_stat[1]) - 1
@@ -435,6 +445,7 @@ class IntegerMultinomialAccumulator(TorchStatisticAccumulator):
         return self
 
     def value(self) -> Tuple[int, np.ndarray, Optional[Any]]:
+        """Return contiguous CPU category counts and length statistics."""
         assert self.min_val is not None
         assert self.count_vec is not None
         return self.min_val, self.count_vec, self.len_accumulator.value()
@@ -442,6 +453,7 @@ class IntegerMultinomialAccumulator(TorchStatisticAccumulator):
     def from_value(
         self, x: Tuple[int, np.ndarray, Optional[SS]]
     ) -> "IntegerMultinomialAccumulator":
+        """Replace the accumulator from a sufficient-statistic tuple."""
         self.min_val = x[0]
         self.max_val = x[0] + len(x[1]) - 1
         self.count_vec = x[1]
@@ -451,6 +463,7 @@ class IntegerMultinomialAccumulator(TorchStatisticAccumulator):
         return self
 
     def key_merge(self, stats_dict: Dict[str, Any]) -> None:
+        """Merge category and nested length statistics by key."""
         if self.key is not None:
             if self.key in stats_dict:
                 stats_dict[self.key].combine(self.value())
@@ -461,7 +474,7 @@ class IntegerMultinomialAccumulator(TorchStatisticAccumulator):
             self.len_accumulator.key_merge(stats_dict)
 
     def key_replace(self, stats_dict: Dict[str, Any]) -> None:
-
+        """Replace category and nested length statistics by key."""
         if self.key is not None:
             if self.key in stats_dict:
                 self.from_value(stats_dict[self.key].value())
@@ -470,6 +483,7 @@ class IntegerMultinomialAccumulator(TorchStatisticAccumulator):
             self.len_accumulator.key_replace(stats_dict)
 
     def acc_to_encoder(self) -> "IntegerMultinomialDataEncoder":
+        """Create an encoder using the nested length encoder."""
         len_encoder = self.len_accumulator.acc_to_encoder()
         return IntegerMultinomialDataEncoder(len_encoder=len_encoder)
 
@@ -499,7 +513,7 @@ class IntegerMultinomialAccumulatorFactory(TorchStatisticAccumulatorFactory):
             TorchStatisticAccumulatorFactory
         ] = NullAccumulatorFactory(),
     ) -> None:
-        """IntegerMultinomialAccumulatorFactory object.
+        """Initialize an integer multinomial accumulator factory.
 
         Args:
             min_val (Optional[int]): Optional minimum value for
@@ -522,6 +536,7 @@ class IntegerMultinomialAccumulatorFactory(TorchStatisticAccumulatorFactory):
     def make(
         self, device: Optional[tn.device] = None
     ) -> "IntegerMultinomialAccumulator":
+        """Create an accumulator associated with ``device``."""
         len_acc = self.len_factory.make(device=device)
         return IntegerMultinomialAccumulator(
             min_val=self.min_val,
@@ -563,7 +578,7 @@ class IntegerMultinomialEstimator(TorchParameterEstimator):
         suff_stat: Optional[Tuple[int, np.ndarray]] = None,
         keys: Optional[str] = None,
     ) -> None:
-        """IntegerMultinomialEstimator object.
+        """Initialize an integer multinomial estimator.
 
         Args:
             min_val (Optional[int]): Set minimum value integer multinomial.
@@ -592,6 +607,7 @@ class IntegerMultinomialEstimator(TorchParameterEstimator):
         self.keys = keys
 
     def accumulator_factory(self) -> "IntegerMultinomialAccumulatorFactory":
+        """Create a factory using fixed, prior, or data-derived support."""
         min_val = None
         max_val = None
 
@@ -616,7 +632,7 @@ class IntegerMultinomialEstimator(TorchParameterEstimator):
         suff_stat: Tuple[int, np.ndarray, Optional[SS]],
         device: Optional[tn.device] = None,
     ) -> "IntegerMultinomialDistribution":
-
+        """Estimate probabilities and the total-count model on ``device``."""
         len_dist = (
             self.len_dist.to(device)
             if self.len_dist is not None
@@ -706,7 +722,7 @@ class IntegerMultinomialDataEncoder(TorchSequenceEncoder):
     def __init__(
         self, len_encoder: Optional[TorchSequenceEncoder] = NullDataEncoder()
     ) -> None:
-        """IntegerMultinomialDataEncoder object.
+        """Initialize an encoder with a nested total-count encoder.
 
         Args:
             len_encoder (Optional[TorchSequenceEncoder]): Optional sequence
@@ -717,11 +733,13 @@ class IntegerMultinomialDataEncoder(TorchSequenceEncoder):
         self.len_encoder = len_encoder if len_encoder is not None else NullDataEncoder()
 
     def __str__(self) -> str:
+        """Return a concise encoder representation."""
         return (
             "IntegerMultinomialDataEncoder(len_encoder=" + str(self.len_encoder) + ")"
         )
 
     def __eq__(self, other: object) -> bool:
+        """Return whether another encoder has the same length encoder."""
         if isinstance(other, IntegerMultinomialDataEncoder):
             return self.len_encoder == other.len_encoder
 
@@ -732,6 +750,12 @@ class IntegerMultinomialDataEncoder(TorchSequenceEncoder):
         x: Sequence[Sequence[Tuple[int, float]]],
         device: Optional[tn.device] = None,
     ) -> "IntegerMultinomialTorchSequence":
+        """Flatten ``N`` sparse count observations into torch tensors.
+
+        The returned tuple is ``(N, indices, counts, values, total_counts)``.
+        The three flat tensors have shape ``(M,)``; indices and category values
+        are integer tensors, while counts use the default floating dtype.
+        """
         idx: List[int] = []
         cnt: List[float] = []
         val: List[int] = []
@@ -759,6 +783,8 @@ class IntegerMultinomialDataEncoder(TorchSequenceEncoder):
 
 
 class IntegerMultinomialTorchSequence(TorchEncodedSequence):
+    """Store flattened sparse counts and an encoded total-count sequence."""
+
     data: Tuple[int, tn.Tensor, tn.Tensor, tn.Tensor, TorchEncodedSequence]
 
     def __init__(
@@ -766,7 +792,9 @@ class IntegerMultinomialTorchSequence(TorchEncodedSequence):
         data: Tuple[int, tn.Tensor, tn.Tensor, tn.Tensor, TorchEncodedSequence],
         device: Optional[tn.device] = None,
     ) -> None:
+        """Initialize the encoded tuple and associated device."""
         super().__init__(data=data, device=device)
 
     def __str__(self) -> str:
+        """Return a representation containing the encoded device."""
         return f"IntegerMultinomialTorchSequence(device={repr(self.device)})"

@@ -53,7 +53,13 @@ class DiagonalGaussianDistribution(
         DiagonalGaussianDatum, DiagonalGaussianParameters, DiagonalGaussianEncoded
     ]
 ):
-    """Multivariate Gaussian likelihood with diagonal covariance."""
+    """Represent a multivariate Gaussian likelihood with diagonal covariance.
+
+    ``mu`` and ``covariance`` are vectors of shape ``(d,)``; covariance entries
+    are variances, not standard deviations. Observations are finite vectors of
+    the same shape. A multivariate normal-gamma prior enables
+    posterior-expected scoring, while another prior uses plug-in parameters.
+    """
 
     def __init__(
         self,
@@ -157,14 +163,28 @@ class DiagonalGaussianDistribution(
         )
 
     def seq_log_density(self, x: DiagonalGaussianEncoded) -> Array:
-        """Evaluate fixed-parameter log-densities from encoded observations."""
+        """Evaluate fixed-parameter log-densities from encoded observations.
+
+        Args:
+            x: Value and squared-value matrices, each shaped ``(n, d)``.
+
+        Returns:
+            Log-density array of shape ``(n,)``.
+        """
         values, squares = x
         result = np.dot(squares, self.ca) + np.dot(values, self.cb) + self.cc
         valid = np.all(np.isfinite(values), axis=1)
         return np.where(valid, result, -np.inf).astype(float)
 
     def seq_expected_log_density(self, x: DiagonalGaussianEncoded) -> Array:
-        """Evaluate prior-averaged log-densities from encoded observations."""
+        """Evaluate prior-averaged log-densities from encoded observations.
+
+        Args:
+            x: Value and squared-value matrices, each shaped ``(n, d)``.
+
+        Returns:
+            Expected log-density array of shape ``(n,)``.
+        """
         if self.expected_nparams is None:
             return self.seq_log_density(x)
         values, squares = x
@@ -179,7 +199,14 @@ class DiagonalGaussianDistribution(
         return np.where(valid, result, -np.inf).astype(float)
 
     def seq_encode(self, x: Iterable[DiagonalGaussianDatum]) -> DiagonalGaussianEncoded:
-        """Encode observations as values and coordinate-wise squares."""
+        """Encode observations as values and coordinate-wise squares.
+
+        Args:
+            x: Iterable of ``n`` observations, each with shape ``(d,)``.
+
+        Returns:
+            Value and squared-value matrices, each shaped ``(n, d)``.
+        """
         values = np.asarray(tuple(x), dtype=np.float64).reshape((-1, self.dim))
         return values, values * values
 
@@ -214,7 +241,11 @@ class DiagonalGaussianAccumulator(
         DiagonalGaussianDatum, DiagonalGaussianSuffStat, DiagonalGaussianEncoded
     ]
 ):
-    """Accumulate coordinate sums, squared sums, and observation count."""
+    """Accumulate coordinate sums, squared sums, and total weight.
+
+    The sufficient statistic is ``(sum_x, sum_x_squared, weight)``. The first
+    two entries have shape ``(d,)`` or are ``None`` before dimension is known.
+    """
 
     def __init__(self, dim: Optional[int] = None) -> None:
         """Initialize empty statistics, optionally with known dimension."""
@@ -344,7 +375,12 @@ class DiagonalGaussianEstimator(
         DiagonalGaussianSuffStat,
     ]
 ):
-    """Estimate diagonal Gaussian parameters and update their posterior."""
+    """Estimate diagonal Gaussian parameters from weighted coordinate sums.
+
+    A multivariate normal-gamma prior is updated coordinate-wise and attached
+    as the posterior of the returned likelihood. Without that conjugate prior,
+    the returned mean and variance are weighted maximum-likelihood estimates.
+    """
 
     def __init__(
         self,
@@ -375,7 +411,21 @@ class DiagonalGaussianEstimator(
     def estimate(  # pylint: disable=arguments-differ
         self, *args: Any
     ) -> DiagonalGaussianDistribution:
-        """Estimate from coordinate sums, squared sums, and count."""
+        """Estimate from coordinate sums, squared sums, and total weight.
+
+        Args:
+            *args: Either ``(sum_x, sum_x_squared, weight)`` alone or legacy
+                ``nobs`` followed by that tuple. ``nobs`` is ignored; statistic
+                vectors have shape ``(d,)``.
+
+        Returns:
+            Fitted diagonal Gaussian likelihood with an updated conjugate
+            posterior when applicable.
+
+        Raises:
+            ValueError: If the statistics contain no coordinate arrays, or if
+                an unconjugated estimate has nonpositive total weight.
+        """
         sum_x, sum_xx, count = args[-1]
         if sum_x is None or sum_xx is None:
             raise ValueError("Diagonal Gaussian estimation requires observations.")

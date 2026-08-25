@@ -36,7 +36,12 @@ Model = ProbabilityDistribution[Any, Any, Any]
 
 
 class GammaDistribution(ProbabilityDistribution[float, GammaParameters, GammaEncoded]):
-    """Gamma distribution parameterized by shape ``k`` and scale ``theta``."""
+    """Represent a gamma prior or likelihood in shape-scale form.
+
+    ``k`` is the positive shape and ``theta`` is the positive scale, giving
+    mean ``k * theta`` on support ``x > 0``. The optional nested prior is
+    estimator metadata and does not affect scoring.
+    """
 
     def __init__(
         self,
@@ -142,7 +147,14 @@ class GammaDistribution(ProbabilityDistribution[float, GammaParameters, GammaEnc
         return self.log_density(x)
 
     def seq_log_density(self, x: GammaEncoded) -> np.ndarray[Any, Any]:
-        """Evaluate log-densities from encoded values and their logarithms."""
+        """Evaluate log-densities from encoded values and logarithms.
+
+        Args:
+            x: Value and log-value arrays, each shaped ``(n,)``.
+
+        Returns:
+            Log-density array of shape ``(n,)``.
+        """
         values, log_values = x
         result = values * (-1.0 / self.theta)
         if self.k != 1.0:
@@ -155,7 +167,14 @@ class GammaDistribution(ProbabilityDistribution[float, GammaParameters, GammaEnc
         return self.seq_log_density(x)
 
     def seq_encode(self, x: Iterable[float]) -> GammaEncoded:
-        """Encode values as arrays of values and logarithms."""
+        """Encode values as arrays of values and logarithms.
+
+        Args:
+            x: Iterable of ``n`` scalar observations.
+
+        Returns:
+            Value and log-value arrays, each shaped ``(n,)``.
+        """
         values = np.asarray(tuple(x), dtype=float)
         with np.errstate(divide="ignore", invalid="ignore"):
             log_values = np.log(values)
@@ -184,7 +203,7 @@ class GammaSampler(DistributionSampler[float]):
 
 
 class GammaAccumulator(StatisticAccumulator[float, GammaSuffStat, GammaEncoded]):
-    """Accumulate count, value sum, and log-value sum for gamma estimation."""
+    """Accumulate ``(weight, sum_x, sum_log_x)`` for gamma estimation."""
 
     def __init__(self, keys: Optional[str] = None) -> None:
         """Initialize empty sufficient statistics and an optional shared key."""
@@ -264,7 +283,13 @@ class GammaAccumulatorFactory(
 class GammaEstimator(
     ParameterEstimator[float, GammaParameters, GammaEncoded, GammaSuffStat]
 ):
-    """Estimate gamma shape and scale from sufficient statistics."""
+    """Estimate gamma shape and scale from sufficient statistics.
+
+    The two pseudo-count components independently regularize the value mean and
+    log-value mean toward ``suff_stat``. ``prior`` is metadata only; this class
+    performs regularized maximum-likelihood estimation rather than a conjugate
+    posterior update.
+    """
 
     def __init__(
         self,
@@ -275,7 +300,16 @@ class GammaEstimator(
         name: Optional[str] = None,
         prior: Model = null_dist,
     ) -> None:
-        """Initialize regularization and numerical convergence settings."""
+        """Initialize regularization and numerical convergence settings.
+
+        Args:
+            pseudo_count: Weights for the value and log-value prior statistics.
+            suff_stat: Prior value mean and log-value mean.
+            threshold: Newton solver convergence tolerance for shape.
+            keys: Optional key used to share accumulator statistics.
+            name: Optional name copied to fitted distributions.
+            prior: Metadata copied to fitted distributions; not used in fitting.
+        """
         self.pseudo_count = pseudo_count
         self.suff_stat = suff_stat
         self.threshold = threshold
@@ -302,7 +336,8 @@ class GammaEstimator(
         """Estimate a gamma distribution from either legacy call form.
 
         Args:
-            *args: Either ``suff_stat`` or ignored ``nobs, suff_stat``.
+            *args: Either ``(weight, sum_x, sum_log_x)`` or ignored ``nobs``
+                followed by that tuple.
 
         Returns:
             Estimated gamma distribution.
@@ -335,7 +370,16 @@ class GammaEstimator(
     def estimate_shape(
         avg_sum: float, avg_sum_of_logs: float, threshold: float
     ) -> float:
-        """Solve the gamma shape equation by Newton iteration."""
+        """Solve the gamma shape equation by Newton iteration.
+
+        Args:
+            avg_sum: Mean observation value.
+            avg_sum_of_logs: Mean log observation value.
+            threshold: Absolute parameter-change convergence tolerance.
+
+        Returns:
+            Estimated positive gamma shape.
+        """
         target = np.log(avg_sum) - avg_sum_of_logs
         old_shape = np.inf
         shape = (3 - target + np.sqrt((target - 3) ** 2 + 24 * target)) / (12 * target)

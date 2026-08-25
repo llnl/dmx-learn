@@ -24,6 +24,18 @@ extensions = [
     "sphinx.ext.mathjax",
 ]
 
+# Preserve declared defaults without evaluating their recursive model reprs.
+autodoc_preserve_defaults = True
+
+# Several backends intentionally use the same short protocol and model names.
+# Generated annotations are qualified; legacy prose keeps its backend-local
+# spelling, whose otherwise valid targets are necessarily ambiguous globally.
+autodoc_typehints = "description"
+typehints_fully_qualified = True
+napoleon_use_param = False
+napoleon_use_rtype = False
+suppress_warnings = ["ref.python"]
+
 templates_path = ["_templates"]
 exclude_patterns = []
 

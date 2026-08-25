@@ -157,10 +157,5 @@ jobs:
       - name: Install dependencies with optional deps (torch, mpi4py)
         run: poetry install --no-interaction --extras "ci optional" --with dev
 
-      - name: Run pydocstyle on core modules
-        run: |
-          poetry run pydocstyle src/dmx/stats/pdist.py \
-                               src/dmx/bstats \
-                               src/dmx/torch_stats/pdist.py \
-                               src/dmx/utils/optsutil.py \
-                               src/dmx/utils/vector.py
+      - name: Run pydocstyle on src/dmx
+        run: poetry run pydocstyle src/dmx

@@ -35,7 +35,19 @@ SS = TypeVar("SS")
 
 
 class OptionalDistribution(SequenceEncodableProbabilityDistribution):
-    """OptionalDistribution for handling missing values in estimation.
+    """Add a distinguished missing value to a child distribution.
+
+    When ``p`` is supplied, the missing marker has mass ``p`` and non-missing
+    values have child density scaled by ``1 - p``. The wrapper is normalized when
+    the child is normalized on the non-missing support. When ``p`` is ``None``,
+    missing values instead contribute a neutral density of one, non-missing values
+    retain the child density, and the result is generally not normalized.
+
+    Encoding separates missing positions from values sent to the child encoder.
+    Sampling delegates entirely to the child when ``p`` is absent; otherwise it
+    independently chooses missing markers or child draws. Estimation always fits
+    the child from non-missing values and only estimates missingness when
+    ``est_prob`` is enabled.
 
     Attributes:
         dist (SequenceEncodableProbabilityDistribution): Base distribution.
@@ -58,7 +70,7 @@ class OptionalDistribution(SequenceEncodableProbabilityDistribution):
         name: Optional[str] = None,
         keys: Optional[str] = None,
     ) -> None:
-        """OptionalDistribution object.
+        """Initialize a missing-value wrapper around ``dist``.
 
         Args:
             dist (SequenceEncodableProbabilityDistribution): Base distribution.
@@ -84,6 +96,7 @@ class OptionalDistribution(SequenceEncodableProbabilityDistribution):
         self.keys = keys
 
     def __str__(self) -> str:
+        """Return an evaluable representation, including a NaN marker."""
         s1 = str(self.dist)
         s2 = repr(None if not self.has_p else self.p)
         if self.missing_value_is_nan:
@@ -149,7 +162,17 @@ class OptionalDistribution(SequenceEncodableProbabilityDistribution):
         return 0.0
 
     def seq_log_density(self, x: "OptionalEncodedDataSequence") -> np.ndarray:
+        """Score missing positions and child-encoded observed positions.
 
+        Args:
+            x: Encoding produced by :class:`OptionalDataEncoder`.
+
+        Returns:
+            One log density per original observation.
+
+        Raises:
+            TypeError: If ``x`` is not an optional encoded sequence.
+        """
         if not isinstance(x, OptionalEncodedDataSequence):
             raise TypeError(
                 "OptionalEncodedDataSequence required for seq_log_density()."
@@ -168,9 +191,11 @@ class OptionalDistribution(SequenceEncodableProbabilityDistribution):
         return rv
 
     def sampler(self, seed: Optional[int] = None) -> "OptionalSampler":
+        """Create a missingness-aware child sampler."""
         return OptionalSampler(self, seed)
 
     def estimator(self, pseudo_count: Optional[float] = None) -> "OptionalEstimator":
+        """Create an estimator for the child and, when configured, missingness."""
         return OptionalEstimator(
             self.dist.estimator(pseudo_count=pseudo_count),
             missing_value=self.missing_value,
@@ -181,6 +206,7 @@ class OptionalDistribution(SequenceEncodableProbabilityDistribution):
         )
 
     def dist_to_encoder(self) -> "OptionalDataEncoder":
+        """Wrap the child encoder with missing-value partitioning."""
         return OptionalDataEncoder(
             encoder=self.dist.dist_to_encoder(), missing_value=self.missing_value
         )
@@ -199,7 +225,7 @@ class OptionalSampler(DistributionSampler):
     def __init__(
         self, dist: "OptionalDistribution", seed: Optional[int] = None
     ) -> None:
-        """OptionalSampler object.
+        """Initialize a sampler with independent wrapper and child randomness.
 
         Args:
             dist (OptionalDistribution): OptionalDistribution to sample from.
@@ -223,7 +249,6 @@ class OptionalSampler(DistributionSampler):
             Union[Union[Any, T], Sequence[Union[Any, T]]
 
         """
-
         sampler = self.sampler
 
         if not self.dist.has_p:
@@ -259,7 +284,11 @@ class OptionalSampler(DistributionSampler):
 
 
 class OptionalEstimatorAccumulator(SequenceEncodableStatisticAccumulator):
-    """OptionalEstimatorAccumulator object for accumulating sufficient statistics.
+    """Accumulate missing counts and child statistics for observed values.
+
+    The public statistic is ``([missing_weight, observed_weight], child_stat)``.
+    Missing observations never reach the child accumulator. A wrapper-level key
+    shares this entire pair and does not recurse into the child's key contract.
 
     Attributes:
         accumulator (SequenceEncodableStatisticAccumulator): Accumulator for the base
@@ -279,7 +308,7 @@ class OptionalEstimatorAccumulator(SequenceEncodableStatisticAccumulator):
         name: Optional[str] = None,
         keys: Optional[str] = None,
     ) -> None:
-        """OptionalEstimatorAccumulator object.
+        """Initialize missingness counts and a child accumulator.
 
         Args:
             accumulator (SequenceEncodableStatisticAccumulator): Accumulator for the
@@ -300,6 +329,7 @@ class OptionalEstimatorAccumulator(SequenceEncodableStatisticAccumulator):
         self.name = name
 
     def update(self, x: T, weight: float, estimate: OptionalDistribution) -> None:
+        """Route one observation to the missing count or child accumulator."""
         if self.missing_value_is_nan:
             if isinstance(x, (np.floating, float)) and np.isnan(x):
                 self.weights[0] += weight
@@ -314,6 +344,7 @@ class OptionalEstimatorAccumulator(SequenceEncodableStatisticAccumulator):
                 self.weights[1] += weight
 
     def initialize(self, x: T, weight: float, rng: RandomState) -> None:
+        """Initialize only the child statistic of a non-missing observation."""
         if self.missing_value_is_nan:
             if isinstance(x, (np.floating, float)) and np.isnan(x):
                 self.weights[0] += weight
@@ -333,6 +364,7 @@ class OptionalEstimatorAccumulator(SequenceEncodableStatisticAccumulator):
         weights: np.ndarray,
         estimate: OptionalDistribution,
     ) -> None:
+        """Update counts and the child from an optional encoded sequence."""
         _sz, z_idx, nz_idx, enc_data = x.data
         nz_weights = weights[nz_idx]
         z_weights = weights[z_idx]
@@ -346,6 +378,7 @@ class OptionalEstimatorAccumulator(SequenceEncodableStatisticAccumulator):
     def seq_initialize(
         self, x: "OptionalEncodedDataSequence", weights: np.ndarray, rng: RandomState
     ) -> None:
+        """Initialize counts and child statistics from encoded observations."""
         _sz, z_idx, nz_idx, enc_data = x.data
         nz_weights = weights[nz_idx]
         z_weights = weights[z_idx]
@@ -357,6 +390,7 @@ class OptionalEstimatorAccumulator(SequenceEncodableStatisticAccumulator):
     def combine(
         self, suff_stat: Tuple[List[float], SS]
     ) -> "OptionalEstimatorAccumulator":
+        """Add missingness counts and combine the child statistic."""
         self.weights[0] += suff_stat[0][0]
         self.weights[1] += suff_stat[0][1]
         self.accumulator.combine(suff_stat[1])
@@ -364,15 +398,18 @@ class OptionalEstimatorAccumulator(SequenceEncodableStatisticAccumulator):
         return self
 
     def value(self) -> Tuple[List[float], Any]:
+        """Return missing/observed weights followed by the child statistic."""
         return self.weights, self.accumulator.value()
 
     def from_value(self, x: Tuple[List[float], SS]) -> "OptionalEstimatorAccumulator":
+        """Replace missingness counts and the child statistic."""
         self.weights = x[0]
         self.accumulator.from_value(x[1])
 
         return self
 
     def key_replace(self, stats_dict: Dict[str, Any]) -> None:
+        """Apply this wrapper's historical keyed replacement operation."""
         if self.keys is not None:
             if self.keys in stats_dict:
                 stats_dict[self.keys].from_value(self.value())
@@ -380,6 +417,7 @@ class OptionalEstimatorAccumulator(SequenceEncodableStatisticAccumulator):
                 stats_dict[self.keys] = self
 
     def key_merge(self, stats_dict: Dict[str, Any]) -> None:
+        """Merge the complete wrapper statistic under its key."""
         if self.keys is not None:
             if self.keys in stats_dict:
                 stats_dict[self.keys].combine(self.value())
@@ -387,14 +425,14 @@ class OptionalEstimatorAccumulator(SequenceEncodableStatisticAccumulator):
                 stats_dict[self.keys] = self
 
     def acc_to_encoder(self) -> "OptionalDataEncoder":
+        """Wrap the child accumulator's encoder with missing-value handling."""
         return OptionalDataEncoder(
             encoder=self.accumulator.acc_to_encoder(), missing_value=self.missing_value
         )
 
 
 class OptionalEstimatorAccumulatorFactory(StatisticAccumulatorFactory):
-    """OptionalEstimatorAccumulatorFactory object for creating
-    OptionalEstimatorAccumulator objects.
+    """Create optional accumulators from a child estimator.
 
     Attributes:
         estimator (ParameterEstimator): Parameter Estimator for creating base
@@ -412,8 +450,7 @@ class OptionalEstimatorAccumulatorFactory(StatisticAccumulatorFactory):
         keys: Optional[str] = None,
         name: Optional[str] = None,
     ) -> None:
-        """OptionalEstimatorAccumulatorFactory object for creating
-        OptionalEstimatorAccumulator objects.
+        """Initialize an optional accumulator factory.
 
         Args:
             estimator (ParameterEstimator): Parameter Estimator for creating base
@@ -430,6 +467,7 @@ class OptionalEstimatorAccumulatorFactory(StatisticAccumulatorFactory):
         self.name = name
 
     def make(self) -> "OptionalEstimatorAccumulator":
+        """Create an optional accumulator and its child accumulator."""
         return OptionalEstimatorAccumulator(
             self.estimator.accumulator_factory().make(),
             self.missing_value,
@@ -472,7 +510,7 @@ class OptionalEstimator(ParameterEstimator):
         name: Optional[str] = None,
         keys: Optional[str] = None,
     ) -> None:
-        """OptionalEstimator object.
+        """Initialize missingness and child estimation settings.
 
         Args:
             estimator (ParameterEstimator): Estimator for base distribution.
@@ -499,6 +537,7 @@ class OptionalEstimator(ParameterEstimator):
         self.name = name
 
     def accumulator_factory(self) -> "OptionalEstimatorAccumulatorFactory":
+        """Create a factory for the paired wrapper and child statistics."""
         return OptionalEstimatorAccumulatorFactory(
             self.estimator, self.missing_value, keys=self.keys, name=self.name
         )
@@ -506,6 +545,12 @@ class OptionalEstimator(ParameterEstimator):
     def estimate(
         self, nobs: Optional[float], suff_stat: Optional[Tuple[List[float], SS]]
     ) -> "OptionalDistribution":
+        """Fit the child from observed data and optionally fit missingness.
+
+        The child estimator receives the observed weight as ``nobs``. If missingness
+        is estimated, its probability is the weighted missing fraction, with a
+        symmetric pseudo-count added to both outcomes when configured.
+        """
         assert suff_stat is not None
         dist = self.estimator.estimate(suff_stat[0][1], suff_stat[1])
 
@@ -550,7 +595,7 @@ class OptionalDataEncoder(DataSequenceEncoder):
     """
 
     def __init__(self, encoder: DataSequenceEncoder, missing_value: Any = None) -> None:
-        """OptionalDataEncoder object.
+        """Initialize an encoder that partitions missing and observed values.
 
         Args:
             encoder (DataSequenceEncoder): DataSequenceEncoder for optional base
@@ -565,6 +610,7 @@ class OptionalDataEncoder(DataSequenceEncoder):
         ) and np.isnan(missing_value)
 
     def __eq__(self, other: object) -> bool:
+        """Compare missing markers, treating any two NaN markers as equal."""
         if isinstance(other, OptionalDataEncoder):
             # both are nan return True
             if self.missing_value_is_nan and other.missing_value_is_nan:
@@ -580,6 +626,7 @@ class OptionalDataEncoder(DataSequenceEncoder):
         return False
 
     def seq_encode(self, x: Sequence[T]) -> "OptionalEncodedDataSequence":
+        """Partition positions and encode only the non-missing values."""
         nz_idx = []
         nz_val = []
         z_idx = []
@@ -623,7 +670,7 @@ class OptionalEncodedDataSequence(EncodedDataSequence):
     """
 
     def __init__(self, data: Tuple[int, np.ndarray, np.ndarray, EncodedDataSequence]):
-        """OptionalEncodedDataSequence object.
+        """Store original size, missing positions, observed positions, and child data.
 
         Args:
             data (E): Sequence encoded data for OptionalDistribution and
@@ -633,4 +680,5 @@ class OptionalEncodedDataSequence(EncodedDataSequence):
         super().__init__(data=data)
 
     def __repr__(self) -> str:
+        """Return a representation containing the partitioned encoding."""
         return f"OptionalEncodedDataSequence(data={self.data})"

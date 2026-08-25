@@ -37,7 +37,12 @@ default_prior = GammaDistribution(1.0001, 1.0e6)
 
 
 class ExponentialDistribution(ProbabilityDistribution[float, float, Array]):
-    """Exponential likelihood parameterized by a positive rate."""
+    """Represent an exponential likelihood parameterized by a positive rate.
+
+    The support is finite values ``x >= 0`` and the mean is ``1 / lam``. A
+    gamma shape-scale prior enables posterior-expected scoring; other priors
+    are retained but scoring uses the fixed rate.
+    """
 
     def __init__(
         self,
@@ -115,7 +120,7 @@ class ExponentialDistribution(ProbabilityDistribution[float, float, Array]):
         return np.where(np.isfinite(x) & (x >= 0.0), result, -np.inf).astype(float)
 
     def seq_encode(self, x: Iterable[float]) -> Array:
-        """Encode observations as a floating-point array."""
+        """Encode ``n`` observations as a float array of shape ``(n,)``."""
         return np.asarray(tuple(x), dtype=np.float64)
 
     def value(self) -> list[float]:
@@ -238,7 +243,12 @@ class ExponentialAccumulatorFactory(
 class ExponentialEstimator(
     ParameterEstimator[float, float, Array, ExponentialSuffStat]
 ):
-    """Estimate an exponential rate and update its gamma posterior."""
+    """Estimate an exponential rate from weighted count and sum statistics.
+
+    A gamma prior, or legacy ``[shape, rate]`` pair, is updated conjugately and
+    its posterior mode supplies the returned rate. Without recognized
+    hyperparameters, the weighted maximum-likelihood rate is used.
+    """
 
     def __init__(
         self,
@@ -276,7 +286,16 @@ class ExponentialEstimator(
     def estimate(  # pylint: disable=arguments-differ
         self, *args: Any
     ) -> ExponentialDistribution:
-        """Estimate from weighted ``(count, sum)`` statistics."""
+        """Estimate from weighted ``(count, sum)`` statistics.
+
+        Args:
+            *args: Either the statistic tuple alone or legacy ``nobs`` followed
+                by the tuple. ``nobs`` is ignored.
+
+        Returns:
+            Fitted exponential likelihood carrying a gamma posterior when the
+            configured hyperparameters are conjugate.
+        """
         count, total = args[-1]
         if self.conj_prior_params is not None:
             shape, rate = self.conj_prior_params

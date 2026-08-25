@@ -16,9 +16,12 @@ Contents
    :maxdepth: 1
 
    installation.rst
-   base_distributions.rst
-   combinators.rst
-   mixture_models.rst
-   pdist.rst
+   docstring_style.rst
+   stats/index.rst
+   bstats/index.rst
+   torch_stats/index.rst
+   utils/index.rst
+   torch_utils/index.rst
+   mpi4py/index.rst
    user_defined.rst
    mpi4py_example.rst

@@ -1,16 +1,12 @@
-"""
-Create, estimate, and sample from a Composite distribution.
+"""Provide torch-backed products of positional component distributions.
 
-Defines the CompositeDistribution, CompositeSampler, CompositeAccumulatorFactory,
-CompositeAccumulator,
-CompositeEstimator, and the CompositeDataEncoder classes for use with pysparkplug.
-
-Data type: (Tuple[T_0, ... T_{n-1}]): The CompositeDistribution of size 'n' is a joint
-distribution for
-independent observations of 'n'-tupled data. Each component 'k' of the
-CompositeDistribution has data type T_k that
-must be compatible with data type T_k.
-
+A composite observation is a tuple ``(x_0, ..., x_{K-1})`` whose field ``k``
+belongs to child distribution ``dists[k]``. Encoding transposes a sequence of
+``N`` observation tuples into ``K`` child encoded sequences, each representing
+the same ``N`` observations. Scoring sums child log densities and returns a
+tensor of shape ``(N,)`` on the child/model device. Device movement, sampling,
+accumulation, and estimation are delegated position by position. Unlike
+``dmx.stats.composite``, this wrapper has no name and stores device state.
 """
 
 # pylint: disable=too-many-positional-arguments,duplicate-code
@@ -39,25 +35,14 @@ SS = TypeVar("SS")
 
 
 class CompositeDistribution(TorchProbabilityDistribution):
-    """
-    CompositeDistribution for modeling independent distributions of from
-    (Dist_0,Dist_1,...,Dist_{n-1}).
+    """Model a tuple as independent draws from positional child distributions.
 
-        Notes:
-            Data type must be (T_0, T_1, ..., T_{n-1}), where data type T_k
-            is consistent with distribution Dist_k. The
-            density for a single observation tuple x =
-            (x_0,x_1,...,x_{n-1}) is given by,
+    The support is the Cartesian product of the child supports. Every
+    observation must have the same number and order of fields as ``dists``.
 
-            p_mat(x) = p_mat(x_0 | Dist_0)*p_mat(x_1 | Dist_1)*...*p_mat(x_{n-1} |
-            Dist_{n-1}).
-
-
-        Attributes:
-            dists: (Sequence[TorchProbabilityDistribution]): Distributions
-            given by Dist_k above.
-            counts (int): Number of components (i.e. len(dists)).
-
+    Attributes:
+        dists (Sequence[TorchProbabilityDistribution]): Positional children.
+        count (int): Number of tuple fields and child distributions.
     """
 
     def __init__(
@@ -65,20 +50,18 @@ class CompositeDistribution(TorchProbabilityDistribution):
         dists: Sequence[TorchProbabilityDistribution],
         device: Optional[TorchDevice] = None,
     ) -> None:
-        """
-        CompositeDistribution object.
+        """Initialize a positional product distribution.
 
-                Args:
-                    dists (Sequence[TorchProbabilityDistribution]):
-                    Distributions given by Dist_k above.
-                    device (Optional[str]): Set the device type for object.
-
+        Args:
+            dists: Child distributions in tuple-field order.
+            device: Device recorded by the wrapper and propagated to children.
         """
         super().__init__(device)
         self.dists = dists
         self.count = len(dists)
 
     def to(self, device: vec.DeviceLike) -> "CompositeDistribution":
+        """Move every child to ``device`` in place and return ``self``."""
         target_device = self._resolve_device_arg(device)
         self._device = target_device
         for comp in self.dists:
@@ -86,28 +69,12 @@ class CompositeDistribution(TorchProbabilityDistribution):
         return self
 
     def __repr__(self) -> str:
+        """Return a constructor-like representation of the child tuple."""
         s0 = ",".join(map(str, self.dists))
         return f"CompositeDistribution(({s0}))"
 
     def density(self, x: Tuple[Any, ...]) -> float:
-        """
-        Evaluates density of CompositeDistribution for single observation tuple x.
-
-                Notes:
-                    p_mat(x) = p_mat(x_0 | dist_0)*p_mat(x_1 | dist_1)*...
-                    *p_mat(x_{n-1} | dist_{n-1}),
-
-                    where dist_k is the k^{th} element of member variable dists and is
-                    consistent with data type type(x[k]).
-
-                Args:
-                    x (Tuple[Any, ...]): Tuple of length = len(dists), the
-                    k^{th} data type must be consistent with dists[k].
-
-                Returns:
-                    float: Density as float.
-
-        """
+        """Evaluate the scalar density for one positional observation tuple."""
         rv = 0.0
 
         for i in range(1, self.count):
@@ -116,25 +83,7 @@ class CompositeDistribution(TorchProbabilityDistribution):
         return rv
 
     def log_density(self, x: Tuple[Any, ...]) -> float:
-        """
-        Evaluates log-density of CompositeDistribution for single observation tuple x.
-
-                Notes:
-                    log(p_mat(x)) = log(p_mat(x_0 | dist_0)) +
-                    log(p_mat(x_1 | dist_1)) + ... +
-                    log(p_mat(x_{n-1} | dist_{n-1})),
-
-                    where dist_k is the k^{th} element of member variable dists and is
-                    consistent with data type type(x[k]).
-
-                Args:
-                    x (Tuple[Any, ...]): Tuple of length = len(dists), the
-                    k^{th} data type must be consistent with dists[k].
-
-                Returns:
-                    float: Log-density as float.
-
-        """
+        """Evaluate the sum of child log densities for one tuple."""
         rv = self.dists[0].log_density(x[0])
 
         for i in range(1, self.count):
@@ -143,6 +92,7 @@ class CompositeDistribution(TorchProbabilityDistribution):
         return rv
 
     def seq_log_density(self, x: "CompositeTorchEncodedSequence") -> tn.Tensor:
+        """Sum child scores into a tensor of shape ``(N,)``."""
         if not isinstance(x, CompositeTorchEncodedSequence):
             raise TypeError("Requires CompositeTorchEncodedSequence for `seq_` calls.")
 
@@ -154,43 +104,29 @@ class CompositeDistribution(TorchProbabilityDistribution):
         return rv
 
     def sampler(self, seed: Optional[int] = None) -> "CompositeSampler":
+        """Create independent child samplers from seeds derived from ``seed``."""
         return CompositeSampler(self, seed)
 
     def estimator(self, pseudo_count: Optional[float] = None) -> "CompositeEstimator":
+        """Create one child estimator per field using ``pseudo_count``."""
         return CompositeEstimator(
             [d.estimator(pseudo_count=pseudo_count) for d in self.dists]
         )
 
     def dist_to_encoder(self) -> "CompositeDataEncoder":
+        """Create a positional encoder from the child encoders."""
         encoders = tuple(d.dist_to_encoder() for d in self.dists)
 
         return CompositeDataEncoder(encoders=encoders)
 
 
 class CompositeSampler(DistributionSampler):
-    """
-    CompositeSampler used to generate samples from CompositeDistribution.
-
-        Attributes:
-            dist (CompositeDistribution): CompositeDistribution to draw samples from.
-            rng (RandomState): RandomState with seed set if provided.
-            dist_samplers (List[DistributionSamplers]): List of
-            DistributionSamplers for each component
-                (len=len(dists)).
-    """
+    """Draw tuples by sampling each positional child independently."""
 
     def __init__(
         self, dist: "CompositeDistribution", seed: Optional[int] = None
     ) -> None:
-        """
-        CompositeSampler object.
-
-                Args:
-                    dist (CompositeDistribution): CompositeDistribution to
-                    draw samples from.
-                    seed (Optional[int]): Seed to set for sampling with RandomState.
-
-        """
+        """Initialize child samplers with independently derived seeds."""
         self.dist = dist
         self.rng = RandomState(seed)
         self.dist_samplers = [
@@ -200,23 +136,7 @@ class CompositeSampler(DistributionSampler):
     def sample(
         self, size: Optional[int] = None
     ) -> Union[List[Tuple[Any, ...]], Tuple[Any, ...]]:
-        """
-        Generate independent samples from a CompositeDistribution.
-
-                If size is None, draw one sample and return as Tuple of
-                length = len(dists). If size > 0,
-                draw size samples and return a list of length size containing tuples of
-                len(dists).
-
-                Args:
-                    size (Optional[int]): If None, draw 1 sample. Else, draw
-                    size number of iid samples.
-
-                Returns:
-                    A tuple of length = len(dists) or a list of length size
-                    containing tuples of length = len(dists).
-
-        """
+        """Draw one ``K``-tuple or a list of ``size`` such tuples."""
         if size is None:
             return tuple(d.sample(size=size) for d in self.dist_samplers)
 
@@ -224,23 +144,10 @@ class CompositeSampler(DistributionSampler):
 
 
 class CompositeAccumulator(TorchStatisticAccumulator):
-    """
-    CompositeAccumulator object used for aggregating suffcient statistics of
-    each component of the CompositeDistribution.
+    """Aggregate a separate sufficient statistic for every tuple field.
 
-        Attributes:
-            accumulators (List[TorchStatisticAccumulator]): List of
-            TorchStatisticAccumulator
-                objects for accumulating sufficient statsitics for each component of the
-                CompositeDistribution.
-            count (int): Length of accumulators.
-            keys (Optional[str]): All CompositeAccumulators with same keys will have
-            suff-stats merged.
-            _init_tng (bool): Is True if _acc_tng has been set by a single
-            function call to initialize.
-            _acc_tng (List[Generator]): List of Generator objects generated
-            from seeds set by tng in initialize.
-
+    The same observation-weight tensor is passed to every child. The public
+    statistic is a tuple in positional child order.
     """
 
     def __init__(
@@ -249,15 +156,12 @@ class CompositeAccumulator(TorchStatisticAccumulator):
         keys: Optional[str] = None,
         device: Optional[TorchDevice] = None,
     ) -> None:
-        """
-        CompositeAccumulator object.
+        """Initialize positional child accumulators.
 
-                Args:
-                    accumulators (List[TorchStatisticAccumulator]):
-                    keys (Optional[str]): All CompositeAccumulators with same
-                    keys will have suff-stats merged.
-                    device (Optional[str]): Set the device type for object.
-
+        Args:
+            accumulators: Child accumulators in tuple-field order.
+            keys: Optional key for sharing the whole positional statistic.
+            device: Device metadata for encoded accumulation.
         """
         super().__init__(device)
         self.accumulators = accumulators
@@ -267,7 +171,7 @@ class CompositeAccumulator(TorchStatisticAccumulator):
     def seq_initialize(
         self, x: "CompositeTorchEncodedSequence", weights: tn.Tensor, tng: Generator
     ) -> None:
-
+        """Initialize every child from its encoded field and shared weights."""
         for i in range(self.count):
             self.accumulators[i].seq_initialize(x.data[i], weights, tng)
 
@@ -277,21 +181,25 @@ class CompositeAccumulator(TorchStatisticAccumulator):
         weights: tn.Tensor,
         estimate: Optional["CompositeDistribution"],
     ) -> None:
+        """Update every child from its encoded field and shared weights."""
         for i in range(self.count):
             self.accumulators[i].seq_update(
                 x.data[i], weights, estimate.dists[i] if estimate is not None else None
             )
 
     def combine(self, suff_stat: Tuple[Any, ...]) -> "CompositeAccumulator":
+        """Merge a tuple of child sufficient statistics position by position."""
         for i in range(self.count):
             self.accumulators[i].combine(suff_stat[i])
 
         return self
 
     def value(self) -> Tuple[Any, ...]:
+        """Return the tuple of child sufficient statistics."""
         return tuple(x.value() for x in self.accumulators)
 
     def from_value(self, x: Tuple[Any, ...]) -> "CompositeAccumulator":
+        """Replace child statistics from a positional tuple."""
         self.accumulators = [
             self.accumulators[i].from_value(x[i]) for i in range(len(x))
         ]
@@ -300,6 +208,7 @@ class CompositeAccumulator(TorchStatisticAccumulator):
         return self
 
     def key_merge(self, stats_dict: Dict[str, Any]) -> None:
+        """Merge the whole tuple and then recurse into child keys."""
         if self.key is not None:
             if self.key in stats_dict:
                 stats_dict[self.key].combine(self.value())
@@ -310,6 +219,7 @@ class CompositeAccumulator(TorchStatisticAccumulator):
             u.key_merge(stats_dict)
 
     def key_replace(self, stats_dict: Dict[str, Any]) -> None:
+        """Replace the whole tuple and then recurse into child keys."""
         if self.key is not None:
             if self.key in stats_dict:
                 self.from_value(stats_dict[self.key].value())
@@ -318,91 +228,44 @@ class CompositeAccumulator(TorchStatisticAccumulator):
             u.key_replace(stats_dict)
 
     def acc_to_encoder(self) -> "CompositeDataEncoder":
+        """Create a positional encoder from the child accumulators."""
         encoders = tuple(acc.acc_to_encoder() for acc in self.accumulators)
 
         return CompositeDataEncoder(encoders=encoders)
 
 
 class CompositeAccumulatorFactory(TorchStatisticAccumulatorFactory):
-    """
-    CompositeAccumulatorFactory used for lightweight creation of CompositeAccumulator.
-
-        Attributes:
-            factories (List[TorchStatisticAccumulatorFactory]): List of
-            TorchStatisticAccumulatorFactory objects for
-                each component.
-            keys (Optional[str]): Declare keys for merging sufficient statistics of
-            CompositeAccumulator objects.
-
-    """
+    """Create composite accumulators from positional child factories."""
 
     def __init__(
         self,
         factories: Sequence[TorchStatisticAccumulatorFactory],
         keys: Optional[str] = None,
     ) -> None:
-        """
-        CompositeAccumulatorFactory object.
-
-                Attributes:
-                    factories (List[TorchStatisticAccumulatorFactory]): List of
-                    TorchStatisticAccumulatorFactory objects for
-                        each component.
-                    keys (Optional[str]): Declare keys for merging sufficient
-                    statistics of CompositeAccumulator objects.
-
-        """
+        """Initialize positional factories and an optional whole-tuple key."""
         self.factories = factories
         self.keys = keys
 
     def make(self, device: Optional[TorchDevice] = None) -> "CompositeAccumulator":
+        """Create child accumulators and associate the wrapper with ``device``."""
         return CompositeAccumulator(
             [u.make() for u in self.factories], keys=self.keys, device=device
         )
 
 
 class CompositeEstimator(TorchParameterEstimator):
-    """
-    CompositeEstimator object used to estimate CompositeDistribution from
-    sufficient statistics of each component.
-
-        Attributes:
-            estimators (List[TorchParameterEstimator]): List of TorchParameterEstimator
-            objects for each component of
-                CompositeEstimator.
-            keys (Optional[str]): Keys used for merging sufficient statistics of
-            CompositeEstimator objects.
-            count (int): Number of components in CompositeEstimator.
-
-    """
+    """Estimate every positional child from its matching statistic."""
 
     def __init__(
         self, estimators: Sequence[TorchParameterEstimator], keys: Optional[str] = None
     ) -> None:
-        """
-        CompositeEstimator object.
-
-                Args:
-                    estimators (List[TorchParameterEstimator]): List of
-                    TorchParameterEstimator objects for each component of
-                        CompositeEstimator.
-                    keys (Optional[str]): Keys used for merging sufficient
-                    statistics of CompositeEstimator objects.
-
-        """
+        """Initialize positional child estimators and a whole-tuple key."""
         self.estimators = estimators
         self.count = len(estimators)
         self.keys = keys
 
     def accumulator_factory(self) -> "CompositeAccumulatorFactory":
-        """
-        Creates CompositeAccumulatorFactory from each TorchParameterEstimator
-        in estimators.
-
-                Returns:
-                    CompositeAccumulatorFactory.
-
-        """
+        """Create a composite factory from the child estimator factories."""
         return CompositeAccumulatorFactory(
             [u.accumulator_factory() for u in self.estimators], self.keys
         )
@@ -413,23 +276,7 @@ class CompositeEstimator(TorchParameterEstimator):
         suff_stat: Tuple[Any, ...],
         device: Optional[TorchDevice] = None,
     ) -> "CompositeDistribution":
-        """
-        Estimate a CompositeDistribution from an aggregated sufficient
-        statistics Tuple for a given number of observations (nobs).
-
-                Args:
-                    nobs (Optional[float]): Weighted number of observations used to form
-                    suff_stat.
-                    suff_stat (SS): Tuple of sufficient statistics for each
-                    TorchParameterEstimator of estimators.
-                    device (Optional[TorchDevice]): Device to declare new estimate on.
-
-                Returns:
-                    CompositeDistribution estimated from argument aggregated sufficient
-                    statistics (suff_stat), from a given
-                        number of observation (nobs).
-
-        """
+        """Estimate each child from its positional statistic on ``device``."""
         return CompositeDistribution(
             tuple(
                 est.estimate(nobs, ss, device=device)
@@ -440,29 +287,14 @@ class CompositeEstimator(TorchParameterEstimator):
 
 
 class CompositeDataEncoder(TorchSequenceEncoder):
-    """
-    CompositeDataEncoder used for encoding data.
-
-        Attributes:
-            encoders (Sequence[TorchSequenceEncoder]): TorchSequenceEncoders for each
-            component of the
-                CompositeDistribution.
-
-    """
+    """Encode observation tuples using one positional child encoder per field."""
 
     def __init__(self, encoders: Sequence[TorchSequenceEncoder]) -> None:
-        """
-        CompositeDataEncoder object.
-
-                Args:
-                    encoders (Sequence[TorchSequenceEncoder]):
-                    TorchSequenceEncoders for each component of the
-                        CompositeDistribution.
-
-        """
+        """Initialize child encoders in tuple-field order."""
         self.encoders = encoders
 
     def __eq__(self, other: object) -> bool:
+        """Return whether positional child encoders compare equal."""
         if not isinstance(other, CompositeDataEncoder):
             return False
 
@@ -473,7 +305,7 @@ class CompositeDataEncoder(TorchSequenceEncoder):
         return True
 
     def __str__(self) -> str:
-
+        """Return a representation listing positional child encoders."""
         s = "CompositeDataEncoder(["
 
         for d in self.encoders[:-1]:
@@ -486,22 +318,10 @@ class CompositeDataEncoder(TorchSequenceEncoder):
     def seq_encode(
         self, x: Sequence[Tuple[Any, ...]], device: Optional[TorchDevice] = None
     ) -> "CompositeTorchEncodedSequence":
-        """
-        Encode Sequence of tuples of data for use with vectorized "seq_" functions.
+        """Transpose and encode ``N`` tuples into ``K`` child sequences.
 
-                The input x must be a Sequence of Tuples of length equal to
-                the length of encoders. Each component tuple
-                observation of x, say x[i], must be component-wise
-                compatible with encoders.
-
-                Args:
-                    x (Sequence[Tuple[Any, ...]]): Sequence of tuples of length equal to
-                    len(encoders).
-                    device (Optional[TorchDevice]): Set device for tensors.
-
-                Returns:
-                    CompositeTorchEncodedSequence
-
+        Each child encoder receives its field values in observation order and
+        the same ``device`` argument.
         """
         enc_data: List[TorchEncodedSequence] = []
 
@@ -512,6 +332,8 @@ class CompositeDataEncoder(TorchSequenceEncoder):
 
 
 class CompositeTorchEncodedSequence(TorchEncodedSequence):
+    """Store a tuple of ``K`` child encodings for the same ``N`` observations."""
+
     data: Tuple[TorchEncodedSequence, ...]
 
     def __init__(
@@ -519,7 +341,9 @@ class CompositeTorchEncodedSequence(TorchEncodedSequence):
         data: Tuple[TorchEncodedSequence, ...],
         device: Optional[TorchDevice] = None,
     ) -> None:
+        """Initialize the child-encoding tuple and associated device."""
         super().__init__(data=data, device=device)
 
     def __str__(self) -> str:
+        """Return a representation containing the encoded device."""
         return f"CompositeTorchEncodedSequence(device={repr(self.device)})"
