@@ -28,6 +28,10 @@ has the form
 
 where :math:`P_0(x; \beta)` is an exponential density and :math:`P_1(x; k, \theta)` is a
 gamma density.
+
+Unlike ``hmixture``, this family has no nested sequence/topic structure. Unlike
+``jmixture``, it has one component index rather than coupled indices for two views.
+Unlike ``ss_mixture``, observations do not carry component-label priors.
 """
 
 from math import exp
@@ -52,8 +56,12 @@ T = TypeVar("T")
 
 
 class HeterogeneousMixtureDistribution(SequenceEncodableProbabilityDistribution):
-    """HeterogeneousMixtureDistribution object defined by component distributions and
-    weights.
+    """Define a mixture whose components may use different encoders.
+
+    Each observation is a single value ``x`` accepted by every component, while the
+    components may belong to different distribution families. The latent variable
+    ``Z`` is a categorical component index and its posterior probabilities are the
+    usual component responsibilities ``p(Z=k | x)``.
 
     Attributes:
         components (Sequence[SequenceEncodableProbabilityDistribution]): List of
@@ -122,7 +130,7 @@ class HeterogeneousMixtureDistribution(SequenceEncodableProbabilityDistribution)
         return float(exp(self.log_density(x)))
 
     def log_density(self, x: T) -> float:
-        """Evaluate log-density of heterogeneous mixture distribution at observation x.
+        r"""Evaluate log-density of heterogeneous mixture distribution at observation x.
 
         .. math::
 
@@ -142,8 +150,7 @@ class HeterogeneousMixtureDistribution(SequenceEncodableProbabilityDistribution)
         )
 
     def component_log_density(self, x: T) -> np.ndarray:
-        """Evaluate component-wise log-density of heterogeneous mixture distribution at
-        observation x.
+        r"""Evaluate component-wise log-density at an observation.
 
         Returns a num_components-dimensional array with :math:`\\log(f_k(x))` in each
         entry.
@@ -158,8 +165,7 @@ class HeterogeneousMixtureDistribution(SequenceEncodableProbabilityDistribution)
         return np.asarray([m.log_density(x) for m in self.components], dtype=np.float64)
 
     def posterior(self, x: T) -> np.ndarray:
-        """Obtain the posterior distribution for each heterogeneous mixture component at
-        observation x.
+        r"""Obtain component responsibilities at an observation.
 
         .. math::
 
@@ -261,8 +267,7 @@ class HeterogeneousMixtureDistribution(SequenceEncodableProbabilityDistribution)
         return np.asarray(ll_mat, dtype=float)
 
     def seq_posterior(self, x: "HeterogeneousMixtureEncodedDataSequence") -> np.ndarray:
-        """Vectorized evaluation of posterior of HeterogeneousMixtureDistribution for
-        encoded sequence x.
+        """Evaluate component responsibilities for an encoded sequence.
 
         Args:
             x (HeterogeneousMixtureEncodedDataSequence): EncodedDataSequence for
@@ -722,8 +727,7 @@ class HeterogeneousMixtureAccumulatorFactory(StatisticAccumulatorFactory):
 
 
 class HeterogeneousMixtureEstimator(ParameterEstimator):
-    """Estimator for HeterogeneousMixtureDistribution from aggregated sufficient
-    statistics.
+    """Estimate a heterogeneous mixture from sufficient statistics.
 
     Notes:
         The outer sufficient statistic is a component-count vector. If
@@ -853,11 +857,8 @@ class HeterogeneousMixtureDataEncoder(DataSequenceEncoder):
     """Encoder for sequences of heterogeneous mixture observations.
 
     Attributes:
-        encoder_dict (Dict[str, DataSequenceEncoder]): Dictionary of distinct
-            DataSequenceEncoder objects
-            found in encoders list. Value of encoder_dict is a list of ids for the
-            components that are encoded by
-            the encoder_dict key.
+        encoder_dict (Dict[str, DataSequenceEncoder]): Distinct encoders keyed by
+            their string representations.
         idx_dict (Dict[str, Sequence[int]]): Dictionary mapping encoder string to
             component indices.
     """
@@ -930,9 +931,11 @@ class HeterogeneousMixtureEncodedDataSequence(EncodedDataSequence):
     """Encoded data sequence for use with vectorized function calls.
 
     Attributes:
-        data (Tuple[List[np.ndarray], List[EncodedDataSequence]]): Sequence encoding of
-            component tags and data
-            encodings.
+        data (Tuple[List[np.ndarray], List[EncodedDataSequence]]): Pair
+            ``(tag_list, enc_data)``. Entry ``tag_list[g]`` is a one-dimensional
+            array of component indices using encoder group ``g``; ``enc_data[g]`` is
+            that encoder's representation of all observations. Encodings are grouped
+            by compatible encoder, not by latent component assignment.
     """
 
     def __init__(
