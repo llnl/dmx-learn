@@ -15,6 +15,7 @@ sys.path.insert(0, os.path.abspath("../src"))
 project = "dmx-learn"
 copyright = "2025, Adam Walder"
 author = "Adam Walder"
+version = "1.1.0"
 release = "1.1.0"
 
 # -- General configuration ---------------------------------------------------
@@ -45,7 +46,7 @@ suppress_warnings = ["ref.python"]
 autodoc_mock_imports = ["torch", "mpi4py", "umap"]
 
 templates_path = ["_templates"]
-exclude_patterns = []
+exclude_patterns = ["_build"]
 
 
 # -- Options for HTML output -------------------------------------------------

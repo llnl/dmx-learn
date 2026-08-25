@@ -70,8 +70,8 @@ A one-dimensional GMM is defined as follows:
 
 where:
 - **K** is the number of Gaussian components.
-- **π_k** is the weight of the k-th Gaussian component, satisfying \(\sum_{k=1}^{K} \pi_k = 1\).
-- **\mathcal{N}(x | \mu_k, \sigma_k^2)** is the one-dimensional Gaussian distribution with mean **μ_k** and variance **σ_k²**.
+- :math:`\pi_k` is the weight of the k-th Gaussian component, satisfying :math:`\sum_{k=1}^{K} \pi_k = 1`.
+- :math:`\mathcal{N}(x \mid \mu_k, \sigma_k^2)` is the one-dimensional Gaussian distribution with mean :math:`\mu_k` and variance :math:`\sigma_k^2`.
 
 The one-dimensional Gaussian distribution is given by:
 
@@ -80,13 +80,13 @@ The one-dimensional Gaussian distribution is given by:
     \mathcal{N}(x | \mu, \sigma^2) = \frac{1}{\sqrt{2\pi \sigma^2}} \exp\left(-\frac{(x - \mu)^2}{2\sigma^2}\right)
 
 where:
-- **σ²** is the variance of the Gaussian distribution.
+- :math:`\sigma^2` is the variance of the Gaussian distribution.
 
 
 SequenceEncodableProbabilityDistribution
 ==========================================
 
-We first define a skeleton of the :class:`SequenceEncodableProbabilityDistribution`. We know that the distribution requires parameters **μ**, **σ²**, and mixing weights **π**. These must be passed to the constructor. Note that the argument **name** must also be included. We won't get into the reason for this, but make sure to include it for consistency with other dmx-learn distributions.
+We first define a skeleton of the :class:`SequenceEncodableProbabilityDistribution`. We know that the distribution requires parameters :math:`\mu`, :math:`\sigma^2`, and mixing weights :math:`\pi`. These must be passed to the constructor. Note that the argument **name** must also be included. We won't get into the reason for this, but make sure to include it for consistency with other dmx-learn distributions.
 
 .. code-block:: python
 
@@ -705,15 +705,15 @@ Initialization of GMM sufficient statistics
 
    .. math::
 
-      \text{comp_counts}[k] \text{ += } \gamma_{i, k}
+      \text{comp\_counts}[k] \mathrel{+}= \gamma_{i, k}
 
    .. math::
 
-      x[k] \text{ += } \gamma_{i,k} * x_i
+      x[k] \mathrel{+}= \gamma_{i,k} * x_i
 
    .. math::
 
-      x2[k] \text{ += } \gamma_{i,k} * x^2_i
+      x2[k] \mathrel{+}= \gamma_{i,k} * x^2_i
 
 This is quite trivial to vectorize and implement in `seq_initialize` using our encoded data previously defined as `GmmEncodedDataSequence`. The code is filled out below. One small comment, the value `c` is used in the initialization to avoid numeric issues encountered when sampling from a Dirichlet distribution.
 
