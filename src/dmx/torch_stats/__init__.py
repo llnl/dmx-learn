@@ -1,3 +1,20 @@
+"""PyTorch-backed probability models and estimation interfaces.
+
+This optional backend mirrors a focused subset of :mod:`dmx.stats` with tensor
+encodings, explicit device placement, and PyTorch-based likelihood and fitting
+operations. The package root re-exports the supported distributions,
+estimators, core protocols, and local or ``torch.distributed`` sequence
+helpers. Import implementation-specific classes from their
+``dmx.torch_stats`` submodules only when they are not re-exported here.
+
+Use :mod:`dmx.stats` for the broader NumPy/SciPy non-Bayesian model catalog and
+:mod:`dmx.bstats` for prior-aware Bayesian or variational modeling. Their model
+and encoded-sequence protocols cannot be mixed with this backend. PyTorch is an
+optional dependency: when unavailable, importing this package preserves its
+exported names as placeholders that raise an installation-focused error when
+called. Device-oriented workflow utilities live in :mod:`dmx.torch_utils`.
+"""
+
 # pylint: disable=too-many-positional-arguments,duplicate-code
 
 __all__ = [

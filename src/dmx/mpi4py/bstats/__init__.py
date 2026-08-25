@@ -1,4 +1,17 @@
-"""Contains estimation tools for bstats with mpi4py use."""
+"""Collective MPI primitives for :mod:`dmx.bstats` models.
+
+The functions exported here distribute local observations from rank 0, combine
+Bayesian sufficient statistics, and return fitted models or likelihood results
+according to their documented rank semantics. They complement the local and
+PySpark-aware helpers in :mod:`dmx.bstats`; higher-level MPI optimization loops
+belong to :mod:`dmx.mpi4py.utils.bestimation`.
+
+Every rank in ``MPI.COMM_WORLD`` must call these operations in the same order.
+Raw data and models are generally supplied on rank 0, and fitted models are
+generally returned only there. Importing this package requires the optional
+``mpi4py`` dependency, and its objects must follow the ``dmx.bstats`` protocols,
+not the separate :mod:`dmx.stats` or :mod:`dmx.torch_stats` protocols.
+"""
 
 # pylint: disable=duplicate-code
 

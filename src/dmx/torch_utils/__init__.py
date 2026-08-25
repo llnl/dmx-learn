@@ -1,4 +1,16 @@
-"""Torch-specific utility helpers."""
+"""Utilities for configuring and fitting PyTorch-backed models.
+
+This package contains device, tensor-vector, and estimation helpers intended
+for :mod:`dmx.torch_stats`. The package root publicly exposes
+:func:`detect_device`; import fitting and vector helpers from the
+``dmx.torch_utils.estimation`` and ``dmx.torch_utils.vector`` submodules.
+These utilities are separate from the NumPy-oriented :mod:`dmx.utils` package
+and operate on the tensor protocols of the PyTorch backend.
+
+PyTorch is optional. Importing this package succeeds without it so callers can
+inspect the package, but calling :func:`detect_device` raises :class:`ImportError`
+until PyTorch is installed.
+"""
 
 __all__ = ["detect_device"]
 

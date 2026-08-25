@@ -1,6 +1,18 @@
-"""Initialization module for the stats package.
+"""NumPy/SciPy probability models and classical estimation interfaces.
 
-This module initializes the stats subpackage.
+This is the primary non-Bayesian backend for local or PySpark-based density
+estimation. The package root re-exports its supported distributions and
+estimators together with helpers for encoding observations, initialization,
+likelihood evaluation, and parameter estimation. Lower-level protocols,
+samplers, accumulators, and non-re-exported models remain available from their
+defining ``dmx.stats`` submodules.
+
+Models in this package use NumPy-oriented encoded data and should be paired
+with :mod:`dmx.utils` for local workflow helpers or :mod:`dmx.mpi4py.stats` for
+MPI collectives. Use :mod:`dmx.bstats` for prior-aware Bayesian and variational
+models, or :mod:`dmx.torch_stats` for tensor-backed execution. Although the
+backends share terminology, their distributions, estimators, and encodings are
+separate protocols rather than interchangeable implementations.
 """
 
 __all__ = [
