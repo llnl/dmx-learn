@@ -5,13 +5,17 @@
 import os
 import sys
 
-sys.path.insert(0, os.path.abspath(".."))
+# The project uses a ``src`` layout.  Include it explicitly so autodoc can
+# import ``dmx`` even when documentation dependencies are installed outside
+# Poetry's project environment (as on Read the Docs).
+sys.path.insert(0, os.path.abspath("../src"))
 # -- Project information -----------------------------------------------------
 # https://www.sphinx-doc.org/en/master/usage/configuration.html#project-information
 
 project = "dmx-learn"
 copyright = "2025, Adam Walder"
 author = "Adam Walder"
+version = "1.1.0"
 release = "1.1.0"
 
 # -- General configuration ---------------------------------------------------
@@ -36,8 +40,13 @@ napoleon_use_param = False
 napoleon_use_rtype = False
 suppress_warnings = ["ref.python"]
 
+# Optional GPU and distributed backends are not part of the RTD environment.
+# Mock them so autodoc can render the corresponding API references without
+# downloading PyTorch or requiring an MPI runtime.
+autodoc_mock_imports = ["torch", "mpi4py", "umap"]
+
 templates_path = ["_templates"]
-exclude_patterns = []
+exclude_patterns = ["_build"]
 
 
 # -- Options for HTML output -------------------------------------------------

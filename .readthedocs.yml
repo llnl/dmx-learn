@@ -5,11 +5,9 @@ build:
   tools:
     python: "3.13"
   jobs:
-    pre_install:
-      - pip install poetry==2.3.3
     post_install:
-      - poetry config virtualenvs.create false --local
-      - poetry install --no-interaction --with docs
+      - pip install poetry==2.3.3
+      - VIRTUAL_ENV=$READTHEDOCS_VIRTUALENV_PATH poetry install --no-interaction --with docs
 
 sphinx:
   configuration: docs/conf.py
