@@ -1,20 +1,18 @@
-"""Create, estimate, and sample from an integer Chow Liu Tree distribution.
+r"""Provide integer-valued Chow--Liu tree distributions.
 
-Defines the ICLTreeDistribution, ICLTreeSampler, ICLTreeAccumulatorFactory,
-ICLTreeAccumulator, ICLTreeEstimator, and
-the ICLTreeDataEncoder classes for use with dmx-learn.
+An observation is a fixed-length vector :math:`x=(x_0,\ldots,x_{F-1})` of
+nonnegative categories. ``dependency_list`` gives a rooted feature tree as
+``(feature, parent)`` pairs, with one ``None`` parent. The model is
 
-dmx-learn supports Chow & Liu trees [1] through the ICLTree (Integer Chow Liu Tree)
-class of objects. ICLTrees model
-non-Markov conditional dependence for fixed-length sequences of integers with the
-likelihood functions of the form
+.. math::
 
-    P(x_1, x_2,..,x_n) = P(x_i1) P(x_{i_2}|x_{j_2})*...*P(x_{i_n}|x_{j_n}),
+   p(x) = p(x_r)\prod_{(j,p)\in\mathcal{T},\,p\ne\mathrm{None}}
+          p(x_j\mid x_p).
 
-where j_k < i_k for all k = 1,2,3,..N.
-
-Data type: Union[Sequence[int], np.ndarray] .
-
+The accumulator collects feature marginals and pairwise category tables. The
+estimator uses pairwise mutual information to find a maximum-dependence
+spanning tree, roots it at feature zero, then estimates the conditional PMFs.
+This is the Chow--Liu tree approximation (Chow and Liu, 1968).
 """
 
 from typing import Any, Dict, List, Optional, Sequence, Tuple, Union
@@ -35,6 +33,8 @@ from dmx.stats.pdist import (
 
 
 class ICLTreeDistribution(SequenceEncodableProbabilityDistribution):
+    """Represent a directed Chow--Liu tree over integer feature vectors."""
+
     """ICLTreeDistribution object for integer Chow Liu tree distribution.
 
     Attributes:
@@ -61,7 +61,7 @@ class ICLTreeDistribution(SequenceEncodableProbabilityDistribution):
         name: Optional[str] = None,
         keys: Optional[str] = None,
     ) -> None:
-        """ICLTreeDistribution object.
+        """Initialize a directed integer Chow--Liu tree.
 
         Args:
             dependency_list (List[Tuple[int, Optional[int]]]): List of Tuples containing
@@ -76,7 +76,6 @@ class ICLTreeDistribution(SequenceEncodableProbabilityDistribution):
             keys (Optional[str]): Keys for parameters of model.
 
         """
-
         super().__init__()
         self.feature_order = list(
             range(len(dependency_list)) if feature_order is None else feature_order
@@ -95,6 +94,7 @@ class ICLTreeDistribution(SequenceEncodableProbabilityDistribution):
         self.keys = keys
 
     def __str__(self) -> str:
+        """Return an evaluable distribution representation."""
         f1 = ",".join([str(u[1]) for u in self.dependency_list])
         f3 = ",".join([str(u[0]) for u in self.dependency_list])
         f2 = [
@@ -109,9 +109,11 @@ class ICLTreeDistribution(SequenceEncodableProbabilityDistribution):
         )
 
     def density(self, x: Union[Sequence[int], np.ndarray]) -> float:
+        """Return the probability of one integer feature vector."""
         return float(np.exp(self.log_density(x)))
 
     def log_density(self, x: Union[Sequence[int], np.ndarray]) -> float:
+        """Return the log probability of one integer feature vector."""
         x_arr = np.asarray(x, dtype=int)
         rv = 0.0
         for i, (j, k) in enumerate(self.dependency_list):
@@ -123,6 +125,7 @@ class ICLTreeDistribution(SequenceEncodableProbabilityDistribution):
         return rv
 
     def seq_log_density(self, x: "ICLTreeEncodedDataSequence") -> np.ndarray:
+        """Return log probabilities for an encoded batch of feature vectors."""
         if not isinstance(x, ICLTreeEncodedDataSequence):
             raise TypeError("Requires ICLTreeEncodedDataSequence.")
 
@@ -136,16 +139,21 @@ class ICLTreeDistribution(SequenceEncodableProbabilityDistribution):
         return rv
 
     def sampler(self, seed: Optional[int] = None) -> "ICLTreeSampler":
+        """Create a sampler that draws features in tree order."""
         return ICLTreeSampler(self, seed)
 
     def estimator(self, pseudo_count: Optional[float] = None) -> "ICLTreeEstimator":
+        """Create an estimator; this convenience method ignores pseudo-counts."""
         return ICLTreeEstimator(name=self.name, keys=self.keys)
 
     def dist_to_encoder(self) -> "ICLTreeDataEncoder":
+        """Return the encoder for fixed-length integer vectors."""
         return ICLTreeDataEncoder()
 
 
 class ICLTreeSampler(DistributionSampler):
+    """Sample independent integer vectors from an ICL tree."""
+
     """ICLTreeSampler for sampling iid ICL Tree sequences
 
     Attributes:
@@ -155,7 +163,7 @@ class ICLTreeSampler(DistributionSampler):
     """
 
     def __init__(self, dist: ICLTreeDistribution, seed: Optional[int] = None) -> None:
-        """ICLTreeSampler object.
+        """Initialize an ICL tree sampler.
 
         Args:
               dist (ICLTreeDistribution): ICL Tree distribution to sample from.
@@ -167,7 +175,7 @@ class ICLTreeSampler(DistributionSampler):
     def sample(
         self, size: Optional[int] = None
     ) -> Union[List[Optional[int]], Sequence[List[Optional[int]]]]:
-
+        """Draw one vector, or ``size`` independently drawn vectors."""
         if size is None:
             rv: List[Optional[int]] = [None] * self.dist.num_features
             for i, (j, k) in enumerate(self.dist.dependency_list):
@@ -190,6 +198,7 @@ class ICLTreeSampler(DistributionSampler):
 
 
 class ICLTreeAccumulator(SequenceEncodableStatisticAccumulator):
+    """Accumulate marginal and pairwise counts for Chow--Liu fitting."""
 
     def __init__(
         self,
@@ -198,6 +207,7 @@ class ICLTreeAccumulator(SequenceEncodableStatisticAccumulator):
         keys: Optional[str] = None,
         name: Optional[str] = None,
     ) -> None:
+        """Initialize optional feature and category count dimensions."""
         self.num_states = num_states
         self.num_features = num_features
         self.counts: Optional[np.ndarray]
@@ -214,7 +224,7 @@ class ICLTreeAccumulator(SequenceEncodableStatisticAccumulator):
         self.name = name
 
     def _expand_states(self, num_states: int, num_features: int) -> None:
-
+        """Allocate or expand category-count arrays to observed dimensions."""
         if (
             (self.counts is None)
             and (num_states is not None)
@@ -246,7 +256,7 @@ class ICLTreeAccumulator(SequenceEncodableStatisticAccumulator):
         weight: float,
         estimate: Optional[ICLTreeDistribution],
     ) -> None:
-
+        """Accumulate weighted counts from one feature vector."""
         if (
             (self.counts is None)
             or (self.num_states is None)
@@ -270,7 +280,7 @@ class ICLTreeAccumulator(SequenceEncodableStatisticAccumulator):
         weights: np.ndarray,
         estimate: Optional[ICLTreeDistribution],
     ) -> None:
-
+        """Accumulate weighted counts from an encoded batch."""
         max_x = int(np.max(x.data))
 
         if (
@@ -306,6 +316,7 @@ class ICLTreeAccumulator(SequenceEncodableStatisticAccumulator):
         weight: float,
         rng: Optional[RandomState],
     ) -> None:
+        """Initialize counts from one observation without randomization."""
         del rng
         self.update(x, weight, None)
 
@@ -315,12 +326,13 @@ class ICLTreeAccumulator(SequenceEncodableStatisticAccumulator):
         weights: np.ndarray,
         rng: Optional[RandomState],
     ) -> None:
+        """Initialize counts from an encoded batch without randomization."""
         self.seq_update(x, weights, None)
 
     def combine(
         self, suff_stat: Tuple[int, int, np.ndarray, np.ndarray]
     ) -> "ICLTreeAccumulator":
-
+        """Combine another marginal-and-pairwise count tuple."""
         num_features, num_states, counts, marginal_counts = suff_stat
 
         if self.counts is None and counts is None:
@@ -357,6 +369,7 @@ class ICLTreeAccumulator(SequenceEncodableStatisticAccumulator):
         return self
 
     def value(self) -> Tuple[int, int, np.ndarray, np.ndarray]:
+        """Return feature count, category count, and count arrays."""
         assert self.num_features is not None
         assert self.num_states is not None
         assert self.counts is not None
@@ -366,6 +379,7 @@ class ICLTreeAccumulator(SequenceEncodableStatisticAccumulator):
     def from_value(
         self, x: Tuple[int, int, np.ndarray, np.ndarray]
     ) -> "ICLTreeAccumulator":
+        """Restore count arrays from a sufficient-statistic tuple."""
         self.num_features = x[0]
         self.num_states = x[1]
         self.counts = x[2]
@@ -374,16 +388,20 @@ class ICLTreeAccumulator(SequenceEncodableStatisticAccumulator):
         return self
 
     def key_merge(self, stats_dict: Dict[str, Any]) -> None:
+        """Leave keyed merging unimplemented for this accumulator."""
         pass
 
     def key_replace(self, stats_dict: Dict[str, Any]) -> None:
+        """Leave keyed replacement unimplemented for this accumulator."""
         pass
 
     def acc_to_encoder(self) -> "ICLTreeDataEncoder":
+        """Return the encoder for accumulated integer vectors."""
         return ICLTreeDataEncoder()
 
 
 class ICLTreeAccumulatorFactory(StatisticAccumulatorFactory):
+    """Create accumulators for integer Chow--Liu sufficient statistics."""
 
     def __init__(
         self,
@@ -392,16 +410,19 @@ class ICLTreeAccumulatorFactory(StatisticAccumulatorFactory):
         keys: Optional[str] = None,
         name: Optional[str] = None,
     ) -> None:
+        """Initialize optional dimensions and estimator metadata."""
         self.num_features = num_features
         self.num_states = num_states
         self.keys = keys
         self.name = name
 
     def make(self) -> "ICLTreeAccumulator":
+        """Create a fresh ICL tree accumulator."""
         return ICLTreeAccumulator(self.num_features, self.num_states, self.keys)
 
 
 class ICLTreeEstimator(ParameterEstimator):
+    """Fit a mutual-information spanning-tree approximation to integer data."""
 
     def __init__(
         self,
@@ -412,6 +433,7 @@ class ICLTreeEstimator(ParameterEstimator):
         keys: Optional[str] = None,
         name: Optional[str] = None,
     ) -> None:
+        """Initialize the accumulator factory dimensions."""
         self.num_features = num_features
         self.num_states = num_states
         self.pseudo_count = pseudo_count
@@ -420,12 +442,13 @@ class ICLTreeEstimator(ParameterEstimator):
         self.name = name
 
     def accumulator_factory(self) -> "ICLTreeAccumulatorFactory":
+        """Return a factory for the estimator's count arrays."""
         return ICLTreeAccumulatorFactory(self.num_features, self.num_states, self.keys)
 
     def estimate(
         self, nobs: Optional[float], suff_stat: Tuple[int, int, np.ndarray, np.ndarray]
     ) -> "ICLTreeDistribution":
-
+        """Estimate a rooted Chow--Liu tree and its conditional PMFs."""
         num_features, num_states, counts, marginal_counts = suff_stat
 
         mi_mat = np.zeros((num_features, num_features))
@@ -511,18 +534,23 @@ class ICLTreeDataEncoder(DataSequenceEncoder):
     """ICLTreeDataEncoder object for encoding sequences of iid ICL observations."""
 
     def __str__(self) -> str:
+        """Return an evaluable encoder representation."""
         return "ICLTreeDataEncoder"
 
     def __eq__(self, other: object) -> bool:
+        """Return whether ``other`` is an ICL tree encoder."""
         return isinstance(other, ICLTreeDataEncoder)
 
     def seq_encode(
         self, x: Union[List[int], np.ndarray]
     ) -> "ICLTreeEncodedDataSequence":
+        """Encode vectors as an integer array with shape ``(N, F)``."""
         return ICLTreeEncodedDataSequence(data=np.asarray(x, dtype=int))
 
 
 class ICLTreeEncodedDataSequence(EncodedDataSequence):
+    """Hold encoded integer vectors with batch-first shape ``(N, F)``."""
+
     """ICLTreeEncodedDataSequence for vectorized function calls.
 
     Attributes:
@@ -531,7 +559,7 @@ class ICLTreeEncodedDataSequence(EncodedDataSequence):
     """
 
     def __init__(self, data: np.ndarray):
-        """ICLTreeEncodedDataSequence object.
+        """Initialize encoded integer feature vectors.
 
         Args:
             data (np.ndarray): Numpy array of observations.
@@ -540,4 +568,5 @@ class ICLTreeEncodedDataSequence(EncodedDataSequence):
         super().__init__(data=data)
 
     def __repr__(self) -> str:
+        """Return a representation containing encoded vector data."""
         return f"ICLTreeEncodedDataSequence(data={self.data})"

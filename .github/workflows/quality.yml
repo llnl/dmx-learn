@@ -182,6 +182,8 @@ jobs:
                                src/dmx/stats/heterogeneous_mixture.py \
                                src/dmx/stats/hidden_association.py \
                                src/dmx/stats/hidden_markov.py \
+                               src/dmx/stats/icltree.py \
+                               src/dmx/stats/look_back_hmm.py \
                                src/dmx/stats/hmixture.py \
                                src/dmx/stats/int_spike.py \
                                src/dmx/stats/int_edit_setdist.py \
@@ -200,9 +202,13 @@ jobs:
                                src/dmx/stats/mixture.py \
                                src/dmx/stats/mvn.py \
                                src/dmx/stats/poisson.py \
+                               src/dmx/stats/rdd_sampler.py \
                                src/dmx/stats/sequence.py \
                                src/dmx/stats/setdist.py \
+                               src/dmx/stats/sparse_markov_transform.py \
+                               src/dmx/stats/spearman_rho.py \
                                src/dmx/stats/ss_mixture.py \
+                               src/dmx/stats/tree_hmm.py \
                                src/dmx/stats/vmf.py \
                                src/dmx/bstats \
                                src/dmx/torch_stats/pdist.py \
