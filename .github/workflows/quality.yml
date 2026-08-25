@@ -212,6 +212,8 @@ jobs:
                                src/dmx/stats/vmf.py \
                                src/dmx/bstats \
                                src/dmx/torch_stats/binomial.py \
+                               src/dmx/torch_stats/composite.py \
+                               src/dmx/torch_stats/conditional.py \
                                src/dmx/torch_stats/exponential.py \
                                src/dmx/torch_stats/gamma.py \
                                src/dmx/torch_stats/gaussian.py \
@@ -221,8 +223,10 @@ jobs:
                                src/dmx/torch_stats/intrange.py \
                                src/dmx/torch_stats/intsetdist.py \
                                src/dmx/torch_stats/mvn.py \
+                               src/dmx/torch_stats/null_dist.py \
                                src/dmx/torch_stats/pdist.py \
                                src/dmx/torch_stats/poisson.py \
+                               src/dmx/torch_stats/sequence.py \
                                src/dmx/arithmetic.py \
                                src/dmx/utils \
                                src/dmx/torch_utils \

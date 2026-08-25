@@ -1,6 +1,12 @@
-"""
-Create, estimate, and sample from a sequence of iid sequence of base distribution
-'dist'.
+"""Model ordered variable-length sequences of independent observations.
+
+``dist`` supplies item factors and optional ``len_dist`` supplies the mass of
+the non-negative integer length. With ``len_normalized=True``, only the item
+log-density sum is divided by sequence length. Encoding flattens ``N`` parent
+sequences containing ``M`` total items and records their parent indices and
+inverse lengths. Item and length operations remain separate throughout
+sampling, accumulation, and estimation, matching ``dmx.stats.sequence``.
+Child encoders and ``to`` calls receive the requested torch device.
 """
 
 # pylint: disable=too-many-positional-arguments,duplicate-code
@@ -40,10 +46,7 @@ E = Tuple[tn.Tensor, tn.Tensor, tn.Tensor, E1, Optional[E2]]
 
 
 class SequenceDistribution(TorchProbabilityDistribution):
-    """
-    SequenceDistribution object for sequence of iid observations from distribution of
-    data.
-    """
+    """Model a sequence using independent item and optional length factors."""
 
     def __init__(
         self,
@@ -52,9 +55,13 @@ class SequenceDistribution(TorchProbabilityDistribution):
         len_normalized: Optional[bool] = False,
         device: Optional[tn.device] = None,
     ) -> None:
-        """
-        SequenceDistribution object for sequence of iid observations from distribution a
-        of data.
+        """Initialize item and length distributions.
+
+        Args:
+            dist: Distribution for each sequence item.
+            len_dist: Optional distribution for non-negative integer lengths.
+            len_normalized: Whether to average the item log-density by length.
+            device: Device recorded by the wrapper.
         """
         super().__init__(device)
         self.dist = dist
@@ -63,6 +70,7 @@ class SequenceDistribution(TorchProbabilityDistribution):
         self.null_len_dist = isinstance(self.len_dist, NullDistribution)
 
     def __str__(self) -> str:
+        """Return an evaluable representation including the device type."""
         s1 = str(self.dist)
         s2 = str(self.len_dist)
         s3 = repr(self.len_normalized)
@@ -74,6 +82,7 @@ class SequenceDistribution(TorchProbabilityDistribution):
         )
 
     def to(self, device: vec.DeviceLike) -> "SequenceDistribution":
+        """Move item and length children to ``device`` in place."""
         target_device = self._resolve_device_arg(device)
         self.dist.to(target_device)
         self.len_dist.to(target_device)
@@ -111,7 +120,12 @@ class SequenceDistribution(TorchProbabilityDistribution):
         return rv
 
     def seq_log_density(self, x: "SequenceTorchEncodedSequence") -> tn.Tensor:
+        """Aggregate flat item scores into one log density per parent sequence.
 
+        The result has shape ``(N,)``. For nonempty data it follows the item
+        score device; the all-empty branch uses the vector helper's default
+        device allocation.
+        """
         if not isinstance(x, SequenceTorchEncodedSequence):
             raise TypeError(
                 "SequenceTorchEncodedSequence required for `seq_` function calls."
@@ -136,6 +150,7 @@ class SequenceDistribution(TorchProbabilityDistribution):
         return ll_sum
 
     def sampler(self, seed: Optional[int] = None) -> "SequenceSampler":
+        """Create item and length samplers, requiring a non-null length model."""
         if self.null_len_dist:
             raise RuntimeError(
                 "Error: len_dist cannot be none for "
@@ -144,6 +159,7 @@ class SequenceDistribution(TorchProbabilityDistribution):
         return SequenceSampler(self.dist, self.len_dist, seed)
 
     def estimator(self, pseudo_count: Optional[float] = None) -> "SequenceEstimator":
+        """Create separate item and length estimators using ``pseudo_count``."""
         len_est = self.len_dist.estimator(pseudo_count=pseudo_count)
 
         return SequenceEstimator(
@@ -153,6 +169,7 @@ class SequenceDistribution(TorchProbabilityDistribution):
         )
 
     def dist_to_encoder(self) -> "SequenceDataEncoder":
+        """Create an encoder composed from the item and length encoders."""
         dist_encoder = self.dist.dist_to_encoder()
         len_encoder = self.len_dist.dist_to_encoder()
         encoders = (dist_encoder, len_encoder)
@@ -169,7 +186,7 @@ class SequenceSampler(DistributionSampler):
         len_dist: TorchProbabilityDistribution,
         seed: Optional[int] = None,
     ) -> None:
-        """SequenceSampler object."""
+        """Initialize item and length samplers with independent seeds."""
         self.dist = dist
         self.len_dist = len_dist
         self.rng = RandomState(seed)
@@ -177,7 +194,7 @@ class SequenceSampler(DistributionSampler):
         self.len_sampler = self.len_dist.sampler(seed=self.rng.randint(0, maxrandint))
 
     def sample(self, size: Optional[int] = None) -> List[Any]:
-        """Generate iid samples from SequenceSampler object."""
+        """Draw one variable-length sequence or ``size`` such sequences."""
         if size is None:
             n = self.len_sampler.sample()
             return [self.dist_sampler.sample() for _ in range(n)]
@@ -185,7 +202,12 @@ class SequenceSampler(DistributionSampler):
 
 
 class SequenceAccumulator(TorchStatisticAccumulator):
-    """SequenceAccumulator object for aggregating sufficient statistics of sequence."""
+    """Accumulate separate item and length sufficient statistics.
+
+    Item observations are flattened in sequence order. When normalized, each
+    item receives its parent weight divided by parent length; the length child
+    always receives the original parent weight.
+    """
 
     def __init__(
         self,
@@ -195,7 +217,15 @@ class SequenceAccumulator(TorchStatisticAccumulator):
         keys: Optional[str] = None,
         device: vec.DeviceLike = None,
     ) -> None:
-        """SequenceAccumulator object."""
+        """Initialize item and length child accumulators.
+
+        Args:
+            accumulator: Accumulator for flattened sequence items.
+            len_accumulator: Accumulator for one length per parent sequence.
+            len_normalized: Whether item weights are divided by parent length.
+            keys: Optional key for sharing the paired statistic.
+            device: Device metadata for encoded accumulation.
+        """
         super().__init__(device)
         self.accumulator = accumulator
         self.len_accumulator = len_accumulator
@@ -207,6 +237,7 @@ class SequenceAccumulator(TorchStatisticAccumulator):
     def seq_initialize(
         self, x: "SequenceTorchEncodedSequence", weights: tn.Tensor, tng: tn.Generator
     ) -> None:
+        """Initialize item and length children from ``N`` encoded sequences."""
         idx, icnt, _, enc_seq, enc_nseq = x.data
 
         w = weights[idx] * icnt[idx] if self.len_normalized else weights[idx]
@@ -222,7 +253,7 @@ class SequenceAccumulator(TorchStatisticAccumulator):
         weights: tn.Tensor,
         estimate: Optional["SequenceDistribution"],
     ) -> None:
-
+        """Update item and length children from ``N`` encoded sequences."""
         idx, icnt, _, enc_seq, enc_nseq = x.data
 
         w = weights[idx] * icnt[idx] if self.len_normalized else weights[idx]
@@ -237,6 +268,7 @@ class SequenceAccumulator(TorchStatisticAccumulator):
             )
 
     def combine(self, suff_stat: Tuple[SS1, Optional[SS2]]) -> "SequenceAccumulator":
+        """Merge the ``(item_stat, length_stat)`` pair."""
         self.accumulator.combine(suff_stat[0])
 
         if not self.null_len_accumulator:
@@ -245,9 +277,11 @@ class SequenceAccumulator(TorchStatisticAccumulator):
         return self
 
     def value(self) -> Tuple[Any, Optional[Any]]:
+        """Return the item and length sufficient-statistic pair."""
         return self.accumulator.value(), self.len_accumulator.value()
 
     def from_value(self, x: Tuple[SS1, Optional[SS2]]) -> "SequenceAccumulator":
+        """Restore item and length statistics from a paired value."""
         self.accumulator.from_value(x[0])
 
         if not self.null_len_accumulator:
@@ -256,6 +290,7 @@ class SequenceAccumulator(TorchStatisticAccumulator):
         return self
 
     def key_merge(self, stats_dict: Dict[str, Any]) -> None:
+        """Merge the pair by wrapper key, then recurse into child keys."""
         if self.keys is not None:
             if self.keys in stats_dict:
                 stats_dict[self.keys].combine(self.value())
@@ -268,6 +303,7 @@ class SequenceAccumulator(TorchStatisticAccumulator):
             self.len_accumulator.key_merge(stats_dict)
 
     def key_replace(self, stats_dict: Dict[str, Any]) -> None:
+        """Replace the pair by wrapper key, then recurse into child keys."""
         if self.keys is not None:
             if self.keys in stats_dict:
                 self.from_value(stats_dict[self.keys].value())
@@ -278,6 +314,7 @@ class SequenceAccumulator(TorchStatisticAccumulator):
             self.len_accumulator.key_replace(stats_dict)
 
     def acc_to_encoder(self) -> "SequenceDataEncoder":
+        """Create an encoder from the item and length accumulators."""
         encoder = self.accumulator.acc_to_encoder()
         len_encoder = self.len_accumulator.acc_to_encoder()
         encoders = (encoder, len_encoder)
@@ -294,13 +331,14 @@ class SequenceAccumulatorFactory(TorchStatisticAccumulatorFactory):
         len_normalized: Optional[bool] = False,
         keys: Optional[str] = None,
     ) -> None:
-        """SequenceAccumulatorFactory object."""
+        """Initialize item and length factories with wrapper configuration."""
         self.dist_factory = dist_factory
         self.len_factory = len_factory
         self.len_normalized = len_normalized
         self.keys = keys
 
     def make(self, device: Optional[tn.device] = None) -> "SequenceAccumulator":
+        """Create both child accumulators on ``device``."""
         len_acc = self.len_factory.make(device=device)
         return SequenceAccumulator(
             self.dist_factory.make(device=device),
@@ -312,10 +350,7 @@ class SequenceAccumulatorFactory(TorchStatisticAccumulatorFactory):
 
 
 class SequenceEstimator(TorchParameterEstimator):
-    """
-    SequenceEstimator object for estimating SequenceDistribution from aggregated
-    sufficient.
-    """
+    """Estimate item and length children from paired sufficient statistics."""
 
     def __init__(
         self,
@@ -325,7 +360,7 @@ class SequenceEstimator(TorchParameterEstimator):
         len_normalized: Optional[bool] = False,
         keys: Optional[str] = None,
     ) -> None:
-        """SequenceEstimator object."""
+        """Initialize item and length estimators and wrapper configuration."""
         self.estimator = estimator
         self.len_estimator = (
             len_estimator if len_estimator is not None else NullEstimator()
@@ -335,6 +370,7 @@ class SequenceEstimator(TorchParameterEstimator):
         self.len_normalized = len_normalized
 
     def accumulator_factory(self) -> "SequenceAccumulatorFactory":
+        """Create a factory from the item and length estimator factories."""
         len_factory = self.len_estimator.accumulator_factory()
         dist_factory = self.estimator.accumulator_factory()
 
@@ -348,6 +384,11 @@ class SequenceEstimator(TorchParameterEstimator):
         suff_stat: Tuple[Any, Optional[Any]],
         device: Optional[tn.device] = None,
     ) -> "SequenceDistribution":
+        """Estimate item and length children from their paired statistics.
+
+        Length estimates receive ``device``; item estimates use their existing
+        default device behavior. The returned wrapper records ``device``.
+        """
         if isinstance(self.len_estimator, NullEstimator):
             return SequenceDistribution(
                 self.estimator.estimate(nobs, suff_stat[0]),
@@ -365,20 +406,19 @@ class SequenceEstimator(TorchParameterEstimator):
 
 
 class SequenceDataEncoder(TorchSequenceEncoder):
-    """
-    SequenceDataEncoder object for encoding sequences of iid observations from sequence.
-    """
+    """Flatten parent sequences and encode their items and lengths separately."""
 
     def __init__(
         self, encoders: Tuple[TorchSequenceEncoder, TorchSequenceEncoder]
     ) -> None:
-        """SequenceDataEncoder object."""
+        """Initialize the item and length child encoders."""
         self.encoder = encoders[0]
         self.len_encoder = encoders[1]
 
         self.null_len_enc = isinstance(self.len_encoder, NullDataEncoder)
 
     def __str__(self) -> str:
+        """Return a representation of the item and length encoders."""
         s = "SequenceDataEncoder("
         s += str(self.encoder) + ",len_encoder="
         s += str(self.len_encoder) + ")"
@@ -386,6 +426,7 @@ class SequenceDataEncoder(TorchSequenceEncoder):
         return s
 
     def __eq__(self, other: object) -> bool:
+        """Return whether both child encoders compare equal."""
         if not isinstance(other, SequenceDataEncoder):
             return False
 
@@ -400,6 +441,15 @@ class SequenceDataEncoder(TorchSequenceEncoder):
     def seq_encode(
         self, x: Sequence[Sequence[T]], device: Optional[tn.device] = None
     ) -> "SequenceTorchEncodedSequence":
+        """Encode ``N`` sequences containing ``M`` total items.
+
+        The tuple is ``(indices, inverse_lengths, nonempty, items, lengths)``.
+        ``indices`` has shape ``(M,)`` and maps flat items to parents;
+        ``inverse_lengths`` and ``nonempty`` have shape ``(N,)``. The child
+        item encoding represents ``M`` values and the length encoding
+        represents ``N`` integers. Every tensor or child encoding receives
+        ``device``; floating inverse lengths use the vector-helper dtype.
+        """
         tx = []
         nx = []
         tidx = []
@@ -429,6 +479,7 @@ class SequenceDataEncoder(TorchSequenceEncoder):
 
 
 class SequenceTorchEncodedSequence(TorchEncodedSequence):
+    """Store flattened item, parent-index, and length encodings."""
 
     def __init__(
         self,
@@ -437,7 +488,9 @@ class SequenceTorchEncodedSequence(TorchEncodedSequence):
         ],
         device: Optional[tn.device] = None,
     ):
+        """Initialize the five-part sequence encoding and associated device."""
         super().__init__(data=data, device=device)
 
     def __str__(self) -> str:
+        """Return a representation containing the encoded device."""
         return f"SequenceTorchEncodedSequence(device={repr(self.device)})"
