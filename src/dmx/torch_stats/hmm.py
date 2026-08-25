@@ -1,5 +1,15 @@
-"""
-Create, estimate, and sample from a hidden markov model with K emission distributions.
+"""Create, estimate, and sample finite-state hidden Markov models.
+
+The torch implementation represents an observation as a Python value and an
+observation sequence as ``List[T]``. Batched computations use
+``HiddenMarkovTorchSequence``, which packs variable-length sequences by time
+step. Model parameters and forward-backward work arrays are torch tensors;
+exported HMM count statistics are NumPy arrays.
+
+The likelihood, posterior, and estimation paths implement one emission
+distribution per hidden state. The optional ``taus`` topic-mixture matrix is
+used by sampling only, unlike the corresponding NumPy implementation, which
+also supports topic mixtures in scalar likelihood calculations.
 """
 
 # pylint: disable=too-many-positional-arguments,duplicate-code
@@ -51,6 +61,37 @@ E = Tuple[
 
 
 class HiddenMarkovModelDistribution(TorchProbabilityDistribution):
+    """Represent a finite-state HMM with observations of generic type ``T``.
+
+    For ``K`` hidden states, ``w[k]`` is the initial-state probability and
+    ``transitions[i, j]`` is the probability of moving from state ``i`` to
+    state ``j``. The vectorized likelihood, posterior, Viterbi, and estimation
+    methods interpret ``topics[k]`` as the emission distribution for state
+    ``k`` and therefore require ``len(topics) == K``. If ``taus`` is supplied,
+    sampling instead uses row ``k`` as topic-mixture weights for state ``k``.
+
+    Floating-point parameters use the dtype selected by
+    ``dmx.torch_utils.vector``: normally ``torch.float64``, but
+    ``torch.float32`` on MPS. They are created on ``device`` and moved by
+    :meth:`to`. The length distribution is constructed on that device when it
+    is omitted, but a supplied length distribution is not moved by :meth:`to`.
+
+    Attributes:
+        topics: Emission distributions, normally one per hidden state.
+        n_topics: Number of emission distributions.
+        n_states: Number of hidden states, inferred from ``w``.
+        w: Initial-state probabilities with shape ``(K,)``.
+        log_w: Elementwise logarithm of ``w``, with shape ``(K,)``.
+        transitions: Transition probabilities with shape ``(K, K)``.
+        log_transitions: Elementwise logarithm of ``transitions``.
+        taus: Optional sampling-only topic weights, normally shape
+            ``(K, n_topics)``.
+        log_taus: Elementwise logarithm of ``taus``, when present.
+        has_topics: Whether ``taus`` was supplied.
+        len_dist: Distribution for observed sequence lengths.
+        terminal_values: Optional emissions that terminate sampling when no
+            usable length sampler is present.
+    """
 
     def __init__(
         self,
@@ -62,8 +103,18 @@ class HiddenMarkovModelDistribution(TorchProbabilityDistribution):
         terminal_values: Optional[Set[T]] = None,
         device: Optional[tn.device] = None,
     ) -> None:
-        """
-        HiddenMarkovModelDistribution object defining HMM compatible with data type T.
+        """Initialize a hidden Markov model.
+
+        Args:
+            topics: Emission distributions. Vectorized inference expects one
+                distribution per hidden state.
+            w: Initial-state probabilities with shape ``(K,)``.
+            transitions: Transition probabilities, reshaped to ``(K, K)``.
+            taus: Optional topic-mixture weights used by the sampler only.
+            len_dist: Distribution of sequence lengths. ``None`` selects a
+                null distribution.
+            terminal_values: Optional emissions that terminate sampling.
+            device: Device for HMM parameter tensors. ``None`` selects CPU.
         """
         super().__init__(device)
         self.topics: Sequence[TorchProbabilityDistribution] = topics
@@ -94,6 +145,18 @@ class HiddenMarkovModelDistribution(TorchProbabilityDistribution):
             self.has_topics = False
 
     def to(self, device: vec.DeviceLike) -> "HiddenMarkovModelDistribution":
+        """Move HMM parameters and emission distributions to a device.
+
+        The initial and transition tensors, optional topic weights, and all
+        emission distributions are moved. The length distribution is retained
+        as-is. Parameter dtypes are preserved.
+
+        Args:
+            device: Target device. ``None`` retains the current model device.
+
+        Returns:
+            This distribution after the in-place move.
+        """
         target_device = self._resolve_device_arg(device)
         for dist in self.topics:
             dist.to(target_device)
@@ -112,7 +175,7 @@ class HiddenMarkovModelDistribution(TorchProbabilityDistribution):
         return self
 
     def __repr__(self) -> str:
-        """Returns string representation of HiddenMarkovDistribution instance."""
+        """Return a string representation of the HMM."""
         s1 = ",".join(map(str, self.topics))
         s2 = repr(self.w.data.cpu().tolist())
         s3 = repr(list(self.transitions.data.cpu().tolist()))
@@ -129,11 +192,28 @@ class HiddenMarkovModelDistribution(TorchProbabilityDistribution):
         )
 
     def density(self, x: List[T]) -> float:
-        """Returns the density of HMM for an observed sequence x."""
+        """Evaluate the density of one observed sequence.
+
+        Args:
+            x: Observed emission sequence.
+
+        Returns:
+            The marginal sequence density as a Python float.
+        """
         return exp(self.log_density(x))
 
     def log_density(self, x: List[T]) -> float:
-        """Returns the log-density of HMM for observed sequence x."""
+        """Evaluate the HMM log density of one observed sequence.
+
+        The hidden-state path is marginalized by the batched forward routine.
+        An empty sequence contributes only its length log density.
+
+        Args:
+            x: Observed emission sequence.
+
+        Returns:
+            The marginal log density as a Python float.
+        """
         if x is None or len(x) == 0:
             return self.len_dist.log_density(
                 0
@@ -144,7 +224,23 @@ class HiddenMarkovModelDistribution(TorchProbabilityDistribution):
         return float(self.seq_log_density(enc_data)[0])
 
     def seq_log_density(self, x: "HiddenMarkovTorchSequence") -> tn.Tensor:
+        """Evaluate log densities for a batch of observation sequences.
 
+        A scaled forward recursion marginalizes each hidden-state path. For a
+        batch of ``N`` sequences, the returned tensor has shape ``(N,)`` on
+        the model device and uses the model's floating-point dtype. Sequence
+        length log densities are included. This path assumes one emission
+        distribution per state and does not use ``taus``.
+
+        Args:
+            x: Batch encoded by :class:`HiddenMarkovDataEncoder`.
+
+        Returns:
+            Marginal log densities, one per input sequence.
+
+        Raises:
+            TypeError: If ``x`` is not a ``HiddenMarkovTorchSequence``.
+        """
         num_states = self.n_states
 
         if not isinstance(x, HiddenMarkovTorchSequence):
@@ -222,6 +318,21 @@ class HiddenMarkovModelDistribution(TorchProbabilityDistribution):
         return ll_ret
 
     def viterbi(self, x: List[T]) -> tn.Tensor:
+        """Return per-time maximizing states from Viterbi score vectors.
+
+        The output is a floating-point tensor of shape ``(L,)`` on the model
+        device for a length-``L`` input. Each entry is the index maximizing the
+        dynamic-programming score at that time. This implementation does not
+        retain backpointers or perform traceback, so the result need not be the
+        globally maximizing state path. The sequence-length distribution and
+        optional ``taus`` matrix are not used.
+
+        Args:
+            x: One nonempty observed emission sequence.
+
+        Returns:
+            Per-time hidden-state indices stored in a floating-point tensor.
+        """
         nn = len(x)
         num_states = self.n_states
 
@@ -249,7 +360,18 @@ class HiddenMarkovModelDistribution(TorchProbabilityDistribution):
         return ptr
 
     def sampler(self, seed: Optional[int] = None) -> "HiddenMarkovSampler":
-        """Create a HiddenMarkovSampler object with seed passed."""
+        """Create a seeded sampler for independent HMM sequences.
+
+        Args:
+            seed: Optional NumPy random seed.
+
+        Returns:
+            A sampler bound to this distribution.
+
+        Raises:
+            RuntimeError: If neither sequence lengths nor terminal emissions
+                can stop sampling.
+        """
         if isinstance(self.len_dist, NullDistribution) and self.terminal_values is None:
             raise RuntimeError(
                 "HiddenMarkovSampler requires len_dist with support on "
@@ -262,9 +384,16 @@ class HiddenMarkovModelDistribution(TorchProbabilityDistribution):
     def estimator(
         self, pseudo_count: Optional[float] = None
     ) -> "HiddenMarkovEstimator":
-        """
-        Create HiddenMarkovEstimator for estimating HiddenMarkovDistribution objects
-        from.
+        """Create an estimator with matching emission and length estimators.
+
+        The same scalar pseudo-count is used for initial-state probabilities,
+        transition probabilities, and delegated component estimators.
+
+        Args:
+            pseudo_count: Optional additive smoothing mass.
+
+        Returns:
+            An HMM parameter estimator.
         """
         len_est = (
             None
@@ -277,9 +406,11 @@ class HiddenMarkovModelDistribution(TorchProbabilityDistribution):
         )
 
     def dist_to_encoder(self) -> "HiddenMarkovDataEncoder":
-        """
-        Returns HiddenMarkovDataEncoder object for encoding sequences of iid HMM
-        observations.
+        """Create an encoder for batches of HMM observation sequences.
+
+        Returns:
+            An encoder using the first emission distribution's encoder and the
+            length distribution's encoder.
         """
         emission_encoder = self.topics[0].dist_to_encoder()
         len_encoder = self.len_dist.dist_to_encoder()
@@ -290,11 +421,23 @@ class HiddenMarkovModelDistribution(TorchProbabilityDistribution):
 
 
 class HiddenMarkovSampler(DistributionSampler):
+    """Generate observation sequences from an HMM.
+
+    Hidden states are sampled with the NumPy-backed Markov-chain sampler. Each
+    state's observation sampler is either its corresponding emission sampler
+    or, when ``taus`` is present, a mixture over all topic samplers. Sampled
+    values are ordinary Python objects rather than torch tensors.
+    """
 
     def __init__(
         self, dist: "HiddenMarkovModelDistribution", seed: Optional[int] = None
     ) -> None:
-        """HiddenMarkovSampler object for sampling from HMM."""
+        """Initialize a sampler from an HMM distribution.
+
+        Args:
+            dist: Source HMM.
+            seed: Optional NumPy random seed used to seed child samplers.
+        """
         self.num_states = dist.n_states
         self.dist = dist
         self.rng = RandomState(seed)
@@ -353,7 +496,15 @@ class HiddenMarkovSampler(DistributionSampler):
     def sample_seq(
         self, size: Optional[int] = None
     ) -> Union[List[Any], List[List[Any]]]:
-        """Sample iid HMM sequences."""
+        """Sample independent sequences using random sequence lengths.
+
+        Args:
+            size: Number of sequences. ``None`` returns one sequence.
+
+        Returns:
+            One observation list, or a list of observation lists when ``size``
+            is provided.
+        """
         assert self.len_sampler is not None
         if size is None:
             n = int(self.len_sampler.sample())
@@ -371,8 +522,13 @@ class HiddenMarkovSampler(DistributionSampler):
         return obs_seq
 
     def sample_terminal(self, terminal_set: Set[T]) -> List[T]:
-        """
-        Sample an HMM sequence, until a terminal value is samples from the emission.
+        """Sample through the first emission in a terminal set.
+
+        Args:
+            terminal_set: Emission values that stop the sequence.
+
+        Returns:
+            A sequence including its terminal emission.
         """
         z = cast(int, self.state_sampler.sample_seq())
         rv: List[T] = [self.obs_samplers[z].sample()]
@@ -384,7 +540,18 @@ class HiddenMarkovSampler(DistributionSampler):
         return rv
 
     def sample(self, size: Optional[int] = None) -> Union[List[Any], List[List[Any]]]:
-        """Draw iid samples from HMM."""
+        """Draw independent HMM observation sequences.
+
+        Args:
+            size: Number of sequences. ``None`` returns one sequence.
+
+        Returns:
+            One observation list, or a list of observation lists when ``size``
+            is provided.
+
+        Raises:
+            RuntimeError: If the sampler has no stopping mechanism.
+        """
         if self.len_sampler is not None:
             return self.sample_seq(size=size)
 
@@ -400,6 +567,20 @@ class HiddenMarkovSampler(DistributionSampler):
 
 
 class HiddenMarkovAccumulator(TorchStatisticAccumulator):
+    """Accumulate sufficient statistics for HMM parameter estimation.
+
+    For ``K`` states, initial counts have shape ``(K,)``, transition counts
+    have shape ``(K, K)``, and posterior state counts have shape ``(K,)``.
+    These counts are NumPy ``float64`` arrays on CPU. Forward-backward work and
+    posterior emission weights are torch tensors on the accumulator device;
+    component and length statistics retain their own accumulator-defined
+    representations.
+
+    ``seq_initialize`` assigns states randomly, while ``seq_update`` computes
+    posterior state and transition weights under a current estimate. Input
+    ``weights`` has shape ``(N,)`` for ``N`` encoded sequences and is expanded
+    across their observations.
+    """
 
     def __init__(
         self,
@@ -408,6 +589,17 @@ class HiddenMarkovAccumulator(TorchStatisticAccumulator):
         keys: Tuple[Optional[str], Optional[str], Optional[str]] = (None, None, None),
         device: Optional[tn.device] = None,
     ) -> None:
+        """Initialize an HMM sufficient-statistic accumulator.
+
+        Args:
+            accumulators: One emission accumulator per hidden state.
+            len_accumulator: Sequence-length accumulator. ``None`` selects a
+                null accumulator.
+            keys: Optional shared keys for initial, transition, and emission
+                statistics.
+            device: Device for forward-backward work tensors. ``None`` selects
+                CPU.
+        """
         super().__init__(device)
         self.accumulators = accumulators
         self.num_states = len(accumulators)
@@ -429,6 +621,18 @@ class HiddenMarkovAccumulator(TorchStatisticAccumulator):
     def seq_initialize(
         self, x: "HiddenMarkovTorchSequence", weights: tn.Tensor, tng: tn.Generator
     ) -> None:
+        """Initialize sufficient statistics with random hidden states.
+
+        Each packed observation receives a uniformly sampled state. Sequence
+        weights are then accumulated into initial, state, transition,
+        emission, and length statistics.
+
+        Args:
+            x: Encoded batch of ``N`` observation sequences.
+            weights: Floating-point sequence weights with shape ``(N,)`` on a
+                device compatible with ``x``.
+            tng: Torch generator used for random state assignments.
+        """
         (
             tot_cnt,
             max_len,
@@ -497,7 +701,19 @@ class HiddenMarkovAccumulator(TorchStatisticAccumulator):
         weights: tn.Tensor,
         estimate: HiddenMarkovModelDistribution,
     ) -> None:
+        """Accumulate expected sufficient statistics under an HMM estimate.
 
+        A scaled forward-backward calculation produces posterior state and
+        adjacent-state weights. It accumulates weighted expected initial
+        counts, state occupancies, transition counts, emission statistics, and
+        length statistics. The tensor calculations use the accumulator device;
+        HMM count arrays are copied to CPU NumPy arrays.
+
+        Args:
+            x: Encoded batch of ``N`` observation sequences.
+            weights: Floating-point sequence weights with shape ``(N,)``.
+            estimate: Current one-emission-per-state HMM estimate.
+        """
         num_states = self.num_states
         (
             tot_cnt,
@@ -626,8 +842,13 @@ class HiddenMarkovAccumulator(TorchStatisticAccumulator):
             int, np.ndarray, np.ndarray, np.ndarray, Sequence[T1], Optional[T2]
         ],
     ) -> "HiddenMarkovAccumulator":
-        """
-        Combine the sufficient statistics of HiddenMarkovAccumulator with suff_stat arg.
+        """Add another HMM sufficient-statistic value in place.
+
+        Args:
+            suff_stat: Tuple returned by :meth:`value`.
+
+        Returns:
+            This accumulator after combining statistics.
         """
         (
             _,
@@ -653,7 +874,15 @@ class HiddenMarkovAccumulator(TorchStatisticAccumulator):
     def value(
         self,
     ) -> Tuple[int, np.ndarray, np.ndarray, np.ndarray, Sequence[Any], Optional[Any]]:
-        """Returns sufficient statistics of HiddenMarkovAccumulator object instance."""
+        """Return the accumulated HMM sufficient statistics.
+
+        Returns:
+            A tuple containing the number of states, initial counts of shape
+            ``(K,)``, state counts of shape ``(K,)``, transition counts of
+            shape ``(K, K)``, ``K`` emission-statistic values, and the optional
+            length-statistic value. The three HMM count arrays are CPU NumPy
+            ``float64`` arrays.
+        """
         len_val = self.len_accumulator.value()
 
         return (
@@ -669,9 +898,13 @@ class HiddenMarkovAccumulator(TorchStatisticAccumulator):
         self,
         x: Tuple[int, np.ndarray, np.ndarray, np.ndarray, Sequence[T1], Optional[T2]],
     ) -> "HiddenMarkovAccumulator":
-        """
-        Set the sufficient statistics of HiddenMarkovAccumulator object instance to
-        value x.
+        """Replace accumulated statistics from a serialized value.
+
+        Args:
+            x: Tuple in the format returned by :meth:`value`.
+
+        Returns:
+            This accumulator after replacement.
         """
         num_states, init_counts, state_counts, trans_counts, accumulators, len_acc = x
         self.num_states = num_states
@@ -688,9 +921,10 @@ class HiddenMarkovAccumulator(TorchStatisticAccumulator):
         return self
 
     def key_merge(self, stats_dict: Dict[str, Any]) -> None:
-        """
-        Merge the sufficient statistics of object instance with sufficient statistics
-        in.
+        """Merge configured sufficient statistics into a shared dictionary.
+
+        Args:
+            stats_dict: Mutable mapping keyed by configured statistic names.
         """
         if self.init_key is not None:
             if self.init_key in stats_dict:
@@ -719,9 +953,10 @@ class HiddenMarkovAccumulator(TorchStatisticAccumulator):
             self.len_accumulator.key_merge(stats_dict)
 
     def key_replace(self, stats_dict: Dict[str, Any]) -> None:
-        """
-        Replace the sufficient statistics of HiddenMarkovAccumulator object with
-        matching.
+        """Replace configured statistics from a shared dictionary.
+
+        Args:
+            stats_dict: Mapping keyed by configured statistic names.
         """
         if self.init_key is not None:
             if self.init_key in stats_dict:
@@ -742,9 +977,11 @@ class HiddenMarkovAccumulator(TorchStatisticAccumulator):
             self.len_accumulator.key_replace(stats_dict)
 
     def acc_to_encoder(self) -> "HiddenMarkovDataEncoder":
-        """
-        Returns HiddenMarkovDataEncoder object for encoding sequences of iid HMM
-        observations.
+        """Create an encoder compatible with this accumulator.
+
+        Returns:
+            An HMM encoder built from the first emission accumulator and the
+            length accumulator.
         """
         emission_encoder = self.accumulators[0].acc_to_encoder()
         len_encoder = self.len_accumulator.acc_to_encoder()
@@ -755,6 +992,7 @@ class HiddenMarkovAccumulator(TorchStatisticAccumulator):
 
 
 class HiddenMarkovAccumulatorFactory(TorchStatisticAccumulatorFactory):
+    """Create HMM accumulators from component accumulator factories."""
 
     def __init__(
         self,
@@ -766,16 +1004,30 @@ class HiddenMarkovAccumulatorFactory(TorchStatisticAccumulatorFactory):
             None,
         ),
     ) -> None:
-        """
-        HiddenMarkovAccumulatorFactory object for creating
-        HiddenMarkovEstimatorAccumulator.
+        """Initialize an HMM accumulator factory.
+
+        Args:
+            factories: One emission accumulator factory per hidden state.
+            len_factory: Factory for sequence-length statistics.
+            keys: Optional shared keys for initial, transition, and emission
+                statistics.
         """
         self.factories = factories
         self.keys = keys if keys is not None else (None, None, None)
         self.len_factory = len_factory
 
     def make(self, device: Optional[tn.device] = None) -> "HiddenMarkovAccumulator":
-        """Returns a HiddenMarkovAccumulator object."""
+        """Create an HMM accumulator.
+
+        The HMM work tensors use ``device``. Component factories are invoked
+        without a device argument and therefore retain their own defaults.
+
+        Args:
+            device: Device for HMM forward-backward work tensors.
+
+        Returns:
+            A fresh HMM accumulator.
+        """
         len_acc = self.len_factory.make() if self.len_factory is not None else None
         return HiddenMarkovAccumulator(
             [factory.make() for factory in self.factories],
@@ -786,6 +1038,13 @@ class HiddenMarkovAccumulatorFactory(TorchStatisticAccumulatorFactory):
 
 
 class HiddenMarkovEstimator(TorchParameterEstimator):
+    """Estimate HMM parameters from aggregated sufficient statistics.
+
+    Emission estimators receive their posterior state counts as effective
+    observation counts. The length estimator receives the caller's ``nobs``.
+    Initial and transition probabilities are normalized from CPU NumPy count
+    arrays, with optional additive pseudo-counts.
+    """
 
     def __init__(
         self,
@@ -798,9 +1057,16 @@ class HiddenMarkovEstimator(TorchParameterEstimator):
             None,
         ),
     ) -> None:
-        """
-        HiddenMarkovEstimator object for estimating HiddenMarkovDistribution for
-        aggregated.
+        """Initialize an HMM estimator.
+
+        Args:
+            estimators: One emission estimator per hidden state.
+            len_estimator: Sequence-length estimator. ``None`` selects a null
+                estimator.
+            pseudo_count: Optional pair of smoothing masses for initial and
+                transition probabilities.
+            keys: Optional shared keys for initial, transition, and emission
+                statistics.
         """
         self.num_states = len(estimators)
         self.estimators = estimators
@@ -811,7 +1077,11 @@ class HiddenMarkovEstimator(TorchParameterEstimator):
         )
 
     def accumulator_factory(self) -> "HiddenMarkovAccumulatorFactory":
-        """Returns an HiddenMarkovAccumulatorFactory object."""
+        """Create a factory for compatible HMM accumulators.
+
+        Returns:
+            A factory wrapping the emission and length accumulator factories.
+        """
         est_factories = [u.accumulator_factory() for u in self.estimators]
         len_factory = self.len_estimator.accumulator_factory()
         return HiddenMarkovAccumulatorFactory(est_factories, len_factory)
@@ -824,9 +1094,24 @@ class HiddenMarkovEstimator(TorchParameterEstimator):
         ],
         device: Optional[tn.device] = None,
     ) -> "HiddenMarkovModelDistribution":
-        """
-        Estimate HiddenMarkovModel from aggregated sufficient statistics contained in
-        arg.
+        """Estimate an HMM from aggregated sufficient statistics.
+
+        Initial counts are normalized globally. Transition counts are
+        normalized by row; without smoothing, a row with no transitions remains
+        all zeros. A supplied initial pseudo-count is spread uniformly over
+        states, and a transition pseudo-count uniformly over the full ``K`` by
+        ``K`` matrix. Topic mixtures are not estimated, so the returned model
+        always has ``taus=None``.
+
+        Args:
+            nobs: Effective number of sequences, forwarded to the length
+                estimator.
+            suff_stat: Tuple from :meth:`HiddenMarkovAccumulator.value`.
+            device: Device for the returned HMM parameters and forwarded length
+                estimate. ``None`` selects CPU for the HMM.
+
+        Returns:
+            The estimated one-emission-per-state HMM.
         """
         num_states, init_counts, state_counts, trans_counts, topic_ss, len_ss = (
             suff_stat
@@ -875,20 +1160,32 @@ class HiddenMarkovEstimator(TorchParameterEstimator):
 
 
 class HiddenMarkovDataEncoder(TorchSequenceEncoder):
+    """Encode batches of variable-length HMM observation sequences.
+
+    A batch of ``N`` sequences is packed by time step. If ``L`` is the maximum
+    sequence length and ``M`` is the total observation count, integer indexing
+    tensors describe the mapping between the padded ``(N, L)`` view and the
+    packed ``M`` observations. Integer tensors use the torch utility integer
+    dtype, currently ``torch.int32``, on the requested device.
+    """
 
     def __init__(
         self,
         emission_encoder: TorchSequenceEncoder,
         len_encoder: Optional[TorchSequenceEncoder] = NullDataEncoder(),
     ) -> None:
-        """
-        HiddenMarkovDataEncoder object for encoding sequences of iid HMM observations.
+        """Initialize an HMM batch encoder.
+
+        Args:
+            emission_encoder: Encoder for flattened emission values.
+            len_encoder: Encoder for sequence lengths. ``None`` selects a null
+                encoder.
         """
         self.emission_encoder = emission_encoder
         self.len_encoder = len_encoder if len_encoder is not None else NullDataEncoder()
 
     def __str__(self) -> str:
-        """Returns string representation of HiddenMarkovDataEncoder object instance."""
+        """Return a string representation of the encoder."""
         s = (
             "HiddenMarkovDataEncoder(emission_encoder="
             + str(self.emission_encoder)
@@ -898,7 +1195,7 @@ class HiddenMarkovDataEncoder(TorchSequenceEncoder):
         return s
 
     def __eq__(self, other: object) -> bool:
-        """Check if other is equivalent to HiddenMarkovDataEncoder object instance."""
+        """Return whether another encoder has the same length encoder."""
         if isinstance(other, HiddenMarkovDataEncoder):
             if self.len_encoder == other.len_encoder:
                 return True
@@ -910,6 +1207,26 @@ class HiddenMarkovDataEncoder(TorchSequenceEncoder):
     def seq_encode(
         self, x: List[List[T]], device: Optional[tn.device] = None
     ) -> "HiddenMarkovTorchSequence":
+        """Encode a batch of variable-length observation sequences.
+
+        Observations are flattened in time-major order before delegation to the
+        emission encoder. For ``N`` sequences, maximum length ``L``, and ``M``
+        total observations, the payload contains ``len_vec`` with shape
+        ``(N,)``, ``idx_mat`` with shape ``(N, L)``, ``idx_bands`` with shape
+        ``(L, 2)``, and ``idx_vec`` with shape ``(M,)``. ``idx_mat`` stores
+        packed indices and uses ``-1`` for padding. ``has_next[t]`` indexes the
+        packed observations at time ``t`` whose sequences continue.
+
+        Args:
+            x: Batch of observation sequences.
+            device: Device for index tensors and delegated encodings. ``None``
+                uses the called encoders' default behavior while the returned
+                container records CPU.
+
+        Returns:
+            The packed HMM batch, including delegated emission and length
+            encodings.
+        """
         cnt = len(x)
         len_values = [len(u) for u in x]
         len_enc = self.len_encoder.seq_encode(len_values, device=device)
@@ -964,6 +1281,14 @@ class HiddenMarkovDataEncoder(TorchSequenceEncoder):
 
 
 class HiddenMarkovTorchSequence(TorchEncodedSequence):
+    """Store a packed batch of variable-length HMM sequences.
+
+    ``data`` is ``((M, L, idx_bands, has_next, len_vec, idx_mat, idx_vec,
+    enc_data), len_enc)`` for total observation count ``M`` and maximum length
+    ``L``. Index tensors reside on ``device`` and use ``torch.int32``; the
+    delegated emission and length encodings control their own tensor dtypes.
+    The container records a device but does not move its payload.
+    """
 
     def __init__(
         self,
@@ -982,7 +1307,14 @@ class HiddenMarkovTorchSequence(TorchEncodedSequence):
         ],
         device: Optional[tn.device] = None,
     ):
+        """Initialize a packed HMM sequence container.
+
+        Args:
+            data: Packed index tensors plus emission and length encodings.
+            device: Device recorded for the payload. ``None`` records CPU.
+        """
         super().__init__(data=data, device=device)
 
     def __str__(self) -> str:
+        """Return a representation containing the recorded device."""
         return f"HiddenMarkovTorchSequence(device={repr(self.device)})"
