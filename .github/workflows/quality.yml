@@ -204,6 +204,7 @@ jobs:
                                src/dmx/stats/sequence.py \
                                src/dmx/stats/setdist.py \
                                src/dmx/stats/ss_mixture.py \
+                               src/dmx/stats/tree_hmm.py \
                                src/dmx/stats/vmf.py \
                                src/dmx/bstats \
                                src/dmx/torch_stats/pdist.py \
