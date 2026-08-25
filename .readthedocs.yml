@@ -9,6 +9,10 @@ build:
       - pip install poetry==2.3.3
     post_install:
       - poetry install --no-interaction --with docs
+      # RTD invokes Sphinx from this virtualenv.  Poetry's environment is
+      # separate, so install the docs packages here as well, using the
+      # versions locked in poetry.lock.
+      - $READTHEDOCS_VIRTUALENV_PATH/bin/python -m pip install sphinx==8.2.3 sphinx-rtd-theme==3.1.0 sphinx-autodoc-typehints==3.5.2
 
 sphinx:
   configuration: docs/conf.py
