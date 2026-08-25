@@ -27,9 +27,7 @@ from dmx.stats.pdist import (
 
 
 class SpearmanRankingDistribution(SequenceEncodableProbabilityDistribution):
-    """Represent a squared-rank-distance distribution over permutations."""
-
-    """SpearmanRankingDistribution object for defining a Spearman ranking distribution.
+    """Represent a squared-rank-distance distribution over permutations.
 
     Attributes:
         sigma (np.ndarray]): Numpy array of means for the rank variables.
@@ -115,9 +113,7 @@ class SpearmanRankingDistribution(SequenceEncodableProbabilityDistribution):
 
 
 class SpearmanRankingSampler(DistributionSampler):
-    """Sample rankings by enumerating the finite permutation support."""
-
-    """SpearmanRankingSampler object for sampling from SpearmanRankingDistribution.
+    """Sample rankings by enumerating the finite permutation support.
 
     Attributes:
         rng (RandomState): Seed samples.
@@ -155,10 +151,7 @@ class SpearmanRankingSampler(DistributionSampler):
 
 
 class SpearmanRankingAccumulator(SequenceEncodableStatisticAccumulator):
-    """Accumulate weighted rank sums for the ranking-center estimator."""
-
-    """SpearmanRankingAccumulatorFactory object for creating SpearmanRankingAccumulator
-    objects.
+    """Accumulate weighted rank sums for the ranking-center estimator.
 
     Attributes:
         sum (np.ndarray): Suff stat counts
@@ -170,8 +163,7 @@ class SpearmanRankingAccumulator(SequenceEncodableStatisticAccumulator):
     def __init__(
         self, dim: int, name: Optional[str] = None, keys: Optional[str] = None
     ) -> None:
-        """Accumulate one weighted ranking."""
-        """SpearmanRankingAccumulator object.
+        """Initialize a weighted-ranking accumulator.
 
         Args:
             dim (int): Dimension of rankings.
@@ -263,10 +255,7 @@ class SpearmanRankingAccumulator(SequenceEncodableStatisticAccumulator):
 
 
 class SpearmanRankingAccumulatorFactory(StatisticAccumulatorFactory):
-    """Create rank-sum accumulators for a fixed ranking dimension."""
-
-    """SpearmanRankingAccumulatorFactory object for creating SpearmanRankingAccumulator
-    objects.
+    """Create rank-sum accumulators for a fixed ranking dimension.
 
     Attributes:
         dim (int): Dimension of rankings.
@@ -296,9 +285,7 @@ class SpearmanRankingAccumulatorFactory(StatisticAccumulatorFactory):
 
 
 class SpearmanRankingEstimator(ParameterEstimator):
-    """Estimate a ranking center from weighted rank sums."""
-
-    """SpearmanRankingEstimator object for estimating Spearman ranking distribution.
+    """Estimate a ranking center from weighted rank sums.
 
     Attributes:
         dim (int): Dimension of rankings.
@@ -382,9 +369,7 @@ class SpearmanRankingDataEncoder(DataSequenceEncoder):
 
 
 class SpearmanRankingEncodedDataSequence(EncodedDataSequence):
-    """Hold encoded rankings with shape ``(N, dim)``."""
-
-    """SpearmanRankingEncodedDataSequence object for vectorized function calls.
+    """Hold encoded rankings with shape ``(N, dim)``.
 
     Attributes:
         data (np.ndarray): Iid observations from spearman rho ranking distribution.

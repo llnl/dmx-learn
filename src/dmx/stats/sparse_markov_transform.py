@@ -74,16 +74,13 @@ E1 = Tuple[
 
 
 class SparseMarkovAssociationDistribution(SequenceEncodableProbabilityDistribution):
-    """Represent a sparse source-to-target bag association distribution."""
-
-    """SparseMarkovAssociationDistribution object for creating a sparse Markov
-    association model.
+    """Represent a sparse source-to-target bag association distribution.
 
     Attributes:
         init_prob_vec (np.ndarray): Probabilities for the first set of words S1.
         cond_prob_mat (csr_matrix): Sparse matrix defining the probabilities for mapping
-            words in S1 to S2. Dim is
-            (|S2| by |S1|).
+            words in S1 to S2. Its dimensions are the S2 vocabulary size by the S1
+            vocabulary size.
         alpha (float): Regularization parameter (should be between 0 and 1).
         len_dist (SequenceEncodableProbabilityDistribution): Distribution for length of
             words. Must be
@@ -108,8 +105,8 @@ class SparseMarkovAssociationDistribution(SequenceEncodableProbabilityDistributi
             init_prob_vec (Union[Sequence[float], np.ndarray]): Probabilities for the
                 first set of words S1.
             cond_prob_mat (csr_matrix): Sparse matrix defining the probabilities for
-                mapping words in S1 to S2. Dim is
-                (|S2| by |S1|).
+                mapping words in S1 to S2. Its dimensions are the S2 vocabulary size by
+                the S1 vocabulary size.
             alpha (float): Regularization parameter (should be between 0 and 1).
             len_dist (Optional[SequenceEncodableProbabilityDistribution]): Distribution
                 for length of words. Must be
@@ -597,11 +594,7 @@ class SparseMarkovAssociationAccumulatorFactory(StatisticAccumulatorFactory):
 
 
 class SparseMarkovAssociationEstimator(ParameterEstimator):
-    """Estimate sparse initial and conditional association probabilities."""
-
-    """SparseMarkovAssociationEstimator object for estimating
-    SparseMarkovAssociationModel objects from aggregated
-        sufficient statistics.
+    """Estimate sparse initial and conditional association probabilities.
 
     Attributes:
         num_vals (int): Number of values in S1.

@@ -484,7 +484,6 @@ class HierarchicalMixtureEstimatorAccumulator(SequenceEncodableStatisticAccumula
 
     def update(self, x: Any, weight: float, estimate: Any) -> None:
         """Leave scalar updating unsupported; use :meth:`seq_update`."""
-        pass
 
     def _rng_initialize(self, rng: RandomState) -> None:
         self._len_rng = RandomState(seed=rng.randint(maxrandint))
@@ -497,7 +496,6 @@ class HierarchicalMixtureEstimatorAccumulator(SequenceEncodableStatisticAccumula
 
     def initialize(self, x: Sequence[T], weight: float, rng: RandomState) -> None:
         """Leave scalar initialization unsupported; use :meth:`seq_initialize`."""
-        pass
         # if not self._init_rng:
         #     self._rng_initialize(rng)
         #

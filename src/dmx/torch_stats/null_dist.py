@@ -103,7 +103,6 @@ class NullAccumulator(TorchStatisticAccumulator):
         estimate: Optional["NullDistribution"],
     ) -> None:
         """Ignore an encoded sequence, weights, and estimate."""
-        pass
 
     def seq_initialize(
         self,
@@ -112,7 +111,6 @@ class NullAccumulator(TorchStatisticAccumulator):
         tng: Optional["tn.Generator"],
     ) -> None:
         """Ignore an encoded initialization sequence and generator."""
-        pass
 
     def combine(self, suff_stat: Optional[Any]) -> "NullAccumulator":
         """Ignore another statistic and return this accumulator."""
@@ -128,15 +126,11 @@ class NullAccumulator(TorchStatisticAccumulator):
 
     def key_merge(self, stats_dict: Dict[str, Any]) -> None:
         """Register ``None`` under the configured key if absent."""
-        if self.key is not None:
-            if self.key in stats_dict:
-                pass
-            else:
-                stats_dict[self.key] = None
+        if self.key is not None and self.key not in stats_dict:
+            stats_dict[self.key] = None
 
     def key_replace(self, stats_dict: Dict[str, Any]) -> None:
         """Leave this stateless accumulator unchanged."""
-        pass
 
     def acc_to_encoder(self) -> "NullDataEncoder":
         """Create an encoder that discards every observation."""
