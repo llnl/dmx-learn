@@ -1,13 +1,8 @@
-"""Evaluate, estimate, and sample from a uniform distribution over integers in range
-[min_val, max_val] with a spike
-  placed on the integer value k.
+"""Spike-and-uniform-slab distributions on a finite integer range.
 
-Defines the SpikeAndSlabDistribution, SpikeAndSlabSampler,
-SpikeAndSlabAccumulatorFactory,
-SpikeAndSlabAccumulator, SpikeAndSlabEstimator, and the SpikeAndSlabDataEncoder classes
-for use
-with dmx-learn.
-
+``SpikeAndSlabDistribution`` gives one integer ``k`` mass ``p`` and divides the
+remaining mass uniformly among the other configured integers. Encoded sequences
+are one-dimensional integer arrays; accumulators use contiguous count vectors.
 """
 
 from typing import Any, Dict, List, Optional, Tuple, Union
@@ -28,8 +23,11 @@ from dmx.stats.pdist import (
 
 
 class SpikeAndSlabDistribution(SequenceEncodableProbabilityDistribution):
-    """SpikeAndSlabDistribution object for creating a uniform integer distribution with
-    a spike on k.
+    """Represent a point spike and uniform slab over integers.
+
+    Sampling uses integers in ``[min_val, min_val + num_vals)``. For legacy
+    compatibility, scalar and sequence scoring also treat the cached endpoint
+    ``min_val + num_vals`` as an in-range slab value.
 
     Attributes:
         p (float): Probability of drawing from k.
@@ -53,7 +51,7 @@ class SpikeAndSlabDistribution(SequenceEncodableProbabilityDistribution):
         name: Optional[str] = None,
         keys: Optional[str] = None,
     ) -> None:
-        """SpikeAndSlabDistribution object.
+        """Initialize the spike, support, and component probability.
 
         Args:
             k (int): Integer value to place spike on. Must be within
@@ -85,6 +83,7 @@ class SpikeAndSlabDistribution(SequenceEncodableProbabilityDistribution):
         self.keys = keys
 
     def __str__(self) -> str:
+        """Return a constructor-like representation."""
         s1 = str(self.min_val)
         s2 = str(self.num_vals)
         s3 = repr(self.p)
@@ -98,15 +97,17 @@ class SpikeAndSlabDistribution(SequenceEncodableProbabilityDistribution):
         )
 
     def density(self, x: int) -> float:
+        """Evaluate the probability mass at integer ``x``."""
         return float(np.exp(self.log_density(x)))
 
     def log_density(self, x: int) -> float:
+        """Evaluate the log-probability mass at integer ``x``."""
         if self.max_val >= x >= self.min_val:
             return float(self.log_p if x == self.k else self.log_1p)
         return -np.inf
 
     def seq_log_density(self, x: "SpikeAndSlabEncodedDataSequence") -> np.ndarray:
-
+        """Evaluate log masses for an encoded array of ``N`` integers."""
         if not isinstance(x, SpikeAndSlabEncodedDataSequence):
             raise TypeError(
                 "SpikeAndSlabEncodedDataSequence required for seq_log_density()."
@@ -126,11 +127,13 @@ class SpikeAndSlabDistribution(SequenceEncodableProbabilityDistribution):
         return rv
 
     def sampler(self, seed: Optional[int] = None) -> "SpikeAndSlabSampler":
+        """Create a sampler for this distribution."""
         return SpikeAndSlabSampler(self, seed)
 
     def estimator(
         self, pseudo_count: Optional[float] = None
     ) -> "SpikeAndSlabEstimator":
+        """Create an estimator retaining support and optional smoothing."""
         if pseudo_count is None:
             return SpikeAndSlabEstimator(
                 min_val=self.min_val,
@@ -148,12 +151,12 @@ class SpikeAndSlabDistribution(SequenceEncodableProbabilityDistribution):
         )
 
     def dist_to_encoder(self) -> "SpikeAndSlabDataEncoder":
+        """Create the compatible integer encoder."""
         return SpikeAndSlabDataEncoder()
 
 
 class SpikeAndSlabSampler(DistributionSampler):
-    """SpikeAndSlabSampler object for sampling from spike and slab distribution on
-    integers.
+    """Draw integers from a spike-and-uniform-slab distribution.
 
     Attributes:
         rng (RandomState): RandomState for seeding samples.
@@ -164,7 +167,7 @@ class SpikeAndSlabSampler(DistributionSampler):
     def __init__(
         self, dist: "SpikeAndSlabDistribution", seed: Optional[int] = None
     ) -> None:
-        """SpikeAndSlabSampler object.
+        """Initialize a sampler for ``dist``.
 
         Args:
             dist (SpikeAndSlabDistribution): SpikeAndSlabDistribution to sample from.
@@ -177,7 +180,7 @@ class SpikeAndSlabSampler(DistributionSampler):
         )
 
     def sample(self, size: Optional[int] = None) -> Union[int, np.ndarray]:
-
+        """Draw one integer or an integer array of shape ``(size,)``."""
         if size is None:
             z = self.rng.binomial(n=1, p=self.dist.p)
             if z == 1:
@@ -196,7 +199,10 @@ class SpikeAndSlabSampler(DistributionSampler):
 
 
 class SpikeAndSlabAccumulator(SequenceEncodableStatisticAccumulator):
-    """SpikeAndSlabAccumulator object for accumulating sufficient statistics.
+    """Accumulate weighted counts over a contiguous integer range.
+
+    The sufficient statistic is ``(minimum, count_vector)``. Entry ``i`` of the
+    one-dimensional vector counts integer ``minimum + i``.
 
     Attributes:
         min_val (Optional[int]): Smallest integer value in the range. Defaults to 0.
@@ -215,7 +221,7 @@ class SpikeAndSlabAccumulator(SequenceEncodableStatisticAccumulator):
         keys: Optional[str] = None,
         name: Optional[str] = None,
     ) -> None:
-        """SpikeAndSlabAccumulator object.
+        """Initialize an optional fixed range and zero counts.
 
         Args:
             min_val (Optional[int]): Smallest integer value in the range. Defaults to 0.
@@ -241,7 +247,7 @@ class SpikeAndSlabAccumulator(SequenceEncodableStatisticAccumulator):
     def update(
         self, x: int, weight: float, estimate: Optional["SpikeAndSlabDistribution"]
     ) -> None:
-
+        """Add one weighted integer, extending the represented range."""
         if self.count_vec is None:
             self.min_val = x
             self.max_val = x
@@ -270,6 +276,7 @@ class SpikeAndSlabAccumulator(SequenceEncodableStatisticAccumulator):
             self.count_vec[x - self.min_val] += weight
 
     def initialize(self, x: int, weight: float, rng: RandomState) -> None:
+        """Add one weighted integer during randomized initialization."""
         del rng
         return self.update(x, weight, None)
 
@@ -279,6 +286,7 @@ class SpikeAndSlabAccumulator(SequenceEncodableStatisticAccumulator):
         weights: np.ndarray,
         rng: RandomState,
     ) -> None:
+        """Add encoded observations during randomized initialization."""
         return self.seq_update(x, weights, None)
 
     def seq_update(
@@ -287,7 +295,7 @@ class SpikeAndSlabAccumulator(SequenceEncodableStatisticAccumulator):
         weights: np.ndarray,
         estimate: Optional["SpikeAndSlabDistribution"],
     ) -> None:
-
+        """Add ``N`` encoded integers with weights of shape ``(N,)``."""
         min_x = int(np.min(x.data))
         max_x = int(np.max(x.data))
 
@@ -315,6 +323,7 @@ class SpikeAndSlabAccumulator(SequenceEncodableStatisticAccumulator):
         self.count_vec[min_diff : (min_diff + len(loc_cnt))] += loc_cnt
 
     def combine(self, suff_stat: Tuple[int, np.ndarray]) -> "SpikeAndSlabAccumulator":
+        """Merge a ``(minimum, count_vector)`` statistic."""
         if self.count_vec is None and suff_stat[1] is not None:
             self.min_val = suff_stat[0]
             self.max_val = suff_stat[0] + len(suff_stat[1]) - 1
@@ -349,11 +358,13 @@ class SpikeAndSlabAccumulator(SequenceEncodableStatisticAccumulator):
         return self
 
     def value(self) -> Tuple[int, np.ndarray]:
+        """Return ``(minimum, count_vector)`` sufficient statistics."""
         assert self.min_val is not None
         assert self.count_vec is not None
         return self.min_val, self.count_vec
 
     def from_value(self, x: Tuple[int, np.ndarray]) -> "SpikeAndSlabAccumulator":
+        """Restore ``(minimum, count_vector)`` sufficient statistics."""
         self.min_val = x[0]
         self.max_val = x[0] + len(x[1]) - 1
         self.count_vec = x[1]
@@ -361,6 +372,7 @@ class SpikeAndSlabAccumulator(SequenceEncodableStatisticAccumulator):
         return self
 
     def key_merge(self, stats_dict: Dict[str, Any]) -> None:
+        """Merge statistics under the configured key."""
         if self.key is not None:
             if self.key in stats_dict:
                 stats_dict[self.key].combine(self.value())
@@ -368,16 +380,18 @@ class SpikeAndSlabAccumulator(SequenceEncodableStatisticAccumulator):
                 stats_dict[self.key] = self
 
     def key_replace(self, stats_dict: Dict[str, Any]) -> None:
+        """Replace statistics from the configured key."""
         if self.key is not None:
             if self.key in stats_dict:
                 self.from_value(stats_dict[self.key].value())
 
     def acc_to_encoder(self) -> "SpikeAndSlabDataEncoder":
+        """Create the compatible integer encoder."""
         return SpikeAndSlabDataEncoder()
 
 
 class SpikeAndSlabAccumulatorFactory(StatisticAccumulatorFactory):
-    """SpikeAndSlabAccumulatorFactory object for creating accumulators.
+    """Create spike-and-slab accumulators.
 
     Attributes:
             min_val (int]): Smallest integer value in the range. Defaults to 0.
@@ -394,7 +408,7 @@ class SpikeAndSlabAccumulatorFactory(StatisticAccumulatorFactory):
         keys: Optional[str] = None,
         name: Optional[str] = None,
     ) -> None:
-        """SpikeAndSlabAccumulatorFactory object.
+        """Store support and metadata copied to each accumulator.
 
         Args:
             min_val (Optional[int]): Smallest integer value in the range. Defaults to 0.
@@ -409,14 +423,14 @@ class SpikeAndSlabAccumulatorFactory(StatisticAccumulatorFactory):
         self.name = name
 
     def make(self) -> "SpikeAndSlabAccumulator":
+        """Create an empty spike-and-slab accumulator."""
         return SpikeAndSlabAccumulator(
             min_val=self.min_val, max_val=self.max_val, keys=self.keys, name=self.name
         )
 
 
 class SpikeAndSlabEstimator(ParameterEstimator):
-    """SpikeAndSlabEstimator object instance for estimating SpikeAndSlabDistribution
-    objects.
+    """Estimate a spike location and mass from contiguous integer counts.
 
     Attributes:
         pseudo_count (Optional[float]): Regularize value k.
@@ -438,10 +452,11 @@ class SpikeAndSlabEstimator(ParameterEstimator):
         name: Optional[str] = None,
         keys: Optional[str] = None,
     ) -> None:
-        """SpikeAndSlabEstimator object.
+        """Initialize support, pseudo-count settings, and metadata.
 
         Args:
             min_val (Optional[int]): Smallest integer value in the range.
+            max_val (Optional[int]): Largest represented integer value.
             pseudo_count (Optional[float]): Regularize value k.
             suff_stat (Optional[Tuple[int, Optional[float]]]): Tuple of k to regularize
                 and optional value of p for k.
@@ -462,6 +477,7 @@ class SpikeAndSlabEstimator(ParameterEstimator):
         self.name = name
 
     def accumulator_factory(self) -> "SpikeAndSlabAccumulatorFactory":
+        """Create a compatible accumulator factory."""
         return SpikeAndSlabAccumulatorFactory(
             min_val=self.min_val, max_val=self.max_val, keys=self.keys, name=self.name
         )
@@ -469,6 +485,7 @@ class SpikeAndSlabEstimator(ParameterEstimator):
     def estimate(
         self, nobs: Optional[float], suff_stat: Tuple[int, np.ndarray]
     ) -> "SpikeAndSlabDistribution":
+        """Estimate a distribution from ``(minimum, count_vector)``."""
         min_val, count_vec = suff_stat
 
         with np.errstate(divide="ignore"):
@@ -560,23 +577,25 @@ class SpikeAndSlabEstimator(ParameterEstimator):
 
 
 class SpikeAndSlabDataEncoder(DataSequenceEncoder):
-    """IntegerCategoricalDataEncoder object for encoding sequences of iid integer
-    categorical observations."""
+    """Encode integer observations as a one-dimensional NumPy array."""
 
     def __str__(self) -> str:
+        """Return the legacy stable encoder name."""
         return "IntegerCategoricalDataEncoder"
 
     def __eq__(self, other: object) -> bool:
+        """Return whether another encoder has spike-and-slab semantics."""
         return isinstance(other, SpikeAndSlabDataEncoder)
 
     def seq_encode(
         self, x: Union[List[int], np.ndarray]
     ) -> "SpikeAndSlabEncodedDataSequence":
+        """Encode ``N`` integers as an array of shape ``(N,)``."""
         return SpikeAndSlabEncodedDataSequence(data=np.asarray(x, dtype=int))
 
 
 class SpikeAndSlabEncodedDataSequence(EncodedDataSequence):
-    """SpikeAndSlabEncodedDataSequence object for vectorized function calls.
+    """Contain an encoded one-dimensional sequence of integers.
 
     Attributes:
         data (np.ndarray): Encoded sequence of integer values.
@@ -584,7 +603,7 @@ class SpikeAndSlabEncodedDataSequence(EncodedDataSequence):
     """
 
     def __init__(self, data: np.ndarray):
-        """SpikeAndSlabEncodedDataSequence object for vectorized function calls.
+        """Store an integer array of shape ``(N,)``.
 
         Args:
             data (np.ndarray): Encoded sequence of integer values.
@@ -593,4 +612,5 @@ class SpikeAndSlabEncodedDataSequence(EncodedDataSequence):
         super().__init__(data=data)
 
     def __repr__(self) -> str:
+        """Return a representation containing the encoded array."""
         return f"SpikeAndSlabEncodedDataSequence(data={self.data})"

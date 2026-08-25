@@ -162,12 +162,17 @@ jobs:
           poetry run pydocstyle src/dmx/stats/pdist.py \
                                src/dmx/stats/binomial.py \
                                src/dmx/stats/categorical.py \
+                               src/dmx/stats/catmultinomial.py \
                                src/dmx/stats/dirichlet.py \
                                src/dmx/stats/dmvn.py \
                                src/dmx/stats/exponential.py \
                                src/dmx/stats/gamma.py \
                                src/dmx/stats/gaussian.py \
                                src/dmx/stats/geometric.py \
+                               src/dmx/stats/int_spike.py \
+                               src/dmx/stats/intmultinomial.py \
+                               src/dmx/stats/intrange.py \
+                               src/dmx/stats/intsetdist.py \
                                src/dmx/bstats \
                                src/dmx/torch_stats/pdist.py \
                                src/dmx/arithmetic.py \
