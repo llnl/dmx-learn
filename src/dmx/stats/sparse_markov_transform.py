@@ -79,8 +79,8 @@ class SparseMarkovAssociationDistribution(SequenceEncodableProbabilityDistributi
     Attributes:
         init_prob_vec (np.ndarray): Probabilities for the first set of words S1.
         cond_prob_mat (csr_matrix): Sparse matrix defining the probabilities for mapping
-            words in S1 to S2. Dim is
-            (|S2| by |S1|).
+            words in S1 to S2. Its dimensions are the S2 vocabulary size by the S1
+            vocabulary size.
         alpha (float): Regularization parameter (should be between 0 and 1).
         len_dist (SequenceEncodableProbabilityDistribution): Distribution for length of
             words. Must be
@@ -105,8 +105,8 @@ class SparseMarkovAssociationDistribution(SequenceEncodableProbabilityDistributi
             init_prob_vec (Union[Sequence[float], np.ndarray]): Probabilities for the
                 first set of words S1.
             cond_prob_mat (csr_matrix): Sparse matrix defining the probabilities for
-                mapping words in S1 to S2. Dim is
-                (|S2| by |S1|).
+                mapping words in S1 to S2. Its dimensions are the S2 vocabulary size by
+                the S1 vocabulary size.
             alpha (float): Regularization parameter (should be between 0 and 1).
             len_dist (Optional[SequenceEncodableProbabilityDistribution]): Distribution
                 for length of words. Must be
