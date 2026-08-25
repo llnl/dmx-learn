@@ -1,11 +1,8 @@
-"""Evaluate, estimate, and sample from a Gaussian distribution with mean mu and variance
-sigma2.
+"""Univariate Gaussian distributions, estimation, and sequence encoding.
 
-Defines the GaussianDistribution, GaussianSampler, GaussianAccumulatorFactory,
-GaussianAccumulator,
-GaussianEstimator, and the GaussianDataEncoder classes for use with dmx-learn.
-
-Data type: float
+The distribution uses mean ``mu`` and variance ``sigma2``. Scalar methods accept
+one real observation, while sequence methods consume the one-dimensional array
+produced by ``GaussianDataEncoder``.
 """
 
 from typing import Any, Callable, Dict, List, Optional, Tuple, Union
@@ -26,7 +23,11 @@ from dmx.stats.pdist import (
 
 
 class GaussianDistribution(SequenceEncodableProbabilityDistribution):
-    """Gaussian distribution with mean mu and variance sigma2.
+    """Represent a univariate Gaussian distribution.
+
+    The support is the real line. ``mu`` is the mean and ``sigma2`` is the
+    variance, not the standard deviation. A nonpositive or non-finite variance
+    is replaced with ``1.0`` by the constructor.
 
     Attributes:
         mu (float): Mean of the Gaussian distribution.
@@ -47,10 +48,11 @@ class GaussianDistribution(SequenceEncodableProbabilityDistribution):
         """Initialize GaussianDistribution.
 
         Args:
-            mu (float): Mean of the Gaussian distribution.
-            sigma2 (float): Variance of the Gaussian distribution (must be positive).
-            name (Optional[str], optional): Name for the object.
-            keys (Optional[str], optional): Key for the distribution.
+            mu: Mean of the distribution.
+            sigma2: Variance. Nonpositive, NaN, or infinite values are replaced
+                with ``1.0``.
+            name: Optional name for the distribution.
+            keys: Optional key for tying sufficient statistics.
         """
         super().__init__()
         self.mu = mu
@@ -71,10 +73,10 @@ class GaussianDistribution(SequenceEncodableProbabilityDistribution):
         """Evaluate the density of the Gaussian distribution at x.
 
         Args:
-            x (float): Observation.
+            x: Scalar real-valued observation.
 
         Returns:
-            float: Density at x.
+            Probability density at ``x``.
         """
         return float(
             self.const * exp(-0.5 * (x - self.mu) * (x - self.mu) / self.sigma2)
@@ -84,10 +86,10 @@ class GaussianDistribution(SequenceEncodableProbabilityDistribution):
         """Evaluate the log-density of the Gaussian distribution at x.
 
         Args:
-            x (float): Observation.
+            x: Scalar real-valued observation.
 
         Returns:
-            float: Log-density at x.
+            Log-density at ``x``.
         """
         return float(self.log_const - 0.5 * (x - self.mu) * (x - self.mu) / self.sigma2)
 
@@ -99,10 +101,10 @@ class GaussianDistribution(SequenceEncodableProbabilityDistribution):
         """Vectorized log-density for encoded data.
 
         Args:
-            x (GaussianEncodedDataSequence): Encoded data sequence.
+            x: Encoded sequence containing ``N`` observations.
 
         Returns:
-            np.ndarray: Log-density values.
+            Array of shape ``(N,)`` containing one log-density per observation.
         """
         if not isinstance(x, GaussianEncodedDataSequence):
             raise TypeError(
@@ -129,7 +131,10 @@ class GaussianDistribution(SequenceEncodableProbabilityDistribution):
         return GaussianSampler(self, seed)
 
     def estimator(self, pseudo_count: Optional[float] = None) -> "GaussianEstimator":
-        """Return a GaussianEstimator for this distribution.
+        """Create an estimator initialized from this distribution.
+
+        With ``pseudo_count``, the mean and variance estimates are both shrunk
+        toward this distribution's corresponding parameter.
 
         Args:
             pseudo_count (Optional[float], optional): Pseudo-count for regularization.
@@ -189,7 +194,11 @@ class GaussianSampler(DistributionSampler):
 
 
 class GaussianAccumulator(SequenceEncodableStatisticAccumulator):
-    """Accumulator for sufficient statistics of the Gaussian distribution.
+    """Accumulate weighted univariate Gaussian sufficient statistics.
+
+    The sufficient-statistic tuple is ``(sum_x, sum_x2, count, count2)``.
+    Separate counts support the estimator's independent mean and variance
+    pseudo-counts.
 
     Attributes:
         sum (float): Sum of weighted observations.
@@ -381,7 +390,13 @@ class GaussianAccumulatorFactory(StatisticAccumulatorFactory):
 
 
 class GaussianEstimator(ParameterEstimator):
-    """Estimator for the Gaussian distribution from aggregated sufficient statistics.
+    """Estimate a Gaussian mean and variance from weighted statistics.
+
+    The mean is the weighted first moment and the variance is the weighted second
+    central moment. The two pseudo-counts independently shrink them toward the
+    corresponding entries of ``suff_stat``. Empty mean or variance statistics
+    use zero, after which the distribution constructor normalizes a zero variance
+    to one.
 
     Attributes:
         pseudo_count (Tuple[Optional[float], Optional[float]]): Weights for sufficient
@@ -470,7 +485,7 @@ class GaussianEstimator(ParameterEstimator):
 
 
 class GaussianDataEncoder(DataSequenceEncoder):
-    """Encoder for sequences of iid Gaussian observations with data type float."""
+    """Encode finite Gaussian observations as a float array of shape ``(N,)``."""
 
     def __str__(self) -> str:
         """Return string representation."""
@@ -493,13 +508,13 @@ class GaussianDataEncoder(DataSequenceEncoder):
         """Encode a sequence of iid Gaussian observations.
 
         Args:
-            x (Union[List[float], np.ndarray]): Sequence of iid Gaussian observations.
+            x: One-dimensional sequence of ``N`` finite observations.
 
         Returns:
-            GaussianEncodedDataSequence: Encoded data sequence.
+            Encoded sequence backed by a float array with shape ``(N,)``.
 
         Raises:
-            Exception: If any value in x is NaN or infinite.
+            ValueError: If any value is NaN or infinite.
         """
         rv = np.asarray(x, dtype=float)
 
@@ -510,17 +525,17 @@ class GaussianDataEncoder(DataSequenceEncoder):
 
 
 class GaussianEncodedDataSequence(EncodedDataSequence):
-    """Encoded data sequence for use with vectorized function calls.
+    """Store Gaussian observations for vectorized operations.
 
     Attributes:
-        data (np.ndarray): Sequence of iid Gaussian observations.
+        data (np.ndarray): Float array with shape ``(N,)``.
     """
 
     def __init__(self, data: np.ndarray):
         """Initialize GaussianEncodedDataSequence.
 
         Args:
-            data (np.ndarray): Sequence of iid Gaussian observations.
+            data: Float array with shape ``(N,)``.
         """
         super().__init__(data=data)
 

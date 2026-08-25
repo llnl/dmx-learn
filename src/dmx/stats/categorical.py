@@ -1,9 +1,8 @@
-"""Create, estimate, and sample from a Categorical distribution.
+"""Categorical distributions, sampling, estimation, and sequence encoding.
 
-Defines the CategoricalDistribution, CategoricalSampler, CategoricalAccumulatorFactory,
-CategoricalAccumulator,
-CategoricalEstimator, and the CategoricalDataEncoder classes for use with dmx-learn.
-
+``CategoricalDistribution`` accepts any hashable category as a scalar
+observation. Sequence methods consume the integer-coded representation produced
+by ``CategoricalDataEncoder``.
 """
 
 import math
@@ -26,20 +25,21 @@ T = TypeVar("T")
 
 
 class CategoricalDistribution(SequenceEncodableProbabilityDistribution):
-    """Defines a CategoricalDistribution object for data type T.
+    """Represent a categorical distribution over hashable values.
+
+    ``pmap`` maps explicit support values to their probability weights. A value
+    absent from ``pmap`` receives weight ``default_value``. Scalar and sequence
+    likelihoods divide either weight by ``1 + default_value``; callers normally
+    provide an explicit probability map whose values sum to one.
 
     Attributes:
-        name (Optional[str]): Assigns a name to the CategoricalDistribution object.
-        pmap (Dict[Any, float]): Keys (x_i) are the support of the categorical, the
-            value is the probability of
-            the key (p_i).
-        default_value (float): Value for prob of observation outside support of
-            CategoricalDistribution, default to
-            0.0.
-        no_default (bool): True if a non-zero default value is given.
-        log_default_value (float): log(default_value).
-        log1p_default_value (float): log(1+default_value).
-        keys (Optional[str]): Key for distribution
+        name (Optional[str]): Optional name for the distribution.
+        pmap (Dict[Any, float]): Explicit category-to-weight mapping.
+        default_value (float): Weight assigned to values outside ``pmap``.
+        no_default (bool): Whether the supplied default weight is nonzero.
+        log_default_value (float): Logarithm of the default weight.
+        log1p_default_value (float): Logarithm of ``1 + default_value``.
+        keys (Optional[str]): Optional key for tying sufficient statistics.
 
     """
 
@@ -50,16 +50,14 @@ class CategoricalDistribution(SequenceEncodableProbabilityDistribution):
         name: Optional[str] = None,
         keys: Optional[str] = None,
     ) -> None:
-        """Initializes a CategoricalDistribution object.
+        """Initialize a categorical distribution.
 
         Args:
-            pmap (Dict[Any, float]): Keys (x_i) are the support of the categorical, the
-                value is the probability of the key (p_i).
-            default_value (float, optional): Value for prob of observation outside
-                support of CategoricalDistribution. Defaults to 0.0.
-            name (Optional[str], optional): Assigns a name to the
-                CategoricalDistribution object. Defaults to None.
-            keys (Optional[str], optional): Key for distribution. Defaults to None.
+            pmap: Mapping from hashable category labels to probability weights.
+            default_value: Weight for any category absent from ``pmap``. The stored
+                value is clipped to ``[0, 1]``.
+            name: Optional name for the distribution.
+            keys: Optional key for tying sufficient statistics.
         """
         super().__init__()
         self.name = name
@@ -94,37 +92,38 @@ class CategoricalDistribution(SequenceEncodableProbabilityDistribution):
         )
 
     def density(self, x: Any) -> float:
-        """Evaluates the density of the CategoricalDistribution at a given value.
+        """Evaluate the probability mass at a category.
 
         Args:
-            x (Any): Value at which to evaluate the density.
+            x: Hashable category label.
 
         Returns:
-            float: Density value at x.
+            Probability mass at ``x``.
         """
         return self.pmap.get(x, self.default_value) / (1.0 + self.default_value)
 
     def log_density(self, x: Any) -> float:
-        """Evaluates the log-density of the CategoricalDistribution at a given value.
+        """Evaluate the log-probability mass at a category.
 
         Args:
-            x (Any): Value at which to evaluate the log-density.
+            x: Hashable category label.
 
         Returns:
-            float: Log-density of Categorical distribution evaluated at x.
+            Log-probability mass at ``x``.
         """
         return float(
             np.log(self.pmap.get(x, self.default_value)) - self.log1p_default_value
         )
 
     def seq_log_density(self, x: "CategoricalEncodedDataSequence") -> np.ndarray:
-        """Vectorized log-density evaluation for a sequence of encoded categorical data.
+        """Evaluate log-probability masses for an encoded sequence.
 
         Args:
-            x (CategoricalEncodedDataSequence): Encoded sequence of categorical data.
+            x: Encoded sequence containing ``N`` categorical observations.
 
         Returns:
-            np.ndarray: Array of log-density values for the sequence.
+            Array of shape ``(N,)`` containing one log-probability mass per
+            observation.
         """
         if not isinstance(x, CategoricalEncodedDataSequence):
             raise TypeError(
@@ -157,8 +156,10 @@ class CategoricalDistribution(SequenceEncodableProbabilityDistribution):
         return CategoricalSampler(self, seed)
 
     def estimator(self, pseudo_count: Optional[float] = None) -> "CategoricalEstimator":
-        """Creates a CategoricalEstimator for estimating parameters of the
-        CategoricalDistribution.
+        """Create an estimator initialized from this distribution.
+
+        When supplied, ``pseudo_count`` weights this distribution's probability
+        map as prior category proportions.
 
         Args:
             pseudo_count (Optional[float], optional): If set, inflates counts for
@@ -238,13 +239,13 @@ class CategoricalSampler(DistributionSampler):
 
 
 class CategoricalAccumulator(SequenceEncodableStatisticAccumulator):
-    """CategoricalAccumulator object used for aggregating sufficient statistics of
-    CategoricalDistribution.
+    """Accumulate weighted counts for categorical observations.
+
+    The sufficient statistic is a dictionary from every observed category to its
+    total weight.
 
     Attributes:
-        count_map (Dict[Any,float]): Keys (x_i) are the support of the categorical, the
-            value is the weighted count
-        of category observations.
+        count_map (Dict[Any, float]): Weighted count for each observed category.
 
     """
 
@@ -427,7 +428,13 @@ class CategoricalAccumulatorFactory(StatisticAccumulatorFactory):
 
 
 class CategoricalEstimator(ParameterEstimator):
-    """CategoricalEstimator used to estimate CategoricalDistribution.
+    """Estimate categorical probabilities from weighted category counts.
+
+    Without a pseudo-count, counts are normalized directly. With a pseudo-count
+    but no prior map, symmetric smoothing is spread over observed categories.
+    With both, the union of observed and prior categories is normalized after
+    adding the weighted prior map. ``default_value=True`` also assigns unseen
+    values the implementation's data-dependent default weight.
 
     Attributes:
         pseudo_count (Optional[float]): Inflate sufficient statistic counts by
@@ -548,8 +555,12 @@ class CategoricalEstimator(ParameterEstimator):
 
 
 class CategoricalDataEncoder(DataSequenceEncoder):
-    """CategoricalDataEncoder for encoding Categorical data for use with vectorized
-    "seq_" functions."""
+    """Encode categorical observations for vectorized operations.
+
+    For ``N`` observations and ``U`` unique values, the encoded representation
+    contains integer inverse indices with shape ``(N,)`` and unique category
+    labels with shape ``(U,)``.
+    """
 
     def __str__(self) -> str:
         """Returns a string representation of the encoder.
@@ -574,10 +585,10 @@ class CategoricalDataEncoder(DataSequenceEncoder):
         """Encodes a sequence of categorical data for use with vectorized functions.
 
         Args:
-            x (Sequence[Any]): List of category labels.
+            x: Sequence of ``N`` category labels.
 
         Returns:
-            CategoricalEncodedDataSequence: Encoded data sequence.
+            Encoded sequence with data ``(inverse_indices, unique_values)``.
         """
         val_map_inv, uidx, xs = np.unique(x, return_index=True, return_inverse=True)
         val_map_inv = np.asarray([x[i] for i in uidx], dtype=object)
@@ -586,11 +597,11 @@ class CategoricalDataEncoder(DataSequenceEncoder):
 
 
 class CategoricalEncodedDataSequence(EncodedDataSequence):
-    """CategoricalEncodedDataSequence object.
+    """Store an integer-coded sequence of categorical observations.
 
     Attributes:
-        data: (Tuple[np.ndarray, np.ndarray]): Inverse mapping of unique values, unique
-            values.
+        data: Tuple of inverse indices with shape ``(N,)`` and unique values with
+            shape ``(U,)``.
 
     """
 

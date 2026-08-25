@@ -1,14 +1,9 @@
-"""Create, estimate, and sample from a geometric distribution with probability of
-success p.
+"""Geometric distributions, sampling, estimation, and sequence encoding.
 
-Defines the GeometricDistribution, GeometricSampler, GeometricAccumulatorFactory,
-GeometricAccumulator,
-GeometricEstimator, and the GeometricDataEncoder classes for use with dmx-learn.
-
-Data type (int): The geometric distribution with probability of success p, has density
-
-    P(x=k) = (k-1)*log(1-p) + log(p), for k = 1,2,...
-
+``GeometricDistribution`` models the one-based trial count through the first
+success: ``P(X = k) = p * (1 - p) ** (k - 1)`` for positive integers ``k``.
+Scalar methods accept one integer, while sequence methods consume the
+one-dimensional array produced by ``GeometricDataEncoder``.
 """
 
 from typing import Any, Dict, Optional, Sequence, Tuple, Union
@@ -29,10 +24,13 @@ from dmx.stats.pdist import (
 
 
 class GeometricDistribution(SequenceEncodableProbabilityDistribution):
-    """Geometric distribution with probability of success p.
+    """Represent a one-based geometric distribution.
+
+    The support is ``{1, 2, ...}``, and ``p`` is the probability of success on
+    each trial. The constructor clips ``p`` to the closed interval ``[0, 1]``.
 
     Attributes:
-        p (float): Probability of success, must be between (0,1).
+        p (float): Success probability clipped to ``[0, 1]``.
         log_p (float): Log of probability of success p.
         log_1p (float): Log of 1-p (probability of failure).
         name (Optional[str]): Name for the GeometricDistribution object.
@@ -45,9 +43,9 @@ class GeometricDistribution(SequenceEncodableProbabilityDistribution):
         """Initialize GeometricDistribution.
 
         Args:
-            p (float): Probability of success, must be between (0,1).
-            name (Optional[str], optional): Name for the GeometricDistribution object.
-            keys (Optional[str], optional): Key for parameter p.
+            p: Success probability; values outside ``[0, 1]`` are clipped.
+            name: Optional name for the distribution.
+            keys: Optional key for tying sufficient statistics.
         """
         super().__init__()
         self.p = max(0.0, min(p, 1.0))
@@ -64,38 +62,36 @@ class GeometricDistribution(SequenceEncodableProbabilityDistribution):
         )
 
     def density(self, x: int) -> float:
-        """Evaluate the density of the geometric distribution at x.
-
-        .. math::
-            P(x=k) = (k-1)\\log(1-p) + \\log(p), \\quad x = 1,2,...
+        """Evaluate the probability mass at an integer observation.
 
         Args:
             x (int): Observed geometric value (1,2,3,...).
 
         Returns:
-            float: Density of geometric distribution evaluated at x.
+            Probability mass at ``x``.
         """
         return float(exp(self.log_density(x)))
 
     def log_density(self, x: int) -> float:
-        """Evaluate the log-density of the geometric distribution at x.
+        """Evaluate the log-probability mass at an integer observation.
 
         Args:
             x (int): Must be a natural number (1,2,3,...).
 
         Returns:
-            float: Log-density of geometric distribution evaluated at x.
+            Log-probability mass at ``x``.
         """
         return float((x - 1) * self.log_1p + self.log_p)
 
     def seq_log_density(self, x: "GeometricEncodedDataSequence") -> np.ndarray:
-        """Vectorized log-density for encoded data.
+        """Evaluate log-probability masses for an encoded sequence.
 
         Args:
-            x (GeometricEncodedDataSequence): Encoded data sequence.
+            x: Encoded sequence containing ``N`` observations.
 
         Returns:
-            np.ndarray: Log-density values.
+            Array of shape ``(N,)`` containing one log-probability mass per
+            observation.
         """
         if not isinstance(x, GeometricEncodedDataSequence):
             raise TypeError(
@@ -120,7 +116,10 @@ class GeometricDistribution(SequenceEncodableProbabilityDistribution):
         return GeometricSampler(self, seed)
 
     def estimator(self, pseudo_count: Optional[float] = None) -> "GeometricEstimator":
-        """Return a GeometricEstimator for this distribution.
+        """Create an estimator initialized from this distribution.
+
+        With ``pseudo_count``, estimation shrinks the weighted success count
+        toward this distribution's success probability.
 
         Args:
             pseudo_count (Optional[float], optional): Pseudo-count for regularization.
@@ -177,7 +176,11 @@ class GeometricSampler(DistributionSampler):
 
 
 class GeometricAccumulator(SequenceEncodableStatisticAccumulator):
-    """Accumulator for sufficient statistics of the geometric distribution.
+    """Accumulate weighted geometric sufficient statistics.
+
+    The sufficient-statistic tuple is ``(count, sum_x)``. Scalar updates accept
+    nonnegative values, while the sequence encoder enforces the documented
+    positive-integer support.
 
     Attributes:
         sum (float): Aggregate weighted sum of observations.
@@ -349,7 +352,12 @@ class GeometricAccumulatorFactory(StatisticAccumulatorFactory):
 
 
 class GeometricEstimator(ParameterEstimator):
-    """Estimator for the geometric distribution from aggregated sufficient statistics.
+    """Estimate a geometric success probability from weighted statistics.
+
+    Without prior information, the maximum-likelihood estimate is
+    ``p = count / sum_x``. A pseudo-count adds weighted prior successes from
+    ``suff_stat``; when no prior statistic is supplied, it adds the same amount
+    to the numerator and denominator.
 
     Attributes:
         pseudo_count (Optional[float]): Pseudo-count for regularization.
@@ -422,7 +430,7 @@ class GeometricEstimator(ParameterEstimator):
 
 
 class GeometricDataEncoder(DataSequenceEncoder):
-    """Encoder for sequences of iid geometric observations with data type int."""
+    """Encode positive geometric observations as a float array of shape ``(N,)``."""
 
     def __str__(self) -> str:
         """Return string representation."""
@@ -445,14 +453,13 @@ class GeometricDataEncoder(DataSequenceEncoder):
         """Encode a sequence of geometric observations.
 
         Args:
-            x (Union[Sequence[int], np.ndarray]): Sequence of iid geometric
-                observations.
+            x: One-dimensional sequence of ``N`` positive integer observations.
 
         Returns:
-            GeometricEncodedDataSequence: Encoded data sequence.
+            Encoded sequence backed by a float array with shape ``(N,)``.
 
         Raises:
-            Exception: If any value in x is less than 1 or is NaN.
+            ValueError: If any value is less than one or NaN.
         """
         rv = np.asarray(x)
         if np.any(rv < 1) or np.any(np.isnan(rv)):
@@ -463,17 +470,17 @@ class GeometricDataEncoder(DataSequenceEncoder):
 
 
 class GeometricEncodedDataSequence(EncodedDataSequence):
-    """Encoded data sequence for vectorized functions.
+    """Store geometric observations for vectorized operations.
 
     Attributes:
-        data (np.ndarray): Sequence of iid geometric observations.
+        data (np.ndarray): Float array with shape ``(N,)``.
     """
 
     def __init__(self, data: np.ndarray):
         """Initialize GeometricEncodedDataSequence.
 
         Args:
-            data (np.ndarray): Sequence of iid geometric observations.
+            data: Float array with shape ``(N,)``.
         """
         super().__init__(data=data)
 
