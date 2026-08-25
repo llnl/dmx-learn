@@ -187,6 +187,7 @@ jobs:
                                src/dmx/stats/int_edit_setdist.py \
                                src/dmx/stats/int_edit_stepsetdist.py \
                                src/dmx/stats/int_hidden_association.py \
+                               src/dmx/stats/int_hidden_markov.py \
                                src/dmx/stats/int_markovchain.py \
                                src/dmx/stats/int_plsi.py \
                                src/dmx/stats/intmultinomial.py \
