@@ -11,6 +11,7 @@ returned model is the retained estimate with the best validation score.
 
 from __future__ import annotations
 
+import logging
 import sys
 import time
 from collections.abc import Callable, Sequence
@@ -27,6 +28,9 @@ from dmx.bstats import (
     seq_log_density_sum,
 )
 from dmx.bstats.pdist import ParameterEstimator, ProbabilityDistribution
+from dmx.utils.progress import ProgressCallback, ProgressReporter
+
+logger = logging.getLogger(__name__)
 
 T = TypeVar("T")
 Model = ProbabilityDistribution[Any, Any, Any]
@@ -178,6 +182,8 @@ def best_of(
     enc_vdata: Optional[EncodedChunks] = None,
     out: IO[str] = sys.stdout,
     print_iter: int = 1,
+    verbose: bool = True,
+    progress_callback: Optional[ProgressCallback] = None,
 ) -> tuple[float, Model]:
     """Run randomized variational fits and return the best validation model.
 
@@ -202,6 +208,10 @@ def best_of(
         enc_vdata: Optional pre-encoded validation chunks in the same form.
         out: Text stream receiving progress messages.
         print_iter: Emit training progress every this many updates.
+        verbose: Write progress messages to ``out``. With ``False``
+            nothing is written; messages are still logged at DEBUG.
+        progress_callback: Optional function receiving a
+            :class:`~dmx.utils.progress.ProgressEvent` for every iteration and trial.
 
     Returns:
         Best validation log-likelihood and its fitted model.
@@ -211,6 +221,7 @@ def best_of(
             ``(0, 1]``.
         RuntimeError: If no trial produces a selectable model.
     """
+    reporter = ProgressReporter("best_of", logger, out, verbose, progress_callback)
     _validate_init_p(init_p)
     if trials <= 0:
         raise ValueError("trials must be positive.")
@@ -231,10 +242,17 @@ def best_of(
             _, likelihood = seq_log_density_sum(training, proposed)
             change = likelihood - old_likelihood
             if (iteration + 1) % print_iter == 0:
-                out.write(
+                reporter.message(
                     f"Iteration {iteration + 1}. LL={likelihood:f}, "
                     f"delta LL={change:e}\n"
                 )
+            reporter.event(
+                "iteration",
+                iteration=iteration + 1,
+                log_likelihood=likelihood,
+                delta=change,
+                trial=trial + 1,
+            )
             if change >= 0.0 or delta is None:
                 model = proposed
             if delta is not None and change < delta:
@@ -242,7 +260,12 @@ def best_of(
             old_likelihood = likelihood
 
         _, validation_likelihood = seq_log_density_sum(validation, model)
-        out.write(f"Trial {trial + 1}. VLL={validation_likelihood:f}\n")
+        reporter.message(f"Trial {trial + 1}. VLL={validation_likelihood:f}\n")
+        reporter.event(
+            "trial",
+            trial=trial + 1,
+            metrics={"validation_log_likelihood": validation_likelihood},
+        )
         if validation_likelihood > best_likelihood:
             best_model = model
             best_likelihood = validation_likelihood
@@ -268,6 +291,8 @@ def optimize(
     enc_vdata: Optional[EncodedChunks] = None,
     out: IO[str] = sys.stdout,
     print_iter: int = 1,
+    verbose: bool = True,
+    progress_callback: Optional[ProgressCallback] = None,
 ) -> Model:
     """Optimize locally until LL improvement is below ``delta``.
 
@@ -292,6 +317,10 @@ def optimize(
         enc_vdata: Optional pre-encoded validation chunks in the same form.
         out: Text stream receiving progress messages.
         print_iter: Emit progress every this many updates.
+        verbose: Write progress messages to ``out``. With ``False``
+            nothing is written; messages are still logged at DEBUG.
+        progress_callback: Optional function receiving a
+            :class:`~dmx.utils.progress.ProgressEvent` for every iteration.
 
     Returns:
         Model with the highest validation log-likelihood among retained
@@ -302,6 +331,7 @@ def optimize(
             ``(0, 1]``.
         AttributeError: If ``estimator`` has no ``model_log_density`` method.
     """
+    reporter = ProgressReporter("optimize", logger, out, verbose, progress_callback)
     active_rng = _random_state(rng)
     initialization_estimator = estimator if init_estimator is None else init_estimator
     if prev_estimate is None:
@@ -333,18 +363,29 @@ def optimize(
             _, likelihood = seq_log_density_sum(training, proposed)
             model_change = model_likelihood - old_model_likelihood
             change = likelihood - old_likelihood
+            reporter.event(
+                "iteration",
+                iteration=iteration + 1,
+                log_likelihood=likelihood,
+                delta=change,
+                metrics={
+                    "validation_log_likelihood": validation_likelihood,
+                    "model_log_likelihood": model_likelihood,
+                    "model_delta": model_change,
+                },
+            )
 
             if change >= 0.0 or delta is None:
                 model = proposed
             if delta is not None and change < delta:
-                out.write(
+                reporter.message(
                     f"Terminating {iteration + 1}. LL={likelihood:f}, "
                     f"dLL={change:e}, MLL={model_likelihood:f}, "
                     f"dMLL={model_change:e}, VLL={validation_likelihood:f}\n"
                 )
                 break
             if (iteration + 1) % print_iter == 0:
-                out.write(
+                reporter.message(
                     f"Iteration {iteration + 1}. LL={likelihood:f}, "
                     f"dLL={change:e}, MLL={model_likelihood:f}, "
                     f"dMLL={model_change:e}, VLL={validation_likelihood:f}\n"
@@ -371,6 +412,8 @@ def iterate(
     is_encoded: bool = False,
     init_estimator: Optional[Estimator] = None,
     print_iter: int = 1,
+    verbose: bool = True,
+    progress_callback: Optional[ProgressCallback] = None,
 ) -> Model:
     """Run exactly ``max_its`` updates and report mean iteration time.
 
@@ -385,6 +428,10 @@ def iterate(
         is_encoded: Whether ``data`` already contains encoded chunks.
         init_estimator: Optional estimator used only during initialization.
         print_iter: Emit mean elapsed time every this many updates.
+        verbose: Write progress messages to ``out``. With ``False``
+            nothing is written; messages are still logged at DEBUG.
+        progress_callback: Optional function receiving a
+            :class:`~dmx.utils.progress.ProgressEvent` for every iteration.
 
     Returns:
         Model produced by the final update.
@@ -410,12 +457,18 @@ def iterate(
     if hasattr(encoded, "cache"):
         cast(Any, encoded).cache()
 
+    reporter = ProgressReporter("iterate", logger, out, verbose, progress_callback)
     start = time.time()
     for iteration in range(max_its):
         model = seq_estimate(encoded, estimator, model)
+        elapsed = (time.time() - start) / float(iteration + 1)
         if (iteration + 1) % print_iter == 0:
-            elapsed = (time.time() - start) / float(iteration + 1)
-            out.write(f"Iteration {iteration + 1}\t E[dT]={elapsed:f}.\n")
+            reporter.message(f"Iteration {iteration + 1}\t E[dT]={elapsed:f}.\n")
+        reporter.event(
+            "iteration",
+            iteration=iteration + 1,
+            metrics={"mean_seconds_per_iteration": elapsed},
+        )
     return model
 
 
@@ -433,6 +486,8 @@ def hill_climb(
     enc_vdata: Optional[EncodedChunks] = None,
     out: IO[str] = sys.stdout,
     print_iter: int = 1,
+    verbose: bool = True,
+    progress_callback: Optional[ProgressCallback] = None,
 ) -> Model:
     """Return the update with best metric, breaking ties by validation LL.
 
@@ -450,11 +505,16 @@ def hill_climb(
         enc_vdata: Optional pre-encoded validation chunks in the same form.
         out: Text stream receiving progress messages.
         print_iter: Emit progress every this many updates.
+        verbose: Write progress messages to ``out``. With ``False``
+            nothing is written; messages are still logged at DEBUG.
+        progress_callback: Optional function receiving a
+            :class:`~dmx.utils.progress.ProgressEvent` for every iteration.
 
     Returns:
         Model with the largest metric value, using validation log-likelihood to
         break exact metric ties.
     """
+    reporter = ProgressReporter("hill_climb", logger, out, verbose, progress_callback)
     model = prev_estimate
     training = (
         list(enc_data)
@@ -481,9 +541,18 @@ def hill_climb(
             best_likelihood = next_likelihood
             best_score = next_score
         if iteration % print_iter == 0:
-            out.write(
+            reporter.message(
                 f"Iteration {iteration + 1}. LL={next_likelihood:f}, "
                 f"Best LL={best_likelihood:f}, Best Score={best_score:f}\n"
             )
+        reporter.event(
+            "iteration",
+            iteration=iteration + 1,
+            metrics={
+                "validation_log_likelihood": next_likelihood,
+                "best_validation_log_likelihood": best_likelihood,
+                "best_score": best_score,
+            },
+        )
         model = proposed
     return best_model

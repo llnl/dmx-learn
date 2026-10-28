@@ -5,6 +5,7 @@ local encoded chunks or Spark RDDs. Callers may provide raw observations,
 pre-encoded data, or a previous model depending on the helper.
 """
 
+import logging
 import sys
 import time
 from typing import (
@@ -36,9 +37,12 @@ from dmx.stats.pdist import (
     ParameterEstimator,
     SequenceEncodableProbabilityDistribution,
 )
+from dmx.utils.progress import ProgressCallback, ProgressReporter
 
 if TYPE_CHECKING:
     from pyspark import RDD
+
+logger = logging.getLogger(__name__)
 
 T = TypeVar("T")
 E0 = TypeVar("E0")
@@ -189,6 +193,8 @@ def best_of(
     enc_vdata: Optional[EncodedChunks] = None,
     out: IO = sys.stdout,
     print_iter: int = 1,
+    verbose: bool = True,
+    progress_callback: Optional[ProgressCallback] = None,
 ) -> Tuple[float, SequenceEncodableProbabilityDistribution]:
     """Run EM from multiple randomized starts and return the best fit.
 
@@ -221,6 +227,10 @@ def best_of(
             ``vdata``.
         out: Text stream receiving iteration and trial summaries.
         print_iter: Positive interval between iteration summaries.
+        verbose: Write progress messages to ``out``. With ``False``
+            nothing is written; messages are still logged at DEBUG.
+        progress_callback: Optional function receiving a
+            :class:`~dmx.utils.progress.ProgressEvent` for every iteration and trial.
 
     Returns:
         Best validation log likelihood and its fitted model.
@@ -230,6 +240,7 @@ def best_of(
             is outside ``(0, 1]``.
         RuntimeError: If no trial produces a selectable model.
     """
+    reporter = ProgressReporter("best_of", logger, out, verbose, progress_callback)
     rv_ll = -np.inf
     rv_mm: Optional[SequenceEncodableProbabilityDistribution] = None
     i_est = est if init_estimator is None else init_estimator
@@ -268,7 +279,10 @@ def best_of(
             dll = ll - old_ll
 
             if (i + 1) % print_iter == 0:
-                out.write(f"Iteration {i + 1}. LL={ll:f}, delta LL={dll:e}\n")
+                reporter.message(f"Iteration {i + 1}. LL={ll:f}, delta LL={dll:e}\n")
+            reporter.event(
+                "iteration", iteration=i + 1, log_likelihood=ll, delta=dll, trial=kk + 1
+            )
 
             if (dll >= 0) or (delta is None):
                 mm = mm_next
@@ -280,7 +294,10 @@ def best_of(
 
         validation_data = encoded_vdata if encoded_vdata is not None else encoded_data
         _, vll = seq_log_density_sum(validation_data, mm)
-        out.write(f"Trial {kk + 1}. VLL={vll:f}\n")
+        reporter.message(f"Trial {kk + 1}. VLL={vll:f}\n")
+        reporter.event(
+            "trial", trial=kk + 1, metrics={"validation_log_likelihood": vll}
+        )
 
         if vll > rv_ll:
             rv_mm = mm
@@ -309,6 +326,8 @@ def optimize(
     out: IO = sys.stdout,
     print_iter: int = 1,
     num_chunks: int = 1,
+    verbose: bool = True,
+    progress_callback: Optional[ProgressCallback] = None,
 ) -> SequenceEncodableProbabilityDistribution:
     """Fit a model with EM and return the best validation-scoring estimate.
 
@@ -344,6 +363,10 @@ def optimize(
         out: Text stream receiving progress messages.
         print_iter: Positive interval between progress messages.
         num_chunks: Number of local encoded chunks created from raw data.
+        verbose: Write progress messages to ``out``. With ``False``
+            nothing is written; messages are still logged at DEBUG.
+        progress_callback: Optional function receiving a
+            :class:`~dmx.utils.progress.ProgressEvent` for every iteration.
 
     Returns:
         The fitted model with the greatest observed validation likelihood, or
@@ -356,6 +379,7 @@ def optimize(
     if data is None and enc_data is None:
         raise ValueError("Optimization called with empty data or enc_data.")
 
+    reporter = ProgressReporter("optimize", logger, out, verbose, progress_callback)
     est = estimator if init_estimator is None else init_estimator
 
     if prev_estimate is None:
@@ -406,19 +430,26 @@ def optimize(
             vll = ll
 
         dll = ll - old_ll
+        reporter.event(
+            "iteration",
+            iteration=i + 1,
+            log_likelihood=ll,
+            delta=dll,
+            metrics={"validation_log_likelihood": vll},
+        )
 
         if (dll >= 0) or (delta is None):
             mm = mm_next
 
         if (delta is not None) and (dll < delta):
             if enc_vdata is not None:
-                out.write(
+                reporter.message(
                     f"Iteration {i + 1}: ln[p_mat(Data|Model)]={ll:e}, "
                     f"ln[p_mat(Data|Model)]-ln[p_mat(Data|PrevModel)]={dll:e}, "
                     f"ln[p_mat(Valid Data|Model)]={vll:e}\n"
                 )
             else:
-                out.write(
+                reporter.message(
                     f"Iteration {i + 1}: ln[p_mat(Data|Model)]={ll:e}, "
                     f"ln[p_mat(Data|Model)]-ln[p_mat(Data|PrevModel)]={dll:e}\n"
                 )
@@ -426,13 +457,13 @@ def optimize(
 
         if (i + 1) % print_iter == 0:
             if enc_vdata is not None:
-                out.write(
+                reporter.message(
                     f"Iteration {i + 1}: ln[p_mat(Data|Model)]={ll:e}, "
                     f"ln[p_mat(Data|Model)]-ln[p_mat(Data|PrevModel)]={dll:e}, "
                     f"ln[p_mat(Valid Data|Model)]={vll:e}\n"
                 )
             else:
-                out.write(
+                reporter.message(
                     f"Iteration {i + 1}: ln[p_mat(Data|Model)]={ll:e}, "
                     f"ln[p_mat(Data|Model)]-ln[p_mat(Data|PrevModel)]={dll:e}\n"
                 )
@@ -459,6 +490,8 @@ def iterate(
     enc_data: Optional[EncodedChunks] = None,
     init_estimator: Optional[ParameterEstimator] = None,
     print_iter: int = 1,
+    verbose: bool = True,
+    progress_callback: Optional[ProgressCallback] = None,
 ) -> SequenceEncodableProbabilityDistribution:
     """Perform a fixed number of EM updates and return the final estimate.
 
@@ -481,6 +514,10 @@ def iterate(
         enc_data: Pre-encoded local chunks or Spark RDD.
         init_estimator: Fallback estimator used when ``estimator`` is absent.
         print_iter: Positive interval between timing messages.
+        verbose: Write progress messages to ``out``. With ``False``
+            nothing is written; messages are still logged at DEBUG.
+        progress_callback: Optional function receiving a
+            :class:`~dmx.utils.progress.ProgressEvent` for every iteration.
 
     Returns:
         The model after the requested updates.
@@ -516,15 +553,19 @@ def iterate(
     if hasattr(enc_data, "cache"):
         cast(Any, enc_data).cache()
 
+    reporter = ProgressReporter("iterate", logger, out, verbose, progress_callback)
     t0 = time.time()
     for i in range(max_its):
         mm = seq_estimate(enc_data, active_estimator, mm)
+        elapsed = (time.time() - t0) / float(i + 1)
 
         if (i + 1) % print_iter == 0:
-            out.write(
-                f"Iteration {i + 1}\t E[dT]="
-                f"{(time.time() - t0) / float(i + 1):f}.\n"
-            )
+            reporter.message(f"Iteration {i + 1}\t E[dT]={elapsed:f}.\n")
+        reporter.event(
+            "iteration",
+            iteration=i + 1,
+            metrics={"mean_seconds_per_iteration": elapsed},
+        )
 
     return mm
 
@@ -543,6 +584,8 @@ def hill_climb(
     enc_vdata: Optional[EncodedChunks] = None,
     out: IO = sys.stdout,
     print_iter: int = 1,
+    verbose: bool = True,
+    progress_callback: Optional[ProgressCallback] = None,
 ) -> SequenceEncodableProbabilityDistribution:
     """Run fixed EM updates and retain the best metric-scoring model.
 
@@ -566,11 +609,16 @@ def hill_climb(
         enc_vdata: Pre-encoded validation chunks.
         out: Text stream receiving progress messages.
         print_iter: Positive interval between progress messages.
+        verbose: Write progress messages to ``out``. With ``False``
+            nothing is written; messages are still logged at DEBUG.
+        progress_callback: Optional function receiving a
+            :class:`~dmx.utils.progress.ProgressEvent` for every iteration.
 
     Returns:
         The incumbent or proposal with the best metric and likelihood tie
         break.
     """
+    reporter = ProgressReporter("hill_climb", logger, out, verbose, progress_callback)
     mm = prev_estimate
 
     if enc_data is None:
@@ -599,10 +647,19 @@ def hill_climb(
             best_score = next_score
 
         if i % print_iter == 0:
-            out.write(
+            reporter.message(
                 f"Iteration {i + 1}. LL={next_ll:f}, Best LL={best_ll:f}, "
                 f"Best Score={best_score:f}\n"
             )
+        reporter.event(
+            "iteration",
+            iteration=i + 1,
+            metrics={
+                "validation_log_likelihood": next_ll,
+                "best_validation_log_likelihood": best_ll,
+                "best_score": best_score,
+            },
+        )
 
         mm = mm_next
 

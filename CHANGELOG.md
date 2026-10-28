@@ -70,6 +70,17 @@ All notable changes to dmx-learn are recorded here.
   the posterior assignment entropy from `seq_posterior`). Results are frozen
   dataclasses and nothing is printed. The criteria take an optional
   `num_params` override, for example a DPM's `effective_num_params()`.
+- Quiet fitting and embedding. `optimize`, `best_of`, `iterate`, and
+  `hill_climb` (in `dmx.utils.estimation` and `dmx.bstats.bestimation`), the
+  MPI `optimize_mpi` and `best_of_mpi`, `get_dpm_mixture`,
+  `get_dpm_mixture_mpi`, `prepare_mixture_model`, `htsne`, `dpmsne`, `humap`,
+  and `humap_mpi` take `verbose: bool = True` and an optional
+  `progress_callback`. The default output is unchanged; `verbose=False` writes
+  nothing to standard output or error. Every progress message is also logged
+  at `DEBUG` on the module's logger (silent unless logging is configured), and
+  the callback receives a `dmx.utils.progress.ProgressEvent` for every
+  iteration (independent of `print_iter`), with `to_dict()` for JSON. Existing
+  `out=` arguments work as before.
 
 ### Fixed
 

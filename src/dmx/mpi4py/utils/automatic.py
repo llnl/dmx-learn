@@ -1,5 +1,6 @@
 """Automatic MPI estimation helpers used by heterogeneous embedding workflows."""
 
+import logging
 from typing import Any, Optional, Sequence, cast
 
 import numpy as np
@@ -8,6 +9,9 @@ from dmx.bstats import MixtureDistribution, ParameterEstimator
 from dmx.bstats.dpm import DirichletProcessMixtureEstimator
 from dmx.mpi4py.utils import get_runtime_attr
 from dmx.utils.automatic import get_estimator
+from dmx.utils.progress import ProgressCallback, ProgressReporter
+
+logger = logging.getLogger(__name__)
 
 
 # Keep the current helper call signature stable for now.
@@ -20,6 +24,8 @@ def get_dpm_mixture_mpi(
     max_its: int = 1000,
     print_iter: int = 100,
     mix_threshold_count: float = 0.5,
+    verbose: bool = True,
+    progress_callback: Optional[ProgressCallback] = None,
 ) -> MixtureDistribution:
     """Fit and prune a Dirichlet process mixture with MPI.
 
@@ -43,6 +49,13 @@ def get_dpm_mixture_mpi(
             is divided by `len(data)` to form the minimum retained weight, the
             same rule as
             `DirichletProcessMixtureDistribution.effective_num_components`.
+        verbose (bool): Write progress messages to standard output. With
+            ``False`` nothing is written; messages are still logged at DEBUG.
+        progress_callback (Optional[ProgressCallback]): Optional function
+            receiving a :class:`~dmx.utils.progress.ProgressEvent` for every
+            optimizer iteration, plus one ``"result"`` event with the retained
+            ``weights`` and ``num_components``. Messages and events are
+            produced on rank 0 only.
 
     Returns:
         MixtureDistribution: Pruned mixture distribution on every rank.
@@ -58,6 +71,9 @@ def get_dpm_mixture_mpi(
     # Get MPI communicator, rank, and size
     comm = mpi.COMM_WORLD
     world_rank = comm.Get_rank()
+    reporter = ProgressReporter(
+        "get_dpm_mixture_mpi", logger, None, verbose, progress_callback
+    )
 
     if world_rank == 0:
         if data is None:
@@ -74,7 +90,15 @@ def get_dpm_mixture_mpi(
     est = DirichletProcessMixtureEstimator([est] * max_comp)
 
     # the model should live on world_rank == 0
-    mix_model = optimize_mpi(data, est, max_its=max_its, rng=rng, print_iter=print_iter)
+    mix_model = optimize_mpi(
+        data,
+        est,
+        max_its=max_its,
+        rng=rng,
+        print_iter=print_iter,
+        verbose=verbose,
+        progress_callback=progress_callback,
+    )
 
     if world_rank == 0:
         assert data is not None
@@ -86,8 +110,12 @@ def get_dpm_mixture_mpi(
         ]
         mix_weights = mix_model.w[mix_model.w >= thresh]
 
-        print(str(mix_weights))
-        print(f"# Components = {len(mix_comps)}")
+        reporter.message(f"{mix_weights}\n")
+        reporter.message(f"# Components = {len(mix_comps)}\n")
+        reporter.event(
+            "result",
+            metrics={"weights": mix_weights, "num_components": len(mix_comps)},
+        )
         mix_dist = MixtureDistribution(mix_comps, mix_weights)
     else:
         mix_dist = None
