@@ -2,6 +2,7 @@
 
 # pylint: disable=duplicate-code
 
+import logging
 import sys
 from typing import IO, List, Optional, Sequence, Tuple, TypeVar
 
@@ -20,8 +21,11 @@ from dmx.stats.pdist import (
     ParameterEstimator,
     SequenceEncodableProbabilityDistribution,
 )
+from dmx.utils.progress import ProgressCallback, ProgressReporter
 
 T = TypeVar("T")
+
+logger = logging.getLogger(__name__)
 
 
 # Keep `init_p` handling consistent with `dmx.utils.estimation`.
@@ -51,6 +55,8 @@ def optimize_mpi(
     out: IO = sys.stdout,
     print_iter: int = 1,
     num_chunks: int = 1,
+    verbose: bool = True,
+    progress_callback: Optional[ProgressCallback] = None,
 ) -> Optional[SequenceEncodableProbabilityDistribution]:
     """Run EM estimation with MPI until convergence or `max_its`.
 
@@ -88,6 +94,11 @@ def optimize_mpi(
         out (IO): Rank 0 stream for EM progress.
         print_iter (int): Print progress every `print_iter` iterations.
         num_chunks (int): Number of chunks for encoded data.
+        verbose (bool): Write progress messages to ``out``. With ``False``
+            nothing is written; messages are still logged at DEBUG.
+        progress_callback (Optional[ProgressCallback]): Optional function
+            receiving a :class:`~dmx.utils.progress.ProgressEvent` for every
+            iteration. Messages and events are produced on rank 0 only.
 
     Returns:
         Optional[SequenceEncodableProbabilityDistribution]: Estimated model on
@@ -101,6 +112,7 @@ def optimize_mpi(
     mpi = get_runtime_attr("mpi4py", "MPI")
     comm = mpi.COMM_WORLD
     world_rank = comm.Get_rank()
+    reporter = ProgressReporter("optimize_mpi", logger, out, verbose, progress_callback)
 
     # check if encoded data is already on each worker
     enc_data_exists = enc_data is not None
@@ -192,6 +204,14 @@ def optimize_mpi(
             vll = ll
 
         dll = ll - old_ll
+        if world_rank == 0:
+            reporter.event(
+                "iteration",
+                iteration=i + 1,
+                log_likelihood=ll,
+                delta=dll,
+                metrics={"validation_log_likelihood": vll},
+            )
 
         if (dll >= 0) or (delta is None):
             mm = mm_next
@@ -200,13 +220,13 @@ def optimize_mpi(
         if (delta is not None) and (dll < delta):
             if world_rank == 0:
                 if enc_vdata_exists_all:
-                    out.write(
+                    reporter.message(
                         f"Iteration {i + 1}: ln[p_mat(Data|Model)]={ll:e}, "
                         f"ln[p_mat(Data|Model)]-ln[p_mat(Data|PrevModel)]={dll:e}, "
                         f"ln[p_mat(Valid Data|Model)]={vll:e}\n"
                     )
                 else:
-                    out.write(
+                    reporter.message(
                         f"Iteration {i + 1}: ln[p_mat(Data|Model)]={ll:e}, "
                         f"ln[p_mat(Data|Model)]-ln[p_mat(Data|PrevModel)]={dll:e}\n"
                     )
@@ -216,13 +236,13 @@ def optimize_mpi(
         if world_rank == 0:
             if (i + 1) % print_iter == 0:
                 if enc_vdata_exists_all:
-                    out.write(
+                    reporter.message(
                         f"Iteration {i + 1}: ln[p_mat(Data|Model)]={ll:e}, "
                         f"ln[p_mat(Data|Model)]-ln[p_mat(Data|PrevModel)]={dll:e}, "
                         f"ln[p_mat(Valid Data|Model)]={vll:e}\n"
                     )
                 else:
-                    out.write(
+                    reporter.message(
                         f"Iteration {i + 1}: ln[p_mat(Data|Model)]={ll:e}, "
                         f"ln[p_mat(Data|Model)]-ln[p_mat(Data|PrevModel)]={dll:e}\n"
                     )
@@ -253,6 +273,8 @@ def best_of_mpi(
     enc_vdata: Optional[Sequence[Tuple[int, EncodedDataSequence]]] = None,
     out: IO = sys.stdout,
     print_iter: int = 1,
+    verbose: bool = True,
+    progress_callback: Optional[ProgressCallback] = None,
 ) -> Optional[SequenceEncodableProbabilityDistribution]:
     """Run multiple MPI EM initializations and keep the best model.
 
@@ -288,6 +310,12 @@ def best_of_mpi(
             Optional rank-local encoded validation chunks.
         out (IO): Rank 0 text output stream.
         print_iter (int): Print progress every `print_iter` iterations.
+        verbose (bool): Write progress messages to ``out``. With ``False``
+            nothing is written; messages are still logged at DEBUG.
+        progress_callback (Optional[ProgressCallback]): Optional function
+            receiving a :class:`~dmx.utils.progress.ProgressEvent` for every
+            iteration and trial, including the final ``optimize_mpi``
+            refinement. Messages and events are produced on rank 0 only.
 
     Returns:
         Optional[SequenceEncodableProbabilityDistribution]: Best fitting model
@@ -301,6 +329,7 @@ def best_of_mpi(
     mpi = get_runtime_attr("mpi4py", "MPI")
     comm = mpi.COMM_WORLD
     world_rank = comm.Get_rank()
+    reporter = ProgressReporter("best_of_mpi", logger, out, verbose, progress_callback)
 
     # check if encoded data is already on each worker
     enc_data_exists = enc_data is not None
@@ -379,7 +408,16 @@ def best_of_mpi(
 
             if world_rank == 0:
                 if (i + 1) % print_iter == 0:
-                    out.write(f"Iteration {i + 1}. LL={ll:f}, delta LL={dll:e}\n")
+                    reporter.message(
+                        f"Iteration {i + 1}. LL={ll:f}, delta LL={dll:e}\n"
+                    )
+                reporter.event(
+                    "iteration",
+                    iteration=i + 1,
+                    log_likelihood=ll,
+                    delta=dll,
+                    trial=kk + 1,
+                )
 
             if (dll >= 0) or (delta is None):
                 mm = mm_next
@@ -392,7 +430,10 @@ def best_of_mpi(
         score_data = validation_data if validation_data is not None else encoded_data
         _, vll = seq_log_density_sum_mpi(score_data, mm)
         if world_rank == 0:
-            out.write(f"Trial {kk + 1}. VLL={vll:f}\n")
+            reporter.message(f"Trial {kk + 1}. VLL={vll:f}\n")
+            reporter.event(
+                "trial", trial=kk + 1, metrics={"validation_log_likelihood": vll}
+            )
 
         if vll > rv_ll:
             rv_mm = mm
@@ -409,6 +450,8 @@ def best_of_mpi(
         print_iter=print_iter,
         prev_estimate=rv_mm,
         max_its=max_its_cnt,
+        verbose=verbose,
+        progress_callback=progress_callback,
     )
 
     return rv_mm

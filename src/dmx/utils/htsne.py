@@ -1,11 +1,15 @@
 """Embed heterogeneous observations with mixture-derived t-SNE affinities."""
 
+import logging
 from typing import Any, Optional, Sequence, Tuple, TypeVar
 
 import numpy as np
 from numpy.random import RandomState
 
 from dmx.utils.automatic import MixtureModel, prepare_mixture_model
+from dmx.utils.progress import ProgressCallback, ProgressReporter
+
+logger = logging.getLogger(__name__)
 
 T = TypeVar("T")
 
@@ -409,6 +413,8 @@ def htsne(
     comp_estimator: Optional[Any] = None,
     mix_model: Optional[MixtureModel] = None,
     variable_length: bool = False,
+    verbose: bool = True,
+    progress_callback: Optional[ProgressCallback] = None,
 ) -> np.ndarray:
     """Embed heterogeneous observations using mixture-derived affinities.
 
@@ -417,7 +423,8 @@ def htsne(
     affinity matrix. When ``Y`` is absent, ``seed`` controls both mixture
     fitting and a small Gaussian coordinate initialization, followed by 100
     early-exaggeration updates and then ``max_its`` regular updates. A supplied
-    NumPy ``Y`` may be updated in place. Progress is printed to standard output.
+    NumPy ``Y`` may be updated in place. Progress is printed to standard output
+    unless ``verbose`` is false.
 
     Args:
         data: Nonempty heterogeneous observations.
@@ -431,6 +438,13 @@ def htsne(
             construction.
         max_its: Number of regular embedding updates.
         print_iter: Positive interval for standard-output progress messages.
+        verbose: Write progress messages to standard output. With
+            ``False`` nothing is written; messages are still logged at DEBUG.
+        progress_callback: Optional function receiving a
+            :class:`~dmx.utils.progress.ProgressEvent` for every main
+            optimization iteration (the early-exaggeration steps are not
+            reported), with ``alpha`` and ``kl_divergence`` metrics. ``htsne``
+            also forwards it to mixture fitting.
         eta: Gradient learning rate.
         momentum: Momentum for regular updates.
         min_gain: Lower bound for adaptive gradient gains.
@@ -461,6 +475,8 @@ def htsne(
         print_iter=print_iter,
         comp_estimator=comp_estimator,
         mix_model=mix_model,
+        verbose=verbose,
+        progress_callback=progress_callback,
     )
     # Log component density for each point [x | z]
     l_ij = mix_model.seq_component_log_density(enc_data)
@@ -508,6 +524,9 @@ def htsne(
         iY = np.zeros((nn, emb_dim))
         gains = np.zeros((nn, emb_dim))
 
+    reporter = ProgressReporter(
+        "htsne", logger, verbose=verbose, callback=progress_callback
+    )
     for i in range(1, max_its + 1):
         Y, iY, gains, Q = update_embed(
             P=P,
@@ -529,10 +548,17 @@ def htsne(
                 min_value=min_value,
                 max_its=max_alpha_its,
             )
-        if (i % print_iter) == 0:
+        show = (i % print_iter) == 0
+        if show or reporter.callback is not None:
             KL = np.bitwise_and(P > 0, Q > 0)
             KL = np.dot(P[KL], (np.log(P[KL]) - np.log(Q[KL])))
-            print(f"Iteration {i}: alpha = {alpha:f}, KL(P||Q)={KL}")
+            if show:
+                reporter.message(f"Iteration {i}: alpha = {alpha:f}, KL(P||Q)={KL}\n")
+            reporter.event(
+                "iteration",
+                iteration=i,
+                metrics={"alpha": alpha, "kl_divergence": float(KL)},
+            )
 
     return Y
 
@@ -554,6 +580,8 @@ def dpmsne(
     min_alpha: float = 1.0e-6,
     max_alpha_its: int = 3,
     seed: Optional[int] = None,
+    verbose: bool = True,
+    progress_callback: Optional[ProgressCallback] = None,
 ) -> np.ndarray:
     """Embed a precomputed affinity matrix with the t-SNE optimizer.
 
@@ -571,6 +599,12 @@ def dpmsne(
         Y: Optional initial coordinates of shape ``(n_samples, emb_dim)``.
         max_its: Number of regular embedding updates.
         print_iter: Positive interval for standard-output progress messages.
+        verbose: Write progress messages to standard output. With
+            ``False`` nothing is written; messages are still logged at DEBUG.
+        progress_callback: Optional function receiving a
+            :class:`~dmx.utils.progress.ProgressEvent` for every main
+            optimization iteration (the early-exaggeration steps are not
+            reported), with ``alpha`` and ``kl_divergence`` metrics.
         eta: Gradient learning rate.
         momentum: Momentum for regular updates.
         min_gain: Lower bound for adaptive gradient gains.
@@ -609,15 +643,25 @@ def dpmsne(
         iY = np.zeros((nn, emb_dim))
         gains = np.zeros((nn, emb_dim))
 
+    reporter = ProgressReporter(
+        "dpmsne", logger, verbose=verbose, callback=progress_callback
+    )
     for i in range(1, max_its + 1):
         Y, iY, gains, Q = update_embed(
             P, Y, iY, gains, momentum, eta, alpha, min_gain, min_value
         )
         if optimize_alpha:
             alpha = update_alpha(P, Y, alpha, min_alpha, min_value, max_alpha_its)
-        if (i % print_iter) == 0:
+        show = (i % print_iter) == 0
+        if show or reporter.callback is not None:
             KL = np.bitwise_and(P > 0, Q > 0)
             KL = np.dot(P[KL], (np.log(P[KL]) - np.log(Q[KL])))
-            print(f"Iteration {i}: alpha = {alpha:f}, KL(P||Q)={KL}")
+            if show:
+                reporter.message(f"Iteration {i}: alpha = {alpha:f}, KL(P||Q)={KL}\n")
+            reporter.event(
+                "iteration",
+                iteration=i,
+                metrics={"alpha": alpha, "kl_divergence": float(KL)},
+            )
 
     return Y

@@ -25,6 +25,12 @@ Model scoring
 .. automodule:: dmx.utils.scores
    :members:
 
+Progress reporting
+------------------
+
+.. automodule:: dmx.utils.progress
+   :members:
+
 Optional Spark support
 ----------------------
 

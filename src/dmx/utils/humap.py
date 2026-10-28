@@ -8,6 +8,7 @@ from numpy.random import RandomState
 from umap import UMAP
 
 from dmx.utils.automatic import MixtureModel, prepare_mixture_model
+from dmx.utils.progress import ProgressCallback
 
 DATUM_TYPE = TypeVar("DATUM_TYPE")
 
@@ -41,6 +42,8 @@ def humap(
     comp_estimator: Optional[Any] = None,
     mix_model: Optional[MixtureModel] = None,
     umap_kwargs: Optional[Dict[str, Any]] = None,
+    verbose: bool = True,
+    progress_callback: Optional[ProgressCallback] = None,
 ) -> Tuple[
     Any,
     MixtureModel,
@@ -68,6 +71,12 @@ def humap(
         mix_model: Optional pre-fitted mixture distribution.
         umap_kwargs: Options passed to :class:`umap.UMAP`. Defaults are added
             for missing keys.
+        verbose: Write progress messages to standard output. With
+            ``False`` nothing is written; messages are still logged at DEBUG.
+        progress_callback: Optional function receiving a
+            :class:`~dmx.utils.progress.ProgressEvent` for each mixture-fitting
+            update and the fitted mixture; see
+            :func:`dmx.utils.automatic.get_dpm_mixture`.
 
     Returns:
         The embedding with shape ``(len(data), n_components)``, fitted mixture
@@ -89,6 +98,8 @@ def humap(
         print_iter,
         comp_estimator,
         mix_model,
+        verbose=verbose,
+        progress_callback=progress_callback,
     )
 
     if umap_kwargs is not None:

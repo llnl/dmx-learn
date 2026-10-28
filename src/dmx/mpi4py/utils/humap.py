@@ -12,6 +12,7 @@ from dmx.bstats.pdist import ParameterEstimator
 from dmx.mpi4py.utils import get_runtime_attr
 from dmx.mpi4py.utils.automatic import get_dpm_mixture_mpi
 from dmx.stats import MixtureDistribution
+from dmx.utils.progress import ProgressCallback
 
 T = TypeVar("T")
 MIX_TYPE = Union[MixtureDistribution, BMixtureDistribution]
@@ -30,6 +31,8 @@ def humap_mpi(
     comp_estimator: Optional[ParameterEstimator] = None,
     mix_model: Optional[MIX_TYPE] = None,
     umap_kwargs: Optional[Dict[str, Any]] = None,
+    verbose: bool = True,
+    progress_callback: Optional[ProgressCallback] = None,
 ) -> Optional[Tuple[Any, MIX_TYPE, UMAP, np.ndarray]]:
     """Fit UMAP on posteriors of a DPM mixture model.
 
@@ -55,6 +58,12 @@ def humap_mpi(
             skips collective mixture fitting.
         umap_kwargs (Optional[Dict[str, Any]]): Kwargs for UMAP fit. The
             dictionary is mutated in place to set `metric="hellinger"`.
+        verbose (bool): Write mixture-fitting progress to standard output.
+            With ``False`` nothing is written; messages are still logged at
+            DEBUG.
+        progress_callback (Optional[ProgressCallback]): Optional function
+            receiving the :class:`~dmx.utils.progress.ProgressEvent` objects
+            from mixture fitting, on rank 0 only.
 
     Returns:
         Optional[Tuple[Any, MIX_TYPE, UMAP, numpy.ndarray]]: On rank 0, returns
@@ -89,6 +98,8 @@ def humap_mpi(
             max_its=max_its,
             print_iter=print_iter,
             mix_threshold_count=mix_threshold_count,
+            verbose=verbose,
+            progress_callback=progress_callback,
         )
     if mix_model is None:
         raise RuntimeError("DPM mixture fitting did not return a model.")

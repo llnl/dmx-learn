@@ -5,6 +5,7 @@ The helpers inspect nested observations, select matching ``dmx.stats`` or
 the heterogeneous embedding utilities.
 """
 
+import logging
 import math
 from collections import defaultdict
 from collections.abc import Iterable, Mapping
@@ -29,6 +30,9 @@ from dmx.bstats.dpm import (
 )
 from dmx.stats import ParameterEstimator
 from dmx.stats.mixture import MixtureDistribution as StatsMixtureDistribution
+from dmx.utils.progress import ProgressCallback, ProgressReporter
+
+logger = logging.getLogger(__name__)
 
 MixtureModel = Union[StatsMixtureDistribution, BstatsMixtureDistribution]
 
@@ -80,6 +84,8 @@ def prepare_mixture_model(
     print_iter: int = 100,
     comp_estimator: Optional[Any] = None,
     mix_model: Optional[MixtureModel] = None,
+    verbose: bool = True,
+    progress_callback: Optional[ProgressCallback] = None,
 ) -> tuple[MixtureModel, Any, np.ndarray]:
     """Fit or reuse a mixture model and compute component posteriors.
 
@@ -98,6 +104,11 @@ def prepare_mixture_model(
         print_iter: Interval for mixture-fitting progress output.
         comp_estimator: Optional estimator for a single mixture component.
         mix_model: Optional pre-fitted mixture model.
+        verbose: Write progress messages to standard output. With
+            ``False`` nothing is written; messages are still logged at DEBUG.
+        progress_callback: Optional function receiving a
+            :class:`~dmx.utils.progress.ProgressEvent` for each mixture-fitting
+            update and the fitted mixture; see :func:`get_dpm_mixture`.
 
     Returns:
         The mixture model, its model-specific encoded data, and an array of
@@ -121,6 +132,8 @@ def prepare_mixture_model(
             max_its=max_its,
             print_iter=print_iter,
             mix_threshold_count=mix_threshold_count,
+            verbose=verbose,
+            progress_callback=progress_callback,
         )
 
     if mix_model.num_components == 0:
@@ -635,13 +648,16 @@ def get_dpm_mixture(
     max_its: int = 1000,
     print_iter: int = 100,
     mix_threshold_count: float = 0.5,
+    verbose: bool = True,
+    progress_callback: Optional[ProgressCallback] = None,
 ) -> BstatsMixtureDistribution:
     """Fit and prune a finite Dirichlet-process mixture model.
 
     The Bayesian optimizer initializes and updates at most ``max_comp``
     copies of the component estimator. Components whose fitted weight is less
-    than ``mix_threshold_count / len(data)`` are removed. The optimizer and
-    this function write progress and retained weights to standard output.
+    than ``mix_threshold_count / len(data)`` are removed. By default the
+    optimizer and this function write progress and retained weights to
+    standard output; ``verbose=False`` silences both.
 
     The retained components are those counted by
     :meth:`~dmx.bstats.dpm.DirichletProcessMixtureDistribution.effective_num_components`
@@ -660,6 +676,12 @@ def get_dpm_mixture(
         print_iter: Interval for optimizer progress output.
         mix_threshold_count: Effective-count threshold for retaining a
             component.
+        verbose: Write progress messages to standard output. With
+            ``False`` nothing is written; messages are still logged at DEBUG.
+        progress_callback: Optional function receiving a
+            :class:`~dmx.utils.progress.ProgressEvent` for every optimizer
+            iteration (source ``"optimize"``) and one final ``"result"`` event
+            whose metrics hold the retained ``weights`` and ``num_components``.
 
     Returns:
         A Bayesian mixture containing the retained components and their
@@ -677,14 +699,28 @@ def get_dpm_mixture(
 
     mix_model = cast(
         DirichletProcessMixtureDistribution,
-        optimize_bstats(data, est, max_its=max_its, rng=rng, print_iter=print_iter),
+        optimize_bstats(
+            data,
+            est,
+            max_its=max_its,
+            rng=rng,
+            print_iter=print_iter,
+            verbose=verbose,
+            progress_callback=progress_callback,
+        ),
     )
 
     thresh = mix_threshold_count / len(data)
     mix_comps = [mix_model.components[i] for i in np.flatnonzero(mix_model.w >= thresh)]
     mix_weights = mix_model.w[mix_model.w >= thresh]
 
-    print(str(mix_weights))
-    print(f"# Components = {len(mix_comps)}")
+    reporter = ProgressReporter(
+        "get_dpm_mixture", logger, verbose=verbose, callback=progress_callback
+    )
+    reporter.message(f"{mix_weights}\n")
+    reporter.message(f"# Components = {len(mix_comps)}\n")
+    reporter.event(
+        "result", metrics={"weights": mix_weights, "num_components": len(mix_comps)}
+    )
 
     return BstatsMixtureDistribution(mix_comps, mix_weights)
