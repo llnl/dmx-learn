@@ -13,7 +13,7 @@ constructed. Four-column input is ordered as ``absent | absent``, ``absent | pre
 used independently for scoring, sampling, encoding, accumulation, and estimation.
 """
 
-from typing import Any, Dict, List, Optional, Sequence, Tuple, TypeVar, Union
+from typing import Any, Dict, List, Optional, Sequence, Set, Tuple, TypeVar, Union
 
 import numpy as np
 from numpy.random import RandomState
@@ -178,6 +178,15 @@ class IntegerBernoulliEditDistribution(SequenceEncodableProbabilityDistribution)
             name=self.name,
             keys=self.keys,
         )
+
+    def _num_params(self, seen_keys: Set[str]) -> int:
+        """Count ``2 * num_vals`` edit probabilities plus the ``init_dist``.
+
+        Each integer has free ``P(present | absent)`` and
+        ``P(present | present)``. ``keys`` ties only the edit probabilities.
+        """
+        rv = 2 * self.num_vals if self._key_is_new(self.keys, seen_keys) else 0
+        return int(rv + self._child_num_params(self.init_dist, seen_keys))
 
     def dist_to_encoder(self) -> "IntegerBernoulliEditDataEncoder":
         """Create an encoder using the initial distribution's child encoder."""

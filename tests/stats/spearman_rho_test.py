@@ -64,6 +64,12 @@ class SpearmanRankingDistributionTestCase(StatsTestClass):
 
         self.type_check_data = [None, np.ones((10, 10))]
         self.type_check_keys = [(None, None), 1.0, ("keys", None)]
+        self.num_params_cases = [
+            (
+                SpearmanRankingDistribution(sigma=np.array([2, 0, 1, 3]), rho=1.0),
+                3,
+            ),  # 4 - 1
+        ]
 
     def test_seq_log_density_type(self) -> None:
         for x in self.type_check_data:

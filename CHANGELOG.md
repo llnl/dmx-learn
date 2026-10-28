@@ -38,3 +38,13 @@ All notable changes to dmx-learn are recorded here.
   valid command for an extra.
 - `dmx.utils.spark` with `is_rdd()`, which detects RDDs without importing
   pyspark, and `require_pyspark()`, which raises an actionable install hint.
+- `num_params()` on every `dmx.stats` distribution. It returns the number of
+  free parameters the estimator fits, for use in BIC, AIC, and ICL. A
+  probability vector over `K` values counts `K - 1`; support bounds,
+  dimensions, and other fixed structure count 0. Combinators (composite, the
+  mixture family, optional, sequence, conditional, the HMM variants, the ICL
+  tree, and others) add up their children. Parameters tied through estimator
+  `keys` are counted once. `IgnoredDistribution` and `NullDistribution` return
+  0. Custom distributions implement the `_num_params(seen_keys)` hook; the base
+  class raises `NotImplementedError` until they do. Existing behavior is
+  unchanged.

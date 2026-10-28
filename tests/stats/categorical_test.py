@@ -90,6 +90,13 @@ class CategoricalDistributionTestCase(StatsTestClass):
         ]
         self.type_check_data = [None, np.ones((10, 10))]
         self.type_check_keys = [(None, None), 1.0, ("keys", None)]
+        self.num_params_cases = [
+            (CategoricalDistribution(pmap={"a": 0.1, "b": 0.3, "c": 0.6}), 2),  # 3 - 1
+            (
+                CategoricalDistribution(pmap={"a": 0.5, "b": 0.5}, default_value=0.1),
+                1,
+            ),  # 2 - 1
+        ]
 
     def test_seq_log_density_type(self) -> None:
         for x in self.type_check_data:

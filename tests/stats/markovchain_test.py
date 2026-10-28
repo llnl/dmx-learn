@@ -82,6 +82,8 @@ class MarkovChainDistributionTestCase(StatsTestClass):
         self.acc_encoder = [(a, e) for a, e in zip(self._accumulators, self._encoders)]
 
         self.type_check_data = [None, np.ones((10, 10))]
+        # init 5-1 + 5 source states * (5-1) + length {3, 5} 2-1 = 25.
+        self.num_params_cases = [(d, 25) for d in self.eval_dists]
 
     def test_seq_log_density_type(self) -> None:
         for x in self.type_check_data:

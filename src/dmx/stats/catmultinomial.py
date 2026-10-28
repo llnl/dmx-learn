@@ -8,7 +8,7 @@ for vectorized category and length operations.
 
 from __future__ import annotations
 
-from typing import Any, Dict, Optional, Sequence, Tuple, TypeVar, Union, cast
+from typing import Any, Dict, Optional, Sequence, Set, Tuple, TypeVar, Union, cast
 
 import numpy as np
 from numpy.random import RandomState
@@ -217,6 +217,13 @@ class MultinomialDistribution(SequenceEncodableProbabilityDistribution):
             name=self.name,
             keys=self.keys,
         )
+
+    def _num_params(self, seen_keys: Set[str]) -> int:
+        """Count the category distribution plus the length distribution."""
+        if not self._key_is_new(self.keys, seen_keys):
+            return 0
+        rv = self._child_num_params(self.dist, seen_keys)
+        return rv + self._child_num_params(self.len_dist, seen_keys)
 
     def dist_to_encoder(self) -> "MultinomialDataEncoder":
         """Get a data encoder for this distribution.

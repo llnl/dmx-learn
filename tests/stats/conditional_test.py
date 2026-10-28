@@ -17,6 +17,21 @@ from tests.stats.stats_tests import *
 class ConditionalDistributionTestCase(StatsTestClass):
 
     def setUp(self) -> None:
+        # Two conditionals (2 + 2) + Gaussian default (2) + given over 2 values (1).
+        self.num_params_cases = [
+            (
+                ConditionalDistribution(
+                    {
+                        "a": GaussianDistribution(0.0, 1.0),
+                        "b": GaussianDistribution(0.0, 1.0),
+                    },
+                    default_dist=GaussianDistribution(0.0, 1.0),
+                    given_dist=CategoricalDistribution({"a": 0.5, "b": 0.5}),
+                ),
+                7,
+            ),
+            (ConditionalDistribution({"a": GaussianDistribution(0.0, 1.0)}), 2),
+        ]
 
         self._dmaps: list[Any] = [
             {

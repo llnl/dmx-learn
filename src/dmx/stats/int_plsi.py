@@ -18,7 +18,7 @@ updates of the three probability tables; initialization instead assigns token co
 to topics randomly from a symmetric Dirichlet draw.
 """
 
-from typing import Any, Dict, List, Optional, Sequence, Tuple, TypeVar, Union
+from typing import Any, Dict, List, Optional, Sequence, Set, Tuple, TypeVar, Union
 
 import numba
 import numpy as np
@@ -284,6 +284,22 @@ class IntegerPLSIDistribution(SequenceEncodableProbabilityDistribution):
             name=self.name,
             keys=self.keys,
         )
+
+    def _num_params(self, seen_keys: Set[str]) -> int:
+        """Count ``S*(V-1) + D*(S-1) + (D-1)`` plus the length parameters.
+
+        The token-topic columns, document-topic rows, and document prior are each
+        normalized probability vectors. Each block is skipped if its key was seen.
+        """
+        word_key, state_key, doc_key = self.keys
+        rv = 0
+        if self._key_is_new(word_key, seen_keys):
+            rv += self.num_states * (self.num_vals - 1)
+        if self._key_is_new(state_key, seen_keys):
+            rv += self.num_docs * (self.num_states - 1)
+        if self._key_is_new(doc_key, seen_keys):
+            rv += self.num_docs - 1
+        return int(rv + self._child_num_params(self.len_dist, seen_keys))
 
     def dist_to_encoder(self) -> "IntegerPLSIDataEncoder":
         """Create a data encoder compatible with this distribution."""

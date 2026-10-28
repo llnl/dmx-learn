@@ -33,7 +33,7 @@ for repeated sparse operations.
 """
 
 import itertools
-from typing import Any, Dict, List, Optional, Sequence, Tuple, TypeVar, Union, cast
+from typing import Any, Dict, List, Optional, Sequence, Set, Tuple, TypeVar, Union, cast
 
 import numpy as np
 from scipy.sparse import csr_matrix, lil_matrix
@@ -237,6 +237,20 @@ class SparseMarkovAssociationDistribution(SequenceEncodableProbabilityDistributi
             len_estimator=self.len_dist.estimator(),
             low_memory=self.low_memory,
         )
+
+    def _num_params(self, seen_keys: Set[str]) -> int:
+        """Count free parameters.
+
+        The count is ``num_vals - 1`` for the initial probabilities, plus
+        ``n_i - 1`` for each source row ``i`` of ``cond_prob_mat`` with ``n_i > 0``
+        stored nonzero entries, plus ``len_dist``. ``alpha`` is fixed and not
+        counted.
+        """
+        row_nnz = np.diff(self.cond_prob_mat.indptr)
+        rv = max(self.num_vals - 1, 0)
+        rv += int(np.sum(row_nnz[row_nnz > 0] - 1))
+        rv += self._child_num_params(self.len_dist, seen_keys)
+        return int(rv)
 
     def dist_to_encoder(self) -> "SparseMarkovAssociationDataEncoder":
         """Return an encoder using this distribution's memory mode."""

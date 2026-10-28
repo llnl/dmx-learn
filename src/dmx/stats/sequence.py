@@ -10,7 +10,7 @@ Estimation delegates item statistics and length statistics to separate child
 accumulators and estimators. A null length child disables length modeling.
 """
 
-from typing import Any, Dict, List, Optional, Sequence, Tuple, TypeVar
+from typing import Any, Dict, List, Optional, Sequence, Set, Tuple, TypeVar
 
 import numpy as np
 from numpy.random import RandomState
@@ -209,6 +209,13 @@ class SequenceDistribution(SequenceEncodableProbabilityDistribution):
             name=self.name,
             keys=self.keys,
         )
+
+    def _num_params(self, seen_keys: Set[str]) -> int:
+        """Count the element distribution plus the length distribution."""
+        if not self._key_is_new(self.keys, seen_keys):
+            return 0
+        rv = self._child_num_params(self.dist, seen_keys)
+        return rv + self._child_num_params(self.len_dist, seen_keys)
 
     def dist_to_encoder(self) -> "SequenceDataEncoder":
         """Create an encoder composed from the item and length encoders."""

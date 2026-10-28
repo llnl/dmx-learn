@@ -53,6 +53,12 @@ class IntegerBernoulliSetDistributionTestCase(StatsTestClass):
         self.type_check_keys = [(None, None), 1.0, ("keys", None)]
 
         self._init_ests: list[Any] = []
+        self.num_params_cases = [
+            (
+                IntegerBernoulliSetDistribution(log_pvec=np.log(np.ones(3) / 3.0)),
+                3,
+            ),  # 3 Bernoullis
+        ]
 
     def test_seq_log_density_type(self) -> None:
         for x in self.type_check_data:

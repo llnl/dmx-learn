@@ -64,6 +64,16 @@ def posterior_test(dist: Any, encoder: Any) -> tuple[bool, str]:
 class HeterogeneousMixtureDistributionTestCase(StatsTestClass):
 
     def setUp(self) -> None:
+        # 1 weight + Gaussian (2) + exponential (1).
+        self.num_params_cases = [
+            (
+                HeterogeneousMixtureDistribution(
+                    [GaussianDistribution(0.0, 1.0), ExponentialDistribution(1.0)],
+                    [0.5, 0.5],
+                ),
+                4,
+            ),
+        ]
         self._dists = [
             [
                 GaussianDistribution(mu=10.0, sigma2=1.0),

@@ -252,6 +252,15 @@ class HiddenMarkovDistributionTestCase(StatsTestClass):
             ("keys", None, None, None),
             (1, "keys", None),
         ]
+        # 3 states, 3-value categorical emissions, 3-value length:
+        # init 2 + transitions 3*2 + emissions 3*2 + length 2 = 16.
+        # 4 states, Gaussian emissions, one-value length:
+        # init 3 + transitions 4*3 + emissions 4*2 + length 0 = 23.
+        self.num_params_cases = [
+            (self.eval_dists[0], 16),
+            (self.eval_dists[4], 16),
+            (self.eval_dists[5], 23),
+        ]
 
     def test_key_exceptions(self) -> None:
         for x in self.type_check_keys:

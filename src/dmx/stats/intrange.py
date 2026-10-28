@@ -5,7 +5,7 @@
 are integers, while encoded sequences are one-dimensional integer arrays.
 """
 
-from typing import Any, Dict, List, Optional, Tuple, Union
+from typing import Any, Dict, List, Optional, Set, Tuple, Union
 
 import numpy as np
 from numpy.random import RandomState
@@ -148,6 +148,23 @@ class IntegerCategoricalDistribution(SequenceEncodableProbabilityDistribution):
             name=self.name,
             keys=self.keys,
         )
+
+    def _num_params(self, seen_keys: Set[str]) -> int:
+        """Count free parameters for ``num_params()``.
+
+        Returns ``num_vals - 1`` for the probability vector. ``min_val`` and
+        ``num_vals`` follow the observed support and are not counted.
+
+        Args:
+            seen_keys (Set[str]): Keys whose parameters were already counted.
+
+        Returns:
+            int: Number of free parameters, or 0 if ``keys`` was already counted.
+
+        """
+        if not self._key_is_new(self.keys, seen_keys):
+            return 0
+        return int(self.num_vals) - 1
 
     def dist_to_encoder(self) -> "IntegerCategoricalDataEncoder":
         """Create the compatible integer encoder."""

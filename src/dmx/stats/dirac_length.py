@@ -15,7 +15,7 @@ where:
   p \leq 1`
 """
 
-from typing import Any, Dict, List, Optional, Sequence, Tuple, TypeVar, Union
+from typing import Any, Dict, List, Optional, Sequence, Set, Tuple, TypeVar, Union
 
 import numpy as np
 from numpy.random import RandomState
@@ -316,6 +316,20 @@ class DiracMixtureDistribution(SequenceEncodableProbabilityDistribution):
         return DiracMixtureEstimator(
             estimator=est, v=self.v, name=self.name, keys=self.keys
         )
+
+    def _num_params(self, seen_keys: Set[str]) -> int:
+        """Count the point-mass weight ``p`` plus the base distribution.
+
+        The point-mass location ``v`` is fixed. ``keys[0]`` ties ``p`` and
+        ``keys[1]`` ties the base distribution.
+        """
+        weight_key, comp_key = self.keys
+        rv = 0
+        if self._key_is_new(weight_key, seen_keys):
+            rv += 1
+        if self._key_is_new(comp_key, seen_keys):
+            rv += self._child_num_params(self.dist, seen_keys)
+        return rv
 
     def dist_to_encoder(self) -> "DiracMixtureDataEncoder":
         """Return a DiracMixtureDataEncoder for this distribution.

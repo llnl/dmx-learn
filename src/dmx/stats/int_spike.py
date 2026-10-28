@@ -5,7 +5,7 @@ remaining mass uniformly among the other configured integers. Encoded sequences
 are one-dimensional integer arrays; accumulators use contiguous count vectors.
 """
 
-from typing import Any, Dict, List, Optional, Tuple, Union
+from typing import Any, Dict, List, Optional, Set, Tuple, Union
 
 import numpy as np
 from numpy.random import RandomState
@@ -149,6 +149,23 @@ class SpikeAndSlabDistribution(SequenceEncodableProbabilityDistribution):
             name=self.name,
             keys=self.keys,
         )
+
+    def _num_params(self, seen_keys: Set[str]) -> int:
+        """Count free parameters for ``num_params()``.
+
+        Returns 2: the spike location ``k`` and its probability ``p``. The
+        support bounds are not counted.
+
+        Args:
+            seen_keys (Set[str]): Keys whose parameters were already counted.
+
+        Returns:
+            int: Number of free parameters, or 0 if ``keys`` was already counted.
+
+        """
+        if not self._key_is_new(self.keys, seen_keys):
+            return 0
+        return 2
 
     def dist_to_encoder(self) -> "SpikeAndSlabDataEncoder":
         """Create the compatible integer encoder."""

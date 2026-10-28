@@ -11,7 +11,7 @@ CompositeDistribution has data type T_k that
 must be compatible with data type T_k.
 """
 
-from typing import Any, Dict, List, Optional, Sequence, Tuple, Union
+from typing import Any, Dict, List, Optional, Sequence, Set, Tuple, Union
 
 import numpy as np
 from numpy.random import RandomState
@@ -159,6 +159,15 @@ class CompositeDistribution(SequenceEncodableProbabilityDistribution):
             name=self.name,
             keys=self.keys,
         )
+
+    def _num_params(self, seen_keys: Set[str]) -> int:
+        """Sum the free parameters of the child distributions.
+
+        A key on the composite ties the whole subtree.
+        """
+        if not self._key_is_new(self.keys, seen_keys):
+            return 0
+        return sum(self._child_num_params(d, seen_keys) for d in self.dists)
 
     def dist_to_encoder(self) -> "CompositeDataEncoder":
         """Return a CompositeDataEncoder for this distribution.

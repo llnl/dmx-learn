@@ -15,7 +15,7 @@ spanning tree, roots it at feature zero, then estimates the conditional PMFs.
 This is the Chow--Liu tree approximation (Chow and Liu, 1968).
 """
 
-from typing import Any, Dict, List, Optional, Sequence, Tuple, Union
+from typing import Any, Dict, List, Optional, Sequence, Set, Tuple, Union
 
 import numpy as np
 from numpy.random import RandomState
@@ -143,6 +143,23 @@ class ICLTreeDistribution(SequenceEncodableProbabilityDistribution):
     def estimator(self, pseudo_count: Optional[float] = None) -> "ICLTreeEstimator":
         """Create an estimator; this convenience method ignores pseudo-counts."""
         return ICLTreeEstimator(name=self.name, keys=self.keys)
+
+    def _num_params(self, seen_keys: Set[str]) -> int:
+        """Count the free entries of the conditional probability tables.
+
+        The root table over ``V`` values contributes ``V - 1``. A child table of
+        shape ``(V_parent, V_child)`` has rows normalized and contributes
+        ``V_parent * (V_child - 1)``. The tree structure is discrete and is not
+        counted. The estimator never ties statistics through ``keys``, so keys
+        are not deduplicated.
+        """
+        rv = 0
+        for table in self.conditional_log_densities:
+            if table.ndim == 1:
+                rv += table.shape[0] - 1
+            else:
+                rv += table.shape[0] * (table.shape[1] - 1)
+        return int(rv)
 
     def dist_to_encoder(self) -> "ICLTreeDataEncoder":
         """Return the encoder for fixed-length integer vectors."""

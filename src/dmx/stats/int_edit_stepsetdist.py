@@ -12,7 +12,7 @@ onto two probability levels: it sorts per-integer probabilities and selects the 
 with the greatest Bernoulli likelihood.
 """
 
-from typing import Any, Dict, List, Optional, Sequence, Tuple, TypeVar, Union
+from typing import Any, Dict, List, Optional, Sequence, Set, Tuple, TypeVar, Union
 
 import numpy as np
 from numpy.random import RandomState
@@ -159,6 +159,17 @@ class IntegerStepBernoulliEditDistribution(SequenceEncodableProbabilityDistribut
             name=self.name,
             keys=self.keys,
         )
+
+    def _num_params(self, seen_keys: Set[str]) -> int:
+        """Count 4 edit probabilities plus the ``init_dist`` parameters.
+
+        The estimator projects ``P(present | absent)`` and
+        ``P(present | present)`` onto a high and a low level each, giving four
+        free probabilities. The assignment of integers to levels is discrete
+        structure and is not counted. ``keys`` ties only the edit probabilities.
+        """
+        rv = 4 if self._key_is_new(self.keys, seen_keys) else 0
+        return int(rv + self._child_num_params(self.init_dist, seen_keys))
 
     def dist_to_encoder(self) -> "IntegerStepBernoulliEditDataEncoder":
         """Create an encoder using the initial distribution's child encoder."""

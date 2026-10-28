@@ -13,7 +13,7 @@ Notes:
 
 """
 
-from typing import Any, Dict, Optional
+from typing import Any, Dict, Optional, Set
 
 import numpy as np
 
@@ -95,6 +95,10 @@ class NullDistribution(SequenceEncodableProbabilityDistribution):
             return NullEstimator(name=self.name)
 
         return NullEstimator(pseudo_count=pseudo_count, name=self.name)
+
+    def _num_params(self, seen_keys: Set[str]) -> int:
+        """Return 0; the placeholder has no parameters."""
+        return 0
 
     def dist_to_encoder(self) -> "NullDataEncoder":
         """Return an encoder that discards its input."""

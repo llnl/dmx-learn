@@ -72,6 +72,10 @@ def weighted_seq_update_test(
 
 class WeightedDistributionTestCase(StatsTestClass):
     def setUp(self) -> None:
+        # The weighted Gaussian has 2 parameters.
+        self.num_params_cases = [
+            (WeightedDistribution(GaussianDistribution(0.0, 1.0)), 2)
+        ]
         dist = IntegerCategoricalDistribution(min_val=0, p_vec=np.ones(3) / 3.0)
         est = IntegerCategoricalEstimator()
         fac = IntegerCategoricalAccumulatorFactory()

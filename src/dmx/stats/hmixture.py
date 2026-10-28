@@ -13,7 +13,7 @@ encoder. Unlike :mod:`jmixture`, this family models a sequence rather than two p
 views. Unlike :mod:`ss_mixture`, it accepts no label priors with an observation.
 """
 
-from typing import Any, Dict, List, Optional, Sequence, Tuple, TypeVar, Union
+from typing import Any, Dict, List, Optional, Sequence, Set, Tuple, TypeVar, Union
 
 import numpy as np
 from numpy.random import RandomState
@@ -356,6 +356,22 @@ class HierarchicalMixtureDistribution(SequenceEncodableProbabilityDistribution):
             name=self.name,
             keys=self.keys,
         )
+
+    def _num_params(self, seen_keys: Set[str]) -> int:
+        """Count weights, topic weights, topics, and the length distribution.
+
+        With ``M`` mixtures and ``T`` topics the weights contribute ``M - 1`` and
+        the per-mixture topic weights ``M * (T - 1)``. ``keys[0]`` ties both
+        weight blocks and ``keys[1]`` ties all topics.
+        """
+        weight_key, comp_key = self.keys
+        rv = 0
+        if self._key_is_new(weight_key, seen_keys):
+            rv += (self.num_mixtures - 1) + self.num_mixtures * (self.num_topics - 1)
+        if self._key_is_new(comp_key, seen_keys):
+            rv += sum(self._child_num_params(c, seen_keys) for c in self.topics)
+        rv += self._child_num_params(self.len_dist, seen_keys)
+        return rv
 
     def dist_to_encoder(self) -> "HierarchicalMixtureDataEncoder":
         """Return an encoder for flattened items and sequence lengths."""

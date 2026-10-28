@@ -82,6 +82,12 @@ class SpikeAndSlabDistributionTestCase(StatsTestClass):
         ]
 
         self.type_check_keys = [(None, None), 1.0, ("keys", None)]
+        self.num_params_cases = [
+            (
+                SpikeAndSlabDistribution(k=4, num_vals=10, p=0.80, min_val=0),
+                2,
+            ),  # k and p
+        ]
 
     @pytest.mark.dependency(
         depends=["estimator", "log_density", "estimator_factory", "factory_make"]

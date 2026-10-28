@@ -14,7 +14,7 @@ must be specified to sample from the distribution.
 
 """
 
-from typing import Any, Dict, List, Optional, Sequence, Tuple, TypeVar
+from typing import Any, Dict, List, Optional, Sequence, Set, Tuple, TypeVar
 
 import numpy as np
 from numpy.random import RandomState
@@ -204,6 +204,13 @@ class OptionalDistribution(SequenceEncodableProbabilityDistribution):
             name=self.name,
             keys=self.keys,
         )
+
+    def _num_params(self, seen_keys: Set[str]) -> int:
+        """Count the base distribution plus ``p`` when missingness is modeled."""
+        if not self._key_is_new(self.keys, seen_keys):
+            return 0
+        rv = self._child_num_params(self.dist, seen_keys)
+        return rv + 1 if self.has_p else rv
 
     def dist_to_encoder(self) -> "OptionalDataEncoder":
         """Wrap the child encoder with missing-value partitioning."""

@@ -75,6 +75,18 @@ class MultivariateGaussianDistributionTestCase(StatsTestClass):
 
         self.type_check_data = [None, np.ones((10, 10))]
         self.type_check_keys = [(None, None), 1.0, ("keys", None)]
+        self.num_params_cases = [
+            (
+                MultivariateGaussianDistribution(mu=np.zeros(3), covar=np.eye(3)),
+                9,
+            ),  # 3 + 3 * 4 / 2
+            (
+                MultivariateGaussianDistribution(
+                    mu=np.zeros(2), covar=np.eye(2), keys="k"
+                ),
+                5,
+            ),  # 2 + 3
+        ]
 
     def test_seq_log_density_type(self) -> None:
         for x in self.type_check_data:

@@ -6,7 +6,7 @@ array containing the included integers. The encoder flattens ``N`` such sets int
 observation indices and integer values for vectorized evaluation and accumulation.
 """
 
-from typing import Any, Dict, List, Optional, Sequence, Tuple, Union
+from typing import Any, Dict, List, Optional, Sequence, Set, Tuple, Union
 
 import numpy as np
 from numpy.random import RandomState
@@ -127,6 +127,22 @@ class IntegerBernoulliSetDistribution(SequenceEncodableProbabilityDistribution):
         return IntegerBernoulliSetEstimator(
             self.num_vals, pseudo_count=pseudo_count, name=self.name, keys=self.keys
         )
+
+    def _num_params(self, seen_keys: Set[str]) -> int:
+        """Count free parameters for ``num_params()``.
+
+        Returns ``num_vals``, one inclusion probability per value.
+
+        Args:
+            seen_keys (Set[str]): Keys whose parameters were already counted.
+
+        Returns:
+            int: Number of free parameters, or 0 if ``keys`` was already counted.
+
+        """
+        if not self._key_is_new(self.keys, seen_keys):
+            return 0
+        return int(self.num_vals)
 
     def dist_to_encoder(self) -> "IntegerBernoulliSetDataEncoder":
         """Create the compatible set-data encoder."""

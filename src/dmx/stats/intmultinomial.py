@@ -5,7 +5,7 @@ of a probability vector of shape ``(K,)`` corresponds to category
 ``min_val + i``. An optional length distribution models the sum of the counts.
 """
 
-from typing import Any, Dict, List, Optional, Sequence, Tuple, TypeVar, Union
+from typing import Any, Dict, List, Optional, Sequence, Set, Tuple, TypeVar, Union
 
 import numpy as np
 from numpy.random import RandomState
@@ -196,6 +196,13 @@ class IntegerMultinomialDistribution(SequenceEncodableProbabilityDistribution):
             name=self.name,
             keys=self.keys,
         )
+
+    def _num_params(self, seen_keys: Set[str]) -> int:
+        """Count ``num_vals - 1`` probabilities plus the length distribution."""
+        if not self._key_is_new(self.keys, seen_keys):
+            return 0
+        rv = self.num_vals - 1
+        return int(rv + self._child_num_params(self.len_dist, seen_keys))
 
     def dist_to_encoder(self) -> "IntegerMultinomialDataEncoder":
         """Create an encoder compatible with the total-count distribution."""

@@ -634,6 +634,31 @@ class HiddenMarkovModelDistribution(SequenceEncodableProbabilityDistribution):
             use_numba=self.use_numba,
         )
 
+    def _num_params(self, seen_keys: Set[str]) -> int:
+        """Count free parameters.
+
+        The count is ``(S - 1) + S * (S - 1)`` for the initial-state and
+        transition probabilities, plus the emission distributions, plus
+        ``len_dist``. With ``taus`` the ``S * (T - 1)`` topic weights are counted
+        with the emissions. ``keys`` ties the initial, transition, and emission
+        blocks separately.
+        """
+        init_key, trans_key, state_key = (
+            self.keys if self.keys is not None else (None, None, None)
+        )
+        s = self.n_states
+        rv = 0
+        if self._key_is_new(init_key, seen_keys):
+            rv += s - 1
+        if self._key_is_new(trans_key, seen_keys):
+            rv += s * (s - 1)
+        if self._key_is_new(state_key, seen_keys):
+            rv += sum(self._child_num_params(u, seen_keys) for u in self.topics)
+            if self.taus is not None:
+                rv += s * (self.n_topics - 1)
+        rv += self._child_num_params(self.len_dist, seen_keys)
+        return int(rv)
+
     def dist_to_encoder(self) -> "HiddenMarkovDataEncoder":
         """Create an encoder for batches of observation sequences."""
         emission_encoder = self.topics[0].dist_to_encoder()

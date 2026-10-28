@@ -279,6 +279,14 @@ def seq_update_test(dist: Any, encoder: Any) -> tuple[bool, list[bool]]:
     return bool(np.all(rv)), rv
 
 
+def num_params_test(dist: Any) -> int:
+    """Return ``dist.num_params()`` after checking it is a non-negative int."""
+    rv = dist.num_params()
+    assert isinstance(rv, int) and not isinstance(rv, bool), type(rv)
+    assert rv >= 0, rv
+    return rv
+
+
 class StatsTestClass(unittest.TestCase, metaclass=abc.ABCMeta):
     """
     Abstract class for Binomial test cases.
@@ -296,6 +304,8 @@ class StatsTestClass(unittest.TestCase, metaclass=abc.ABCMeta):
     acc_encoder: list[Any]
     type_check_data: list[Any]
     type_check_keys: list[Any]
+    # (distribution, hand-computed free-parameter count) pairs for num_params().
+    num_params_cases: list[tuple[Any, int]] = []
 
     @abc.abstractmethod
     def setUp(self) -> None:
@@ -365,6 +375,10 @@ class StatsTestClass(unittest.TestCase, metaclass=abc.ABCMeta):
         for x in self.density_dist_encoder:
             res = seq_update_test(*x)
             self.assertTrue(res[0], str(res[1]))
+
+    def test_10_num_params(self) -> None:
+        for dist, expected in self.num_params_cases:
+            self.assertEqual(num_params_test(dist), expected, str(dist))
 
     # @pytest.mark.dependency(depends=["estimator", "log_density", "estimator_factory", "factory_make"])
     # def test_09_estimation(self) -> None:

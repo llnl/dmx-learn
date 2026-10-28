@@ -22,7 +22,7 @@ The module provides the distribution, sampler, estimator, sufficient-statistic
 accumulator, and vectorized data encoder.
 """
 
-from typing import Any, Dict, List, Optional, Sequence, Tuple, TypeVar, Union
+from typing import Any, Dict, List, Optional, Sequence, Set, Tuple, TypeVar, Union
 
 import numpy as np
 from numpy.random import RandomState
@@ -221,6 +221,21 @@ class IntegerMarkovChainDistribution(SequenceEncodableProbabilityDistribution):
             name=self.name,
             keys=self.keys,
         )
+
+    def _num_params(self, seen_keys: Set[str]) -> int:
+        """Count free parameters.
+
+        The count is ``V ** lag * (V - 1)`` for the conditional transition rows,
+        plus ``init_dist`` and ``len_dist``. ``keys`` ties the whole chain,
+        including ``init_dist`` and ``len_dist``.
+        """
+        if not self._key_is_new(self.keys, seen_keys):
+            return 0
+        v = self.num_values
+        rv = v**self.lag * (v - 1)
+        rv += self._child_num_params(self.init_dist, seen_keys)
+        rv += self._child_num_params(self.len_dist, seen_keys)
+        return int(rv)
 
     def dist_to_encoder(self) -> "IntegerMarkovChainDataEncoder":
         """Create an encoder for batches of integer state sequences."""

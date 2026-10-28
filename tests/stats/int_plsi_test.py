@@ -102,6 +102,9 @@ class IntegerPLSIDistributionTestCase(StatsTestClass):
         self.acc_encoder = [(a, e) for a, e in zip(self._accumulators, self._encoders)]
 
         self.type_check_data = [None, np.ones((10, 10))]
+        # S=3, V=50, D=10: S*(V-1) + D*(S-1) + (D-1) = 147 + 20 + 9 = 176, plus
+        # Categorical({20, 30}) len_dist = 1.
+        self.num_params_cases = [(self.eval_dists[0], 177), (self.eval_dists[7], 177)]
 
     @pytest.mark.dependency(
         depends=["estimator", "log_density", "estimator_factory", "factory_make"]

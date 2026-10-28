@@ -26,6 +26,16 @@ from tests.stats.stats_tests import *
 class MultinomialDistributionTestCase(StatsTestClass):
 
     def setUp(self) -> None:
+        # Categorical over 3 values (2) + Poisson length (1).
+        self.num_params_cases = [
+            (
+                MultinomialDistribution(
+                    CategoricalDistribution({"a": 0.2, "b": 0.3, "c": 0.5}),
+                    len_dist=PoissonDistribution(2.0),
+                ),
+                3,
+            ),
+        ]
 
         self.base_dist = CategoricalDistribution(pmap={"a": 0.1, "b": 0.4, "c": 0.5})
         self.base_acc = CategoricalAccumulator(name="cat", keys="cat_keys")

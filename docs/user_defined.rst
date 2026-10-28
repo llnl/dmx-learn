@@ -35,6 +35,9 @@ SequenceEncodableProbabilityDistribution
 3. **Create DataEncodedSequence**: Stores encoded data.
 4. **Write the DataSequenceEncoder**: This processes our data for use with vectorized calls.
 5. **Write a Sampler**: This allows us to draw samples from the distribution.
+6. **Count free parameters** (optional): Implement ``_num_params(self, seen_keys)`` so ``num_params()`` works for model scoring such as BIC.
+   Leaf distributions return their own count, guarded by ``self._key_is_new(self.keys, seen_keys)`` so keyed parameters are counted once.
+   Combinators add up their children with ``self._child_num_params(child, seen_keys)``.
 
 SequenceEncodableStatisticAccumulator
 =======================================

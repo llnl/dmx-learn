@@ -51,6 +51,9 @@ class GeometricDistributionTestCase(StatsTestClass):
 
         self.type_check_data = [None, np.ones((10, 10))]
         self.type_check_keys = [(None, None), 1.0, ("keys", None)]
+        self.num_params_cases = [
+            (GeometricDistribution(p=0.20), 1),
+        ]
 
     def test_seq_log_density_type(self) -> None:
         for x in self.type_check_data:

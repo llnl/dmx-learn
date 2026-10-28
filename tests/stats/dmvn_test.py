@@ -80,6 +80,20 @@ class DiagonalGaussianDistributionTestCase(StatsTestClass):
 
         self.type_check_data = [None, np.ones((10, 10))]
         self.type_check_keys = [None, "keys", (None, None, None), (1, "keys")]
+        self.num_params_cases = [
+            (
+                DiagonalGaussianDistribution(
+                    mu=[0.0, 5.0, 10.0], covar=[1.0, 1.0, 1.0]
+                ),
+                6,
+            ),  # 2 * 3
+            (
+                DiagonalGaussianDistribution(
+                    mu=[0.0, 1.0], covar=[1.0, 1.0], keys=("m", "v")
+                ),
+                4,
+            ),  # 2 means + 2 variances
+        ]
 
     def test_seq_log_density_type(self) -> None:
         for x in self.type_check_data:
@@ -99,3 +113,13 @@ class DiagonalGaussianDistributionTestCase(StatsTestClass):
                 str(e.value)
                 == "DiagonalGaussianEstimator requires keys (Tuple[Optional[str], Optional[str]])."
             )
+
+
+def test_dmvn_num_params_tied_blocks() -> None:
+    """Means and variances keyed separately are each counted once."""
+    d1 = DiagonalGaussianDistribution(mu=[0.0, 1.0], covar=[1.0, 1.0], keys=("m", "v"))
+    d2 = DiagonalGaussianDistribution(mu=[2.0, 3.0], covar=[1.0, 2.0], keys=("m", None))
+    seen: set[str] = set()
+    # d1: 2 means + 2 variances; d2: means tied to d1, 2 untied variances.
+    assert d1._num_params(seen) == 4  # pylint: disable=protected-access
+    assert d2._num_params(seen) == 2  # pylint: disable=protected-access

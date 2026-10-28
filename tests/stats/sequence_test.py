@@ -16,6 +16,16 @@ from tests.stats.stats_tests import *
 
 class SequenceDistributionTestCase(StatsTestClass):
     def setUp(self) -> None:
+        # Gaussian (2) + Poisson length (1); a null length adds 0.
+        self.num_params_cases = [
+            (
+                SequenceDistribution(
+                    GaussianDistribution(0.0, 1.0), len_dist=PoissonDistribution(2.0)
+                ),
+                3,
+            ),
+            (SequenceDistribution(GaussianDistribution(0.0, 1.0)), 2),
+        ]
 
         self._len_dists = [
             CategoricalDistribution({10: 1.0}),

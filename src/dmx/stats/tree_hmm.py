@@ -33,7 +33,7 @@ and the rendered math before treating it as canonical public documentation.
 """
 
 import math
-from typing import Any, Dict, List, Optional, Sequence, Tuple, TypeVar, Union, cast
+from typing import Any, Dict, List, Optional, Sequence, Set, Tuple, TypeVar, Union, cast
 
 import numba
 import numpy as np
@@ -615,6 +615,18 @@ class TreeHiddenMarkovModelDistribution(SequenceEncodableProbabilityDistribution
             len_estimator=len_est,
             name=self.name,
         )
+
+    def _num_params(self, seen_keys: Set[str]) -> int:
+        """Count free parameters.
+
+        The count is ``(S - 1) + S * (S - 1)`` for the root-state and transition
+        probabilities, plus the emission distributions and ``len_dist``.
+        """
+        s = self.num_states
+        rv = (s - 1) + s * (s - 1)
+        rv += sum(self._child_num_params(u, seen_keys) for u in self.topics)
+        rv += self._child_num_params(self.len_dist, seen_keys)
+        return int(rv)
 
     def dist_to_encoder(self) -> "TreeHiddenMarkovDataEncoder":
         """Return the encoder matching this distribution's tree representation."""

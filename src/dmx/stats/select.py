@@ -10,7 +10,7 @@ maps an observation a distribution from the set of distributions.
 
 """
 
-from typing import Any, Callable, Dict, List, Optional, Sequence, Tuple
+from typing import Any, Callable, Dict, List, Optional, Sequence, Set, Tuple
 
 import numpy as np
 from numpy.random import RandomState
@@ -102,6 +102,10 @@ class SelectDistribution(SequenceEncodableProbabilityDistribution):
             [d.estimator(pseudo_count=pseudo_count) for d in self.dists],
             self.choice_function,
         )
+
+    def _num_params(self, seen_keys: Set[str]) -> int:
+        """Sum the free parameters of the routed child distributions."""
+        return sum(self._child_num_params(d, seen_keys) for d in self.dists)
 
     def dist_to_encoder(self) -> "SelectDataEncoder":
         """Create an encoder that partitions observations by route."""
