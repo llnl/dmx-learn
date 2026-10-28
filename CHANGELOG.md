@@ -61,6 +61,15 @@ All notable changes to dmx-learn are recorded here.
   `w >= min_weight`. With `min_weight = mix_threshold_count / len(data)` they
   match the components `get_dpm_mixture` keeps and the `num_params()` of the
   mixture it returns. `get_dpm_mixture` itself is unchanged.
+- `dmx.utils.scores`, model scoring helpers for `dmx.stats` and `dmx.bstats`
+  models. `heldout_log_likelihood(model, data)` scores held-out data;
+  `kfold_log_likelihood(data, estimator, k, seed)` refits on each training
+  fold with `optimize` and scores the held-out fold, reproducibly from `seed`;
+  `bic`, `aic`, and `icl` return information criteria on the deviance scale
+  (lower is better: `-2 * LL + p * ln(n)`, `-2 * LL + 2 * p`, and BIC plus twice
+  the posterior assignment entropy from `seq_posterior`). Results are frozen
+  dataclasses and nothing is printed. The criteria take an optional
+  `num_params` override, for example a DPM's `effective_num_params()`.
 
 ### Fixed
 

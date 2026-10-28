@@ -19,6 +19,12 @@ Estimation workflows
 .. automodule:: dmx.utils.estimation
    :members:
 
+Model scoring
+-------------
+
+.. automodule:: dmx.utils.scores
+   :members:
+
 Optional Spark support
 ----------------------
 
