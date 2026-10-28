@@ -9,6 +9,7 @@ import sys
 import time
 from typing import (
     IO,
+    TYPE_CHECKING,
     Any,
     Callable,
     List,
@@ -22,7 +23,6 @@ from typing import (
 
 import numpy as np
 from numpy.random import RandomState
-from pyspark import RDD
 
 from dmx.stats import (
     seq_encode,
@@ -37,9 +37,12 @@ from dmx.stats.pdist import (
     SequenceEncodableProbabilityDistribution,
 )
 
+if TYPE_CHECKING:
+    from pyspark import RDD
+
 T = TypeVar("T")
 E0 = TypeVar("E0")
-EncodedChunks = Union[List[Tuple[int, EncodedDataSequence]], RDD[Any]]
+EncodedChunks = Union[List[Tuple[int, EncodedDataSequence]], "RDD[Any]"]
 
 
 def empirical_kl_divergence(

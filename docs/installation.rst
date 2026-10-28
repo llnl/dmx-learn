@@ -25,9 +25,11 @@ Install optional features with Poetry extras:
 
 .. code-block:: console
 
-   $ poetry install -E torch       # PyTorch support
-   $ poetry install -E optional    # MPI and UMAP support
-   $ poetry install -E all         # All optional features
+   $ poetry install -E torch        # PyTorch support
+   $ poetry install -E spark        # PySpark support
+   $ poetry install -E optional     # MPI and UMAP support
+   $ poetry install -E distributed  # PySpark and MPI support
+   $ poetry install -E all          # All optional features
 
 For development or documentation work, install the corresponding dependency
 group:
@@ -51,7 +53,9 @@ The same optional features are available as pip extras:
 .. code-block:: console
 
    $ pip install /path/to/dmx-learn[torch]
+   $ pip install /path/to/dmx-learn[spark]
    $ pip install /path/to/dmx-learn[optional]
+   $ pip install /path/to/dmx-learn[distributed]
    $ pip install /path/to/dmx-learn[all]
 
 Optional dependencies
@@ -71,10 +75,18 @@ The available extras and Poetry groups are summarized below.
      - ``pip install .[torch]`` or ``poetry install -E torch``
      - PyTorch
      - GPU-accelerated distributions
+   * - ``spark``
+     - ``pip install .[spark]`` or ``poetry install -E spark``
+     - pyspark
+     - Spark RDD estimation and sampling
    * - ``optional``
      - ``pip install .[optional]`` or ``poetry install -E optional``
      - mpi4py, umap-learn
-     - Distributed computing
+     - MPI estimation and UMAP embeddings
+   * - ``distributed``
+     - ``pip install .[distributed]`` or ``poetry install -E distributed``
+     - pyspark, mpi4py
+     - Spark and MPI scale-out
    * - ``all``
      - ``pip install .[all]`` or ``poetry install -E all``
      - All optional dependencies
@@ -96,6 +108,11 @@ The available extras and Poetry groups are summarized below.
      - ``poetry install --with docs``
      - sphinx, sphinx-rtd-theme
      - Documentation building
+
+.. versionchanged:: 1.2
+   pyspark is no longer a core dependency. Install the ``spark`` (or
+   ``distributed`` or ``all``) extra to use Spark RDDs or
+   :mod:`dmx.stats.rdd_sampler`.
 
 Extras and groups can be combined:
 

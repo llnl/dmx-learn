@@ -111,7 +111,9 @@ poetry install
 
 # Or install with optional features using extras
 poetry install -E torch            # Include PyTorch support
+poetry install -E spark            # Include PySpark support
 poetry install -E optional         # Include MPI and UMAP support
+poetry install -E distributed      # Include PySpark and MPI support
 poetry install -E all              # Include all optional features
 
 # Or using dependency groups (for dev/docs)
@@ -129,6 +131,9 @@ pip install /path/to/dmx-learn
 
 # With PyTorch support
 pip install /path/to/dmx-learn[torch]
+
+# With PySpark support
+pip install /path/to/dmx-learn[spark]
 
 # With MPI and UMAP support
 pip install /path/to/dmx-learn[optional]
@@ -148,8 +153,14 @@ dmx-learn supports several optional dependency extras and groups:
 | Extra | Install Command | Includes | Use Case |
 |-------|----------------|----------|----------|
 | **torch** | `pip install .[torch]` or `poetry install -E torch` | PyTorch | GPU-accelerated distributions |
-| **optional** | `pip install .[optional]` or `poetry install -E optional` | mpi4py, umap-learn | Distributed computing |
+| **spark** | `pip install .[spark]` or `poetry install -E spark` | pyspark | Spark RDD estimation and sampling |
+| **optional** | `pip install .[optional]` or `poetry install -E optional` | mpi4py, umap-learn | MPI estimation and UMAP embeddings |
+| **distributed** | `pip install .[distributed]` or `poetry install -E distributed` | pyspark, mpi4py | Spark and MPI scale-out |
 | **all** | `pip install .[all]` or `poetry install -E all` | All above | Everything |
+
+> **Changed in 1.2:** pyspark is no longer a core dependency. Install the
+> `spark` (or `distributed`/`all`) extra to use Spark RDDs or
+> `dmx.stats.rdd_sampler`.
 
 ### Groups (Poetry only - for development)
 
@@ -221,8 +232,17 @@ poetry run python ./examples/torch_examples/stats_examples/mixture_example.py
 ## 🌐 Running with Spark
 
 Examples that run with Apache Spark are located in `./examples/spark_examples/`.
+Spark support requires the `spark` extra:
 
-First, build a wheel:
+```bash
+# Using Poetry
+poetry install -E spark
+
+# Using pip
+pip install /path/to/dmx-learn[spark]
+```
+
+To submit to a Spark installation, first build a wheel:
 
 ```bash
 cd /path/to/dmx-learn
@@ -385,8 +405,8 @@ poetry run make html
 ## 📋 Requirements
 
 - **Python**: >= 3.10
-- **Core Dependencies**: numpy, scipy, numba, pandas, pyspark, mpmath
-- **Optional**: torch (for GPU acceleration), mpi4py (for distributed computing)
+- **Core Dependencies**: numpy, scipy, numba, pandas, mpmath
+- **Optional**: torch (for GPU acceleration), pyspark (for Spark), mpi4py (for MPI), umap-learn (for UMAP embeddings)
 
 ---
 

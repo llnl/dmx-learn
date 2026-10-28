@@ -3,7 +3,8 @@
 This script loads a small text corpus, removes stop words, maps tokens to
 integers, and trains an LDA model with Spark-based sequence estimation.
 
-Run from the repository root with:
+Requires the ``spark`` extra (``pip install dmx-learn[spark]`` or
+``poetry install -E spark``). Run from the repository root with:
 
     spark-submit --master local[4] examples/spark_examples/wikipedia_example.py
 """

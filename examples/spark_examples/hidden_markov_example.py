@@ -4,7 +4,8 @@ This script builds a synthetic mixture of hidden Markov model sequences,
 samples sequence data into an RDD, and fits a mixture model with Spark-based
 training utilities.
 
-Run from the repository root with:
+Requires the ``spark`` extra (``pip install dmx-learn[spark]`` or
+``poetry install -E spark``). Run from the repository root with:
 
     spark-submit --master local[4] examples/spark_examples/hidden_markov_example.py
 """
