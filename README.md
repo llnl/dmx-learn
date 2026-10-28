@@ -19,7 +19,8 @@ locally, with MPI, or on Spark.
 
 dmx-learn stays narrow on purpose. It does not try to be a general
 probabilistic or neural modeling platform. It aims to be exact, transparent,
-and easy to reproduce.
+and easy to reproduce. See [Scope and Non-Goals](docs/scope.rst) for what is
+in scope, what is deliberately left out, and the rule for adding new models.
 
 ### Workflow: from table to agent
 

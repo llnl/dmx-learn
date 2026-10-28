@@ -44,6 +44,7 @@ Contents
 .. toctree::
    :maxdepth: 1
 
+   scope.rst
    installation.rst
    docstring_style.rst
    stats/index.rst
