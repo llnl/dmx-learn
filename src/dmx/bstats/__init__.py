@@ -99,6 +99,7 @@ from dmx.bstats.setdist import (
     BernoulliSetEstimator,
     BernoulliSetSampler,
 )
+from dmx.utils.spark import is_rdd
 
 __all__ = [
     "BernoulliDistribution",
@@ -174,7 +175,6 @@ Model = ProbabilityDistribution[Any, Any, Any]
 Estimator = ParameterEstimator[Any, Any, Any, Any]
 EncodedChunk = tuple[int, Any]
 ModelT = TypeVar("ModelT", bound=Model)
-from dmx.utils.spark import is_rdd
 
 if TYPE_CHECKING:
     from pyspark import RDD

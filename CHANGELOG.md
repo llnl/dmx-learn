@@ -61,3 +61,11 @@ All notable changes to dmx-learn are recorded here.
   `w >= min_weight`. With `min_weight = mix_threshold_count / len(data)` they
   match the components `get_dpm_mixture` keeps and the `num_params()` of the
   mixture it returns. `get_dpm_mixture` itself is unchanged.
+
+### Fixed
+
+- The pylint quality gate passes again. A late import in `dmx.bstats` (added
+  when pyspark moved to the `spark` extra) failed `pylint src/dmx/bstats`, and
+  `pylint examples` linted only `examples/__init__.py` because the example
+  folders were not packages. Each example folder now has an `__init__.py`, so
+  all example files are linted; they still run as scripts.
