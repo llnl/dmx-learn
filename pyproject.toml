@@ -1,7 +1,7 @@
 [project]
 name = "dmx-learn"
 version = "1.1.1"
-description = "Distributed mixture learning for heterogeneous density estimation. Fit complex probabilistic models on variable-length heterogeneous data with support for distributed computing (Spark, MPI) and GPU acceleration (PyTorch)."
+description = "Exact, transparent latent-variable graphical models for heterogeneous tabular data. Fit mixtures, HMMs, and tree models over typed fields with no one-hot encoding, get readable and reproducible models, and scale the same fit to MPI or Spark."
 readme = "README.md"
 requires-python = ">=3.10"
 license = "BSD-3-Clause"
@@ -10,20 +10,22 @@ authors = [
 ]
 dynamic = ["classifiers", "dependencies"]
 keywords = [
-    "machine learning",
-    "density estimation",
-    "statistics",
-    "heterogeneous data",
-    "distributed computing",
+    "latent variable models",
+    "graphical models",
     "mixture models",
-    "probabilistic modeling",
-    "spark",
+    "tabular data",
+    "heterogeneous data",
+    "mixed data",
+    "clustering",
+    "latent class analysis",
+    "hidden markov models",
+    "expectation maximization",
+    "variational inference",
+    "interpretable machine learning",
+    "reproducibility",
+    "distributed computing",
     "mpi",
-    "pytorch",
-    "gpu acceleration",
-    "probability density",
-    "statistical learning",
-    "data science",
+    "spark",
 ]
 
 [project.optional-dependencies]
