@@ -15,6 +15,8 @@ backends share terminology, their distributions, estimators, and encodings are
 separate protocols rather than interchangeable implementations.
 """
 
+from __future__ import annotations
+
 __all__ = [
     "initialize",
     "estimate",
@@ -123,6 +125,7 @@ __all__ = [
 
 import pickle
 from typing import (
+    TYPE_CHECKING,
     Any,
     Dict,
     List,
@@ -140,7 +143,6 @@ import numpy as np
 
 # Abstract Classes
 from numpy.random import RandomState
-from pyspark import RDD
 
 # Discrete base distributions
 from dmx.stats.binomial import BinomialDistribution, BinomialEstimator
@@ -261,6 +263,10 @@ from dmx.stats.tree_hmm import (
 )
 from dmx.stats.vmf import VonMisesFisherDistribution, VonMisesFisherEstimator
 from dmx.stats.weighted import WeightedDistribution, WeightedEstimator
+from dmx.utils.spark import is_rdd
+
+if TYPE_CHECKING:
+    from pyspark import RDD
 
 T = TypeVar("T")
 T_D = TypeVar("T_D", bound=SequenceEncodableProbabilityDistribution)
@@ -315,7 +321,7 @@ def initialize(
     Returns:
         SequenceEncodableProbabilityDistribution: Initialized model.
     """
-    if isinstance(data, RDD):
+    if is_rdd(data):
         factory = estimator.accumulator_factory()
         sc = data.context
 
@@ -391,7 +397,7 @@ def estimate(
     Returns:
         SequenceEncodableProbabilityDistribution: Next iteration of EM algorithm.
     """
-    if isinstance(data, RDD):
+    if is_rdd(data):
         sc = data.context
         factory = estimator.accumulator_factory()
         estimator_broadcast = sc.broadcast(estimator)
@@ -498,7 +504,7 @@ def seq_encode(
                 "At least one arg: encoder, estimator, or dist must be passed."
             )
 
-    if isinstance(data, RDD):
+    if is_rdd(data):
         sc = data.context
         temp_encoder = pickle.dumps(encoder, protocol=0)
         encoder_broadcast = sc.broadcast(temp_encoder)
@@ -511,7 +517,7 @@ def seq_encode(
             )
         )
 
-        return cast(RDD[Any], enc_data)
+        return cast("RDD[Any]", enc_data)
 
     sz = len(data)
     if chunk_size is not None:
@@ -552,7 +558,7 @@ def seq_log_density_sum(
         Tuple[float, float]
 
     """
-    if isinstance(enc_data, RDD):
+    if is_rdd(enc_data):
         sc = enc_data.context
         estimate_broadcast = sc.broadcast(pickle.dumps(estimate, protocol=0))
 
@@ -610,7 +616,7 @@ def seq_log_density(  # pylint: disable=redefined-outer-name
     """
     is_list = isinstance(estimate, Sequence)
 
-    if isinstance(enc_data, RDD):
+    if is_rdd(enc_data):
         sc = enc_data.context
         temp_estimate = pickle.dumps(estimate, protocol=0)
         estimate_broadcast = sc.broadcast(temp_estimate)
@@ -666,7 +672,7 @@ def seq_estimate(
         SequenceEncodableProbabilityDistribution
 
     """
-    if isinstance(enc_data, RDD):
+    if is_rdd(enc_data):
         sc = enc_data.context
 
         estimator_broadcast = sc.broadcast(estimator)
@@ -763,7 +769,7 @@ def seq_initialize(
 
     """
 
-    if isinstance(enc_data, RDD):
+    if is_rdd(enc_data):
         sc = enc_data.context
         num_partitions = enc_data.getNumPartitions()
         seeds = rng.randint(2**31, size=num_partitions)

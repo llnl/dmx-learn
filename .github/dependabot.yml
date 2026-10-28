@@ -1,6 +1,6 @@
 version: 2
 updates:
-  # Core dependencies - numpy, scipy, pandas, pyspark, etc.
+  # Core dependencies - numpy, scipy, numba, mpmath, pandas
   - package-ecosystem: "pip"
     directory: "/"
     schedule:
@@ -14,7 +14,6 @@ updates:
           - "numba"
           - "mpmath"
           - "pandas"
-          - "pyspark"
     labels:
       - "dependencies"
       - "core"
@@ -24,7 +23,7 @@ updates:
       - dependency-type: "direct"
         update-types: ["security"]
 
-  # Optional dependencies - torch, mpi4py, umap-learn
+  # Optional dependencies - torch, pyspark, mpi4py, umap-learn
   - package-ecosystem: "pip"
     directory: "/"
     schedule:
@@ -34,6 +33,7 @@ updates:
       optional-dependencies:
         patterns:
           - "torch"
+          - "pyspark"
           - "mpi4py"
           - "umap-learn"
     labels:

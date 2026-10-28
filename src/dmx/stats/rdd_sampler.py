@@ -6,17 +6,27 @@ partition seed, and produce independent samples within that partition.  The
 helpers neither fit nor score distributions; they are distributed sampling
 adapters.  Reproducibility is scoped to the supplied seed, partition count,
 and Spark partition execution order.
+
+PySpark is an optional dependency; importing this module without it raises an
+:class:`ImportError` that names the ``spark`` extra.
 """
 
+from __future__ import annotations
+
 import pickle
-from typing import Any, Optional
+from typing import TYPE_CHECKING, Any, Optional
 
 import numpy as np
 from numpy.random import RandomState
-from pyspark import SparkContext
 
 from dmx.arithmetic import maxrandint
 from dmx.stats.pdist import SequenceEncodableProbabilityDistribution
+from dmx.utils.spark import require_pyspark
+
+require_pyspark("dmx.stats.rdd_sampler")
+
+if TYPE_CHECKING:
+    from pyspark import SparkContext
 
 
 def take_sample(

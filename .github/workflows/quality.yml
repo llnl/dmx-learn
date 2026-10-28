@@ -70,8 +70,8 @@ jobs:
           path: .venv
           key: venv-${{ runner.os }}-3.13-${{ hashFiles('**/poetry.lock') }}
 
-      - name: Install dependencies with optional deps (torch, mpi4py)
-        run: poetry install --no-interaction --extras "ci optional" --with dev
+      - name: Install dependencies with optional deps (torch, mpi4py, pyspark)
+        run: poetry install --no-interaction --extras "ci optional spark" --with dev
 
       - name: Run mypy type checking on core modules
         run: |
@@ -113,8 +113,8 @@ jobs:
           path: .venv
           key: venv-${{ runner.os }}-3.13-${{ hashFiles('**/poetry.lock') }}
 
-      - name: Install dependencies with optional deps (torch, mpi4py)
-        run: poetry install --no-interaction --extras "ci optional" --with dev
+      - name: Install dependencies with optional deps (torch, mpi4py, pyspark)
+        run: poetry install --no-interaction --extras "ci optional spark" --with dev
 
       - name: Run pylint on core modules
         run: |
@@ -154,8 +154,8 @@ jobs:
           path: .venv
           key: venv-${{ runner.os }}-3.13-${{ hashFiles('**/poetry.lock') }}
 
-      - name: Install dependencies with optional deps (torch, mpi4py)
-        run: poetry install --no-interaction --extras "ci optional" --with dev
+      - name: Install dependencies with optional deps (torch, mpi4py, pyspark)
+        run: poetry install --no-interaction --extras "ci optional spark" --with dev
 
       - name: Run pydocstyle on src/dmx
         run: poetry run pydocstyle src/dmx

@@ -981,7 +981,7 @@ description = "Python bindings for MPI"
 optional = true
 python-versions = ">=3.8"
 groups = ["main"]
-markers = "extra == \"optional\" or extra == \"all\""
+markers = "extra == \"optional\" or extra == \"distributed\" or extra == \"all\""
 files = [
     {file = "mpi4py-4.1.1-cp310-abi3-macosx_10_9_x86_64.whl", hash = "sha256:1586f5d1557abed9cba7e984d18f32e787b353be0986e599974db177ae36329a"},
     {file = "mpi4py-4.1.1-cp310-abi3-macosx_11_0_arm64.whl", hash = "sha256:ba85e4778d63c750226de95115c92b709f38d7e661be660a275da4f0992ee197"},
@@ -2047,9 +2047,10 @@ virtualenv = ">=20.10.0"
 name = "py4j"
 version = "0.10.9.9"
 description = "Enables Python programs to dynamically access arbitrary Java objects"
-optional = false
+optional = true
 python-versions = "*"
 groups = ["main"]
+markers = "extra == \"spark\" or extra == \"distributed\" or extra == \"all\""
 files = [
     {file = "py4j-0.10.9.9-py2.py3-none-any.whl", hash = "sha256:c7c26e4158defb37b0bb124933163641a2ff6e3a3913f7811b0ddbe07ed61533"},
     {file = "py4j-0.10.9.9.tar.gz", hash = "sha256:f694cad19efa5bd1dee4f3e5270eb406613c974394035e5bfc4ec1aba870b879"},
@@ -2146,9 +2147,10 @@ testing = ["pytest"]
 name = "pyspark"
 version = "4.1.1"
 description = "Apache Spark Python API"
-optional = false
+optional = true
 python-versions = ">=3.10"
 groups = ["main"]
+markers = "extra == \"spark\" or extra == \"distributed\" or extra == \"all\""
 files = [
     {file = "pyspark-4.1.1.tar.gz", hash = "sha256:77f78984aa84fbe865c717dd37b49913b4e5c97d76ef6824f932f1aefa6621ec"},
 ]
@@ -3402,12 +3404,14 @@ python-discovery = ">=1"
 typing-extensions = {version = ">=4.13.2", markers = "python_version < \"3.11\""}
 
 [extras]
-all = ["mpi4py", "torch", "umap-learn"]
+all = ["mpi4py", "pyspark", "torch", "umap-learn"]
 ci = ["torch", "umap-learn"]
+distributed = ["mpi4py", "pyspark"]
 optional = ["mpi4py", "umap-learn"]
+spark = ["pyspark"]
 torch = ["torch"]
 
 [metadata]
 lock-version = "2.1"
 python-versions = "^3.10"
-content-hash = "d0b2793bdb36629afb05fc8c797efcaa18c0378f553a3257278ac354f16980ef"
+content-hash = "68e0854c70946611d626ee3c4848edba2c01d646541a1b1e05e1f08589dfc315"

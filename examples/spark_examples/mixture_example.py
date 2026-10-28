@@ -3,7 +3,8 @@
 This script builds a synthetic two-component mixture over composite data types,
 samples the data into a Spark RDD, and fits the model with EM-style updates.
 
-Run from the repository root with:
+Requires the ``spark`` extra (``pip install dmx-learn[spark]`` or
+``poetry install -E spark``). Run from the repository root with:
 
     spark-submit --master local[4] examples/spark_examples/mixture_example.py
 """

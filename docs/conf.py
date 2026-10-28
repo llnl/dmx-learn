@@ -42,8 +42,8 @@ suppress_warnings = ["ref.python"]
 
 # Optional GPU and distributed backends are not part of the RTD environment.
 # Mock them so autodoc can render the corresponding API references without
-# downloading PyTorch or requiring an MPI runtime.
-autodoc_mock_imports = ["torch", "mpi4py", "umap"]
+# downloading PyTorch or PySpark or requiring an MPI runtime.
+autodoc_mock_imports = ["torch", "mpi4py", "umap", "pyspark"]
 
 templates_path = ["_templates"]
 exclude_patterns = ["_build"]

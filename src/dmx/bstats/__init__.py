@@ -19,12 +19,11 @@ from __future__ import annotations
 
 import pickle
 from collections.abc import Iterable, Sequence
-from typing import Any, Optional, TypeVar, Union, cast, overload
+from typing import TYPE_CHECKING, Any, Optional, TypeVar, Union, cast, overload
 
 import numpy as np
 import pandas as pd
 from numpy.random import RandomState
-from pyspark import RDD
 
 from dmx.arithmetic import inf
 from dmx.bstats.bernoulli import (
@@ -175,6 +174,10 @@ Model = ProbabilityDistribution[Any, Any, Any]
 Estimator = ParameterEstimator[Any, Any, Any, Any]
 EncodedChunk = tuple[int, Any]
 ModelT = TypeVar("ModelT", bound=Model)
+from dmx.utils.spark import is_rdd
+
+if TYPE_CHECKING:
+    from pyspark import RDD
 
 
 def load_models(x: str) -> Model:
@@ -232,7 +235,7 @@ def estimate(
     Returns:
         The model produced from the accumulated sufficient statistics.
     """
-    if isinstance(data, RDD):
+    if is_rdd(data):
         context = data.context
         factory = estimator.accumulator_factory()
         estimator_broadcast = context.broadcast(estimator)
@@ -287,7 +290,7 @@ def initialize(
     Returns:
         The initialized probability distribution.
     """
-    if isinstance(data, RDD):
+    if is_rdd(data):
         factory = estimator.accumulator_factory()
         context = data.context
         seeds = rng.randint(np.iinfo(np.int32).max, size=data.getNumPartitions())
@@ -370,7 +373,7 @@ def seq_encode(
     Returns:
         An RDD or list of ``(observation_count, encoded_data)`` pairs.
     """
-    if isinstance(data, RDD):
+    if is_rdd(data):
         model_broadcast = data.context.broadcast(pickle.dumps(model, protocol=0))
         return (
             data.glom()
@@ -411,7 +414,7 @@ def seq_estimate(
     Returns:
         The next model estimate, with the same static type as ``prev_estimate``.
     """
-    if isinstance(enc_data, RDD):
+    if is_rdd(enc_data):
         context = enc_data.context
         estimator_broadcast = context.broadcast(estimator)
         estimate_broadcast = context.broadcast(pickle.dumps(prev_estimate, protocol=0))
@@ -477,7 +480,7 @@ def seq_log_density(  # pylint: disable=redefined-outer-name
     Returns:
         One NumPy array per chunk, with models stacked first when requested.
     """
-    if isinstance(enc_data, RDD):
+    if is_rdd(enc_data):
         estimate_broadcast = enc_data.context.broadcast(
             pickle.dumps(estimate, protocol=0)
         )
@@ -520,7 +523,7 @@ def seq_log_density_sum(  # pylint: disable=redefined-outer-name
     Returns:
         The total observation count and summed log density.
     """
-    if isinstance(enc_data, RDD):
+    if is_rdd(enc_data):
         estimate_broadcast = enc_data.context.broadcast(
             pickle.dumps(estimate, protocol=0)
         )

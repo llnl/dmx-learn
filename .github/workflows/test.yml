@@ -8,7 +8,7 @@ on:
 
 jobs:
   test:
-    name: Test Python ${{ matrix.python-version }} on ${{ matrix.os }}
+    name: Test Python ${{ matrix.python-version }} on ${{ matrix.os }} (${{ matrix.spark && 'with' || 'without' }} spark)
     runs-on: ${{ matrix.os }}
 
     strategy:
@@ -16,6 +16,8 @@ jobs:
       matrix:
         os: [ubuntu-latest] # [ubuntu-latest, macos-latest, windows-latest]
         python-version: ['3.13']
+        # Run once without the optional pyspark dependency and once with it.
+        spark: [false, true]
 
     steps:
       - name: Check out repository
@@ -38,12 +40,12 @@ jobs:
         uses: actions/cache@v4
         with:
           path: .venv
-          key: venv-${{ runner.os }}-${{ matrix.python-version }}-${{ hashFiles('**/poetry.lock') }}
+          key: venv-${{ runner.os }}-${{ matrix.python-version }}-spark-${{ matrix.spark }}-${{ hashFiles('**/poetry.lock') }}
           restore-keys: |
-            venv-${{ runner.os }}-${{ matrix.python-version }}-
+            venv-${{ runner.os }}-${{ matrix.python-version }}-spark-${{ matrix.spark }}-
 
       - name: Install dependencies and project with torch and umap (no mpi4py)
-        run: poetry install --no-interaction --extras ci --with dev
+        run: poetry install --no-interaction --extras "ci${{ matrix.spark && ' spark' || '' }}" --with dev
 
       - name: Run tests (core + torch + utils, no mpi4py, CPU-only)
         run: |
@@ -56,7 +58,7 @@ jobs:
         if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: test-results-${{ matrix.os }}-${{ matrix.python-version }}
+          name: test-results-${{ matrix.os }}-${{ matrix.python-version }}-spark-${{ matrix.spark }}
           path: |
             .pytest_cache/
             htmlcov/
