@@ -3,10 +3,81 @@
 [![Tests](https://github.com/LLNL/dmx-learn/workflows/Tests/badge.svg)](https://github.com/LLNL/dmx-learn/actions/workflows/test.yml)
 [![Code Quality](https://github.com/LLNL/dmx-learn/workflows/Code%20Quality/badge.svg)](https://github.com/LLNL/dmx-learn/actions/workflows/quality.yml)
 [![Documentation](https://readthedocs.org/projects/dmx-learn/badge/?version=latest)](https://dmx-learn.readthedocs.io/en/latest/)
-[![License](https://img.shields.io/badge/License-BSD-3-Clause-blue.svg)](LICENSE)
+[![License](https://img.shields.io/badge/License-BSD--3--Clause-blue.svg)](LICENSE)
 [![Python](https://img.shields.io/badge/python-3.10+-blue.svg)](https://www.python.org/downloads/)
 
-**Distributed Mixture Learning** - A package for distributed heterogeneous density estimation. With only a few lines of code you can specify and fit complex models on variable-length heterogeneous data.
+> **The expert for mixture models on messy tables. Every model it fits is one
+> you can read, rerun, and scale to a cluster.**
+
+dmx-learn is a dedicated tool for **latent-variable graphical models on
+heterogeneous tabular data**. It fits mixtures, hierarchical mixtures, HMMs,
+and tree-structured models over records that mix continuous values, counts,
+categories, sets, and variable-length sequences. Each field keeps its own
+type, so there is no one-hot encoding and no rescaling. Every fit uses exact
+EM or variational updates that you can inspect, and the same model runs
+locally, with MPI, or on Spark.
+
+dmx-learn stays narrow on purpose. It does not try to be a general
+probabilistic or neural modeling platform. It aims to be exact, transparent,
+and easy to reproduce.
+
+### Workflow: from table to agent
+
+The primary user surface is a conversation with an expert agent backed by a
+small, deterministic tool API:
+
+```text
+your table (CSV / DataFrame)
+  -> profile the columns and agree on a typed schema   ("treat zip as an ID")
+  -> fit a baseline and a latent-variable model
+  -> compare, diagnose, and refine the structure        (leaderboard + lineage)
+  -> explain it: clusters, dependencies, anomalies, search depth, embeddings
+  -> export plain dmx Python code that reproduces the fit exactly
+  -> scale the same model to MPI or Spark when the data grows
+```
+
+> **Status:** the agent (`dmx-mcp`, an MCP server installed through a future
+> `dmx-learn[agent]` extra) is in development for the 1.2 release. The
+> modeling engine underneath it is available today.
+
+### Today: the same models in plain Python
+
+```python
+import numpy as np
+import pandas as pd
+
+from dmx.stats import (
+    CategoricalEstimator,
+    CompositeEstimator,
+    GaussianEstimator,
+    MixtureEstimator,
+    PoissonEstimator,
+    SequenceEstimator,
+)
+from dmx.utils.estimation import optimize
+
+# Columns: age (float), visits (int), plan (str), tags (list of str)
+df = pd.DataFrame(...)
+data = list(df.itertuples(index=False, name=None))
+
+# A two-class latent model over typed fields: no one-hot encoding, no scaling.
+row = CompositeEstimator(
+    (
+        GaussianEstimator(),
+        PoissonEstimator(),
+        CategoricalEstimator(),
+        SequenceEstimator(CategoricalEstimator()),
+    )
+)
+model = optimize(data, MixtureEstimator([row] * 2), max_its=100, rng=np.random.RandomState(1))
+
+print(model)                    # readable, re-creatable model
+print(model.posterior(data[0]))  # latent-class membership for one row
+```
+
+`dmx.utils.automatic.get_estimator(data)` can also infer an estimator
+directly from example records. See
+[`examples/utils_examples/auto_example.py`](examples/utils_examples/auto_example.py).
 
 ---
 
@@ -154,8 +225,7 @@ First, build a wheel:
 
 ```bash
 cd /path/to/dmx-learn
-pip install setuptools wheel
-python setup.py bdist_wheel
+poetry build -f wheel
 ```
 
 Then run with Spark:
@@ -163,7 +233,7 @@ Then run with Spark:
 ```bash
 /path/to/spark/bin/spark-submit \
   --master local[*] \
-  --py-files /path/to/dmx-learn/dist/dmx-learn-1.0.0-py3-none-any.whl \
+  --py-files /path/to/dmx-learn/dist/dmx_learn-1.1.1-py3-none-any.whl \
   ./examples/spark_examples/mixture_example.py
 ```
 
