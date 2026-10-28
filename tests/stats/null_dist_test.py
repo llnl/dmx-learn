@@ -78,3 +78,6 @@ class NullDistributionTestCase(unittest.TestCase):
                 NullEstimator(keys=x)
 
             assert str(e.value) == "NullEstimator requires keys to be of type 'str'."
+
+    def test_num_params(self) -> None:
+        self.assertEqual(NullDistribution().num_params(), 0)

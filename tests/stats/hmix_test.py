@@ -63,6 +63,22 @@ def posterior_test(dist: Any, encoder: Any) -> tuple[bool, str]:
 class HierarchicalMixtureDistributionTestCase(StatsTestClass):
 
     def setUp(self) -> None:
+        # M=2 mixtures, T=3 topics: (2 - 1) + 2 * (3 - 1) + 3 * 2 + Poisson (1).
+        self.num_params_cases = [
+            (
+                HierarchicalMixtureDistribution(
+                    [
+                        GaussianDistribution(0.0, 1.0),
+                        GaussianDistribution(0.0, 1.0),
+                        GaussianDistribution(0.0, 1.0),
+                    ],
+                    [0.5, 0.5],
+                    [[0.2, 0.3, 0.5], [0.3, 0.3, 0.4]],
+                    len_dist=PoissonDistribution(2.0),
+                ),
+                12,
+            ),
+        ]
 
         self._topics: list[Any] = [
             [

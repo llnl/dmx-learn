@@ -11,7 +11,7 @@ values never observed require prior sufficient statistics to appear in an estima
 """
 
 from collections import defaultdict
-from typing import Any, Dict, List, Optional, Sequence, Tuple, Union
+from typing import Any, Dict, List, Optional, Sequence, Set, Tuple, Union
 
 import numpy as np
 from numpy.random import RandomState
@@ -176,6 +176,23 @@ class BernoulliSetDistribution(SequenceEncodableProbabilityDistribution):
             name=self.name,
             keys=self.keys,
         )
+
+    def _num_params(self, seen_keys: Set[str]) -> int:
+        """Count free parameters for ``num_params()``.
+
+        Returns the number of entries in ``pmap``, one inclusion probability per
+        value. ``min_prob`` is fixed and is not counted.
+
+        Args:
+            seen_keys (Set[str]): Keys whose parameters were already counted.
+
+        Returns:
+            int: Number of free parameters, or 0 if ``keys`` was already counted.
+
+        """
+        if not self._key_is_new(self.keys, seen_keys):
+            return 0
+        return len(self.pmap)
 
     def dist_to_encoder(self) -> "BernoulliSetDataEncoder":
         """Create an encoder for batches of unordered set observations."""

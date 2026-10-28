@@ -6,7 +6,7 @@ Scalar methods accept one integer, while sequence methods consume the
 one-dimensional array produced by ``GeometricDataEncoder``.
 """
 
-from typing import Any, Dict, Optional, Sequence, Tuple, Union
+from typing import Any, Dict, Optional, Sequence, Set, Tuple, Union
 
 import numpy as np
 from numpy.random import RandomState
@@ -135,6 +135,22 @@ class GeometricDistribution(SequenceEncodableProbabilityDistribution):
             name=self.name,
             keys=self.keys,
         )
+
+    def _num_params(self, seen_keys: Set[str]) -> int:
+        """Count free parameters for ``num_params()``.
+
+        The success probability ``p`` is the only free parameter.
+
+        Args:
+            seen_keys (Set[str]): Keys whose parameters were already counted.
+
+        Returns:
+            int: Number of free parameters, or 0 if ``keys`` was already counted.
+
+        """
+        if not self._key_is_new(self.keys, seen_keys):
+            return 0
+        return 1
 
     def dist_to_encoder(self) -> "GeometricDataEncoder":
         """Return a GeometricDataEncoder for this distribution.

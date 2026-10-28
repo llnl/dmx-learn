@@ -6,7 +6,7 @@ by ``CategoricalDataEncoder``.
 """
 
 import math
-from typing import Any, Dict, List, Optional, Sequence, Tuple, TypeVar, Union
+from typing import Any, Dict, List, Optional, Sequence, Set, Tuple, TypeVar, Union
 
 import numpy as np
 from numpy.random import RandomState
@@ -177,6 +177,23 @@ class CategoricalDistribution(SequenceEncodableProbabilityDistribution):
             name=self.name,
             keys=self.keys,
         )
+
+    def _num_params(self, seen_keys: Set[str]) -> int:
+        """Count free parameters for ``num_params()``.
+
+        Returns ``K - 1`` for the ``K`` categories in ``pmap``. The default value
+        is derived from the counts and is not counted.
+
+        Args:
+            seen_keys (Set[str]): Keys whose parameters were already counted.
+
+        Returns:
+            int: Number of free parameters, or 0 if ``keys`` was already counted.
+
+        """
+        if not self._key_is_new(self.keys, seen_keys):
+            return 0
+        return len(self.pmap) - 1
 
     def dist_to_encoder(self) -> "CategoricalDataEncoder":
         """Returns a CategoricalDataEncoder for this distribution.

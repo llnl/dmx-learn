@@ -7,7 +7,7 @@ encoder.
 """
 
 from math import log
-from typing import Any, Dict, Optional, Sequence, Tuple, Union
+from typing import Any, Dict, Optional, Sequence, Set, Tuple, Union
 
 import numpy as np
 
@@ -126,6 +126,22 @@ class PoissonDistribution(SequenceEncodableProbabilityDistribution):
             name=self.name,
             keys=self.keys,
         )
+
+    def _num_params(self, seen_keys: Set[str]) -> int:
+        """Count free parameters for ``num_params()``.
+
+        The rate ``lam`` is the only free parameter.
+
+        Args:
+            seen_keys (Set[str]): Keys whose parameters were already counted.
+
+        Returns:
+            int: Number of free parameters, or 0 if ``keys`` was already counted.
+
+        """
+        if not self._key_is_new(self.keys, seen_keys):
+            return 0
+        return 1
 
     def dist_to_encoder(self) -> "PoissonDataEncoder":
         """Create an encoder for nonnegative count observations."""

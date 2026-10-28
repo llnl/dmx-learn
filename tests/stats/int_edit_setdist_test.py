@@ -107,6 +107,9 @@ class IntegerStepBernoulliEditDistributionTestCase(StatsTestClass):
         self.acc_encoder = [(a, e) for a, e in zip(self._accumulators, self._encoders)]
 
         self.type_check_data = [None, np.ones((10, 10))]
+        # 2 edit probabilities per value plus IntegerBernoulliSet init (1 per value):
+        # 2*3 + 3 = 9 and 2*4 + 4 = 12.
+        self.num_params_cases = [(self.eval_dists[0], 9), (self.eval_dists[2], 12)]
 
     def test_seq_log_density_type(self) -> None:
         for x in self.type_check_data:

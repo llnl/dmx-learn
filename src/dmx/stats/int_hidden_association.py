@@ -22,7 +22,7 @@ counts for the low-rank association term.
 """
 
 import math
-from typing import Any, Dict, List, Optional, Sequence, Tuple, TypeVar, Union, cast
+from typing import Any, Dict, List, Optional, Sequence, Set, Tuple, TypeVar, Union, cast
 
 import numba
 import numpy as np
@@ -290,6 +290,21 @@ class IntegerHiddenAssociationDistribution(SequenceEncodableProbabilityDistribut
             keys=self.keys,
             use_numba=self.use_numba,
         )
+
+    def _num_params(self, seen_keys: Set[str]) -> int:
+        """Count ``V1*(K-1) + K*(V2-1)`` plus the ``prev_dist`` and ``len_dist``.
+
+        Rows of ``cond_weights`` and ``state_prob_mat`` are probability vectors.
+        ``alpha`` is fixed by the estimator and contributes nothing.
+        """
+        weight_key, state_key = self.keys
+        rv = 0
+        if self._key_is_new(weight_key, seen_keys):
+            rv += self.num_vals1 * (self.num_states - 1)
+        if self._key_is_new(state_key, seen_keys):
+            rv += self.num_states * (self.num_vals2 - 1)
+        rv += self._child_num_params(self.prev_dist, seen_keys)
+        return int(rv + self._child_num_params(self.len_dist, seen_keys))
 
     def dist_to_encoder(self) -> "IntegerHiddenAssociationDataEncoder":
         """Create an encoder with this distribution's component encoders."""

@@ -6,7 +6,7 @@ three-matrix representation produced by ``DirichletDataEncoder``.
 """
 
 import sys
-from typing import Any, Callable, Dict, List, Optional, Sequence, Tuple, Union
+from typing import Any, Callable, Dict, List, Optional, Sequence, Set, Tuple, Union
 
 import numpy as np
 from numpy.random import RandomState
@@ -281,6 +281,22 @@ class DirichletDistribution(SequenceEncodableProbabilityDistribution):
             name=self.name,
             keys=self.keys,
         )
+
+    def _num_params(self, seen_keys: Set[str]) -> int:
+        """Count free parameters for ``num_params()``.
+
+        Returns ``dim``, one concentration parameter per dimension.
+
+        Args:
+            seen_keys (Set[str]): Keys whose parameters were already counted.
+
+        Returns:
+            int: Number of free parameters, or 0 if ``keys`` was already counted.
+
+        """
+        if not self._key_is_new(self.keys, seen_keys):
+            return 0
+        return int(self.dim)
 
     def dist_to_encoder(self) -> "DirichletDataEncoder":
         """Create an encoder for sequences of Dirichlet observations.

@@ -87,6 +87,26 @@ def fast_posterior_test(dist: Any, encoder: Any) -> tuple[bool, str]:
 class DiagonalGaussianMixtureDistributionTestCase(StatsTestClass):
 
     def setUp(self) -> None:
+        # K=2, d=3: 1 weight + 2 * 3 means + 2 * 3 variances (or 3 when tied).
+        self.num_params_cases = [
+            (
+                DiagonalGaussianMixtureDistribution(
+                    [[0.0, 0.0, 0.0], [1.0, 1.0, 1.0]],
+                    [[1.0, 1.0, 1.0], [1.0, 1.0, 1.0]],
+                    [0.5, 0.5],
+                ),
+                13,
+            ),
+            (
+                DiagonalGaussianMixtureDistribution(
+                    [[0.0, 0.0, 0.0], [1.0, 1.0, 1.0]],
+                    [[1.0, 1.0, 1.0], [1.0, 1.0, 1.0]],
+                    [0.5, 0.5],
+                    tied=True,
+                ),
+                10,
+            ),
+        ]
         dim_tups = [(2, 3), (3, 5), (5, 4), (6, 2)]
 
         mu = [

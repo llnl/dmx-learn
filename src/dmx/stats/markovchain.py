@@ -23,6 +23,7 @@ from typing import (
     Iterable,
     List,
     Optional,
+    Set,
     Tuple,
     TypeVar,
     Union,
@@ -314,6 +315,21 @@ class MarkovChainDistribution(  # pylint: disable=too-many-instance-attributes
             name=self.name,
             keys=self.keys,
         )
+
+    def _num_params(self, seen_keys: Set[str]) -> int:
+        """Count free parameters.
+
+        Each probability map with ``n`` entries contributes ``n - 1``: one for the
+        initial-state map and one per source state in ``transition_map``. The
+        ``len_dist`` count is added. ``default_value`` is fixed and not counted.
+        ``keys`` ties the whole chain, including ``len_dist``.
+        """
+        if not self._key_is_new(self.keys, seen_keys):
+            return 0
+        rv = max(len(self.init_prob_map) - 1, 0)
+        rv += sum(max(len(u) - 1, 0) for u in self.transition_map.values())
+        rv += self._child_num_params(self.len_dist, seen_keys)
+        return int(rv)
 
     def dist_to_encoder(self) -> "MarkovChainDataEncoder":
         """Create an encoder for batches of state sequences."""

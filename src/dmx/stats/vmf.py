@@ -7,7 +7,7 @@ estimation, and sequence encoding for directional observations.
 """
 
 import sys
-from typing import Any, Dict, Optional, Sequence, Tuple, Union
+from typing import Any, Dict, Optional, Sequence, Set, Tuple, Union
 
 import numpy as np
 import scipy.linalg
@@ -187,6 +187,23 @@ class VonMisesFisherDistribution(SequenceEncodableProbabilityDistribution):
         if pseudo_count is None:
             return VonMisesFisherEstimator(dim=self.dim, name=self.name, keys=self.keys)
         return VonMisesFisherEstimator(dim=self.dim, name=self.name, keys=self.keys)
+
+    def _num_params(self, seen_keys: Set[str]) -> int:
+        """Count free parameters for ``num_params()``.
+
+        Returns ``dim``: ``dim - 1`` for the unit mean direction ``mu`` plus one
+        for the concentration ``kappa``.
+
+        Args:
+            seen_keys (Set[str]): Keys whose parameters were already counted.
+
+        Returns:
+            int: Number of free parameters, or 0 if ``keys`` was already counted.
+
+        """
+        if not self._key_is_new(self.keys, seen_keys):
+            return 0
+        return int(self.dim)
 
     def dist_to_encoder(self) -> "VonMisesFisherDataEncoder":
         """Create an encoder for directional vectors."""

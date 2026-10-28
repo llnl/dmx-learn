@@ -5,7 +5,7 @@ Scalar methods accept one real observation, while sequence methods consume the
 one-dimensional array produced by ``ExponentialDataEncoder``.
 """
 
-from typing import Any, Dict, List, Optional, Tuple, Union
+from typing import Any, Dict, List, Optional, Set, Tuple, Union
 
 import numpy as np
 
@@ -131,6 +131,22 @@ class ExponentialDistribution(SequenceEncodableProbabilityDistribution):
             name=self.name,
             keys=self.keys,
         )
+
+    def _num_params(self, seen_keys: Set[str]) -> int:
+        """Count free parameters for ``num_params()``.
+
+        The rate parameter ``beta`` is the only free parameter.
+
+        Args:
+            seen_keys (Set[str]): Keys whose parameters were already counted.
+
+        Returns:
+            int: Number of free parameters, or 0 if ``keys`` was already counted.
+
+        """
+        if not self._key_is_new(self.keys, seen_keys):
+            return 0
+        return 1
 
     def dist_to_encoder(self) -> "ExponentialDataEncoder":
         """Return an ExponentialDataEncoder for this distribution.

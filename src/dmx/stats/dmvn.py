@@ -14,7 +14,7 @@ Scalar methods accept one vector with shape ``(D,)``. Sequence methods consume
 the ``(N, D)`` matrix produced by ``DiagonalGaussianDataEncoder``.
 """
 
-from typing import Any, Dict, List, Optional, Sequence, Tuple, Union
+from typing import Any, Dict, List, Optional, Sequence, Set, Tuple, Union
 
 import numpy as np
 from numpy.random import RandomState
@@ -169,6 +169,28 @@ class DiagonalGaussianDistribution(SequenceEncodableProbabilityDistribution):
             name=self.name,
             keys=self.keys,
         )
+
+    def _num_params(self, seen_keys: Set[str]) -> int:
+        """Count free parameters for ``num_params()``.
+
+        Returns ``2 * dim``: ``dim`` means and ``dim`` variances. ``keys[0]``
+        ties the means and ``keys[1]`` ties the variances, so each block is
+        counted only at the first occurrence of its key.
+
+        Args:
+            seen_keys (Set[str]): Keys whose parameters were already counted.
+
+        Returns:
+            int: Number of free parameters not already counted.
+
+        """
+        mean_key, cov_key = self.keys
+        rv = 0
+        if self._key_is_new(mean_key, seen_keys):
+            rv += int(self.dim)
+        if self._key_is_new(cov_key, seen_keys):
+            rv += int(self.dim)
+        return rv
 
     def dist_to_encoder(self) -> "DiagonalGaussianDataEncoder":
         """Return a DiagonalGaussianDataEncoder for this distribution.

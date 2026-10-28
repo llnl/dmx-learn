@@ -253,6 +253,9 @@ class HiddenAssociationDistributionTestCase(StatsTestClass):
         self.factory_acc = [(f, a) for f, a in zip(self._factories, self._accumulators)]
         self.acc_encoder = [(a, e) for a, e in zip(self._accumulators, self._encoders)]
         self.type_check_keys = [None, "keys", (None, None, None), (1, "keys")]
+        # 3 Categorical(3) cond children: 3*2 = 6; given Multinomial(Categorical(3),
+        # point-mass len) = 2; point-mass len_dist = 0. keys are compatibility-only.
+        self.num_params_cases = [(d, 8) for d in self.eval_dists[:4]]
 
     def test_key_exceptions(self) -> None:
         est_map = cast(

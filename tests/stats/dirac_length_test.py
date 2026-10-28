@@ -62,6 +62,10 @@ def posterior_test(
 class DiracMixtureDistributionTestCase(StatsTestClass):
 
     def setUp(self) -> None:
+        # Point-mass weight p (1) + Poisson (1); the location v is fixed.
+        self.num_params_cases = [
+            (DiracMixtureDistribution(PoissonDistribution(2.0), p=0.3, v=0), 2),
+        ]
         self._base_dists = [
             BinomialDistribution(p=0.9, n=5),
             CategoricalDistribution({3: 0.1, 4: 0.8, 5: 0.1}),

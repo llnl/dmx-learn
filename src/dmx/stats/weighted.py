@@ -9,7 +9,7 @@ Likelihood evals are equivalent to normal likelihood calls to the base distribut
 
 """
 
-from typing import Any, Dict, Optional, Sequence, Tuple, TypeVar
+from typing import Any, Dict, Optional, Sequence, Set, Tuple, TypeVar
 
 import numpy as np
 
@@ -98,6 +98,12 @@ class WeightedDistribution(SequenceEncodableProbabilityDistribution):
             )
 
         return np.asarray(self.dist.seq_log_density(x.data[0]) * x.data[1])
+
+    def _num_params(self, seen_keys: Set[str]) -> int:
+        """Count the parameters of the weighted distribution."""
+        if not self._key_is_new(self.keys, seen_keys):
+            return 0
+        return self._child_num_params(self.dist, seen_keys)
 
     def dist_to_encoder(self) -> "WeightedDataEncoder":
         """Create an encoder for child values and embedded weights."""

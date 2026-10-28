@@ -61,6 +61,16 @@ def posterior_test(dist: Any, encoder: Any) -> tuple[bool, str]:
 class GaussianMixtureDistributionTestCase(StatsTestClass):
 
     def setUp(self) -> None:
+        # K=3: 2 weights + 3 means + 3 variances (or 1 tied variance).
+        self.num_params_cases = [
+            (
+                GaussianMixtureDistribution(
+                    [0.0, 1.0, 2.0], [1.0, 1.0, 1.0], [0.2, 0.3, 0.5]
+                ),
+                8,
+            ),
+            (GaussianMixtureDistribution([0.0, 1.0, 2.0], 1.0, [0.2, 0.3, 0.5]), 6),
+        ]
         mu = [
             [0.0, 5.0, 10.0],
             [-10.0, 20.0],

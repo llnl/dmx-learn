@@ -5,7 +5,7 @@ one positive real observation, while sequence methods consume values and their
 logarithms as produced by ``GammaDataEncoder``.
 """
 
-from typing import Any, Dict, List, Optional, Tuple, Union
+from typing import Any, Dict, List, Optional, Set, Tuple, Union
 
 import numpy as np
 from numpy.random import RandomState
@@ -140,6 +140,22 @@ class GammaDistribution(SequenceEncodableProbabilityDistribution):
             name=self.name,
             keys=self.keys,
         )
+
+    def _num_params(self, seen_keys: Set[str]) -> int:
+        """Count free parameters for ``num_params()``.
+
+        Returns 2 for the shape ``k`` and scale ``theta``.
+
+        Args:
+            seen_keys (Set[str]): Keys whose parameters were already counted.
+
+        Returns:
+            int: Number of free parameters, or 0 if ``keys`` was already counted.
+
+        """
+        if not self._key_is_new(self.keys, seen_keys):
+            return 0
+        return 2
 
     def dist_to_encoder(self) -> "GammaDataEncoder":
         """Return a GammaDataEncoder for this distribution.

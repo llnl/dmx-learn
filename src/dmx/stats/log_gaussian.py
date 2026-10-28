@@ -6,7 +6,7 @@ The remaining classes implement the sampler, sufficient statistics, maximum-
 likelihood estimator, and sequence encoding used by :mod:`dmx.stats`.
 """
 
-from typing import Any, Callable, Dict, List, Optional, Tuple, Union
+from typing import Any, Callable, Dict, List, Optional, Set, Tuple, Union
 
 import numpy as np
 from numpy.random import RandomState
@@ -142,6 +142,22 @@ class LogGaussianDistribution(SequenceEncodableProbabilityDistribution):
                 keys=self.keys,
             )
         return LogGaussianEstimator(name=self.name, keys=self.keys)
+
+    def _num_params(self, seen_keys: Set[str]) -> int:
+        """Count free parameters for ``num_params()``.
+
+        Returns 2 for the log-scale mean ``mu`` and variance ``sigma2``.
+
+        Args:
+            seen_keys (Set[str]): Keys whose parameters were already counted.
+
+        Returns:
+            int: Number of free parameters, or 0 if ``keys`` was already counted.
+
+        """
+        if not self._key_is_new(self.keys, seen_keys):
+            return 0
+        return 2
 
     def dist_to_encoder(self) -> "LogGaussianDataEncoder":
         """Create an encoder for positive scalar observations."""

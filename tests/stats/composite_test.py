@@ -17,6 +17,41 @@ from tests.stats.stats_tests import *
 class CompositeDistributionTestCase(StatsTestClass):
 
     def setUp(self) -> None:
+        # Gaussian (2) + categorical over 3 values (2) + Poisson (1).
+        self.num_params_cases = [
+            (
+                CompositeDistribution(
+                    [
+                        GaussianDistribution(0.0, 1.0),
+                        CategoricalDistribution({"a": 0.2, "b": 0.3, "c": 0.5}),
+                        PoissonDistribution(2.0),
+                    ]
+                ),
+                5,
+            ),
+            # Keyed composites tie the whole subtree, so the second adds 0.
+            (
+                CompositeDistribution(
+                    [
+                        CompositeDistribution(
+                            [
+                                GaussianDistribution(0.0, 1.0),
+                                GaussianDistribution(0.0, 1.0),
+                            ],
+                            keys="c",
+                        ),
+                        CompositeDistribution(
+                            [
+                                GaussianDistribution(0.0, 1.0),
+                                GaussianDistribution(0.0, 1.0),
+                            ],
+                            keys="c",
+                        ),
+                    ]
+                ),
+                4,
+            ),
+        ]
 
         self._dists = [
             CategoricalDistribution(pmap={"a": 0.1, "b": 0.3, "c": 0.6}, name="cat"),

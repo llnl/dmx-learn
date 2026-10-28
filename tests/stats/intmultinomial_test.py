@@ -16,6 +16,16 @@ from tests.stats.stats_tests import *
 
 class IntMultinomialDistributionTestCase(StatsTestClass):
     def setUp(self) -> None:
+        # 4 values (3) + Poisson length (1); min_val is support, not a parameter.
+        self.num_params_cases = [
+            (
+                IntegerMultinomialDistribution(
+                    2, [0.1, 0.2, 0.3, 0.4], len_dist=PoissonDistribution(2.0)
+                ),
+                4,
+            ),
+            (IntegerMultinomialDistribution(0, [0.5, 0.5]), 1),
+        ]
 
         self._len_dists = [
             CategoricalDistribution({5: 0.5, 6: 0.5}),

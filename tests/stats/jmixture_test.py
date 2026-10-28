@@ -17,6 +17,20 @@ from tests.stats.stats_tests import *
 class JointMixtureDistributionTestCase(StatsTestClass):
 
     def setUp(self) -> None:
+        # Joint 2 x 3 table (5) + 2 Gaussians (4) + 3 exponentials (3).
+        self.num_params_cases = [
+            (
+                JointMixtureDistribution(
+                    [GaussianDistribution(0.0, 1.0), GaussianDistribution(0.0, 1.0)],
+                    [ExponentialDistribution(1.0)] * 3,
+                    [0.5, 0.5],
+                    [0.3, 0.3, 0.4],
+                    [[0.2, 0.3, 0.5], [0.4, 0.3, 0.3]],
+                    [[0.3, 0.6], [0.5, 0.5], [0.6, 0.4]],
+                ),
+                12,
+            ),
+        ]
         self._comps0 = [
             [GaussianDistribution(mu=x, sigma2=1.0) for x in [0.0, 5.0, 10.0, 15.0]],
             [GaussianDistribution(mu=x, sigma2=1.0) for x in [0.0, 5.0]],

@@ -15,7 +15,7 @@ P_given(X0).
 """
 
 import math
-from typing import Any, Dict, List, Optional, Tuple, TypeVar, Union
+from typing import Any, Dict, List, Optional, Set, Tuple, TypeVar, Union
 
 import numpy as np
 from numpy.random import RandomState
@@ -234,6 +234,14 @@ class ConditionalDistribution(SequenceEncodableProbabilityDistribution):
             name=self.name,
             keys=self.keys,
         )
+
+    def _num_params(self, seen_keys: Set[str]) -> int:
+        """Sum the conditional, default, and given distribution parameters."""
+        if not self._key_is_new(self.keys, seen_keys):
+            return 0
+        rv = sum(self._child_num_params(d, seen_keys) for d in self.dmap.values())
+        rv += self._child_num_params(self.default_dist, seen_keys)
+        return rv + self._child_num_params(self.given_dist, seen_keys)
 
     def dist_to_encoder(self) -> "ConditionalDistributionDataEncoder":
         """Return a ConditionalDistributionDataEncoder for this distribution.

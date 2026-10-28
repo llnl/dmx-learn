@@ -35,7 +35,7 @@ Unlike ``ss_mixture``, observations do not carry component-label priors.
 """
 
 from math import exp
-from typing import Any, Dict, List, Optional, Sequence, Tuple, TypeVar, Union
+from typing import Any, Dict, List, Optional, Sequence, Set, Tuple, TypeVar, Union
 
 import numpy as np
 from numpy.random import RandomState
@@ -342,6 +342,19 @@ class HeterogeneousMixtureDistribution(SequenceEncodableProbabilityDistribution)
         return HeterogeneousMixtureEstimator(
             [u.estimator() for u in self.components], name=self.name, keys=self.keys
         )
+
+    def _num_params(self, seen_keys: Set[str]) -> int:
+        """Count ``K - 1`` weights plus the component parameters.
+
+        ``keys[0]`` ties the weights and ``keys[1]`` ties all components.
+        """
+        weight_key, comp_key = self.keys
+        rv = 0
+        if self._key_is_new(weight_key, seen_keys):
+            rv += len(self.w) - 1
+        if self._key_is_new(comp_key, seen_keys):
+            rv += sum(self._child_num_params(c, seen_keys) for c in self.components)
+        return rv
 
     def dist_to_encoder(self) -> "HeterogeneousMixtureDataEncoder":
         """Return a HeterogeneousMixtureDataEncoder for this distribution.

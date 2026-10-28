@@ -34,7 +34,7 @@ focused review to the notation and indexing in this module's documentation.
 """
 
 import math
-from typing import Any, Dict, List, Optional, Sequence, Tuple, TypeVar, Union, cast
+from typing import Any, Dict, List, Optional, Sequence, Set, Tuple, TypeVar, Union, cast
 
 import numba
 import numpy as np
@@ -316,6 +316,20 @@ class LookbackHiddenMarkovDistribution(SequenceEncodableProbabilityDistribution)
         return LookbackHiddenMarkovEstimator(
             comp_ests, pseudo_count=(pseudo_count, pseudo_count), len_estimator=len_est
         )
+
+    def _num_params(self, seen_keys: Set[str]) -> int:
+        """Count free parameters.
+
+        The count is ``(S - 1) + S * (S - 1)`` for the initial-state and
+        transition probabilities, plus the window emission distributions, the
+        initial-block distributions, and ``len_dist``.
+        """
+        s = self.num_states
+        rv = (s - 1) + s * (s - 1)
+        rv += sum(self._child_num_params(u, seen_keys) for u in self.topics)
+        rv += sum(self._child_num_params(u, seen_keys) for u in self.init_dist)
+        rv += self._child_num_params(self.len_dist, seen_keys)
+        return int(rv)
 
     def dist_to_encoder(self) -> "LookbackHiddenMarkovDataEncoder":
         """Return the encoder matching this distribution's sequence layout."""

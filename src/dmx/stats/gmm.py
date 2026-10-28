@@ -13,7 +13,7 @@ components, this implementation can estimate one variance shared across componen
 while retaining component-specific means.
 """
 
-from typing import Any, Dict, List, Optional, Sequence, Tuple, Union
+from typing import Any, Dict, List, Optional, Sequence, Set, Tuple, Union
 
 import numpy as np
 from numpy.random import RandomState
@@ -321,6 +321,19 @@ class GaussianMixtureDistribution(SequenceEncodableProbabilityDistribution):
             name=self.name,
             keys=self.keys,
         )
+
+    def _num_params(self, seen_keys: Set[str]) -> int:
+        """Count ``K - 1`` weights, ``K`` means, and ``K`` or 1 tied variances.
+
+        ``keys[0]`` ties the weights and ``keys[1]`` ties means and variances.
+        """
+        weight_key, comp_key = self.keys
+        rv = 0
+        if self._key_is_new(weight_key, seen_keys):
+            rv += self.num_components - 1
+        if self._key_is_new(comp_key, seen_keys):
+            rv += self.num_components + (1 if self._tied else self.num_components)
+        return rv
 
     def dist_to_encoder(self) -> "GaussianMixtureDataEncoder":
         """Return a GaussianMixtureDataEncoder for this distribution.

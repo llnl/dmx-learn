@@ -15,6 +15,11 @@ from tests.stats.stats_tests import *
 
 class OptionalDistributionTestCase(StatsTestClass):
     def setUp(self) -> None:
+        # Gaussian (2), plus 1 for p when missingness is modeled.
+        self.num_params_cases = [
+            (OptionalDistribution(GaussianDistribution(0.0, 1.0), p=0.1), 3),
+            (OptionalDistribution(GaussianDistribution(0.0, 1.0)), 2),
+        ]
         self._base_dist = PoissonDistribution(lam=3.0)
         self._base_acc = PoissonAccumulator()
         self._base_fac = PoissonAccumulatorFactory()

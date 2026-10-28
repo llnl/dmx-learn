@@ -54,6 +54,12 @@ class BernoulliSetDistributionTestCase(StatsTestClass):
         self.type_check_keys = [(None, None), 1.0, ("keys", None)]
 
         self._init_ests: list[Any] = []
+        self.num_params_cases = [
+            (
+                BernoulliSetDistribution(pmap={"a": 0.3, "b": 0.50, "c": 0.20}),
+                3,
+            ),  # 3 Bernoullis
+        ]
 
     def test_seq_log_density_type(self) -> None:
         for x in self.type_check_data:

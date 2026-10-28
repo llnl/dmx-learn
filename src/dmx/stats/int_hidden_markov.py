@@ -357,6 +357,27 @@ class IntegerHiddenMarkovModelDistribution(SequenceEncodableProbabilityDistribut
             keys=self.keys,
         )
 
+    def _num_params(self, seen_keys: Set[str]) -> int:
+        """Count free parameters.
+
+        The count is ``(S - 1) + S * (S - 1) + S * (W - 1)`` for the initial-state,
+        transition, and emission probabilities, plus ``len_dist``. ``keys`` ties
+        the initial, transition, and emission blocks separately.
+        """
+        init_key, trans_key, state_key = (
+            self.keys if self.keys is not None else (None, None, None)
+        )
+        s = self.n_states
+        rv = 0
+        if self._key_is_new(init_key, seen_keys):
+            rv += s - 1
+        if self._key_is_new(trans_key, seen_keys):
+            rv += s * (s - 1)
+        if self._key_is_new(state_key, seen_keys):
+            rv += s * (self.n_words - 1)
+        rv += self._child_num_params(self.len_dist, seen_keys)
+        return int(rv)
+
     def dist_to_encoder(self) -> "IntegerHiddenMarkovDataEncoder":
         """Create an encoder for batches of integer observation sequences."""
         len_encoder = self.len_dist.dist_to_encoder()

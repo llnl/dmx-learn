@@ -23,6 +23,7 @@ from typing import (
     List,
     Optional,
     Sequence,
+    Set,
     Tuple,
     TypeVar,
     Union,
@@ -237,6 +238,18 @@ class LDADistribution(SequenceEncodableProbabilityDistribution):
             name=self.name,
             keys=self.keys,
         )
+
+    def _num_params(self, seen_keys: Set[str]) -> int:
+        """Count ``n_topics`` alpha entries plus the topic parameters.
+
+        ``len_dist`` is only used for sampling and is never estimated, so it
+        contributes nothing.
+        """
+        alpha_key, topics_key = self.keys
+        rv = self.n_topics if self._key_is_new(alpha_key, seen_keys) else 0
+        if self._key_is_new(topics_key, seen_keys):
+            rv += sum(self._child_num_params(d, seen_keys) for d in self.topics)
+        return rv
 
     def dist_to_encoder(self) -> "LDADataEncoder":
         """Create a document encoder using the first topic's value encoder."""

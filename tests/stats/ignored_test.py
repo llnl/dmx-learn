@@ -16,6 +16,10 @@ from tests.stats.stats_tests import *
 class IgnoredDistributionTestCase(StatsTestClass):
 
     def setUp(self) -> None:
+        # The wrapped distribution is held fixed, so nothing is estimated.
+        self.num_params_cases = [
+            (IgnoredDistribution(GaussianDistribution(0.0, 1.0)), 0)
+        ]
         self._dists = [
             GaussianDistribution(mu=1.0, sigma2=1.0),
             GeometricDistribution(p=0.30),

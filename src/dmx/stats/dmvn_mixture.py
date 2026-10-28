@@ -14,7 +14,7 @@ The public classes cover distribution evaluation, posterior responsibilities,
 sampling, sufficient-statistic accumulation, estimation, and sequence encoding.
 """
 
-from typing import Any, Dict, List, Optional, Sequence, Tuple, Union
+from typing import Any, Dict, List, Optional, Sequence, Set, Tuple, Union
 
 import numba
 import numpy as np
@@ -344,6 +344,21 @@ class DiagonalGaussianMixtureDistribution(SequenceEncodableProbabilityDistributi
             name=self.name,
             keys=self.keys,
         )
+
+    def _num_params(self, seen_keys: Set[str]) -> int:
+        """Count ``K - 1`` weights, ``K * d`` means, and the variances.
+
+        The variances contribute ``K * d``, or ``d`` when tied. ``keys[0]`` ties
+        the weights and ``keys[1]`` ties means and variances.
+        """
+        weight_key, comp_key = self.keys
+        rv = 0
+        if self._key_is_new(weight_key, seen_keys):
+            rv += self.num_components - 1
+        if self._key_is_new(comp_key, seen_keys):
+            num_covar = self.dim if self.tied else self.num_components * self.dim
+            rv += self.num_components * self.dim + num_covar
+        return int(rv)
 
     def dist_to_encoder(self) -> "DiagonalGaussianMixtureDataEncoder":
         """Return a DiagonalGaussianMixtureDataEncoder for this distribution.

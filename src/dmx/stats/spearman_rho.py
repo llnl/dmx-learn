@@ -10,7 +10,7 @@ present; it is a ranking-center estimator, not a general correlation fit.
 """
 
 import itertools
-from typing import Any, Dict, List, Optional, Sequence, Tuple, Union
+from typing import Any, Dict, List, Optional, Sequence, Set, Tuple, Union
 
 import numpy as np
 from numpy.random import RandomState
@@ -106,6 +106,25 @@ class SpearmanRankingDistribution(SequenceEncodableProbabilityDistribution):
         return SpearmanRankingEstimator(
             self.dim, pseudo_count=pseudo_count, name=self.name, keys=self.keys
         )
+
+    def _num_params(self, seen_keys: Set[str]) -> int:
+        """Count free parameters for ``num_params()``.
+
+        Returns ``dim - 1`` for the central ranking ``sigma``, which the
+        estimator takes from the mean-rank vector (``dim - 1`` free values,
+        since ranks sum to a constant). ``rho`` is fixed by the estimator and
+        is not counted.
+
+        Args:
+            seen_keys (Set[str]): Keys whose parameters were already counted.
+
+        Returns:
+            int: Number of free parameters, or 0 if ``keys`` was already counted.
+
+        """
+        if not self._key_is_new(self.keys, seen_keys):
+            return 0
+        return int(self.dim) - 1
 
     def dist_to_encoder(self) -> "SpearmanRankingDataEncoder":
         """Return the encoder for complete-ranking batches."""

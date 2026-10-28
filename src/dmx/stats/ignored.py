@@ -9,7 +9,7 @@ as fixed.
 
 """
 
-from typing import Any, Dict, Optional, Sequence, TypeVar
+from typing import Any, Dict, Optional, Sequence, Set, TypeVar
 
 import numpy as np
 from numpy.random import RandomState
@@ -125,6 +125,10 @@ class IgnoredDistribution(SequenceEncodableProbabilityDistribution):
     def estimator(self, pseudo_count: Optional[float] = None) -> "IgnoredEstimator":
         """Create an estimator that preserves, rather than fits, the child."""
         return IgnoredEstimator(dist=self.dist, name=self.name, keys=self.keys)
+
+    def _num_params(self, seen_keys: Set[str]) -> int:
+        """Return 0; the wrapped distribution is held fixed during estimation."""
+        return 0
 
     def dist_to_encoder(self) -> "IgnoredDataEncoder":
         """Wrap the child's sequence encoder."""

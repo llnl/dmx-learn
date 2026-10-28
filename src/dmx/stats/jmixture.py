@@ -11,7 +11,7 @@ variable-length sequence. Unlike :mod:`heterogeneous_mixture`, each view has its
 component bank. Unlike :mod:`ss_mixture`, neither tuple entry is a label prior.
 """
 
-from typing import Any, Dict, List, Optional, Sequence, Tuple, TypeVar, Union
+from typing import Any, Dict, List, Optional, Sequence, Set, Tuple, TypeVar, Union
 
 import numpy as np
 from numpy.random import RandomState
@@ -230,6 +230,23 @@ class JointMixtureDistribution(SequenceEncodableProbabilityDistribution):
             keys=self.keys,
             name=self.name,
         )
+
+    def _num_params(self, seen_keys: Set[str]) -> int:
+        """Count the joint latent table plus both component banks.
+
+        The weights and conditional matrices are all derived from one
+        ``K1 x K2`` joint table, which contributes ``K1 * K2 - 1``. ``keys[0]``
+        ties that table and ``keys[1]`` and ``keys[2]`` tie the two banks.
+        """
+        weight_key, comp_key1, comp_key2 = self.keys
+        rv = 0
+        if self._key_is_new(weight_key, seen_keys):
+            rv += self.num_components1 * self.num_components2 - 1
+        if self._key_is_new(comp_key1, seen_keys):
+            rv += sum(self._child_num_params(c, seen_keys) for c in self.components1)
+        if self._key_is_new(comp_key2, seen_keys):
+            rv += sum(self._child_num_params(c, seen_keys) for c in self.components2)
+        return rv
 
     def dist_to_encoder(self) -> "DataSequenceEncoder":
         """Return an encoder that separates the two observed views."""

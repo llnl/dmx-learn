@@ -19,7 +19,7 @@ weighted pairs to the conditional-distribution accumulator.
 """
 
 import math
-from typing import Any, Dict, List, Optional, Sequence, Tuple, TypeVar, Union, cast
+from typing import Any, Dict, List, Optional, Sequence, Set, Tuple, TypeVar, Union, cast
 
 import numpy as np
 
@@ -179,6 +179,18 @@ class HiddenAssociationDistribution(SequenceEncodableProbabilityDistribution):
             len_estimator=self.len_dist.estimator(),
             name=self.name,
             keys=self.keys,
+        )
+
+    def _num_params(self, seen_keys: Set[str]) -> int:
+        """Count the ``cond_dist``, ``given_dist``, and ``len_dist`` parameters.
+
+        This distribution's own ``keys`` are compatibility-only and do not tie
+        any statistics, so only keys inside the children are deduplicated.
+        """
+        return (
+            self._child_num_params(self.cond_dist, seen_keys)
+            + self._child_num_params(self.given_dist, seen_keys)
+            + self._child_num_params(self.len_dist, seen_keys)
         )
 
     def dist_to_encoder(self) -> "HiddenAssociationDataEncoder":

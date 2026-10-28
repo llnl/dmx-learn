@@ -63,6 +63,68 @@ def posterior_test(dist: Any, encoder: Any) -> tuple[bool, str]:
 class MixtureDistributionTestCase(StatsTestClass):
 
     def setUp(self) -> None:
+        # 3 components: 2 weights + 3 * 2 Gaussian parameters.
+        self.num_params_cases = [
+            (
+                MixtureDistribution(
+                    [
+                        GaussianDistribution(0.0, 1.0),
+                        GaussianDistribution(0.0, 1.0),
+                        GaussianDistribution(0.0, 1.0),
+                    ],
+                    [0.2, 0.3, 0.5],
+                ),
+                8,
+            ),
+            # Shared weight and component keys across two mixtures: 1 + 2 * 2.
+            (
+                CompositeDistribution(
+                    [
+                        MixtureDistribution(
+                            [
+                                GaussianDistribution(0.0, 1.0),
+                                GaussianDistribution(0.0, 1.0),
+                            ],
+                            [0.5, 0.5],
+                            keys=("w", "c"),
+                        ),
+                        MixtureDistribution(
+                            [
+                                GaussianDistribution(0.0, 1.0),
+                                GaussianDistribution(0.0, 1.0),
+                            ],
+                            [0.4, 0.6],
+                            keys=("w", "c"),
+                        ),
+                    ]
+                ),
+                5,
+            ),
+            # Only the components are shared: 2 * 1 weights + 2 * 2 components.
+            (
+                CompositeDistribution(
+                    [
+                        MixtureDistribution(
+                            [
+                                GaussianDistribution(0.0, 1.0),
+                                GaussianDistribution(0.0, 1.0),
+                            ],
+                            [0.5, 0.5],
+                            keys=(None, "c"),
+                        ),
+                        MixtureDistribution(
+                            [
+                                GaussianDistribution(0.0, 1.0),
+                                GaussianDistribution(0.0, 1.0),
+                            ],
+                            [0.4, 0.6],
+                            keys=(None, "c"),
+                        ),
+                    ]
+                ),
+                6,
+            ),
+        ]
 
         self._comps = [
             [

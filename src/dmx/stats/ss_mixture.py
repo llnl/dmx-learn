@@ -14,7 +14,7 @@ item-level variables. Unlike :mod:`jmixture`, the second tuple entry is supervis
 not a second modeled view.
 """
 
-from typing import Any, Dict, List, Optional, Sequence, Tuple, TypeVar, Union
+from typing import Any, Dict, List, Optional, Sequence, Set, Tuple, TypeVar, Union
 
 import numpy as np
 from numpy.random import RandomState
@@ -269,6 +269,12 @@ class SemiSupervisedMixtureDistribution(SequenceEncodableProbabilityDistribution
         return SemiSupervisedMixtureEstimator(
             [u.estimator() for u in self.components], name=self.name
         )
+
+    def _num_params(self, seen_keys: Set[str]) -> int:
+        """Count ``K - 1`` weights plus the component parameters."""
+        rv = len(self.w) - 1
+        rv += sum(self._child_num_params(c, seen_keys) for c in self.components)
+        return rv
 
     def dist_to_encoder(self) -> "SemiSupervisedMixtureDataEncoder":
         """Return an encoder for data and sparse label priors."""
