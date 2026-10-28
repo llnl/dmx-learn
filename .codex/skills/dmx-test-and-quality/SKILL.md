@@ -98,5 +98,6 @@ TEST_TORCH_DEVICE=cpu poetry run pytest tests/bstats/ tests/stats/ tests/torch_s
 2. Run the matching formatter, import-sort, and type checks on changed paths.
 3. Before finishing a substantial Python change, run the CI-equivalent test command plus any affected lint or docstring checks.
 4. If optional dependencies are involved, keep CI's install shape in mind:
-   - tests use `poetry install --no-interaction --extras ci --with dev`
-   - mypy and pylint use `poetry install --no-interaction --extras "ci optional" --with dev`
+   - tests run twice, once with `poetry install --no-interaction --extras ci --with dev` and once with `--extras "ci spark"`
+   - mypy and pylint use `poetry install --no-interaction --extras "ci optional spark" --with dev`
+5. Every folder under `examples/` needs an `__init__.py`. `pylint examples` only descends into packages, so a new example folder without one is silently skipped.
