@@ -48,3 +48,16 @@ All notable changes to dmx-learn are recorded here.
   0. Custom distributions implement the `_num_params(seen_keys)` hook; the base
   class raises `NotImplementedError` until they do. Existing behavior is
   unchanged.
+- `num_params()` on every `dmx.bstats` distribution, using the same rules and
+  `_num_params(seen_keys)` hook as `dmx.stats`. A likelihood counts the
+  parameters its estimator fits; its attached prior is fixed metadata and is
+  not counted. Distributions used as priors (Beta, Gamma, Dirichlet,
+  NormalGamma, and others) count their own hyperparameters. Keys on Bernoulli,
+  geometric, Poisson, optional, and composite distributions are counted once.
+- `DirichletProcessMixtureDistribution.num_params()` counts the full
+  truncation (`K - 1` weights plus all `K` components; the concentration is not
+  counted). New `effective_num_components(min_weight)` and
+  `effective_num_params(min_weight)` count only the components with
+  `w >= min_weight`. With `min_weight = mix_threshold_count / len(data)` they
+  match the components `get_dpm_mixture` keeps and the `num_params()` of the
+  mixture it returns. `get_dpm_mixture` itself is unchanged.

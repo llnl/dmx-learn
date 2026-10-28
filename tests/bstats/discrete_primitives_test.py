@@ -48,6 +48,8 @@ class TestCategoricalDistribution(BayesianDistributionTests):
         distribution_factory=_categorical,
         observations=("red", "blue", "blue", "red"),
         alternate_prior_factory=_categorical_prior,
+        # 2 categories: 2 - 1.
+        num_params=1,
     )
 
 
@@ -73,6 +75,8 @@ class TestIntegerCategoricalDistribution(BayesianDistributionTests):
         distribution_factory=_integer_categorical,
         observations=(-1, 0, 1, 0),
         alternate_prior_factory=_integer_prior,
+        # 3 integer values: 3 - 1.
+        num_params=2,
     )
 
 
@@ -98,6 +102,8 @@ class TestPoissonDistribution(BayesianDistributionTests):
         distribution_factory=_poisson,
         observations=(0, 1, 3, 5),
         alternate_prior_factory=_gamma_prior,
+        # Rate.
+        num_params=1,
     )
 
 
@@ -123,6 +129,8 @@ class TestGeometricDistribution(BayesianDistributionTests):
         distribution_factory=_geometric,
         observations=(1, 2, 4, 3),
         alternate_prior_factory=_beta_prior,
+        # Success probability.
+        num_params=1,
     )
 
 

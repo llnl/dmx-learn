@@ -196,6 +196,13 @@ class MultivariateNormalGammaDistribution(
         """Create a joint sampler using an optional deterministic seed."""
         return MultivariateNormalGammaSampler(self, seed)
 
+    def _num_params(self, seen_keys: set[str]) -> int:
+        """Count every entry of ``mu``, ``lam``, ``a``, and ``b``."""
+        del seen_keys
+        return int(
+            np.size(self.mu) + np.size(self.lam) + np.size(self.a) + np.size(self.b)
+        )
+
 
 class MultivariateNormalGammaSampler(DistributionSampler[MultivariateNormalGammaDatum]):
     """Draw vector locations and precisions from normal-gamma factors."""

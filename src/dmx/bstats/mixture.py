@@ -285,6 +285,11 @@ class MixtureDistribution(ProbabilityDistribution[Any, MixtureParameters, Any]):
         """Create the common component encoder."""
         return MixtureDataEncoder(self.components[0].dist_to_encoder())
 
+    def _num_params(self, seen_keys: set[str]) -> int:
+        """Count ``K - 1`` weights plus the component parameters."""
+        rv = self.num_components - 1
+        return rv + sum(self._child_num_params(c, seen_keys) for c in self.components)
+
 
 class MixtureSampler(DistributionSampler[Any]):
     """Draw observations after sampling an ordered component index."""

@@ -186,6 +186,12 @@ class GeometricDistribution(ProbabilityDistribution[int, float, GeometricEncoded
         """Create the geometric sequence encoder."""
         return GeometricDataEncoder()
 
+    def _num_params(self, seen_keys: set[str]) -> int:
+        """Count the success probability."""
+        if not self._key_is_new(self.keys, seen_keys):
+            return 0
+        return 1
+
 
 class GeometricSampler(DistributionSampler[int]):
     """Draw independent positive integer geometric observations."""

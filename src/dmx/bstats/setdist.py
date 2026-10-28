@@ -149,6 +149,11 @@ class BernoulliSetDistribution(
         """Create the set-like sequence encoder."""
         return BernoulliSetDataEncoder()
 
+    def _num_params(self, seen_keys: set[str]) -> int:
+        """Count one Bernoulli probability per label."""
+        del seen_keys
+        return len(self.pmap)
+
 
 class BernoulliSetSampler(DistributionSampler[Iterable[Label]]):
     """Sample included labels in probability-map insertion order."""

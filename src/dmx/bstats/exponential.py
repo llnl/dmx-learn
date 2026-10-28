@@ -139,6 +139,11 @@ class ExponentialDistribution(ProbabilityDistribution[float, float, Array]):
         """Create the exponential sequence encoder."""
         return ExponentialDataEncoder()
 
+    def _num_params(self, seen_keys: set[str]) -> int:
+        """Count the rate."""
+        del seen_keys
+        return 1
+
 
 class ExponentialSampler(DistributionSampler[float]):
     """Draw independent exponential observations."""

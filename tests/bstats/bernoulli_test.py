@@ -30,4 +30,6 @@ class TestBernoulliDistribution(BayesianDistributionTests):
         distribution_factory=_make_distribution,
         observations=(True, False, True, True),
         alternate_prior_factory=_make_alternate_prior,
+        # Success probability.
+        num_params=1,
     )

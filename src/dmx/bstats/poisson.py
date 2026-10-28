@@ -198,6 +198,12 @@ class PoissonDistribution(ProbabilityDistribution[int, float, PoissonEncoded]):
         """Create the Poisson sequence encoder."""
         return PoissonDataEncoder()
 
+    def _num_params(self, seen_keys: set[str]) -> int:
+        """Count the rate."""
+        if not self._key_is_new(self.keys, seen_keys):
+            return 0
+        return 1
+
 
 class PoissonSampler(DistributionSampler[int]):
     """Draw independent nonnegative Poisson counts."""

@@ -225,6 +225,13 @@ class SequenceDistribution(
         )
         return SequenceDataEncoder(self.dist.dist_to_encoder(), length_encoder)
 
+    def _num_params(self, seen_keys: set[str]) -> int:
+        """Count the element distribution plus the length distribution."""
+        rv = self._child_num_params(self.dist, seen_keys)
+        if self.len_dist is not None:
+            rv += self._child_num_params(self.len_dist, seen_keys)
+        return rv
+
 
 class SequenceSampler(DistributionSampler[list[Any]]):
     """Draw a length followed by that many iid child observations."""

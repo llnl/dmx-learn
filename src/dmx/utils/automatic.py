@@ -643,6 +643,12 @@ def get_dpm_mixture(
     than ``mix_threshold_count / len(data)`` are removed. The optimizer and
     this function write progress and retained weights to standard output.
 
+    The retained components are those counted by
+    :meth:`~dmx.bstats.dpm.DirichletProcessMixtureDistribution.effective_num_components`
+    with ``min_weight = mix_threshold_count / len(data)``, and the returned
+    mixture's ``num_params()`` equals ``effective_num_params`` at that
+    threshold. Use those methods to score a fitted DPM without pruning it.
+
     Args:
         data: Nonempty observations to model.
         estimator: Component estimator. When absent, one is inferred from

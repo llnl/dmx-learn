@@ -292,6 +292,68 @@ class DirichletProcessMixtureDistribution(
             estimators, name=self.name, prior=self.prior
         )
 
+    def _num_params(self, seen_keys: set[str]) -> int:
+        """Count the full truncation: ``K - 1`` weights plus all ``K`` components.
+
+        The concentration ``a`` is a Dirichlet-process hyperparameter and is
+        not counted. Use :meth:`effective_num_params` to count only the
+        components that carry weight.
+        """
+        rv = self.max_components - 1
+        return rv + sum(self._child_num_params(c, seen_keys) for c in self.components)
+
+    def _effective_mask(self, min_weight: float) -> np.ndarray[Any, Any]:
+        """Return a boolean mask of components with ``w >= min_weight``."""
+        if not np.isfinite(min_weight) or min_weight < 0.0:
+            raise ValueError("min_weight must be finite and nonnegative.")
+        return np.asarray(self.w >= min_weight)
+
+    def effective_num_components(self, min_weight: float) -> int:
+        """Return the number of components with weight at least ``min_weight``.
+
+        A truncated DPM fit leaves most of its ``K`` components with negligible
+        weight; this counts the ones that remain in use. ``get_dpm_mixture``
+        keeps the components with ``w >= mix_threshold_count / len(data)``, so
+        ``effective_num_components(mix_threshold_count / len(data))`` equals the
+        number of components in the mixture it returns.
+
+        Args:
+            min_weight: Smallest predictive weight a component needs to count.
+
+        Returns:
+            Number of components whose weight is at least ``min_weight``.
+
+        Raises:
+            ValueError: If ``min_weight`` is negative or not finite.
+        """
+        return int(np.count_nonzero(self._effective_mask(min_weight)))
+
+    def effective_num_params(self, min_weight: float) -> int:
+        """Return the free parameters of the components with enough weight.
+
+        The count is ``K_eff - 1`` weights plus the parameters of the ``K_eff``
+        components with ``w >= min_weight``, which equals ``num_params()`` of
+        the pruned mixture ``get_dpm_mixture`` returns when
+        ``min_weight = mix_threshold_count / len(data)``. Keyed parameters are
+        counted once among the retained components.
+
+        Args:
+            min_weight: Smallest predictive weight a component needs to count.
+
+        Returns:
+            Number of free parameters in the retained components and weights.
+
+        Raises:
+            ValueError: If ``min_weight`` is negative or not finite.
+        """
+        mask = self._effective_mask(min_weight)
+        seen_keys: set[str] = set()
+        rv = max(int(np.count_nonzero(mask)) - 1, 0)
+        for component, keep in zip(self.components, mask):
+            if keep:
+                rv += self._child_num_params(component, seen_keys)
+        return rv
+
 
 class DirichletProcessMixtureSampler(DistributionSampler[Any]):
     """Sample component indices and observations from a truncated DPM."""

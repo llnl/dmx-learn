@@ -188,6 +188,11 @@ class GammaDistribution(ProbabilityDistribution[float, GammaParameters, GammaEnc
         """Create the legacy gamma maximum-likelihood estimator."""
         return GammaEstimator(name=self.name, prior=self.prior)
 
+    def _num_params(self, seen_keys: set[str]) -> int:
+        """Count the shape and scale."""
+        del seen_keys
+        return 2
+
 
 class GammaSampler(DistributionSampler[float]):
     """Draw independent values from a :class:`GammaDistribution`."""

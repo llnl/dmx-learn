@@ -189,6 +189,11 @@ class DictDirichletDistribution(
             raise ValueError("Sampling requires known dictionary keys.")
         return DictDirichletSampler(self, seed)
 
+    def _num_params(self, seen_keys: set[str]) -> int:
+        """Count one concentration per key, or 1 for a shared scalar."""
+        del seen_keys
+        return 1 if isinstance(self.alpha, float) else len(self.alpha)
+
 
 class DictDirichletSampler(DistributionSampler[Observation]):
     """Draw keyed simplex mappings from a dictionary Dirichlet prior."""

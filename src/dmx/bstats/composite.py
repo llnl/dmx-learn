@@ -202,6 +202,12 @@ class CompositeDistribution(
             tuple(dist.dist_to_encoder() for dist in self.dists)
         )
 
+    def _num_params(self, seen_keys: set[str]) -> int:
+        """Sum child parameters; a key on the composite ties the whole subtree."""
+        if not self._key_is_new(self.keys, seen_keys):
+            return 0
+        return sum(self._child_num_params(d, seen_keys) for d in self.dists)
+
 
 class CompositeSampler(DistributionSampler[Observation]):
     """Draw ordered tuples from the component distributions."""

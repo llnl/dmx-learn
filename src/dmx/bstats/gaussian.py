@@ -150,6 +150,11 @@ class GaussianDistribution(ProbabilityDistribution[float, GaussianParameters, Ar
         """Create the Gaussian sequence encoder."""
         return GaussianDataEncoder()
 
+    def _num_params(self, seen_keys: set[str]) -> int:
+        """Count the mean and variance."""
+        del seen_keys
+        return 2
+
 
 class GaussianSampler(DistributionSampler[float]):
     """Draw independent Gaussian observations."""

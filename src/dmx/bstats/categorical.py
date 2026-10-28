@@ -191,6 +191,11 @@ class CategoricalDistribution(
         """Create the categorical sequence encoder."""
         return CategoricalDataEncoder()
 
+    def _num_params(self, seen_keys: set[str]) -> int:
+        """Count ``K - 1`` probabilities; ``default_value`` is fixed."""
+        del seen_keys
+        return max(len(self.prob_map) - 1, 0)
+
 
 class CategoricalSampler(DistributionSampler[Key]):
     """Draw independent values from an explicit categorical support."""

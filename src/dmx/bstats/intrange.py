@@ -200,6 +200,11 @@ class IntegerCategoricalDistribution(
         """Create the integer categorical sequence encoder."""
         return IntegerCategoricalDataEncoder()
 
+    def _num_params(self, seen_keys: set[str]) -> int:
+        """Count ``num_vals - 1`` probabilities; the index range is support."""
+        del seen_keys
+        return max(self.num_vals - 1, 0)
+
 
 class IntegerCategoricalSampler(DistributionSampler[int]):
     """Draw independent integers from a contiguous categorical support."""
