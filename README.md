@@ -114,6 +114,8 @@ poetry install -E torch            # Include PyTorch support
 poetry install -E spark            # Include PySpark support
 poetry install -E optional         # Include MPI and UMAP support
 poetry install -E distributed      # Include PySpark and MPI support
+poetry install -E viz              # Include matplotlib plotting support
+poetry install -E agent            # Include the MCP agent SDK and plotting
 poetry install -E all              # Include all optional features
 
 # Or using dependency groups (for dev/docs)
@@ -138,6 +140,12 @@ pip install /path/to/dmx-learn[spark]
 # With MPI and UMAP support
 pip install /path/to/dmx-learn[optional]
 
+# With plotting support (matplotlib)
+pip install /path/to/dmx-learn[viz]
+
+# With the expert agent (MCP SDK, includes plotting)
+pip install /path/to/dmx-learn[agent]
+
 # With all optional features
 pip install /path/to/dmx-learn[all]
 ```
@@ -156,6 +164,8 @@ dmx-learn supports several optional dependency extras and groups:
 | **spark** | `pip install .[spark]` or `poetry install -E spark` | pyspark | Spark RDD estimation and sampling |
 | **optional** | `pip install .[optional]` or `poetry install -E optional` | mpi4py, umap-learn | MPI estimation and UMAP embeddings |
 | **distributed** | `pip install .[distributed]` or `poetry install -E distributed` | pyspark, mpi4py | Spark and MPI scale-out |
+| **viz** | `pip install .[viz]` or `poetry install -E viz` | matplotlib | Plotting helpers for explore results |
+| **agent** | `pip install .[agent]` or `poetry install -E agent` | mcp (official MCP Python SDK), matplotlib | The `dmx-mcp` expert agent server (in development) |
 | **all** | `pip install .[all]` or `poetry install -E all` | All above | Everything |
 
 > **Changed in 1.2:** pyspark is no longer a core dependency. Install the
@@ -406,7 +416,7 @@ poetry run make html
 
 - **Python**: >= 3.10
 - **Core Dependencies**: numpy, scipy, numba, pandas, mpmath
-- **Optional**: torch (for GPU acceleration), pyspark (for Spark), mpi4py (for MPI), umap-learn (for UMAP embeddings)
+- **Optional**: torch (for GPU acceleration), pyspark (for Spark), mpi4py (for MPI), umap-learn (for UMAP embeddings), matplotlib (for plotting), mcp (for the expert agent)
 
 ---
 

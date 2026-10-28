@@ -9,16 +9,17 @@ actionable message instead of a bare ``ModuleNotFoundError``.
 
 from __future__ import annotations
 
-import importlib
 import sys
 from types import ModuleType
 from typing import TYPE_CHECKING, Any
+
+from dmx.utils.optional import install_hint, require_optional
 
 if TYPE_CHECKING:
     from pyspark import RDD
     from typing_extensions import TypeIs
 
-SPARK_INSTALL_HINT = "pip install dmx-learn[spark]"
+SPARK_INSTALL_HINT = install_hint("spark")
 
 
 def require_pyspark(feature: str = "This feature") -> ModuleType:
@@ -34,14 +35,7 @@ def require_pyspark(feature: str = "This feature") -> ModuleType:
     Raises:
         ImportError: If PySpark is not installed.
     """
-    try:
-        return importlib.import_module("pyspark")
-    except ImportError as exc:
-        raise ImportError(
-            f"{feature} requires PySpark, which is not installed. "
-            f"Install it with: {SPARK_INSTALL_HINT} "
-            "(or `poetry install -E spark` from a source checkout)."
-        ) from exc
+    return require_optional("pyspark", "spark", feature, package="PySpark")
 
 
 def is_rdd(obj: Any) -> TypeIs[RDD[Any]]:

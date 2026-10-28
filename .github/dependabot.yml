@@ -23,7 +23,7 @@ updates:
       - dependency-type: "direct"
         update-types: ["security"]
 
-  # Optional dependencies - torch, pyspark, mpi4py, umap-learn
+  # Optional dependencies - torch, pyspark, mpi4py, umap-learn, matplotlib, mcp
   - package-ecosystem: "pip"
     directory: "/"
     schedule:
@@ -36,6 +36,8 @@ updates:
           - "pyspark"
           - "mpi4py"
           - "umap-learn"
+          - "matplotlib"
+          - "mcp"
     labels:
       - "dependencies"
       - "optional"

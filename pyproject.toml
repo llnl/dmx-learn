@@ -33,12 +33,16 @@ torch = ["torch (>=2.0.0,<3.0.0)"]
 optional = ["mpi4py (>=4.0.0,<5.0.0)", "umap-learn (>=0.5.0,<0.6.0)"]
 spark = ["pyspark (>=4.0.0,<5.0.0)"]
 distributed = ["pyspark (>=4.0.0,<5.0.0)", "mpi4py (>=4.0.0,<5.0.0)"]
+viz = ["matplotlib (>=3.8.0,<4.0.0)"]
+agent = ["mcp (>=2.0.0,<3.0.0)", "matplotlib (>=3.8.0,<4.0.0)"]
 ci = ["torch (>=2.0.0,<3.0.0)", "umap-learn (>=0.5.0,<0.6.0)"]
 all = [
     "torch (>=2.0.0,<3.0.0)",
     "mpi4py (>=4.0.0,<5.0.0)",
     "umap-learn (>=0.5.0,<0.6.0)",
     "pyspark (>=4.0.0,<5.0.0)",
+    "matplotlib (>=3.8.0,<4.0.0)",
+    "mcp (>=2.0.0,<3.0.0)",
 ]
 
 [tool.poetry]
@@ -72,6 +76,8 @@ torch = {version = "^2.0.0", optional = true}
 mpi4py = {version = "^4.0.0", optional = true}
 umap-learn = {version = "^0.5.0", optional = true}
 pyspark = {version = "^4.0.0", optional = true}
+matplotlib = {version = "^3.8.0", optional = true}
+mcp = {version = "^2.0.0", optional = true}
 
 [tool.poetry.group.dev]
 optional = true

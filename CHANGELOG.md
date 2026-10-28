@@ -22,5 +22,19 @@ All notable changes to dmx-learn are recorded here.
 
 ### Added
 
+- New optional extras for upcoming features:
+  - `viz`: matplotlib, for plotting helpers
+  - `agent`: the official MCP Python SDK (`mcp`) plus everything in `viz`,
+    for the `dmx-mcp` expert agent server
+  - `all`: now also includes matplotlib and mcp
+
+  The core installation still has no matplotlib or mcp dependency.
+- `dmx.utils.optional`, a shared helper for optional dependencies.
+  `require_optional()` (with `require_matplotlib()` and `require_mcp()`
+  wrappers) raises an `ImportError` naming the extra to install, and
+  `is_available()` checks for a package without importing it. The Spark and
+  PyTorch guards now use it, so their messages share one format; the PyTorch
+  message previously suggested `poetry install --with torch`, which is not a
+  valid command for an extra.
 - `dmx.utils.spark` with `is_rdd()`, which detects RDDs without importing
   pyspark, and `require_pyspark()`, which raises an actionable install hint.
