@@ -24,3 +24,9 @@ Optional Spark support
 
 .. automodule:: dmx.utils.spark
    :members:
+
+Optional dependencies
+---------------------
+
+.. automodule:: dmx.utils.optional
+   :members:

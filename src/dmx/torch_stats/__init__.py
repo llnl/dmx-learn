@@ -17,6 +17,8 @@ called. Device-oriented workflow utilities live in :mod:`dmx.torch_utils`.
 
 # pylint: disable=too-many-positional-arguments,duplicate-code
 
+from dmx.utils.optional import missing_dependency_message
+
 __all__ = [
     "ExponentialDistribution",
     "ExponentialEstimator",
@@ -84,17 +86,9 @@ try:
     TORCH_AVAILABLE = True
 except ImportError:
     TORCH_AVAILABLE = False
-    _TORCH_IMPORT_ERROR = """
-PyTorch is required to use dmx.torch_stats but is not installed.
-
-To install PyTorch with dmx-learn:
-    poetry install --with torch
-
-Or install PyTorch separately:
-    pip install torch
-
-For more information, see the README.md file.
-"""
+    _TORCH_IMPORT_ERROR = missing_dependency_message(
+        "PyTorch", "torch", "dmx.torch_stats"
+    )
 
 # If torch is not available, raise a helpful error when trying to import
 if not TORCH_AVAILABLE:

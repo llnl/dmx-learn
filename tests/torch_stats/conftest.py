@@ -39,7 +39,7 @@ def pytest_collection_modifyitems(config: Any, items: list[Any]) -> None:
         # This shouldn't be reached due to pytest_ignore_collect,
         # but adding as a safety net
         skip_torch = pytest.mark.skip(
-            reason="PyTorch is not installed. Install with: poetry install --with torch"
+            reason="PyTorch is not installed. Install with: poetry install -E torch"
         )
         for item in items:
             if "torch_stats" in str(item.fspath):

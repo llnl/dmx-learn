@@ -29,6 +29,8 @@ Install optional features with Poetry extras:
    $ poetry install -E spark        # PySpark support
    $ poetry install -E optional     # MPI and UMAP support
    $ poetry install -E distributed  # PySpark and MPI support
+   $ poetry install -E viz          # matplotlib plotting support
+   $ poetry install -E agent        # MCP agent SDK and plotting support
    $ poetry install -E all          # All optional features
 
 For development or documentation work, install the corresponding dependency
@@ -56,6 +58,8 @@ The same optional features are available as pip extras:
    $ pip install /path/to/dmx-learn[spark]
    $ pip install /path/to/dmx-learn[optional]
    $ pip install /path/to/dmx-learn[distributed]
+   $ pip install /path/to/dmx-learn[viz]
+   $ pip install /path/to/dmx-learn[agent]
    $ pip install /path/to/dmx-learn[all]
 
 Optional dependencies
@@ -87,6 +91,14 @@ The available extras and Poetry groups are summarized below.
      - ``pip install .[distributed]`` or ``poetry install -E distributed``
      - pyspark, mpi4py
      - Spark and MPI scale-out
+   * - ``viz``
+     - ``pip install .[viz]`` or ``poetry install -E viz``
+     - matplotlib
+     - Plotting helpers for explore results
+   * - ``agent``
+     - ``pip install .[agent]`` or ``poetry install -E agent``
+     - mcp (official MCP Python SDK), matplotlib
+     - The ``dmx-mcp`` expert agent server (in development)
    * - ``all``
      - ``pip install .[all]`` or ``poetry install -E all``
      - All optional dependencies
@@ -113,6 +125,10 @@ The available extras and Poetry groups are summarized below.
    pyspark is no longer a core dependency. Install the ``spark`` (or
    ``distributed`` or ``all``) extra to use Spark RDDs or
    :mod:`dmx.stats.rdd_sampler`.
+
+If an optional feature is used without its extra, dmx-learn raises an
+:class:`ImportError` that names the extra to install, for example
+``pip install dmx-learn[viz]``. See :mod:`dmx.utils.optional`.
 
 Extras and groups can be combined:
 

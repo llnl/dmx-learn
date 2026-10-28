@@ -12,6 +12,8 @@ inspect the package, but calling :func:`detect_device` raises :class:`ImportErro
 until PyTorch is installed.
 """
 
+from dmx.utils.optional import missing_dependency_message
+
 __all__ = ["detect_device"]
 
 # Check if torch is available
@@ -34,9 +36,7 @@ def detect_device() -> str:
     """
     if not TORCH_AVAILABLE:
         raise ImportError(
-            "PyTorch is required to use dmx.torch_utils but is not installed.\n"
-            "Install with: poetry install --with torch\n"
-            "Or: pip install torch"
+            missing_dependency_message("PyTorch", "torch", "dmx.torch_utils")
         )
 
     if torch.cuda.is_available():
