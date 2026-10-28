@@ -101,6 +101,11 @@ class IgnoredDistribution(ProbabilityDistribution[Any, Any, Any]):
         """Create an encoder backed by the wrapped distribution's encoder."""
         return IgnoredDataEncoder(self.dist.dist_to_encoder())
 
+    def _num_params(self, seen_keys: set[str]) -> int:
+        """Return 0; the wrapped distribution is held fixed."""
+        del seen_keys
+        return 0
+
 
 class IgnoredSampler(DistributionSampler[Any]):
     """Sampler delegating all draws to the wrapped fixed distribution."""

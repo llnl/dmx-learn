@@ -36,6 +36,7 @@ class BayesianDistributionTestCase:
         unsupported_methods: Optional methods to skip, mapped to explicit reasons.
         sampler_seeds: Seeds used for deterministic sampler checks.
         sample_size: Number of observations drawn for each sampler check.
+        num_params: Hand-computed free-parameter count for ``num_params()``.
     """
 
     __test__: ClassVar[bool] = False
@@ -46,6 +47,7 @@ class BayesianDistributionTestCase:
     unsupported_methods: Mapping[str, str] = field(default_factory=dict)
     sampler_seeds: tuple[int, ...] = (1, 2, 3)
     sample_size: int = 20
+    num_params: int | None = None
 
     def __post_init__(self) -> None:
         """Validate capability declarations when the test module is imported."""
@@ -258,3 +260,10 @@ class BayesianDistributionTests:
             np.testing.assert_allclose(
                 value, distribution.entropy(), rtol=1.0e-12, atol=1.0e-12
             )
+
+    def test_num_params(self) -> None:
+        """Check num_params against the case's hand-computed count."""
+        assert self.case.num_params is not None, "case must set num_params"
+        value = self._distribution().num_params()
+        assert isinstance(value, int) and not isinstance(value, bool)
+        assert value == self.case.num_params

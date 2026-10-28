@@ -254,6 +254,82 @@ class ProbabilityDistribution(Generic[X, P, V]):
         """
         raise NotImplementedError(f"{type(self).__name__} has no data encoder")
 
+    def num_params(self) -> int:
+        """Return the number of free parameters in the distribution.
+
+        For a likelihood the count is the dimension of the parameters its
+        estimator fits, as used by BIC, AIC, and ICL. The attached prior is
+        fixed hyperparameter metadata and is not counted. A distribution used
+        as a prior, such as a Beta or Dirichlet, counts its own
+        hyperparameters. A probability vector over ``K`` values contributes
+        ``K - 1``. Fixed structure such as support bounds and dimensions
+        contributes nothing. Combinators sum the counts of their children
+        recursively.
+
+        Parameters tied through estimator ``keys`` are counted once. A key that
+        appears more than once in the tree contributes only at its first
+        occurrence.
+
+        Returns:
+            Number of free parameters.
+        """
+        return self._num_params(set())
+
+    def _num_params(self, seen_keys: set[str]) -> int:
+        """Count free parameters, skipping blocks whose key is in ``seen_keys``.
+
+        Subclasses implement this hook. Implementations add every key they
+        count to ``seen_keys`` (see ``_key_is_new``) and count child
+        distributions with ``_child_num_params`` using the same set.
+
+        Args:
+            seen_keys: Keys whose parameters were already counted.
+
+        Raises:
+            NotImplementedError: Always, unless implemented by a subclass.
+        """
+        del seen_keys
+        raise NotImplementedError(
+            f"{type(self).__name__} does not implement num_params()."
+        )
+
+    @staticmethod
+    def _key_is_new(key: Optional[str], seen_keys: set[str]) -> bool:
+        """Return True if parameters under ``key`` still need to be counted.
+
+        Unkeyed parameters (``key is None``) are always counted. A new key is
+        recorded in ``seen_keys`` so later occurrences are skipped.
+
+        Args:
+            key: Key tying a parameter block, or None.
+            seen_keys: Keys whose parameters were already counted.
+
+        Returns:
+            True if the parameter block should be counted.
+        """
+        if key is None:
+            return True
+        if key in seen_keys:
+            return False
+        seen_keys.add(key)
+        return True
+
+    @staticmethod
+    def _child_num_params(
+        child: "ProbabilityDistribution[Any, Any, Any]", seen_keys: set[str]
+    ) -> int:
+        """Count the free parameters of a child distribution.
+
+        Args:
+            child: Child distribution to count.
+            seen_keys: Keys whose parameters were already counted.
+
+        Returns:
+            Number of free parameters in ``child`` not already counted.
+        """
+        # pylint: disable-next=protected-access
+        return child._num_params(seen_keys)
+
 
 class ProbabilityDistributionFactory(Generic[X, P, V]):
     """Factory for distributions with a shared parameter type."""

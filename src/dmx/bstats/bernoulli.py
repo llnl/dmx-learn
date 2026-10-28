@@ -162,6 +162,12 @@ class BernoulliDistribution(ProbabilityDistribution[bool, float, BernoulliEncode
         """Create an estimator retaining metadata and the current prior."""
         return BernoulliEstimator(name=self.name, keys=self.keys, prior=self.prior)
 
+    def _num_params(self, seen_keys: set[str]) -> int:
+        """Count the success probability."""
+        if not self._key_is_new(self.keys, seen_keys):
+            return 0
+        return 1
+
 
 class BernoulliSampler(DistributionSampler[bool]):
     """Draw independent boolean Bernoulli observations."""

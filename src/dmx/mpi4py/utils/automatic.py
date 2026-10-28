@@ -40,7 +40,9 @@ def get_dpm_mixture_mpi(
         max_its (int): Maximum number of iterations for optimization.
         print_iter (int): Frequency of printing iteration progress.
         mix_threshold_count (float): Component-count threshold. On rank 0 this
-            is divided by `len(data)` to form the minimum retained weight.
+            is divided by `len(data)` to form the minimum retained weight, the
+            same rule as
+            `DirichletProcessMixtureDistribution.effective_num_components`.
 
     Returns:
         MixtureDistribution: Pruned mixture distribution on every rank.

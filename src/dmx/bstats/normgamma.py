@@ -174,6 +174,11 @@ class NormalGammaDistribution(
         """Create a joint sampler using an optional deterministic seed."""
         return NormalGammaSampler(self, seed)
 
+    def _num_params(self, seen_keys: set[str]) -> int:
+        """Count ``mu``, ``lam``, ``a``, and ``b``."""
+        del seen_keys
+        return 4
+
 
 class NormalGammaSampler(DistributionSampler[NormalGammaDatum]):
     """Draw locations and precisions from a normal-gamma distribution."""

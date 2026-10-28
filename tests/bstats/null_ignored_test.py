@@ -49,6 +49,8 @@ class TestNullDistribution(BayesianDistributionTests):
         unsupported_methods={
             "set_prior": "a null prior is intentionally immutable and parameter-free"
         },
+        # No parameters.
+        num_params=0,
     )
 
     def test_public_wiring(self) -> None:
@@ -79,6 +81,8 @@ class TestIgnoredDistribution(BayesianDistributionTests):
         distribution_factory=_make_ignored_distribution,
         observations=(True, False, True, True),
         alternate_prior_factory=_make_alternate_prior,
+        # The wrapped distribution is held fixed.
+        num_params=0,
     )
 
     def test_public_wiring(self) -> None:

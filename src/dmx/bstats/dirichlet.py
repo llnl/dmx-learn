@@ -376,6 +376,11 @@ class DirichletDistribution(
             suff_stat=sufficient_statistic,
         )
 
+    def _num_params(self, seen_keys: set[str]) -> int:
+        """Count one concentration per dimension, or 1 for a shared scalar."""
+        del seen_keys
+        return self.dim if self.dim > 0 else 1
+
 
 class DirichletSampler(DistributionSampler[DenseObservation]):
     """Draw dense simplex vectors from fixed-dimensional parameters."""

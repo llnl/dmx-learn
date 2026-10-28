@@ -244,6 +244,12 @@ class OptionalDistribution(
             prior=self.prior,
         )
 
+    def _num_params(self, seen_keys: set[str]) -> int:
+        """Count the missing-value probability plus the child distribution."""
+        if not self._key_is_new(self.keys, seen_keys):
+            return 0
+        return 1 + self._child_num_params(self.dist, seen_keys)
+
 
 class OptionalSampler(DistributionSampler[Any]):
     """Draw missing markers or child observations."""

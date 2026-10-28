@@ -34,6 +34,8 @@ class TestExponentialDistribution(BayesianDistributionTests):
         observations=(0.0, 0.25, 1.5),
         alternate_prior_factory=lambda: GammaDistribution(3.0, 0.5),
         unsupported_methods=_NO_INFORMATION_MEASURES,
+        # Rate.
+        num_params=1,
     )
 
 
@@ -45,6 +47,8 @@ class TestGaussianDistribution(BayesianDistributionTests):
         observations=(-1.0, 0.5, 3.0),
         alternate_prior_factory=lambda: NormalGammaDistribution(0.5, 2.0, 3.0, 4.0),
         unsupported_methods=_NO_INFORMATION_MEASURES,
+        # Mean and variance.
+        num_params=2,
     )
 
 
@@ -67,6 +71,8 @@ class TestDiagonalGaussianDistribution(BayesianDistributionTests):
             np.array([4.0, 5.0]),
         ),
         unsupported_methods=_NO_INFORMATION_MEASURES,
+        # 2 means + 2 variances.
+        num_params=4,
     )
 
 
@@ -83,6 +89,8 @@ class TestDiracDistribution(BayesianDistributionTests):
                 "DiracDistribution is intentionally not a package-level export"
             ),
         },
+        # The point mass location is fixed.
+        num_params=0,
     )
 
 

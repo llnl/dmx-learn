@@ -113,6 +113,11 @@ class DiracDistribution(ProbabilityDistribution[Any, Any, DiracEncoded]):
         """Create the point-mass sequence encoder."""
         return DiracDataEncoder()
 
+    def _num_params(self, seen_keys: set[str]) -> int:
+        """Return 0; the point mass location is fixed."""
+        del seen_keys
+        return 0
+
 
 class DiracSampler(DistributionSampler[Any]):
     """Return copies of one fixed point."""

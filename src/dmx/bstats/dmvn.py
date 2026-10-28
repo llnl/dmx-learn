@@ -222,6 +222,11 @@ class DiagonalGaussianDistribution(
         """Create a sequence encoder for this dimensionality."""
         return DiagonalGaussianDataEncoder(self.dim)
 
+    def _num_params(self, seen_keys: set[str]) -> int:
+        """Count ``dim`` means and ``dim`` variances."""
+        del seen_keys
+        return 2 * self.dim
+
 
 class DiagonalGaussianSampler(DistributionSampler[DiagonalGaussianDatum]):
     """Draw independent vectors from a diagonal Gaussian likelihood."""

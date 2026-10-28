@@ -133,6 +133,11 @@ class BetaDistribution(ProbabilityDistribution[float, BetaParameters, Any]):
         """Create a beta sampler using an optional deterministic seed."""
         return BetaSampler(self, seed)
 
+    def _num_params(self, seen_keys: set[str]) -> int:
+        """Count the two shape parameters."""
+        del seen_keys
+        return 2
+
 
 class BetaSampler(DistributionSampler[float]):
     """Draw independent values from a :class:`BetaDistribution`."""

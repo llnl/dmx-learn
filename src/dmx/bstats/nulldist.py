@@ -108,6 +108,11 @@ class NullDistribution(ProbabilityDistribution[Any, None, NullSequence]):
         """Create the length-preserving null encoder."""
         return NullDataEncoder()
 
+    def _num_params(self, seen_keys: set[str]) -> int:
+        """Return 0; the placeholder has no parameters."""
+        del seen_keys
+        return 0
+
 
 null_dist = NullDistribution()
 

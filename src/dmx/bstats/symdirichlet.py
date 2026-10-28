@@ -160,6 +160,11 @@ class SymmetricDirichletDistribution(
         self.dimension()
         return SymmetricDirichletSampler(self, seed)
 
+    def _num_params(self, seen_keys: set[str]) -> int:
+        """Count the shared concentration."""
+        del seen_keys
+        return 1
+
 
 class SymmetricDirichletSampler(DistributionSampler[Sequence[float]]):
     """Draw vectors from a fixed-dimensional symmetric Dirichlet prior."""

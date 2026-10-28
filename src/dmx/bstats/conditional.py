@@ -220,6 +220,15 @@ class ConditionalDistribution(
             pass_value=self.pass_value,
         )
 
+    def _num_params(self, seen_keys: set[str]) -> int:
+        """Sum the conditional and default distributions.
+
+        ``cond_dist`` is passed through unchanged by the estimator and is not
+        counted.
+        """
+        rv = sum(self._child_num_params(d, seen_keys) for d in self.dmap.values())
+        return rv + self._child_num_params(self.default_dist, seen_keys)
+
 
 class ConditionalDistributionSampler(DistributionSampler[ConditionalObservation]):
     """Draw a condition and then sample its explicit or default child."""
