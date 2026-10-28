@@ -25,9 +25,10 @@ backends. dmx-learn should not compete on breadth. It should be the
 | Model selection | `propose(data)` and information criteria | Explicit, inspectable structure search with a leaderboard, lineage, and diagnostics-driven moves |
 | Output | A fitted model object | A fitted model, a written analysis, and plain dmx Python code that reproduces the fit exactly |
 | Distributed | Many backends behind one argument | MPI and Spark built for HPC (LLNL), with the same sufficient-statistics path as local fits |
-| Dependencies | About 20 extras | Core: numpy, scipy, numba, mpmath, pandas. Extras: `[spark]`, `[mpi]`, `[torch]`, `[umap]`, `[viz]`, `[agent]`. pyspark moves out of core (D5) |
+| Dependencies | About 20 extras | Core: numpy, scipy, numba, mpmath, pandas. Extras: `[torch]`, `[spark]`, `[optional]` (mpi4py, umap-learn), `[distributed]` (pyspark, mpi4py), `[viz]`, `[agent]`, and `[all]`. pyspark moved out of core in Epic 1 (D5) |
 
-**Things we deliberately won't build** (and will document as out of scope):
+**Things we deliberately won't build** (documented as out of scope in
+`docs/scope.rst`):
 neural densities, PPL syntax, LLM distillation, MCMC/NUTS, MLOps serving,
 copulas or vines. Anything we add has to be a closed-form or variational
 sufficient-statistics model that runs through `seq_update` and therefore
@@ -364,6 +365,12 @@ transcripts drive the search and explore design.
 All 1.x releases are additive: existing signatures stay frozen and defaults
 keep current behavior (D3). Breaking changes wait for 2.0.
 
+### Progress
+
+| Epic | Issue | Status | Delivered |
+|---|---|---|---|
+| 1. Positioning and packaging (1.2) | #200 | Complete | README and package metadata repositioned around the expert agent (#201); `docs/scope.rst` scope and non-goals page (#202); pyspark moved from core to the `[spark]` and `[distributed]` extras with import guards (#203); `[viz]` and `[agent]` extras plus the shared `dmx.utils.optional` import-guard helper (#204) |
+
 ---
 
 ## 12. Decision log (resolved during review, 2026-10-27)
@@ -374,7 +381,7 @@ keep current behavior (D3). Breaking changes wait for 2.0.
 | D2 | Where model-selection expertise lives | Deterministic code runs the search; the LLM steers through arguments and step-level tools, and explains. |
 | D3 | Backward compatibility | 1.x releases are additive with frozen signatures; breaks wait for 2.0. |
 | D4 | Multi-latent / block models | v1 composes existing classes (Composite-of-Mixtures, JointMixture, HierarchicalMixture); `LatentTreeMixture` is v2 research. |
-| D5 | Packaging | One package; tabular, search and explore in core; `[agent]` extra for MCP. pyspark moves from core to `[spark]`. pandas stays core (already a dependency). |
+| D5 | Packaging | One package; tabular, search and explore in core; `[agent]` extra for MCP. pyspark moves from core to `[spark]`. pandas stays core (already a dependency). Packaging part implemented in Epic 1 (#203, #204); MPI and UMAP stay together in the existing `[optional]` extra. |
 | D6 | Plot output | Tidy DataFrames in core; matplotlib in `[viz]`; MCP returns PNG + path + JSON. No Vega-Lite in v1. |
 | D7 | Naming | Keep `dmx-learn` / `dmx` / `dmx-mcp` everywhere. |
 | D8 | Privacy default | Tiered: `summaries` default, `aliased` opt-in, `full` explicit; enforced in the tool layer. |
