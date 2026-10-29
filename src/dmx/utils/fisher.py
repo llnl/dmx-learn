@@ -17,7 +17,8 @@ Distributions expose the score through three methods on the
 :mod:`dmx.bstats`:
 
 - ``seq_fisher_score(x, options=None)`` returns an ``(N, fisher_dim)``
-  float64 array for an encoded sequence ``x``.
+  float64 array for an encoded sequence ``x``, or a float64 CSR matrix for
+  high-cardinality encodings (see :data:`FisherScoreArray`).
 - ``fisher_dim(options=None)`` returns the score dimension.
 - ``fisher_field_slices(options=None)`` maps readable field names to column
   slices of the score, for attributing distances to fields.
@@ -39,17 +40,28 @@ scores.
 from __future__ import annotations
 
 from dataclasses import dataclass
-from typing import Any, Literal, Optional
+from typing import Any, Literal, Optional, Union
 
 import numpy as np
+from scipy.sparse import csr_matrix
 
 __all__ = [
+    "FisherScoreArray",
     "FisherScoreOptions",
     "as_score_array",
     "fisher_score_unsupported",
     "has_fisher_score",
     "resolve_fisher_options",
 ]
+
+FisherScoreArray = Union[np.ndarray, csr_matrix]
+"""Return type of ``seq_fisher_score``: a dense array or a sparse CSR matrix.
+
+Families with many levels, such as categoricals above
+``FisherScoreOptions.dense_category_limit``, return CSR so each row stores only
+its nonzero entries. Either form has shape ``(N, fisher_dim)`` and dtype
+float64.
+"""
 
 SequenceScaling = Literal["conditional", "marginal"]
 OnMissing = Literal["raise", "posterior_only"]

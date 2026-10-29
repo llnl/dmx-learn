@@ -21,6 +21,12 @@ from dmx.stats.pdist import (
     SequenceEncodableStatisticAccumulator,
     StatisticAccumulatorFactory,
 )
+from dmx.utils._fisher_kernels import categorical_score
+from dmx.utils.fisher import (
+    FisherScoreArray,
+    FisherScoreOptions,
+    resolve_fisher_options,
+)
 
 
 class IntegerCategoricalDistribution(SequenceEncodableProbabilityDistribution):
@@ -130,6 +136,46 @@ class IntegerCategoricalDistribution(SequenceEncodableProbabilityDistribution):
         rv[u] = self.log_p_vec[v[u]]
 
         return rv
+
+    def seq_fisher_score(
+        self,
+        x: "IntegerCategoricalEncodedDataSequence",
+        options: Optional[FisherScoreOptions] = None,
+    ) -> FisherScoreArray:
+        """Return the whitened one-hot score ``e_x / sqrt(p_x) - sqrt(p)``.
+
+        Column ``j`` is the value ``min_val + j``. ``p`` is ``p_vec`` floored at
+        ``options.prob_floor`` and normalized. Values outside
+        ``[min_val, max_val]`` have zero probability; their row is
+        ``-sqrt(p)``. Above ``options.dense_category_limit`` values the
+        offset-free form ``e_x / sqrt(p_x)`` is returned as a CSR matrix.
+
+        Args:
+            x: Encoded sequence containing ``N`` observations.
+            options: Score options; ``prob_floor`` and
+                ``dense_category_limit`` are used.
+
+        Returns:
+            Float64 array or CSR matrix of shape ``(N, fisher_dim())``.
+
+        Raises:
+            TypeError: If ``x`` is not an IntegerCategoricalEncodedDataSequence.
+        """
+        if not isinstance(x, IntegerCategoricalEncodedDataSequence):
+            raise TypeError(
+                "IntegerCategoricalDistribution.seq_fisher_score() requires "
+                "IntegerCategoricalEncodedDataSequence."
+            )
+        opts = resolve_fisher_options(options)
+        index = np.asarray(x.data, dtype=np.intp) - self.min_val
+        index[(index < 0) | (index >= self.num_vals)] = -1
+        return categorical_score(
+            index, self.p_vec, opts.prob_floor, opts.dense_category_limit
+        )
+
+    def fisher_dim(self, options: Optional[FisherScoreOptions] = None) -> int:
+        """Return the number of values in ``[min_val, max_val]``."""
+        return int(self.num_vals)
 
     def sampler(self, seed: Optional[int] = None) -> "IntegerCategoricalSampler":
         """Create a sampler for this distribution."""

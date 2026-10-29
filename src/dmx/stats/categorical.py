@@ -20,6 +20,12 @@ from dmx.stats.pdist import (
     SequenceEncodableStatisticAccumulator,
     StatisticAccumulatorFactory,
 )
+from dmx.utils._fisher_kernels import categorical_score
+from dmx.utils.fisher import (
+    FisherScoreArray,
+    FisherScoreOptions,
+    resolve_fisher_options,
+)
 
 T = TypeVar("T")
 
@@ -142,6 +148,63 @@ class CategoricalDistribution(SequenceEncodableProbabilityDistribution):
             rv = mapped_log_prob[xs]
 
         return np.asarray(rv)
+
+    def seq_fisher_score(
+        self,
+        x: "CategoricalEncodedDataSequence",
+        options: Optional[FisherScoreOptions] = None,
+    ) -> FisherScoreArray:
+        """Return the whitened one-hot score ``e_x / sqrt(q_x) - sqrt(q)``.
+
+        Columns follow the order of ``pmap``, plus a trailing "other" column
+        when ``default_value > 0``, which every value absent from ``pmap``
+        maps to. ``q`` are the level probabilities this distribution assigns
+        (``pmap`` weights and ``default_value``, normalized), floored at
+        ``options.prob_floor``. With ``default_value == 0`` an absent value has
+        zero probability; its row is ``-sqrt(q)``.
+
+        Above ``options.dense_category_limit`` columns the offset-free form
+        ``e_x / sqrt(q_x)`` is returned as a CSR matrix. It gives the same
+        distances between rows of this distribution; distances to rows of
+        another component are approximate.
+
+        Args:
+            x: Encoded sequence containing ``N`` observations.
+            options: Score options; ``prob_floor`` and
+                ``dense_category_limit`` are used.
+
+        Returns:
+            Float64 array or CSR matrix of shape ``(N, fisher_dim())``.
+
+        Raises:
+            TypeError: If ``x`` is not a CategoricalEncodedDataSequence.
+        """
+        if not isinstance(x, CategoricalEncodedDataSequence):
+            raise TypeError(
+                "CategoricalDistribution.seq_fisher_score() requires "
+                "CategoricalEncodedDataSequence."
+            )
+        opts = resolve_fisher_options(options)
+        xs, values = x.data
+        position = {level: i for i, level in enumerate(self.pmap)}
+        weights = list(self.pmap.values())
+        absent = -1
+        if self.default_value > 0.0:
+            absent = len(weights)
+            weights.append(self.default_value)
+        value_index = np.asarray(
+            [position.get(value, absent) for value in values], dtype=np.intp
+        )
+        return categorical_score(
+            value_index[xs], weights, opts.prob_floor, opts.dense_category_limit
+        )
+
+    def fisher_dim(self, options: Optional[FisherScoreOptions] = None) -> int:
+        """Return the number of score columns.
+
+        This is ``len(pmap)``, plus one "other" column if ``default_value > 0``.
+        """
+        return len(self.pmap) + (1 if self.default_value > 0.0 else 0)
 
     def sampler(self, seed: Optional[int] = None) -> "CategoricalSampler":
         """Creates a CategoricalSampler for sampling from the CategoricalDistribution.
