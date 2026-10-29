@@ -35,6 +35,7 @@ from numpy.random import RandomState
 from scipy.sparse import dok_matrix
 
 from dmx.arithmetic import log, maxrandint, one, zero
+from dmx.stats._fisher_lengths import length_pmf, length_score_dim, part_slices
 from dmx.stats.null_dist import (
     NullAccumulator,
     NullAccumulatorFactory,
@@ -50,6 +51,20 @@ from dmx.stats.pdist import (
     SequenceEncodableProbabilityDistribution,
     SequenceEncodableStatisticAccumulator,
     StatisticAccumulatorFactory,
+)
+from dmx.utils._fisher_kernels import (
+    categorical_probabilities,
+    categorical_score,
+    hstack_scores,
+    length_weights,
+    place_rows,
+    scale_rows,
+    sum_rows,
+)
+from dmx.utils.fisher import (
+    FisherScoreArray,
+    FisherScoreOptions,
+    resolve_fisher_options,
 )
 
 T = TypeVar("T")  ### state type
@@ -301,6 +316,198 @@ class MarkovChainDistribution(  # pylint: disable=too-many-instance-attributes
             rv += self.len_dist.seq_log_density(len_enc)
 
         return rv
+
+    def _fisher_weights(
+        self, probs: Dict[T, float]
+    ) -> Tuple[Dict[T, int], List[float]]:
+        """Return column positions and weights of one categorical score block.
+
+        Columns follow the order of ``probs``, plus a trailing "other" column
+        weighted by ``default_value`` when it is positive.
+        """
+        position = {level: i for i, level in enumerate(probs)}
+        weights = list(probs.values())
+        if self.default_value > 0.0:
+            weights.append(self.default_value)
+        return position, weights
+
+    def _fisher_rows(self) -> List[Tuple[T, Dict[T, int], List[float]]]:
+        """Return the source state, positions, and weights of each transition block.
+
+        Sources are the keys of ``transition_map`` in order; empty rows have
+        no parameters and are skipped.
+        """
+        rows = []
+        for source, probs in self.transition_map.items():
+            if probs:
+                rows.append((source, *self._fisher_weights(probs)))
+        return rows
+
+    def _expected_visits(self, floor: float) -> np.ndarray:
+        r"""Return the expected number of transitions out of each source state.
+
+        With length distribution :math:`p_N` and state marginals
+        :math:`\pi_t = \pi_0 P^t`, a source :math:`a` is left
+        :math:`E[c_a] = \sum_{t \ge 0} P(N \ge t + 2)\,\pi_t(a)` times. The
+        initial distribution and the rows of :math:`P` are the floored
+        categorical probabilities used by the score. Unseen values and states
+        without a row in ``transition_map`` have no transition parameters and
+        are treated as leaving the modeled chain.
+
+        Args:
+            floor: Probability floor applied to each categorical block.
+
+        Returns:
+            Expected counts, one per block returned by ``_fisher_rows``.
+
+        Raises:
+            ValueError: If the distribution of ``len_dist`` is not known.
+        """
+        pmf = length_pmf(self.len_dist)
+        survival = np.cumsum(pmf[::-1])[::-1]
+        index = {state: i - 1 for state, i in self.key_map.items()}
+        pi = np.zeros(self.num_keys)
+        if self.init_prob_map:
+            position, weights = self._fisher_weights(self.init_prob_map)
+            q = categorical_probabilities(weights, floor)
+            for state, j in position.items():
+                pi[index[state]] = q[j]
+        rows = self._fisher_rows()
+        trans = np.zeros((self.num_keys, self.num_keys))
+        for source, position, weights in rows:
+            q = categorical_probabilities(weights, floor)
+            for target, j in position.items():
+                trans[index[source], index[target]] = q[j]
+        visits = np.zeros(self.num_keys)
+        for t in range(len(survival) - 2):
+            visits += survival[t + 2] * pi
+            pi = pi @ trans
+        return np.asarray([visits[index[source]] for source, _, _ in rows])
+
+    def seq_fisher_score(
+        self,
+        x: "MarkovChainEncodedDataSequence",
+        options: Optional[FisherScoreOptions] = None,
+    ) -> FisherScoreArray:
+        r"""Return the whitened score ``[s_init, s_trans, s_len]`` of each chain.
+
+        The chain is fully observed, so the score is closed form:
+
+        - ``s_init`` is the categorical score ``e_{x_0} / sqrt(q) - sqrt(q)``
+          of the first state, with columns in the order of ``init_prob_map``.
+        - ``s_trans`` has one block per source state ``a`` in
+          ``transition_map``, with columns in the order of
+          ``transition_map[a]``. It sums the row score
+          ``e_b / sqrt(P_a) - sqrt(P_a)`` over the transitions ``a -> b`` in
+          the chain and divides by ``scale(a)``.
+        - ``s_len`` is ``len_dist``'s own score, omitted when it is null.
+
+        ``options.sequence_scaling`` sets ``scale(a)``: ``"conditional"`` uses
+        ``sqrt(c_a)``, the number of transitions out of ``a`` in the chain (a
+        zero block when there are none); ``"marginal"`` uses
+        ``sqrt(E[c_a])`` under the chain and ``len_dist``. Row scores are
+        martingale differences, so the marginal form has exactly projector
+        covariance. The conditional form is whitened only approximately,
+        because ``c_a`` depends on the transitions it counts; the error
+        shrinks with chain length (covariance eigenvalues within about 15% of
+        one for chains of about 10 states, 5% for about 30).
+
+        Every categorical gets a trailing "other" column when
+        ``default_value > 0``, which values absent from its map use. With
+        ``default_value == 0`` an absent value has zero probability and its
+        row is ``-sqrt(q)``. Transitions out of states with no row in
+        ``transition_map`` have no parameters and add nothing. Probabilities
+        are normalized and floored at ``options.prob_floor``; categoricals
+        above ``options.dense_category_limit`` columns use the offset-free
+        CSR form ``e_x / sqrt(q_x)``.
+
+        Args:
+            x: Encoded sequence containing ``N`` chains.
+            options: Score options, also passed to ``len_dist``.
+
+        Returns:
+            Array, or CSR if any block is sparse, of shape
+            ``(N, fisher_dim(options))``.
+
+        Raises:
+            TypeError: If ``x`` is not a MarkovChainEncodedDataSequence.
+            ValueError: If marginal scaling is requested and the distribution
+                of ``len_dist`` is unknown.
+        """
+        if not isinstance(x, MarkovChainEncodedDataSequence):
+            raise TypeError(
+                "MarkovChainDistribution.seq_fisher_score() requires "
+                "MarkovChainEncodedDataSequence."
+            )
+        opts = resolve_fisher_options(options)
+        sz, idx0, idx1, init_x, prev_x, next_x, values, len_enc = x.data
+        floor, limit = opts.prob_floor, opts.dense_category_limit
+        absent = len(self.init_prob_map) if self.default_value > 0.0 else -1
+        blocks: List[FisherScoreArray] = []
+
+        if self.init_prob_map:
+            position, weights = self._fisher_weights(self.init_prob_map)
+            lookup = np.asarray([position.get(v, absent) for v in values], np.intp)
+            init_scores = categorical_score(lookup[init_x], weights, floor, limit)
+            blocks.append(place_rows(init_scores, idx0, sz))
+
+        rows = self._fisher_rows()
+        visits: Optional[np.ndarray] = None
+        if opts.sequence_scaling == "marginal" and rows:
+            visits = self._expected_visits(floor)
+        sources = {source: i for i, (source, _, _) in enumerate(rows)}
+        source_of = np.asarray([sources.get(v, -1) for v in values], np.intp)
+        row_of = source_of[prev_x] if len(prev_x) > 0 else np.zeros(0, np.intp)
+        for i, (_, position, weights) in enumerate(rows):
+            members = np.flatnonzero(row_of == i)
+            other = len(position) if self.default_value > 0.0 else -1
+            lookup = np.asarray([position.get(v, other) for v in values], np.intp)
+            owner = idx1[members]
+            row_scores = categorical_score(
+                lookup[next_x[members]], weights, floor, limit
+            )
+            counts = np.bincount(owner, minlength=sz)
+            if visits is None:
+                scale = length_weights(counts, "conditional")
+            elif visits[i] > 0.0:
+                scale = length_weights(counts, "marginal", float(visits[i]))
+            else:
+                scale = np.zeros(sz)
+            blocks.append(scale_rows(sum_rows(row_scores, owner, sz), scale))
+
+        if length_score_dim(self.len_dist, opts) > 0:
+            blocks.append(self.len_dist.seq_fisher_score(len_enc, opts))
+        return hstack_scores(blocks, sz)
+
+    def _fisher_parts(
+        self, options: Optional[FisherScoreOptions]
+    ) -> List[Tuple[str, int]]:
+        """Return the name and dimension of each part of the score."""
+        initial = len(self.init_prob_map)
+        if initial > 0 and self.default_value > 0.0:
+            initial += 1
+        transitions = sum(len(weights) for _, _, weights in self._fisher_rows())
+        return [
+            ("initial", initial),
+            ("transitions", transitions),
+            ("length", length_score_dim(self.len_dist, options)),
+        ]
+
+    def fisher_dim(self, options: Optional[FisherScoreOptions] = None) -> int:
+        """Return the number of score columns.
+
+        This is ``len(init_prob_map)``, plus ``len(transition_map[a])`` for
+        each source ``a``, plus the length dimension. With
+        ``default_value > 0`` each nonempty categorical block adds an "other"
+        column.
+        """
+        return sum(dim for _, dim in self._fisher_parts(options))
+
+    def fisher_field_slices(
+        self, options: Optional[FisherScoreOptions] = None
+    ) -> Dict[str, slice]:
+        """Map ``"initial"``, ``"transitions"``, and ``"length"`` to their columns."""
+        return part_slices(self, self._fisher_parts(options))
 
     def sampler(self, seed: Optional[int] = None) -> "MarkovChainSampler":
         """Create a sampler for complete state sequences."""

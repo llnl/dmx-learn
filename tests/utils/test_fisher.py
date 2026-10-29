@@ -9,7 +9,7 @@ import pytest
 
 from dmx.bstats import GaussianDistribution as BstatsGaussianDistribution
 from dmx.bstats.pdist import ProbabilityDistribution as BstatsProbabilityDistribution
-from dmx.stats import GaussianDistribution, MarkovChainDistribution
+from dmx.stats import GaussianDistribution, VonMisesFisherDistribution
 from dmx.stats.pdist import ProbabilityDistribution
 from dmx.utils._fisher_kernels import trigamma_minus_reciprocal
 from dmx.utils.fisher import (
@@ -59,10 +59,10 @@ class _UnscoredBstats(BstatsProbabilityDistribution):
 
 def _unsupported_stats() -> list[Any]:
     """Return dmx.stats distributions without a Fisher score."""
-    # MarkovChainDistribution is outside the humap-fisher plan.
+    # VonMisesFisherDistribution is outside the humap-fisher plan.
     return [
         _UnscoredStats(0.0, 1.0),
-        MarkovChainDistribution({"a": 1.0}, {"a": {"a": 1.0}}),
+        VonMisesFisherDistribution([1.0, 0.0], 2.0),
     ]
 
 
