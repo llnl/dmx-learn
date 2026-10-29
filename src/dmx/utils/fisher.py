@@ -49,11 +49,16 @@ from dmx.utils.special import digamma, trigamma
 __all__ = [
     "FisherScoreOptions",
     "as_score_array",
+    "bernoulli_score",
+    "binomial_score",
+    "clamp_probability",
     "exponential_score",
     "fisher_score_unsupported",
     "gamma_score",
     "gaussian_score",
+    "geometric_score",
     "has_fisher_score",
+    "poisson_score",
     "resolve_fisher_options",
     "trigamma_minus_reciprocal",
 ]
@@ -300,3 +305,92 @@ def gamma_score(x: Any, log_x: Any, k: float, theta: float) -> np.ndarray:
     centered_log = np.asarray(log_x, dtype=np.float64) - (digamma(k) + np.log(theta))
     s2 = (centered_log - s1 / sqrt_k) / np.sqrt(trigamma_minus_reciprocal(k))
     return as_score_array(np.column_stack((s1, s2)), 2)
+
+
+def clamp_probability(p: float, floor: float) -> float:
+    """Return ``p`` clipped to ``[floor, 1 - floor]``.
+
+    Count and binary scores divide by ``sqrt(p (1 - p))`` or similar, which
+    is zero at the ends of the parameter range; clipping keeps them finite.
+
+    Args:
+        p: Probability parameter.
+        floor: Lower bound, typically ``FisherScoreOptions.prob_floor``.
+
+    Returns:
+        The clipped probability.
+    """
+    return min(max(float(p), floor), 1.0 - floor)
+
+
+def bernoulli_score(x: Any, p: float, floor: float = 1.0e-6) -> np.ndarray:
+    """Return the whitened Bernoulli score ``(x - p) / sqrt(p (1 - p))``.
+
+    Args:
+        x: Observations in ``{0, 1}``, shape ``(N,)``.
+        p: Success probability, clipped with :func:`clamp_probability`.
+        floor: Probability floor used for clipping.
+
+    Returns:
+        Array of shape ``(N, 1)``.
+    """
+    p = clamp_probability(p, floor)
+    rv = (np.asarray(x, dtype=np.float64) - p) / np.sqrt(p * (1.0 - p))
+    return as_score_array(rv, 1)
+
+
+def poisson_score(x: Any, lam: float, floor: float = 1.0e-6) -> np.ndarray:
+    """Return the whitened Poisson score ``(x - lam) / sqrt(lam)``.
+
+    Args:
+        x: Nonnegative counts, shape ``(N,)``.
+        lam: Rate; values below ``floor`` are raised to ``floor``.
+        floor: Smallest rate used.
+
+    Returns:
+        Array of shape ``(N, 1)``.
+    """
+    lam = max(float(lam), floor)
+    return as_score_array((np.asarray(x, dtype=np.float64) - lam) / np.sqrt(lam), 1)
+
+
+def geometric_score(x: Any, p: float, floor: float = 1.0e-6) -> np.ndarray:
+    """Return the whitened score of a geometric distribution on ``1, 2, ...``.
+
+    The count ``x`` has mean ``1 / p`` and variance ``(1 - p) / p^2``, so the
+    score is ``(p x - 1) / sqrt(1 - p)``.
+
+    Args:
+        x: Counts of trials up to and including the first success, shape
+            ``(N,)``.
+        p: Success probability, clipped with :func:`clamp_probability`.
+        floor: Probability floor used for clipping.
+
+    Returns:
+        Array of shape ``(N, 1)``.
+    """
+    p = clamp_probability(p, floor)
+    rv = (p * np.asarray(x, dtype=np.float64) - 1.0) / np.sqrt(1.0 - p)
+    return as_score_array(rv, 1)
+
+
+def binomial_score(y: Any, n: int, p: float, floor: float = 1.0e-6) -> np.ndarray:
+    """Return the whitened binomial score ``(y - n p) / sqrt(n p (1 - p))``.
+
+    With ``n = 0`` every observation is the same and carries no information,
+    so the score is zero.
+
+    Args:
+        y: Success counts in ``0..n``, shape ``(N,)``.
+        n: Number of trials.
+        p: Success probability, clipped with :func:`clamp_probability`.
+        floor: Probability floor used for clipping.
+
+    Returns:
+        Array of shape ``(N, 1)``.
+    """
+    y = np.asarray(y, dtype=np.float64)
+    if n <= 0:
+        return as_score_array(np.zeros_like(y), 1)
+    p = clamp_probability(p, floor)
+    return as_score_array((y - n * p) / np.sqrt(n * p * (1.0 - p)), 1)

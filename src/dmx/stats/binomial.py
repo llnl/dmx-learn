@@ -19,6 +19,7 @@ from dmx.stats.pdist import (
     SequenceEncodableStatisticAccumulator,
     StatisticAccumulatorFactory,
 )
+from dmx.utils.fisher import FisherScoreOptions, binomial_score, resolve_fisher_options
 from dmx.utils.vector import gammaln
 
 E = Tuple[np.ndarray, np.ndarray, np.ndarray, int, int]
@@ -153,6 +154,41 @@ class BinomialDistribution(SequenceEncodableProbabilityDistribution):
             + self.log_p * xx
         )
         return np.asarray(cc[ix])
+
+    def seq_fisher_score(
+        self,
+        x: "BinomialEncodedDataSequence",
+        options: Optional[FisherScoreOptions] = None,
+    ) -> np.ndarray:
+        """Return the whitened score ``(y - n p) / sqrt(n p (1 - p))`` of each count.
+
+        Here ``y = x - min_val`` is the number of successes. Degenerate
+        parameters are clipped with ``options.prob_floor`` so the score stays
+        finite.
+
+        Args:
+            x: Encoded sequence containing ``N`` observations.
+            options: Score options; only ``prob_floor`` is used.
+
+        Returns:
+            Array of shape ``(N, 1)``.
+
+        Raises:
+            TypeError: If ``x`` is not a BinomialEncodedDataSequence.
+        """
+        if not isinstance(x, BinomialEncodedDataSequence):
+            raise TypeError(
+                "BinomialDistribution.seq_fisher_score() requires "
+                "BinomialEncodedDataSequence."
+            )
+        floor = resolve_fisher_options(options).prob_floor
+        ux, ix, _, _, _ = x.data
+        y = ux - self.min_val if self.min_val is not None else ux
+        return np.ascontiguousarray(binomial_score(y, self.n, self.p, floor)[ix])
+
+    def fisher_dim(self, options: Optional[FisherScoreOptions] = None) -> int:
+        """Return 1: the trial count ``n`` is fixed, leaving one parameter."""
+        return 1
 
     def sampler(self, seed: Optional[int] = None) -> "BinomialSampler":
         """Return a BinomialSampler for this distribution.

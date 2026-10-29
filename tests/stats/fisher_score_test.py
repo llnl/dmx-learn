@@ -91,10 +91,14 @@ STATS_CASES = [
     # Phase B: count leaves.
     FisherCase("poisson", lambda: PoissonDistribution(3.5), COUNT),
     FisherCase("poisson_small_rate", lambda: PoissonDistribution(0.8), COUNT),
+    # Near-degenerate: about 50 nonzero counts in 1000 draws.
+    FisherCase("poisson_tiny_rate", lambda: PoissonDistribution(0.05), COUNT),
     FisherCase("geometric", lambda: GeometricDistribution(0.3), COUNT),
+    FisherCase("geometric_near_one", lambda: GeometricDistribution(0.95), COUNT),
     FisherCase(
         "binomial_shifted", lambda: BinomialDistribution(0.3, 10, min_val=2), COUNT
     ),
+    FisherCase("binomial_rare", lambda: BinomialDistribution(0.02, 20), COUNT),
     # Phase B: categorical leaves. A one-hot score has one linear constraint.
     FisherCase(
         "categorical",

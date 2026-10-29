@@ -1,4 +1,4 @@
-"""Hand-computed Fisher score values for dmx.stats continuous scalar leaves.
+"""Hand-computed Fisher score values for dmx.stats scalar leaves.
 
 The shared contract (``fisher_score_test.py``) checks moments on samples;
 these tests pin exact rows computed independently from closed forms, so
@@ -13,12 +13,15 @@ import numpy as np
 import pytest
 
 from dmx.stats import (
+    BinomialDistribution,
     ExponentialDistribution,
     GammaDistribution,
     GaussianDistribution,
+    GeometricDistribution,
     LogGaussianDistribution,
+    PoissonDistribution,
 )
-from dmx.utils.fisher import FisherScoreOptions
+from dmx.utils.fisher import FisherScoreOptions, bernoulli_score
 
 SQRT_HALF = math.sqrt(0.5)
 EULER_GAMMA = 0.5772156649015329
@@ -85,11 +88,82 @@ def test_gamma_huge_shape_matches_high_precision() -> None:
     np.testing.assert_allclose(scores[0, 1], float(second), rtol=1e-5)
 
 
+def test_poisson_values() -> None:
+    dist = PoissonDistribution(4.0)
+    np.testing.assert_allclose(
+        _scores(dist, [4, 6, 0]), [[0.0], [1.0], [-2.0]], atol=1e-15
+    )
+
+
+def test_geometric_values() -> None:
+    dist = GeometricDistribution(0.5)
+    expected = [[0.0], [-SQRT_HALF], [math.sqrt(2.0)]]
+    np.testing.assert_allclose(_scores(dist, [2, 1, 4]), expected, atol=1e-15)
+
+
+def test_binomial_values_shift_by_min_val() -> None:
+    # n = 4, p = 1/2: mean 2 successes, standard deviation 1. Repeated values
+    # check the mapping back from unique values to observations.
+    dist = BinomialDistribution(0.5, 4, min_val=2)
+    np.testing.assert_allclose(
+        _scores(dist, [4, 2, 6, 4]), [[0.0], [-2.0], [2.0], [0.0]], atol=1e-15
+    )
+
+
+def test_bernoulli_kernel_values() -> None:
+    np.testing.assert_allclose(
+        bernoulli_score([0, 1, 1], 0.2), [[-0.5], [2.0], [2.0]], atol=1e-15
+    )
+
+
+def test_degenerate_count_parameters_are_clipped() -> None:
+    floor = 1.0e-3
+    options = FisherScoreOptions(prob_floor=floor)
+
+    def scores(dist: Any, data: list) -> np.ndarray:
+        encoded = dist.dist_to_encoder().seq_encode(data)
+        return np.asarray(dist.seq_fisher_score(encoded, options))
+
+    # Constructing these distributions takes log(0); only the scores below
+    # must be warning-free.
+    with np.errstate(divide="ignore"):
+        tiny_rate = PoissonDistribution(1.0e-12)
+        certain = GeometricDistribution(1.0)
+        no_trials = BinomialDistribution(0.5, 0)
+
+    # Rate below the floor: lam is raised to the floor.
+    np.testing.assert_allclose(
+        scores(tiny_rate, [0, 1]),
+        [[-math.sqrt(floor)], [(1.0 - floor) / math.sqrt(floor)]],
+        rtol=1e-12,
+    )
+    # p = 1: every count is 1 and p is clipped to 1 - floor.
+    np.testing.assert_allclose(
+        scores(certain, [1]), [[-floor / math.sqrt(floor)]], rtol=1e-9
+    )
+    # The binomial rejects p = 0 and p = 1, but p within the floor of either
+    # end is clipped the same way.
+    for p, clipped in ((1.0e-12, floor), (1.0 - 1.0e-12, 1.0 - floor)):
+        expected = (np.asarray([0.0, 1.0, 3.0]) - 3.0 * clipped) / math.sqrt(
+            3.0 * clipped * (1.0 - clipped)
+        )
+        np.testing.assert_allclose(
+            scores(BinomialDistribution(p, 3), [0, 1, 3]),
+            expected[:, None],
+            rtol=1e-9,
+        )
+    # n = 0 carries no information and scores zero.
+    np.testing.assert_array_equal(scores(no_trials, [0, 0]), [[0.0], [0.0]])
+
+
 DISTRIBUTIONS = [
     (GaussianDistribution(1.0, 4.0), [1.0, 3.0], 2),
     (LogGaussianDistribution(0.0, 1.0), [1.0, 2.0], 2),
     (ExponentialDistribution(2.0), [0.5, 2.0], 1),
     (GammaDistribution(2.0, 3.0), [6.0, 3.0], 2),
+    (PoissonDistribution(4.0), [4, 6], 1),
+    (GeometricDistribution(0.5), [2, 1], 1),
+    (BinomialDistribution(0.5, 4, min_val=2), [4, 2], 1),
 ]
 
 
