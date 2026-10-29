@@ -12,4 +12,5 @@ for installation options.
 
    modeling
    embeddings
+   fisher_embedding
    data_and_math
