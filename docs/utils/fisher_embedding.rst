@@ -219,6 +219,33 @@ Multinomials use the same rule with the total count in place of ``n``; for a
 categorical element with conditional scaling the count block is
 :math:`(n_c - N p_c) / \sqrt{N p_c}`.
 
+Latent-variable components
+--------------------------
+
+A mixture used as a component, for example as a field of a composite, has no
+closed-form Fisher information. With posteriors :math:`z_j`, weights
+:math:`w_j`, and component scores :math:`s_j`, its raw score is
+
+.. math::
+
+   \bigl[(z_j - w_j) / \sqrt{w_j},\; z_j\, s_j(x) / \sqrt{w_j}\bigr]_{j=1}^{J},
+
+the observed-data score scaled by the complete-data Fisher information. Its
+mean is exactly zero, but the complete-data information over-states the
+observed information, so its covariance is below the identity where
+components overlap. It is therefore whitened with
+:class:`dmx.utils.fisher.EmpiricalFisherWhitener` (symmetric, "ZCA"),
+fitted on ``FisherScoreOptions.whitening_samples`` draws from the mixture
+itself with ``whitening_seed``. The whitening depends only on the model, so
+scoring records in chunks or scoring new records gives the same rows. The
+weight block sums to zero, so the result has a projector covariance with one
+null direction.
+
+With ``on_missing="posterior_only"``, components without a score contribute
+only through the weight block, and one warning per call lists their
+classes; with the default ``"raise"`` they raise
+:class:`NotImplementedError`.
+
 API reference
 -------------
 

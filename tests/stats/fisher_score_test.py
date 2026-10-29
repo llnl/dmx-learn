@@ -385,8 +385,10 @@ STATS_CASES = [
         options=MARGINAL,
         rank_deficit=4,
     ),
-    # Phase D: latent-variable components. Their scores are whitened
-    # empirically, so moments hold by construction and are not checked.
+    # Phase D: latent-variable components. Nested mixtures are whitened with
+    # draws from the model (a different seed from the contract's sample), so
+    # the moment check is a real test; the weight block's sum-to-one
+    # constraint leaves one null direction.
     FisherCase(
         "nested_mixture",
         lambda: MixtureDistribution(
@@ -394,7 +396,7 @@ STATS_CASES = [
             [0.4, 0.6],
         ),
         NESTED_MIXTURES,
-        check_moments=False,
+        rank_deficit=1,
     ),
     FisherCase(
         "heterogeneous_mixture",
@@ -403,7 +405,23 @@ STATS_CASES = [
             [0.5, 0.5],
         ),
         NESTED_MIXTURES,
-        check_moments=False,
+        rank_deficit=1,
+    ),
+    FisherCase(
+        "nested_mixture_of_composites",
+        lambda: MixtureDistribution(
+            [
+                CompositeDistribution(
+                    (GaussianDistribution(-1.0, 1.0), PoissonDistribution(1.0))
+                ),
+                CompositeDistribution(
+                    (GaussianDistribution(2.0, 0.5), PoissonDistribution(4.0))
+                ),
+            ],
+            [0.5, 0.5],
+        ),
+        NESTED_MIXTURES,
+        rank_deficit=1,
     ),
     FisherCase(
         "hmm",
@@ -414,6 +432,7 @@ STATS_CASES = [
             len_dist=IntegerCategoricalDistribution(2, [0.5, 0.5]),
         ),
         HMM,
+        # Whitened empirically like nested mixtures once implemented (#286).
         check_moments=False,
     ),
 ]
