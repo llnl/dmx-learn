@@ -11,13 +11,16 @@ from typing import Any
 import mpmath
 import numpy as np
 import pytest
+import scipy.sparse
 
 from dmx.stats import (
     BinomialDistribution,
+    CategoricalDistribution,
     ExponentialDistribution,
     GammaDistribution,
     GaussianDistribution,
     GeometricDistribution,
+    IntegerCategoricalDistribution,
     LogGaussianDistribution,
     PoissonDistribution,
 )
@@ -157,6 +160,78 @@ def test_degenerate_count_parameters_are_clipped() -> None:
     np.testing.assert_array_equal(scores(no_trials, [0, 0]), [[0.0], [0.0]])
 
 
+ABC = {"a": 0.5, "b": 0.25, "c": 0.25}
+
+
+def test_categorical_values_and_pairwise_distances() -> None:
+    dist = CategoricalDistribution(dict(ABC))
+    scores = _scores(dist, ["a", "b", "c", "a"])
+    expected_a = [1.0 / math.sqrt(0.5) - math.sqrt(0.5), -0.5, -0.5]
+    expected_b = [-math.sqrt(0.5), 2.0 - 0.5, -0.5]
+    np.testing.assert_allclose(scores[0], expected_a, atol=1e-12)
+    np.testing.assert_allclose(scores[1], expected_b, atol=1e-12)
+    np.testing.assert_array_equal(scores[0], scores[3])
+    # Different levels a, b are 1/p_a + 1/p_b apart in squared distance.
+    for i, j, expected in ((0, 1, 2.0 + 4.0), (0, 2, 2.0 + 4.0), (1, 2, 8.0)):
+        squared = float(np.sum((scores[i] - scores[j]) ** 2))
+        assert squared == pytest.approx(expected, rel=1e-9)
+
+
+def test_categorical_default_value_adds_other_column() -> None:
+    # Seen levels have mass 0.5 / 1.25 = 0.4; unseen values 0.25 / 1.25 = 0.2.
+    dist = CategoricalDistribution({"a": 0.5, "b": 0.5}, default_value=0.25)
+    assert dist.fisher_dim() == 3
+    q = np.asarray([0.4, 0.4, 0.2])
+    expected = np.tile(-np.sqrt(q), (3, 1))
+    expected[0, 0] += 1.0 / math.sqrt(0.4)
+    expected[1, 2] += 1.0 / math.sqrt(0.2)
+    expected[2, 2] += 1.0 / math.sqrt(0.2)
+    np.testing.assert_allclose(_scores(dist, ["a", "z", "y"]), expected, atol=1e-12)
+
+
+def test_categorical_unseen_value_without_default_is_finite() -> None:
+    # Zero probability under the distribution: the "no level" row -sqrt(q).
+    dist = CategoricalDistribution(dict(ABC))
+    np.testing.assert_allclose(
+        _scores(dist, ["z"]), [[-math.sqrt(0.5), -0.5, -0.5]], atol=1e-12
+    )
+
+
+def test_categorical_zero_weight_level_is_floored() -> None:
+    dist = CategoricalDistribution({"a": 1.0, "b": 0.0})
+    scores = _scores(dist, ["a", "b"])
+    assert np.all(np.isfinite(scores))
+    # q_b is the floor (normalized), so the rare level is ~1/sqrt(1e-6) away.
+    assert scores[1, 1] == pytest.approx(1.0e3, rel=1e-3)
+
+
+def test_sparse_categorical_is_dense_without_offset() -> None:
+    dist = CategoricalDistribution(dict(ABC))
+    encoded = dist.dist_to_encoder().seq_encode(["a", "c", "z"])
+    dense = np.asarray(dist.seq_fisher_score(encoded))
+    sparse: Any = dist.seq_fisher_score(
+        encoded, FisherScoreOptions(dense_category_limit=2)
+    )
+    assert scipy.sparse.isspmatrix_csr(sparse)
+    assert sparse.dtype == np.float64
+    assert sparse.shape == (3, 3)
+    np.testing.assert_allclose(
+        sparse.toarray() - dense, np.tile(np.sqrt([0.5, 0.25, 0.25]), (3, 1))
+    )
+    # The unseen value has no nonzero entry.
+    assert sparse[2].nnz == 0
+
+
+def test_integer_categorical_values_and_out_of_range() -> None:
+    dist = IntegerCategoricalDistribution(3, [0.2, 0.5, 0.3])
+    sqrt_p = np.sqrt([0.2, 0.5, 0.3])
+    expected = np.tile(-sqrt_p, (4, 1))
+    expected[0, 1] += 1.0 / math.sqrt(0.5)
+    expected[1, 0] += 1.0 / math.sqrt(0.2)
+    # Rows 2 and 3 (values 10 and 0) are outside [3, 5].
+    np.testing.assert_allclose(_scores(dist, [4, 3, 10, 0]), expected, atol=1e-12)
+
+
 DISTRIBUTIONS = [
     (GaussianDistribution(1.0, 4.0), [1.0, 3.0], 2),
     (LogGaussianDistribution(0.0, 1.0), [1.0, 2.0], 2),
@@ -165,6 +240,8 @@ DISTRIBUTIONS = [
     (PoissonDistribution(4.0), [4, 6], 1),
     (GeometricDistribution(0.5), [2, 1], 1),
     (BinomialDistribution(0.5, 4, min_val=2), [4, 2], 1),
+    (CategoricalDistribution({"a": 0.5, "b": 0.5}), ["a", "b"], 2),
+    (IntegerCategoricalDistribution(3, [0.2, 0.5, 0.3]), [3, 4], 3),
 ]
 
 

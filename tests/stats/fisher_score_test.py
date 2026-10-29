@@ -120,6 +120,14 @@ STATS_CASES = [
         CATEGORICAL,
         rank_deficit=1,
     ),
+    FisherCase(
+        "integer_categorical_sparse",
+        lambda: IntegerCategoricalDistribution(3, [0.2, 0.5, 0.3]),
+        CATEGORICAL,
+        options=SPARSE_CATEGORIES,
+        rank_deficit=1,
+        centered=False,
+    ),
     # Phase B: multivariate leaves.
     FisherCase(
         "mvn",

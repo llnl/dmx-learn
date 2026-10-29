@@ -153,11 +153,20 @@ defined on their ``ProbabilityDistribution`` base classes:
 
 ``seq_fisher_score(x, options=None)``
     Whitened score of each observation in an encoded sequence ``x``, as a
-    float64 array of shape ``(N, fisher_dim(options))``. Under the
+    float64 array of shape ``(N, fisher_dim(options))``, or a float64 CSR
+    matrix for high-cardinality encodings. Under the
     distribution the score has mean zero and identity covariance on its
     support (a projector for over-complete encodings such as a categorical
     one-hot). Any orthonormal basis is allowed. :mod:`dmx.bstats`
     distributions evaluate it at their plug-in parameters.
+
+    Categorical families use ``e_x / sqrt(q_x) - sqrt(q)`` over their levels,
+    where ``q`` are the level probabilities, plus a trailing "other" level for
+    unseen values when ``default_value > 0``. Above
+    ``dense_category_limit`` levels they return the sparse offset-free form
+    ``e_x / sqrt(q_x)``, which gives the same distances between records
+    scored by the same distribution but differs by a constant offset, so
+    distances across components are approximate.
 
 ``fisher_dim(options=None)``
     Number of score columns. Combinators sum their children, so a successful

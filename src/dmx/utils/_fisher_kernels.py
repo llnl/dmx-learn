@@ -17,8 +17,9 @@ from __future__ import annotations
 from typing import Any
 
 import numpy as np
+from scipy.sparse import csr_matrix
 
-from dmx.utils.fisher import as_score_array
+from dmx.utils.fisher import FisherScoreArray, as_score_array
 from dmx.utils.special import digamma, trigamma
 
 _SQRT_HALF = float(np.sqrt(0.5))
@@ -201,3 +202,66 @@ def binomial_score(y: Any, n: int, p: float, floor: float = 1.0e-6) -> np.ndarra
         return as_score_array(np.zeros_like(y), 1)
     p = clamp_probability(p, floor)
     return as_score_array((y - n * p) / np.sqrt(n * p * (1.0 - p)), 1)
+
+
+def categorical_probabilities(weights: Any, floor: float) -> np.ndarray:
+    """Return level probabilities floored at ``floor`` and normalized.
+
+    Flooring keeps ``1 / sqrt(q)`` finite for rare or zero-weight levels;
+    normalizing afterwards keeps ``sqrt(q)`` a unit vector, so the dense score
+    still has a projector covariance.
+
+    Args:
+        weights: Nonnegative level weights, shape ``(C,)``.
+        floor: Smallest probability before normalizing.
+
+    Returns:
+        Probabilities of shape ``(C,)`` that sum to one.
+    """
+    q = np.maximum(np.asarray(weights, dtype=np.float64), floor)
+    return np.asarray(q / q.sum())
+
+
+def categorical_score(
+    index: Any, probs: Any, floor: float, dense_limit: int
+) -> FisherScoreArray:
+    """Return the whitened score of categorical observations.
+
+    With level probabilities ``q`` (from :func:`categorical_probabilities`),
+    the dense score is ``e_x / sqrt(q_x) - sqrt(q)``. Its covariance is the
+    projector ``I - sqrt(q) sqrt(q)^T`` and two different levels ``a`` and
+    ``b`` are ``1/q_a + 1/q_b`` apart in squared distance.
+
+    Above ``dense_limit`` levels the offset-free form ``e_x / sqrt(q_x)`` is
+    returned as a CSR matrix with one nonzero per row. It differs from the
+    dense form only by the constant ``sqrt(q)``, so distances between rows of
+    the same distribution are unchanged.
+
+    An observation with ``index == -1`` has zero probability under the
+    distribution (no level matches it). Its row is the "no level" row:
+    ``-sqrt(q)`` in the dense form, empty in the sparse form. Such records
+    get zero posterior weight for this component, so the row only needs to
+    be finite.
+
+    Args:
+        index: Level index of each observation in ``0..C-1``, or ``-1``,
+            shape ``(N,)``.
+        probs: Level weights, shape ``(C,)``.
+        floor: Probability floor.
+        dense_limit: Largest number of levels returned densely.
+
+    Returns:
+        Float64 array, or CSR matrix above ``dense_limit`` levels, of shape
+        ``(N, C)``.
+    """
+    q = categorical_probabilities(probs, floor)
+    index = np.asarray(index, dtype=np.intp)
+    n, num_levels = len(index), len(q)
+    rows = np.flatnonzero(index >= 0)
+    cols = index[rows]
+    values = 1.0 / np.sqrt(q[cols])
+    if num_levels > dense_limit:
+        return csr_matrix((values, (rows, cols)), shape=(n, num_levels))
+    scores = np.tile(-np.sqrt(q), (n, 1))
+    scores[rows, cols] += values
+    return as_score_array(scores, num_levels)

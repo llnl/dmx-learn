@@ -18,7 +18,11 @@ import numpy as np
 import pandas as pd
 
 from dmx.arithmetic import exp, maxrandint
-from dmx.utils.fisher import FisherScoreOptions, fisher_score_unsupported
+from dmx.utils.fisher import (
+    FisherScoreArray,
+    FisherScoreOptions,
+    fisher_score_unsupported,
+)
 from dmx.utils.seeding import resolve_sampler_seed
 
 X = TypeVar("X")
@@ -334,7 +338,7 @@ class ProbabilityDistribution(Generic[X, P, V]):
 
     def seq_fisher_score(
         self, x: V, options: Optional[FisherScoreOptions] = None
-    ) -> np.ndarray[Any, np.dtype[np.float64]]:
+    ) -> FisherScoreArray:
         """Return the whitened Fisher score of each encoded observation.
 
         The score is ``I^{-1/2} (T(x) - E[T])`` for sufficient statistics
@@ -349,7 +353,8 @@ class ProbabilityDistribution(Generic[X, P, V]):
             options: Score options; None uses the defaults.
 
         Returns:
-            Float64 array of shape ``(N, fisher_dim(options))``.
+            Float64 array, or CSR matrix for high-cardinality encodings, of
+            shape ``(N, fisher_dim(options))``.
 
         Raises:
             NotImplementedError: If this distribution has no Fisher score.
