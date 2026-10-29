@@ -201,7 +201,7 @@ class ConditionalDistributionSampler(ConditionalSampler, DistributionSampler):
     ) -> None:
         """Initialize all child samplers with independently derived seeds."""
         self.dist = dist
-        rng = np.random.RandomState(seed)
+        rng = self._seed_rng(seed)
 
         loc_seed = rng.randint(0, maxrandint)
 

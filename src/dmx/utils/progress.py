@@ -35,8 +35,9 @@ class ProgressEvent:
 
     Attributes:
         source: Name of the reporting function, for example ``"optimize"``.
-        event: ``"iteration"`` for one update step, ``"trial"`` for the end of
-            a restart in ``best_of``, or ``"result"`` for a final summary.
+        event: ``"start"`` with the seed used, ``"iteration"`` for one update
+            step, ``"trial"`` for the end of a restart in ``best_of``, or
+            ``"result"`` for a final summary.
         iteration: One-based iteration number, when applicable.
         log_likelihood: Training log-likelihood after the step, when
             computed.
@@ -118,6 +119,19 @@ class ProgressReporter:
         if self.verbose:
             stream = sys.stdout if self.out is None else self.out
             stream.write(text)
+
+    def start(self, seed: Optional[int]) -> None:
+        """Report the seed a call uses, without writing to ``out``.
+
+        The seed is logged at ``DEBUG`` and sent to the callback as a
+        ``"start"`` event with ``metrics={"seed": seed}``. ``seed`` is ``None``
+        when the caller supplied its own random state.
+
+        Args:
+            seed: Seed the call's random state was built from, or ``None``.
+        """
+        self.logger.debug("%s seed=%s", self.source, seed)
+        self.event("start", metrics={"seed": seed})
 
     def event(self, event: str, **kwargs: Any) -> None:
         """Send a :class:`ProgressEvent` to the callback, if one is set.

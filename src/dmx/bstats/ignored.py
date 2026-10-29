@@ -113,7 +113,7 @@ class IgnoredSampler(DistributionSampler[Any]):
     def __init__(self, dist: IgnoredDistribution, seed: Optional[int] = None) -> None:
         """Initialize a sampler for the wrapped distribution."""
         super().__init__(dist, seed)
-        self.dist_sampler = dist.dist.sampler(seed)
+        self.dist_sampler = dist.dist.sampler(self.seed)
 
     def sample(self, size: Optional[int] = None) -> Any:
         """Draw from the wrapped distribution."""

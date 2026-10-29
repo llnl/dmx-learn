@@ -38,6 +38,7 @@ from dmx.stats.pdist import (
     SequenceEncodableProbabilityDistribution,
 )
 from dmx.utils.progress import ProgressCallback, ProgressReporter
+from dmx.utils.seeding import resolve_rng
 
 if TYPE_CHECKING:
     from pyspark import RDD
@@ -187,7 +188,7 @@ def best_of(
     max_its: int,
     init_p: float,
     delta: float,
-    rng: RandomState,
+    rng: Optional[RandomState],
     init_estimator: Optional[ParameterEstimator] = None,
     enc_data: Optional[EncodedChunks] = None,
     enc_vdata: Optional[EncodedChunks] = None,
@@ -195,6 +196,7 @@ def best_of(
     print_iter: int = 1,
     verbose: bool = True,
     progress_callback: Optional[ProgressCallback] = None,
+    seed: Optional[int] = None,
 ) -> Tuple[float, SequenceEncodableProbabilityDistribution]:
     """Run EM from multiple randomized starts and return the best fit.
 
@@ -218,7 +220,8 @@ def best_of(
             initialization, in ``(0, 1]``.
         delta: Stop a trial when the signed training log-likelihood change is
             less than this value.
-        rng: Random state used for every trial and advanced in place.
+        rng: Caller-owned random state used for every trial and advanced in
+            place, or ``None`` to build one from ``seed``.
         init_estimator: Optional estimator used only for encoding and
             initialization.
         enc_data: Pre-encoded local chunks or Spark RDD. Takes precedence over
@@ -231,16 +234,23 @@ def best_of(
             nothing is written; messages are still logged at DEBUG.
         progress_callback: Optional function receiving a
             :class:`~dmx.utils.progress.ProgressEvent` for every iteration and trial.
+        seed: Seed for a private random state. With neither ``seed`` nor
+            ``rng``, a fresh seed is drawn from OS entropy. The seed used is
+            sent to ``progress_callback`` as a ``"start"`` event and logged
+            at DEBUG. Pass at most one of ``seed`` and ``rng``.
 
     Returns:
         Best validation log likelihood and its fitted model.
 
     Raises:
+        ValueError: If both ``seed`` and ``rng`` are given.
         ValueError: If both training representations are absent or ``init_p``
             is outside ``(0, 1]``.
         RuntimeError: If no trial produces a selectable model.
     """
     reporter = ProgressReporter("best_of", logger, out, verbose, progress_callback)
+    rng, used_seed = resolve_rng(seed, rng)
+    reporter.start(used_seed)
     rv_ll = -np.inf
     rv_mm: Optional[SequenceEncodableProbabilityDistribution] = None
     i_est = est if init_estimator is None else init_estimator
@@ -318,7 +328,7 @@ def optimize(
     delta: Optional[float] = 1.0e-9,
     init_estimator: Optional[ParameterEstimator] = None,
     init_p: float = 0.1,
-    rng: RandomState = RandomState(),
+    rng: Optional[RandomState] = None,
     prev_estimate: Optional[SequenceEncodableProbabilityDistribution] = None,
     vdata: Optional[Sequence[T]] = None,
     enc_data: Optional[EncodedChunks] = None,
@@ -328,6 +338,7 @@ def optimize(
     num_chunks: int = 1,
     verbose: bool = True,
     progress_callback: Optional[ProgressCallback] = None,
+    seed: Optional[int] = None,
 ) -> SequenceEncodableProbabilityDistribution:
     """Fit a model with EM and return the best validation-scoring estimate.
 
@@ -351,8 +362,8 @@ def optimize(
             initialization; ``estimator`` is used by default.
         init_p: Initialization sampling fraction in ``(0, 1]``. Ignored when
             ``prev_estimate`` is supplied.
-        rng: Random state used for initialization and advanced in place. The
-            default instance is shared across calls.
+        rng: Caller-owned random state used for initialization and advanced
+            in place, or ``None`` (the default) to build one from ``seed``.
         prev_estimate: Optional starting model, which also supplies the
             encoder.
         vdata: Optional raw validation observations.
@@ -367,12 +378,17 @@ def optimize(
             nothing is written; messages are still logged at DEBUG.
         progress_callback: Optional function receiving a
             :class:`~dmx.utils.progress.ProgressEvent` for every iteration.
+        seed: Seed for a private random state. With neither ``seed`` nor
+            ``rng``, a fresh seed is drawn from OS entropy. The seed used is
+            sent to ``progress_callback`` as a ``"start"`` event and logged
+            at DEBUG. Pass at most one of ``seed`` and ``rng``.
 
     Returns:
         The fitted model with the greatest observed validation likelihood, or
         training likelihood when no validation data is supplied.
 
     Raises:
+        ValueError: If both ``seed`` and ``rng`` are given.
         ValueError: If both training representations are absent, or if a new
             model is requested with ``init_p`` outside ``(0, 1]``.
     """
@@ -380,6 +396,8 @@ def optimize(
         raise ValueError("Optimization called with empty data or enc_data.")
 
     reporter = ProgressReporter("optimize", logger, out, verbose, progress_callback)
+    rng, used_seed = resolve_rng(seed, rng)
+    reporter.start(used_seed)
     est = estimator if init_estimator is None else init_estimator
 
     if prev_estimate is None:
@@ -485,13 +503,14 @@ def iterate(
     max_its: int,
     prev_estimate: Optional[SequenceEncodableProbabilityDistribution] = None,
     init_p: float = 0.1,
-    rng: Optional[RandomState] = RandomState(),
+    rng: Optional[RandomState] = None,
     out: IO = sys.stdout,
     enc_data: Optional[EncodedChunks] = None,
     init_estimator: Optional[ParameterEstimator] = None,
     print_iter: int = 1,
     verbose: bool = True,
     progress_callback: Optional[ProgressCallback] = None,
+    seed: Optional[int] = None,
 ) -> SequenceEncodableProbabilityDistribution:
     """Perform a fixed number of EM updates and return the final estimate.
 
@@ -507,9 +526,8 @@ def iterate(
         prev_estimate: Optional starting model. Otherwise randomized
             initialization is performed.
         init_p: Initialization sampling fraction in ``(0, 1]``.
-        rng: Random state used for initialization and advanced in place.
-            ``None`` creates a fresh unseeded state; the default instance is
-            shared across calls.
+        rng: Caller-owned random state used for initialization and advanced
+            in place, or ``None`` (the default) to build one from ``seed``.
         out: Text stream receiving timing messages.
         enc_data: Pre-encoded local chunks or Spark RDD.
         init_estimator: Fallback estimator used when ``estimator`` is absent.
@@ -518,11 +536,16 @@ def iterate(
             nothing is written; messages are still logged at DEBUG.
         progress_callback: Optional function receiving a
             :class:`~dmx.utils.progress.ProgressEvent` for every iteration.
+        seed: Seed for a private random state. With neither ``seed`` nor
+            ``rng``, a fresh seed is drawn from OS entropy. The seed used is
+            sent to ``progress_callback`` as a ``"start"`` event and logged
+            at DEBUG. Pass at most one of ``seed`` and ``rng``.
 
     Returns:
         The model after the requested updates.
 
     Raises:
+        ValueError: If both ``seed`` and ``rng`` are given.
         ValueError: If neither data representation is supplied, no estimator
             is available, or randomized initialization receives an invalid
             ``init_p``.
@@ -533,7 +556,9 @@ def iterate(
     active_estimator = estimator if estimator is not None else init_estimator
     if active_estimator is None:
         raise ValueError("estimator or init_estimator is required.")
-    rng = rng if rng is not None else RandomState()
+    reporter = ProgressReporter("iterate", logger, out, verbose, progress_callback)
+    rng, used_seed = resolve_rng(seed, rng)
+    reporter.start(used_seed)
 
     if enc_data is None:
         encoder = active_estimator.accumulator_factory().make().acc_to_encoder()
@@ -553,7 +578,6 @@ def iterate(
     if hasattr(enc_data, "cache"):
         cast(Any, enc_data).cache()
 
-    reporter = ProgressReporter("iterate", logger, out, verbose, progress_callback)
     t0 = time.time()
     for i in range(max_its):
         mm = seq_estimate(enc_data, active_estimator, mm)

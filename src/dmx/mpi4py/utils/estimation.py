@@ -15,7 +15,7 @@ from dmx.mpi4py.stats import (
     seq_initialize_mpi,
     seq_log_density_sum_mpi,
 )
-from dmx.mpi4py.utils import get_runtime_attr
+from dmx.mpi4py.utils import get_runtime_attr, resolve_rng_mpi
 from dmx.stats.pdist import (
     EncodedDataSequence,
     ParameterEstimator,
@@ -47,7 +47,7 @@ def optimize_mpi(
     delta: Optional[float] = 1.0e-9,
     init_estimator: Optional[ParameterEstimator] = None,
     init_p: float = 0.1,
-    rng: RandomState = RandomState(),
+    rng: Optional[RandomState] = None,
     prev_estimate: Optional[SequenceEncodableProbabilityDistribution] = None,
     vdata: Optional[Sequence[T]] = None,
     enc_data: Optional[List[Tuple[int, EncodedDataSequence]]] = None,
@@ -57,6 +57,7 @@ def optimize_mpi(
     num_chunks: int = 1,
     verbose: bool = True,
     progress_callback: Optional[ProgressCallback] = None,
+    seed: Optional[int] = None,
 ) -> Optional[SequenceEncodableProbabilityDistribution]:
     """Run EM estimation with MPI until convergence or `max_its`.
 
@@ -80,9 +81,9 @@ def optimize_mpi(
         init_estimator (Optional[ParameterEstimator]): Estimator used for
             initialization. If `None`, use `estimator`.
         init_p (float): Initialization proportion in `(0, 1]`.
-        rng (RandomState): RandomState used to set seeds for EM
-            initialization. The default object is process-local and is advanced
-            across calls.
+        rng (Optional[RandomState]): Caller-owned random state used to set
+            seeds for EM initialization and advanced in place, or ``None`` (the
+            default) to build one from ``seed``.
         vdata (Optional[Sequence[T]]): Optional validation set.
         prev_estimate (Optional[SequenceEncodableProbabilityDistribution]):
             Optional previous model estimate, meaningful on rank 0 and
@@ -99,6 +100,12 @@ def optimize_mpi(
         progress_callback (Optional[ProgressCallback]): Optional function
             receiving a :class:`~dmx.utils.progress.ProgressEvent` for every
             iteration. Messages and events are produced on rank 0 only.
+        seed (Optional[int]): Seed for a private random state, used on every
+            rank. With neither ``seed`` nor ``rng``, rank 0 draws a fresh seed
+            from OS entropy and broadcasts it, so all ranks agree. The seed
+            used is sent to ``progress_callback`` as a ``"start"`` event and
+            logged at DEBUG on rank 0. Pass at most one of ``seed`` and
+            ``rng``.
 
     Returns:
         Optional[SequenceEncodableProbabilityDistribution]: Estimated model on
@@ -106,13 +113,17 @@ def optimize_mpi(
 
     Raises:
         ValueError: If rank 0 has no raw data and encoded data are not present
-            on every rank, or if `init_p` is outside `(0, 1]`.
+            on every rank, if `init_p` is outside `(0, 1]`, or if both
+            ``seed`` and ``rng`` are given.
         RuntimeError: If encoded data expected on a rank are missing.
     """
     mpi = get_runtime_attr("mpi4py", "MPI")
     comm = mpi.COMM_WORLD
     world_rank = comm.Get_rank()
     reporter = ProgressReporter("optimize_mpi", logger, out, verbose, progress_callback)
+    rng, used_seed = resolve_rng_mpi(comm, seed, rng)
+    if world_rank == 0:
+        reporter.start(used_seed)
 
     # check if encoded data is already on each worker
     enc_data_exists = enc_data is not None
@@ -267,7 +278,7 @@ def best_of_mpi(
     max_its_cnt: int,
     init_p: float,
     delta: float,
-    rng: RandomState,
+    rng: Optional[RandomState],
     init_estimator: Optional[ParameterEstimator] = None,
     enc_data: Optional[List[Tuple[int, EncodedDataSequence]]] = None,
     enc_vdata: Optional[Sequence[Tuple[int, EncodedDataSequence]]] = None,
@@ -275,6 +286,7 @@ def best_of_mpi(
     print_iter: int = 1,
     verbose: bool = True,
     progress_callback: Optional[ProgressCallback] = None,
+    seed: Optional[int] = None,
 ) -> Optional[SequenceEncodableProbabilityDistribution]:
     """Run multiple MPI EM initializations and keep the best model.
 
@@ -300,8 +312,9 @@ def best_of_mpi(
         init_p (float): Initialization proportion in `(0, 1]`.
         delta (float): Stop when signed likelihood improvement is less than
             `delta`.
-        rng (RandomState): RandomState used to set trial seeds. It is advanced
-            across calls.
+        rng (Optional[RandomState]): Caller-owned random state used to set
+            trial seeds and advanced in place, or ``None`` to build one from
+            ``seed``.
         init_estimator (Optional[ParameterEstimator]): Optional estimator used
             for fitting.
         enc_data (Optional[List[Tuple[int, EncodedDataSequence]]]): Optional
@@ -316,6 +329,12 @@ def best_of_mpi(
             receiving a :class:`~dmx.utils.progress.ProgressEvent` for every
             iteration and trial, including the final ``optimize_mpi``
             refinement. Messages and events are produced on rank 0 only.
+        seed (Optional[int]): Seed for a private random state, used on every
+            rank. With neither ``seed`` nor ``rng``, rank 0 draws a fresh seed
+            from OS entropy and broadcasts it, so all ranks agree. The seed
+            used is sent to ``progress_callback`` as a ``"start"`` event and
+            logged at DEBUG on rank 0. Pass at most one of ``seed`` and
+            ``rng``.
 
     Returns:
         Optional[SequenceEncodableProbabilityDistribution]: Best fitting model
@@ -323,13 +342,17 @@ def best_of_mpi(
 
     Raises:
         ValueError: If rank 0 has no raw data and encoded data are not present
-            on every rank, or if `init_p` is outside `(0, 1]`.
+            on every rank, if `init_p` is outside `(0, 1]`, or if both
+            ``seed`` and ``rng`` are given.
         RuntimeError: If encoded data expected on a rank are missing.
     """
     mpi = get_runtime_attr("mpi4py", "MPI")
     comm = mpi.COMM_WORLD
     world_rank = comm.Get_rank()
     reporter = ProgressReporter("best_of_mpi", logger, out, verbose, progress_callback)
+    rng, used_seed = resolve_rng_mpi(comm, seed, rng)
+    if world_rank == 0:
+        reporter.start(used_seed)
 
     # check if encoded data is already on each worker
     enc_data_exists = enc_data is not None

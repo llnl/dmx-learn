@@ -99,10 +99,18 @@ def test_callback_receives_one_event_per_iteration(name: str) -> None:
     assert [e.iteration for e in iterations] == list(range(1, MAX_ITS + 1)) * trials
 
 
+def _drop_start(events: list[ProgressEvent]) -> list[ProgressEvent]:
+    """Check for exactly one leading ``"start"`` event and return the rest."""
+    assert [e.event for e in events].count("start") == 1
+    assert events[0].event == "start"
+    return events[1:]
+
+
 def test_best_of_text_matches_events() -> None:
     out = io.StringIO()
     events: list[ProgressEvent] = []
     _run_best_of(out=out, progress_callback=events.append)
+    events = _drop_start(events)
 
     expected = []
     for e in events:
@@ -122,6 +130,7 @@ def test_optimize_text_matches_events() -> None:
     out = io.StringIO()
     events: list[ProgressEvent] = []
     _run_optimize(out=out, progress_callback=events.append)
+    events = _drop_start(events)
 
     expected = [
         f"Iteration {e.iteration}. LL={e.log_likelihood:f}, dLL={e.delta:e}, "
@@ -159,6 +168,7 @@ def test_print_iter_throttles_text_but_not_events() -> None:
     out = io.StringIO()
     events: list[ProgressEvent] = []
     _run_optimize(out=out, print_iter=2, progress_callback=events.append)
+    events = _drop_start(events)
 
     assert len(out.getvalue().splitlines()) == 1
     assert len(events) == MAX_ITS

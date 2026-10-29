@@ -189,7 +189,7 @@ class IntegerPLSISampler(DistributionSampler):
         self, dist: IntegerPLSIDistribution, seed: Optional[int] = None
     ) -> None:
         """Initialize CPU NumPy copies of PLSI parameters and length sampler."""
-        self.rng = np.random.RandomState(seed)
+        self.rng = self._seed_rng(seed)
         self.doc_vec = dist.doc_vec.data.cpu().numpy()
         self.state_mat = dist.state_mat.data.cpu().numpy()
         self.prob_mat = dist.prob_mat.data.cpu().numpy()

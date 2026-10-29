@@ -20,9 +20,11 @@ from abc import abstractmethod
 from typing import Any, Dict, Generic, Optional, TypeVar
 
 import torch as tn
+from numpy.random import RandomState
 from torch import device as TorchDevice
 
 from dmx.torch_utils.vector import DeviceLike, resolve_device
+from dmx.utils.seeding import resolve_sampler_seed
 
 SS = TypeVar("SS")
 
@@ -160,7 +162,28 @@ class DistributionSampler:
 
     Samplers generate random samples from probability distributions.
 
+    Attributes:
+        seed (Any): Seed the sampler's random state was built from (an int
+            unless an array-like seed was passed). When the
+            sampler is created with ``seed=None``, a fresh seed is drawn from
+            OS entropy (never NumPy's global random state) and stored here, so
+            passing it back reproduces the same draws.
+
     """
+
+    seed: Any
+
+    def _seed_rng(self, seed: Optional[int]) -> RandomState:
+        """Record the seed to use and return a random state built from it.
+
+        Args:
+            seed: Requested seed, or ``None`` to draw a fresh one.
+
+        Returns:
+            A ``RandomState`` seeded with :attr:`seed`.
+        """
+        self.seed = resolve_sampler_seed(seed)
+        return RandomState(self.seed)
 
     @abstractmethod
     def sample(self, size: Optional[int] = None) -> Any:

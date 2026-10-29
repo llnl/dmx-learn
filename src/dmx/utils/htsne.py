@@ -8,6 +8,7 @@ from numpy.random import RandomState
 
 from dmx.utils.automatic import MixtureModel, prepare_mixture_model
 from dmx.utils.progress import ProgressCallback, ProgressReporter
+from dmx.utils.seeding import resolve_seed
 
 logger = logging.getLogger(__name__)
 
@@ -452,8 +453,10 @@ def htsne(
         optimize_alpha: Optimize ``alpha`` after each embedding update.
         min_alpha: Lower bound used during alpha optimization.
         max_alpha_its: Maximum alpha updates per embedding iteration.
-        seed: Seed for a local legacy NumPy random state. ``None`` uses OS
-            entropy.
+        seed: Seed for the random state used for mixture fitting and the
+            initial coordinates. ``None`` draws a fresh seed from OS entropy;
+            the seed used is sent to ``progress_callback`` as a ``"start"``
+            event and logged at DEBUG.
         comp_estimator: Optional estimator for one mixture component.
         mix_model: Optional pre-fitted mixture distribution.
         variable_length: Use variable-length affinity normalization.
@@ -465,7 +468,12 @@ def htsne(
         ValueError: If ``max_components`` is not an integer greater than one.
         RuntimeError: If mixture fitting produces no components.
     """
-    rng = RandomState(seed) if seed is not None else RandomState()
+    reporter = ProgressReporter(
+        "htsne", logger, verbose=verbose, callback=progress_callback
+    )
+    seed = resolve_seed(seed)
+    reporter.start(seed)
+    rng = RandomState(seed)
     mix_model, enc_data, z_ij = prepare_mixture_model(
         data=data,
         rng=rng,
@@ -524,9 +532,6 @@ def htsne(
         iY = np.zeros((nn, emb_dim))
         gains = np.zeros((nn, emb_dim))
 
-    reporter = ProgressReporter(
-        "htsne", logger, verbose=verbose, callback=progress_callback
-    )
     for i in range(1, max_its + 1):
         Y, iY, gains, Q = update_embed(
             P=P,
@@ -613,10 +618,18 @@ def dpmsne(
         min_alpha: Lower bound used during alpha optimization.
         max_alpha_its: Maximum alpha updates per embedding iteration.
         seed: Seed for Gaussian initialization. Ignored when ``Y`` is supplied.
+            ``None`` draws a fresh seed from OS entropy; the seed used is sent
+            to ``progress_callback`` as a ``"start"`` event and logged at
+            DEBUG.
 
     Returns:
         Centered embedding coordinates with shape ``(n_samples, emb_dim)``.
     """
+    reporter = ProgressReporter(
+        "dpmsne", logger, verbose=verbose, callback=progress_callback
+    )
+    seed = resolve_seed(seed)
+    reporter.start(seed)
     P = np.asarray(P)
     P /= np.sum(P)
 
@@ -643,9 +656,6 @@ def dpmsne(
         iY = np.zeros((nn, emb_dim))
         gains = np.zeros((nn, emb_dim))
 
-    reporter = ProgressReporter(
-        "dpmsne", logger, verbose=verbose, callback=progress_callback
-    )
     for i in range(1, max_its + 1):
         Y, iY, gains, Q = update_embed(
             P, Y, iY, gains, momentum, eta, alpha, min_gain, min_value

@@ -30,6 +30,7 @@ from dmx.bstats.pdist import (
     StatisticAccumulatorFactory,
 )
 from dmx.bstats.symdirichlet import SymmetricDirichletDistribution
+from dmx.utils.seeding import resolve_sampler_seed
 from dmx.utils.special import digamma
 
 # Bayesian distributions intentionally implement the supported legacy protocol.
@@ -296,8 +297,10 @@ class MixtureSampler(DistributionSampler[Any]):
 
     def __init__(self, dist: MixtureDistribution, seed: Optional[int] = None) -> None:
         """Initialize independent selection and component random states."""
-        seed_source = np.random.RandomState(seed)
+        used_seed = resolve_sampler_seed(seed)
+        seed_source = np.random.RandomState(used_seed)
         super().__init__(dist, int(seed_source.randint(maxint)))
+        self.seed = used_seed
         self.dist = dist
         self.comp_samplers = tuple(
             x.sampler(seed=int(seed_source.randint(maxint))) for x in dist.components

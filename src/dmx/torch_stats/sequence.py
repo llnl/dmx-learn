@@ -15,7 +15,6 @@ from typing import Any, Dict, List, Optional, Sequence, Tuple, TypeVar
 
 import numpy as np
 import torch as tn
-from numpy.random import RandomState
 
 import dmx.torch_utils.vector as vec
 from dmx.arithmetic import maxrandint
@@ -189,7 +188,7 @@ class SequenceSampler(DistributionSampler):
         """Initialize item and length samplers with independent seeds."""
         self.dist = dist
         self.len_dist = len_dist
-        self.rng = RandomState(seed)
+        self.rng = self._seed_rng(seed)
         self.dist_sampler = self.dist.sampler(seed=self.rng.randint(0, maxrandint))
         self.len_sampler = self.len_dist.sampler(seed=self.rng.randint(0, maxrandint))
 

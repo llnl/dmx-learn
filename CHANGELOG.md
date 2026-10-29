@@ -6,6 +6,14 @@ All notable changes to dmx-learn are recorded here.
 
 ### Changed
 
+- `optimize` and `iterate` (`dmx.utils.estimation`) and the MPI
+  `optimize_mpi` helpers no longer share one import-time
+  `RandomState()` default across calls; `rng` now defaults to `None`, and each
+  unseeded call gets its own reported seed. Calls that pass `rng` or `seed` are
+  unchanged.
+- `torch_utils.estimation.optimize` and `optimize_mp`, and
+  `dmx.utils.vector.row_choice`, no longer draw from NumPy's global random
+  state when no seed or `rng` is given.
 - **Packaging: pyspark is no longer a core dependency.** A plain
   `pip install dmx-learn` no longer pulls in pyspark (or its Java runtime
   requirement), and `import dmx`, `dmx.stats`, `dmx.bstats`, and
@@ -81,6 +89,18 @@ All notable changes to dmx-learn are recorded here.
   the callback receives a `dmx.utils.progress.ProgressEvent` for every
   iteration (independent of `print_iter`), with `to_dict()` for JSON. Existing
   `out=` arguments work as before.
+- Seed discipline on every stochastic entry point, with an audit table on the
+  new "Seeds and reproducibility" docs page. Fitting helpers (`optimize`,
+  `best_of`, `iterate` in `dmx.utils.estimation`, `dmx.bstats.bestimation`, and
+  `dmx.mpi4py.utils`, plus `get_dpm_mixture` and `prepare_mixture_model`) gain a
+  `seed` argument next to `rng`; passing both raises `ValueError`. With
+  neither, a fresh seed is drawn from OS entropy instead of NumPy's global
+  state, and the seed used is reported as a `"start"` progress event and a
+  DEBUG log record (`htsne`, `dpmsne`, and `humap` report their `seed` the same
+  way; MPI helpers broadcast a drawn seed from rank 0). Samplers record their
+  seed as `sampler.seed`, so `dist.sampler(seed=sampler.seed)` reproduces an
+  unseeded sampler. New `dmx.utils.seeding` helpers: `new_seed`,
+  `resolve_seed`, `resolve_sampler_seed`, and `resolve_rng`.
 
 ### Fixed
 

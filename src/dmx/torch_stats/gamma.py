@@ -12,7 +12,6 @@ from typing import Any, Dict, List, Optional, Tuple, Union
 
 import numpy as np
 import torch as tn
-from numpy.random import RandomState
 
 import dmx.torch_utils.vector as vec
 from dmx.arithmetic import exp, inf, log, one, sqrt, zero
@@ -130,8 +129,8 @@ class GammaSampler(DistributionSampler):
     Attributes:
         rng (RandomState): RandomState with seed set for sampling.
         dist (GammaDistribution): GammaDistribution to sample from.
-        seed (Optional[int]): Used to set seed on random number generator used
-            in sampling.
+        seed (int): Seed the random state was built from; drawn from OS
+            entropy when the sampler is created with ``seed=None``.
 
     """
 
@@ -144,9 +143,8 @@ class GammaSampler(DistributionSampler):
                 used in sampling.
 
         """
-        self.rng = RandomState(seed)
+        self.rng = self._seed_rng(seed)
         self.dist = dist
-        self.seed = seed
 
     def sample(self, size: Optional[int] = None) -> Union[float, np.ndarray]:
         """Draw 'size'-iid observations from GammaSampler.

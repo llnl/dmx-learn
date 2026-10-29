@@ -29,6 +29,7 @@ from dmx.torch_stats.pdist import (
     TorchStatisticAccumulator,
     TorchStatisticAccumulatorFactory,
 )
+from dmx.utils.seeding import resolve_sampler_seed
 
 
 class NullDistribution(TorchProbabilityDistribution):
@@ -77,8 +78,8 @@ class NullSampler(DistributionSampler):
     """Implement the sampler protocol by always returning ``None``."""
 
     def __init__(self, dist: "NullDistribution", seed: Optional[int] = None) -> None:
-        """Store protocol-compatible distribution and seed values."""
-        self.seed = seed
+        """Store the distribution and the resolved seed (no draws are made)."""
+        self.seed = resolve_sampler_seed(seed)
         self.dist = dist
 
     def sample(self, size: Optional[int] = None) -> None:

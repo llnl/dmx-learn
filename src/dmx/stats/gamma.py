@@ -183,7 +183,6 @@ class GammaSampler(DistributionSampler):
             seed (Optional[int], optional): Seed for random number generator.
         """
         super().__init__(dist, seed)
-        self.seed = seed
 
     def sample(self, size: Optional[int] = None) -> Union[float, List[float]]:
         """Draw iid samples from the gamma distribution.

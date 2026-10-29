@@ -17,7 +17,6 @@ from typing import Any, Dict, List, Optional, Sequence, Tuple, Union, cast
 
 import numpy as np
 import torch as tn
-from numpy.random import RandomState
 
 import dmx.torch_utils.vector as vec
 from dmx.torch_stats.pdist import (
@@ -219,7 +218,7 @@ class BinomialSampler(DistributionSampler):
             seed (Optional[int]): Seed for setting random number generator.
 
         """
-        self.rng = RandomState(seed)
+        self.rng = self._seed_rng(seed)
         self.dist = dist
 
     def sample(self, size: Optional[int] = None) -> Union[int, List[int]]:

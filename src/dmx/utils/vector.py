@@ -14,6 +14,8 @@ from typing import (
 
 import numpy as np
 
+from dmx.utils.seeding import new_seed
+
 SCIPY_LINALG = import_module("scipy.linalg")
 SCIPY_SPECIAL = import_module("scipy.special")
 
@@ -617,14 +619,18 @@ def row_choice(p_mat: np.ndarray, rng: Optional[np.random.RandomState]) -> np.nd
 
     Args:
         p_mat (np.ndarray): N x S numpy array.
-        rng (Optional[np.random.RandomState]): RandomState for sampling.
+        rng (Optional[np.random.RandomState]): RandomState for sampling. ``None``
+            uses a private state seeded from OS entropy, never NumPy's global
+            random state.
 
     Returns:
         N dim numpy array of ints.
 
     """
     N, m = p_mat.shape
-    u = rng.rand(N) if rng is not None else np.random.rand(N)
+    if rng is None:
+        rng = np.random.RandomState(new_seed())
+    u = rng.rand(N)
     rv = np.zeros(N, dtype=int)
 
     bins = np.hstack((np.zeros((N, 1)), np.cumsum(p_mat, axis=1)))

@@ -15,7 +15,7 @@ from dmx.mpi4py.bstats import (
     seq_estimate_mpi,
     seq_log_density_sum_mpi,
 )
-from dmx.mpi4py.utils import get_runtime_attr
+from dmx.mpi4py.utils import get_runtime_attr, resolve_rng_mpi
 from dmx.utils.progress import ProgressCallback, ProgressReporter
 
 DATUM_TYPE = TypeVar("DATUM_TYPE")
@@ -43,7 +43,7 @@ def optimize_mpi(
     delta: Optional[float] = 1.0e-9,
     init_estimator: Optional[ParameterEstimator] = None,
     init_p: float = 0.1,
-    rng: RandomState = RandomState(),
+    rng: Optional[RandomState] = None,
     prev_estimate: Optional[ProbabilityDistribution] = None,
     vdata: Optional[Sequence[DATUM_TYPE]] = None,
     enc_data: Optional[List[Tuple[int, ENCODED_SEQ]]] = None,
@@ -53,6 +53,7 @@ def optimize_mpi(
     num_chunks: int = 1,
     verbose: bool = True,
     progress_callback: Optional[ProgressCallback] = None,
+    seed: Optional[int] = None,
 ) -> Optional[ProbabilityDistribution]:
     """Run MPI EM estimation for a `dmx.bstats` estimator.
 
@@ -77,8 +78,9 @@ def optimize_mpi(
         init_estimator (Optional[ParameterEstimator]): Estimator used for
             initialization. If `None`, use `estimator`.
         init_p (float): Initialization proportion in `(0, 1]`.
-        rng (RandomState): RandomState used to set seeds for initialization.
-            The default object is process-local and is advanced across calls.
+        rng (Optional[RandomState]): Caller-owned random state used to set
+            seeds for initialization and advanced in place, or ``None`` (the
+            default) to build one from ``seed``.
         prev_estimate (Optional[ProbabilityDistribution]): Optional previous
             model estimate, meaningful on rank 0 and consistent with
             `estimator`.
@@ -95,6 +97,12 @@ def optimize_mpi(
         progress_callback (Optional[ProgressCallback]): Optional function
             receiving a :class:`~dmx.utils.progress.ProgressEvent` for every
             iteration. Messages and events are produced on rank 0 only.
+        seed (Optional[int]): Seed for a private random state, used on every
+            rank. With neither ``seed`` nor ``rng``, rank 0 draws a fresh seed
+            from OS entropy and broadcasts it, so all ranks agree. The seed
+            used is sent to ``progress_callback`` as a ``"start"`` event and
+            logged at DEBUG on rank 0. Pass at most one of ``seed`` and
+            ``rng``.
 
     Returns:
         Optional[ProbabilityDistribution]: Estimated model on rank 0 and
@@ -102,13 +110,17 @@ def optimize_mpi(
 
     Raises:
         ValueError: If rank 0 has no raw data and encoded data are not present
-            on every rank, or if `init_p` is outside `(0, 1]`.
+            on every rank, if `init_p` is outside `(0, 1]`, or if both
+            ``seed`` and ``rng`` are given.
         RuntimeError: If encoded data expected on a rank are missing.
     """
     mpi = get_runtime_attr("mpi4py", "MPI")
     comm = mpi.COMM_WORLD
     world_rank = comm.Get_rank()
     reporter = ProgressReporter("optimize_mpi", logger, out, verbose, progress_callback)
+    rng, used_seed = resolve_rng_mpi(comm, seed, rng)
+    if world_rank == 0:
+        reporter.start(used_seed)
 
     # check if encoded data is already on each worker
     enc_data_exists = enc_data is not None

@@ -256,7 +256,7 @@ class IntegerMultinomialSampler(DistributionSampler):
 
         """
         self.dist = dist
-        self.rng = np.random.RandomState(seed)
+        self.rng = self._seed_rng(seed)
         self.p_vec = dist.p_vec.data.cpu().numpy()
         self.min_val = dist.min_val
         self.max_val = dist.max_val

@@ -129,9 +129,7 @@ class GaussianSampler(DistributionSampler):
             seed (Optional[int]): Used to set seed in random sampler.
 
         """
-        self.rng = (
-            np.random.RandomState(seed) if seed is not None else np.random.RandomState()
-        )
+        self.rng = self._seed_rng(seed)
         self.dist = dist
 
     def sample(self, size: Optional[int] = None) -> Union[float, np.ndarray]:

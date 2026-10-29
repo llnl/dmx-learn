@@ -406,7 +406,7 @@ class HierarchicalMixtureSampler(DistributionSampler):
 
         """
         super().__init__(dist, seed)
-        self.sampler = dist.to_mixture().sampler(seed)
+        self.sampler = dist.to_mixture().sampler(self.seed)
 
     def sample(self, size: Optional[int] = None) -> Union[Sequence[Any], Any]:
         """Draw one sequence or a collection of sequences."""

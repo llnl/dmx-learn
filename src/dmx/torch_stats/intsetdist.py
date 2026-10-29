@@ -181,7 +181,7 @@ class IntegerBernoulliSetSampler(DistributionSampler):
             seed (Optional[int]): Seed for random number generator.
 
         """
-        self.rng = np.random.RandomState(seed)
+        self.rng = self._seed_rng(seed)
         self.log_pvec = dist.log_pvec.cpu().detach().numpy()
         self.num_vals = dist.num_vals
 

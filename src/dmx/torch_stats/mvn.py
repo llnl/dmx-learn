@@ -200,7 +200,7 @@ class MultivariateGaussianSampler(DistributionSampler):
         self, dist: "MultivariateGaussianDistribution", seed: Optional[int] = None
     ) -> None:
         """Initialize a sampler by copying parameters to CPU NumPy arrays."""
-        self.rng = np.random.RandomState(seed)
+        self.rng = self._seed_rng(seed)
         self.mu = dist.mu.data.cpu().numpy()
         self.covar = dist.covar.data.cpu().numpy()
 

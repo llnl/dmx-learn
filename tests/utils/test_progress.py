@@ -94,6 +94,13 @@ LEGACY_PREFIX = {
 }
 
 
+def _drop_start(events: list[ProgressEvent]) -> list[ProgressEvent]:
+    """Check there is exactly one leading ``"start"`` event and drop it."""
+    assert [e.event for e in events].count("start") == 1
+    assert events[0].event == "start"
+    return events[1:]
+
+
 def test_event_to_dict_is_json_ready() -> None:
     event = ProgressEvent(
         "optimize",
@@ -152,12 +159,13 @@ def test_callback_gets_one_event_per_iteration(name: str) -> None:
 def test_callback_events_carry_likelihoods() -> None:
     events: list[ProgressEvent] = []
     RUNNERS["optimize"](io.StringIO(), False, events.append)
+    events = _drop_start(events)
 
-    lls = [e.log_likelihood for e in events]
-    deltas = [e.delta for e in events]
-    assert None not in lls and None not in deltas
+    lls = [float(e.log_likelihood or "nan") for e in events]
+    deltas = [float(e.delta or "nan") for e in events]
+    assert np.all(np.isfinite(lls)) and np.all(np.isfinite(deltas))
     for i in range(1, len(events)):
-        assert deltas[i] == pytest.approx(float(lls[i]) - float(lls[i - 1]))  # type: ignore[arg-type]
+        assert deltas[i] == pytest.approx(lls[i] - lls[i - 1])
 
 
 def test_best_of_reports_trials() -> None:
@@ -174,8 +182,10 @@ def test_quiet_still_logs(caplog: pytest.LogCaptureFixture) -> None:
         RUNNERS["optimize"](sys.stdout, False, None)
 
     messages = [r.getMessage() for r in caplog.records]
-    assert len(messages) == 4
-    assert messages[0].startswith(LEGACY_PREFIX["optimize"])
+    # One seed record, then one record per iteration.
+    assert len(messages) == 5
+    assert messages[0].startswith("optimize seed=")
+    assert messages[1].startswith(LEGACY_PREFIX["optimize"])
 
 
 def _dpm(verbose: bool, callback: Any = None) -> Any:
@@ -225,7 +235,7 @@ def test_htsne_quiet_and_events(capsys: pytest.CaptureFixture[str]) -> None:
     )
 
     assert capsys.readouterr() == ("", "")
-    embed = [e for e in events if e.source == "htsne"]
+    embed = _drop_start([e for e in events if e.source == "htsne"])
     assert [e.iteration for e in embed] == [1, 2, 3, 4, 5, 6]
     assert all(np.isfinite(e.metrics["kl_divergence"]) for e in embed)
 
@@ -249,7 +259,7 @@ def test_dpmsne_default_output_and_quiet(capsys: pytest.CaptureFixture[str]) -> 
         progress_callback=events.append,
     )
     assert capsys.readouterr() == ("", "")
-    assert [e.iteration for e in events] == [1, 2, 3, 4]
+    assert [e.iteration for e in _drop_start(events)] == [1, 2, 3, 4]
 
 
 def test_humap_quiet(capsys: pytest.CaptureFixture[str]) -> None:

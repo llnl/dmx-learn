@@ -269,7 +269,7 @@ class HeterogeneousMixtureSampler(DistributionSampler):
         self, dist: HeterogeneousMixtureDistribution, seed: Optional[int] = None
     ):
         """Initialize CPU component selection and independently seeded samplers."""
-        rng_loc = np.random.RandomState(seed)
+        rng_loc = self._seed_rng(seed)
         self.rng = np.random.RandomState(rng_loc.randint(0, maxrandint))
         self.w = dist.w.data.cpu().numpy()
         self.ncomps = len(self.w)

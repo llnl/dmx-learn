@@ -14,7 +14,6 @@ accumulation, and estimation are delegated position by position. Unlike
 from typing import Any, Dict, List, Optional, Sequence, Tuple, TypeVar, Union
 
 import torch as tn
-from numpy.random import RandomState
 from torch import Generator
 
 import dmx.torch_utils.vector as vec
@@ -128,7 +127,7 @@ class CompositeSampler(DistributionSampler):
     ) -> None:
         """Initialize child samplers with independently derived seeds."""
         self.dist = dist
-        self.rng = RandomState(seed)
+        self.rng = self._seed_rng(seed)
         self.dist_samplers = [
             d.sampler(seed=self.rng.randint(maxrandint)) for d in dist.dists
         ]

@@ -19,7 +19,6 @@ from typing import Any, Dict, List, Optional, Sequence, Set, Tuple, TypeVar, Uni
 
 import numpy as np
 import torch as tn
-from numpy.random import RandomState
 
 import dmx.torch_utils.vector as vec
 from dmx.arithmetic import maxrandint
@@ -440,7 +439,7 @@ class HiddenMarkovSampler(DistributionSampler):
         """
         self.num_states = dist.n_states
         self.dist = dist
-        self.rng = RandomState(seed)
+        self.rng = self._seed_rng(seed)
 
         if dist.has_topics:
             assert dist.taus is not None

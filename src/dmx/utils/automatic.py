@@ -31,6 +31,7 @@ from dmx.bstats.dpm import (
 from dmx.stats import ParameterEstimator
 from dmx.stats.mixture import MixtureDistribution as StatsMixtureDistribution
 from dmx.utils.progress import ProgressCallback, ProgressReporter
+from dmx.utils.seeding import resolve_rng
 
 logger = logging.getLogger(__name__)
 
@@ -77,7 +78,7 @@ def encode_mixture_data(
 # pylint: disable-next=too-many-positional-arguments
 def prepare_mixture_model(
     data: Sequence[Any],
-    rng: np.random.RandomState,
+    rng: Optional[np.random.RandomState],
     max_components: int = 30,
     mix_threshold_count: float = 0.5,
     max_its: int = 1000,
@@ -86,6 +87,7 @@ def prepare_mixture_model(
     mix_model: Optional[MixtureModel] = None,
     verbose: bool = True,
     progress_callback: Optional[ProgressCallback] = None,
+    seed: Optional[int] = None,
 ) -> tuple[MixtureModel, Any, np.ndarray]:
     """Fit or reuse a mixture model and compute component posteriors.
 
@@ -95,7 +97,9 @@ def prepare_mixture_model(
 
     Args:
         data: Observations to encode and, when needed, fit.
-        rng: Random state used to initialize mixture fitting.
+        rng: Caller-owned random state used to initialize mixture fitting,
+            or ``None`` to build one from ``seed``. A caller-owned state is
+            passed to the optimizer unchanged.
         max_components: Maximum number of mixture components; must be an
             integer greater than one even when a model is supplied.
         mix_threshold_count: Minimum effective component count retained after
@@ -109,6 +113,10 @@ def prepare_mixture_model(
         progress_callback: Optional function receiving a
             :class:`~dmx.utils.progress.ProgressEvent` for each mixture-fitting
             update and the fitted mixture; see :func:`get_dpm_mixture`.
+        seed: Seed for a private random state. With neither ``seed`` nor
+            ``rng``, a fresh seed is drawn from OS entropy. The seed used is
+            sent to ``progress_callback`` as a ``"start"`` event and logged
+            at DEBUG. Pass at most one of ``seed`` and ``rng``.
 
     Returns:
         The mixture model, its model-specific encoded data, and an array of
@@ -119,7 +127,13 @@ def prepare_mixture_model(
         ValueError: If ``max_components`` is not an integer greater than one.
         RuntimeError: If the resulting mixture has no components.
         TypeError: If the resulting model type cannot encode ``data``.
+        ValueError: If both ``seed`` and ``rng`` are given.
     """
+    reporter = ProgressReporter(
+        "prepare_mixture_model", logger, verbose=verbose, callback=progress_callback
+    )
+    rng, used_seed = resolve_rng(seed, rng)
+    reporter.start(used_seed)
     if max_components <= 1 or not isinstance(max_components, (int, np.integer)):
         raise ValueError("max_components must be an integer greater than 1.")
 
@@ -650,6 +664,7 @@ def get_dpm_mixture(
     mix_threshold_count: float = 0.5,
     verbose: bool = True,
     progress_callback: Optional[ProgressCallback] = None,
+    seed: Optional[int] = None,
 ) -> BstatsMixtureDistribution:
     """Fit and prune a finite Dirichlet-process mixture model.
 
@@ -670,8 +685,9 @@ def get_dpm_mixture(
         estimator: Component estimator. When absent, one is inferred from
             ``data``.
         max_comp: Maximum number of components used during fitting.
-        rng: Random state used by mixture initialization. When absent, the
-            Bayesian optimizer supplies its default random state.
+        rng: Caller-owned random state used to initialize mixture fitting,
+            or ``None`` to build one from ``seed``. A caller-owned state is
+            passed to the optimizer unchanged.
         max_its: Maximum number of optimizer iterations.
         print_iter: Interval for optimizer progress output.
         mix_threshold_count: Effective-count threshold for retaining a
@@ -682,6 +698,10 @@ def get_dpm_mixture(
             :class:`~dmx.utils.progress.ProgressEvent` for every optimizer
             iteration (source ``"optimize"``) and one final ``"result"`` event
             whose metrics hold the retained ``weights`` and ``num_components``.
+        seed: Seed for a private random state. With neither ``seed`` nor
+            ``rng``, a fresh seed is drawn from OS entropy. The seed used is
+            sent to ``progress_callback`` as a ``"start"`` event and logged
+            at DEBUG. Pass at most one of ``seed`` and ``rng``.
 
     Returns:
         A Bayesian mixture containing the retained components and their
@@ -689,7 +709,13 @@ def get_dpm_mixture(
 
     Raises:
         ZeroDivisionError: If ``data`` is empty.
+        ValueError: If both ``seed`` and ``rng`` are given.
     """
+    reporter = ProgressReporter(
+        "get_dpm_mixture", logger, verbose=verbose, callback=progress_callback
+    )
+    rng, used_seed = resolve_rng(seed, rng)
+    reporter.start(used_seed)
     if estimator is None:
         est = get_estimator(data, use_bstats=True)
     else:
@@ -714,9 +740,6 @@ def get_dpm_mixture(
     mix_comps = [mix_model.components[i] for i in np.flatnonzero(mix_model.w >= thresh)]
     mix_weights = mix_model.w[mix_model.w >= thresh]
 
-    reporter = ProgressReporter(
-        "get_dpm_mixture", logger, verbose=verbose, callback=progress_callback
-    )
     reporter.message(f"{mix_weights}\n")
     reporter.message(f"# Components = {len(mix_comps)}\n")
     reporter.event(

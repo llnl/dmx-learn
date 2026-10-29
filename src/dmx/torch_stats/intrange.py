@@ -199,9 +199,7 @@ class IntegerCategoricalSampler(DistributionSampler):
         self.p_vec = dist.p_vec.cpu().numpy()
         self.min_val = dist.min_val
         self.max_val = dist.max_val
-        self.rng = (
-            np.random.RandomState(seed) if seed is not None else np.random.RandomState()
-        )
+        self.rng = self._seed_rng(seed)
 
     def sample(self, size: Optional[int] = None) -> Union[int, List[int]]:
         """Draw iid samples from IntegerCategoricalSampler object.
