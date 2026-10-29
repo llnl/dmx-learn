@@ -11,12 +11,12 @@ from dmx.bstats import GaussianDistribution as BstatsGaussianDistribution
 from dmx.bstats.pdist import ProbabilityDistribution as BstatsProbabilityDistribution
 from dmx.stats import GaussianDistribution, MarkovChainDistribution
 from dmx.stats.pdist import ProbabilityDistribution
+from dmx.utils._fisher_kernels import trigamma_minus_reciprocal
 from dmx.utils.fisher import (
     FisherScoreOptions,
     as_score_array,
     has_fisher_score,
     resolve_fisher_options,
-    trigamma_minus_reciprocal,
 )
 
 

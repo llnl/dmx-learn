@@ -19,7 +19,8 @@ from dmx.stats.pdist import (
     SequenceEncodableStatisticAccumulator,
     StatisticAccumulatorFactory,
 )
-from dmx.utils.fisher import FisherScoreOptions, binomial_score, resolve_fisher_options
+from dmx.utils._fisher_kernels import binomial_score
+from dmx.utils.fisher import FisherScoreOptions, resolve_fisher_options
 from dmx.utils.vector import gammaln
 
 E = Tuple[np.ndarray, np.ndarray, np.ndarray, int, int]

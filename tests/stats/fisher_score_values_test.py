@@ -21,7 +21,8 @@ from dmx.stats import (
     LogGaussianDistribution,
     PoissonDistribution,
 )
-from dmx.utils.fisher import FisherScoreOptions, bernoulli_score
+from dmx.utils._fisher_kernels import bernoulli_score
+from dmx.utils.fisher import FisherScoreOptions
 
 SQRT_HALF = math.sqrt(0.5)
 EULER_GAMMA = 0.5772156649015329

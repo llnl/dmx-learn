@@ -27,11 +27,10 @@ Combinators recurse into their children with the same
 not change the definition: each occurrence is scored with the parameters it
 uses.
 
-Closed-form score kernels for individual families are added to this module as
-pure functions of the observations and parameters, so :mod:`dmx.stats` and
-:mod:`dmx.bstats` share one implementation. Kernels take NumPy arrays and
-scalar parameters, return the result of :func:`as_score_array`, and never
-import distribution classes.
+Closed-form formulas for individual families live in the private module
+``dmx.utils._fisher_kernels``, shared by :mod:`dmx.stats` and :mod:`dmx.bstats`
+so both packages return identical scores. They are not public API; each
+distribution's ``seq_fisher_score`` docstring states its formula.
 
 See ``docs/utils/fisher_embedding.rst`` for the embedding built from these
 scores.
@@ -44,23 +43,12 @@ from typing import Any, Literal, Optional
 
 import numpy as np
 
-from dmx.utils.special import digamma, trigamma
-
 __all__ = [
     "FisherScoreOptions",
     "as_score_array",
-    "bernoulli_score",
-    "binomial_score",
-    "clamp_probability",
-    "exponential_score",
     "fisher_score_unsupported",
-    "gamma_score",
-    "gaussian_score",
-    "geometric_score",
     "has_fisher_score",
-    "poisson_score",
     "resolve_fisher_options",
-    "trigamma_minus_reciprocal",
 ]
 
 SequenceScaling = Literal["conditional", "marginal"]
@@ -191,7 +179,7 @@ def has_fisher_score(dist: Any, options: Optional[FisherScoreOptions] = None) ->
 def as_score_array(values: Any, dim: int) -> np.ndarray:
     """Return score values as a C-contiguous ``(N, dim)`` float64 array.
 
-    Score kernels use this to normalize their output. A one-dimensional input
+    Score implementations use this to normalize their output. A one-dimensional input
     is treated as one score column, which is only valid when ``dim == 1``.
 
     Args:
@@ -210,187 +198,3 @@ def as_score_array(values: Any, dim: int) -> np.ndarray:
     if rv.ndim != 2 or rv.shape[1] != dim:
         raise ValueError(f"Expected Fisher scores of shape (N, {dim}), got {rv.shape}.")
     return np.ascontiguousarray(rv)
-
-
-# --- Score kernels -----------------------------------------------------------
-
-_SQRT_HALF = float(np.sqrt(0.5))
-
-# Shape above which trigamma(k) - 1/k is taken from its asymptotic series.
-_TRIGAMMA_SERIES_SHAPE = 50.0
-
-
-def gaussian_score(x: Any, mu: float, sigma2: float) -> np.ndarray:
-    """Return the whitened score of a univariate Gaussian.
-
-    With ``u = (x - mu) / sigma`` the score is ``[u, (u^2 - 1) / sqrt(2)]``:
-    the location and scale directions, each with unit variance and
-    uncorrelated under the Gaussian.
-
-    Args:
-        x: Observations, shape ``(N,)``.
-        mu: Mean.
-        sigma2: Positive variance.
-
-    Returns:
-        Array of shape ``(N, 2)``.
-    """
-    u = (np.asarray(x, dtype=np.float64) - mu) / np.sqrt(sigma2)
-    return as_score_array(np.column_stack((u, (u * u - 1.0) * _SQRT_HALF)), 2)
-
-
-def exponential_score(x: Any, beta: float) -> np.ndarray:
-    """Return the whitened score of an exponential distribution with mean ``beta``.
-
-    The score is ``x / beta - 1``.
-
-    Args:
-        x: Nonnegative observations, shape ``(N,)``.
-        beta: Positive mean (scale).
-
-    Returns:
-        Array of shape ``(N, 1)``.
-    """
-    return as_score_array(np.asarray(x, dtype=np.float64) / beta - 1.0, 1)
-
-
-def trigamma_minus_reciprocal(k: float) -> float:
-    """Return ``trigamma(k) - 1/k`` accurately for large ``k``.
-
-    The difference is positive for every ``k > 0`` and behaves like
-    ``1 / (2 k^2)`` for large ``k``, so subtracting the two terms directly
-    loses about ``log10(2 k)`` significant digits (relative error near
-    ``2e-10`` at ``k = 1e6``). For ``k >= 50`` the asymptotic series is used
-    instead, which stays accurate to rounding error.
-
-    Args:
-        k: Positive gamma shape.
-
-    Returns:
-        ``trigamma(k) - 1/k``.
-    """
-    if k < _TRIGAMMA_SERIES_SHAPE:
-        return float(trigamma(k)) - 1.0 / k
-    r = 1.0 / k
-    r2 = r * r
-    # 1/(2k^2) + 1/(6k^3) - 1/(30k^5) + 1/(42k^7) - 1/(30k^9), in Horner form.
-    series = 1.0 / 6.0 + r2 * (-1.0 / 30.0 + r2 * (1.0 / 42.0 - r2 / 30.0))
-    return float(r2 * (0.5 + r * series))
-
-
-def gamma_score(x: Any, log_x: Any, k: float, theta: float) -> np.ndarray:
-    """Return the whitened score of a gamma distribution with shape and scale.
-
-    The sufficient statistics ``[x, log x]`` have mean
-    ``[k theta, digamma(k) + log theta]`` and covariance
-    ``[[k theta^2, theta], [theta, trigamma(k)]]``. The score is
-    ``L^{-1} (T - mean)`` for the lower Cholesky factor ``L`` of that
-    covariance:
-
-    - ``s1 = (x - k theta) / (sqrt(k) theta)``
-    - ``s2 = (log x - digamma(k) - log theta - s1 / sqrt(k))
-      / sqrt(trigamma(k) - 1/k)``
-
-    Args:
-        x: Positive observations, shape ``(N,)``.
-        log_x: ``log(x)``, shape ``(N,)``, as stored by the gamma encoder.
-        k: Positive shape.
-        theta: Positive scale.
-
-    Returns:
-        Array of shape ``(N, 2)``.
-    """
-    sqrt_k = np.sqrt(k)
-    s1 = (np.asarray(x, dtype=np.float64) - k * theta) / (sqrt_k * theta)
-    centered_log = np.asarray(log_x, dtype=np.float64) - (digamma(k) + np.log(theta))
-    s2 = (centered_log - s1 / sqrt_k) / np.sqrt(trigamma_minus_reciprocal(k))
-    return as_score_array(np.column_stack((s1, s2)), 2)
-
-
-def clamp_probability(p: float, floor: float) -> float:
-    """Return ``p`` clipped to ``[floor, 1 - floor]``.
-
-    Count and binary scores divide by ``sqrt(p (1 - p))`` or similar, which
-    is zero at the ends of the parameter range; clipping keeps them finite.
-
-    Args:
-        p: Probability parameter.
-        floor: Lower bound, typically ``FisherScoreOptions.prob_floor``.
-
-    Returns:
-        The clipped probability.
-    """
-    return min(max(float(p), floor), 1.0 - floor)
-
-
-def bernoulli_score(x: Any, p: float, floor: float = 1.0e-6) -> np.ndarray:
-    """Return the whitened Bernoulli score ``(x - p) / sqrt(p (1 - p))``.
-
-    Args:
-        x: Observations in ``{0, 1}``, shape ``(N,)``.
-        p: Success probability, clipped with :func:`clamp_probability`.
-        floor: Probability floor used for clipping.
-
-    Returns:
-        Array of shape ``(N, 1)``.
-    """
-    p = clamp_probability(p, floor)
-    rv = (np.asarray(x, dtype=np.float64) - p) / np.sqrt(p * (1.0 - p))
-    return as_score_array(rv, 1)
-
-
-def poisson_score(x: Any, lam: float, floor: float = 1.0e-6) -> np.ndarray:
-    """Return the whitened Poisson score ``(x - lam) / sqrt(lam)``.
-
-    Args:
-        x: Nonnegative counts, shape ``(N,)``.
-        lam: Rate; values below ``floor`` are raised to ``floor``.
-        floor: Smallest rate used.
-
-    Returns:
-        Array of shape ``(N, 1)``.
-    """
-    lam = max(float(lam), floor)
-    return as_score_array((np.asarray(x, dtype=np.float64) - lam) / np.sqrt(lam), 1)
-
-
-def geometric_score(x: Any, p: float, floor: float = 1.0e-6) -> np.ndarray:
-    """Return the whitened score of a geometric distribution on ``1, 2, ...``.
-
-    The count ``x`` has mean ``1 / p`` and variance ``(1 - p) / p^2``, so the
-    score is ``(p x - 1) / sqrt(1 - p)``.
-
-    Args:
-        x: Counts of trials up to and including the first success, shape
-            ``(N,)``.
-        p: Success probability, clipped with :func:`clamp_probability`.
-        floor: Probability floor used for clipping.
-
-    Returns:
-        Array of shape ``(N, 1)``.
-    """
-    p = clamp_probability(p, floor)
-    rv = (p * np.asarray(x, dtype=np.float64) - 1.0) / np.sqrt(1.0 - p)
-    return as_score_array(rv, 1)
-
-
-def binomial_score(y: Any, n: int, p: float, floor: float = 1.0e-6) -> np.ndarray:
-    """Return the whitened binomial score ``(y - n p) / sqrt(n p (1 - p))``.
-
-    With ``n = 0`` every observation is the same and carries no information,
-    so the score is zero.
-
-    Args:
-        y: Success counts in ``0..n``, shape ``(N,)``.
-        n: Number of trials.
-        p: Success probability, clipped with :func:`clamp_probability`.
-        floor: Probability floor used for clipping.
-
-    Returns:
-        Array of shape ``(N, 1)``.
-    """
-    y = np.asarray(y, dtype=np.float64)
-    if n <= 0:
-        return as_score_array(np.zeros_like(y), 1)
-    p = clamp_probability(p, floor)
-    return as_score_array((y - n * p) / np.sqrt(n * p * (1.0 - p)), 1)

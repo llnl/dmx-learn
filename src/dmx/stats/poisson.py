@@ -20,7 +20,8 @@ from dmx.stats.pdist import (
     SequenceEncodableStatisticAccumulator,
     StatisticAccumulatorFactory,
 )
-from dmx.utils.fisher import FisherScoreOptions, poisson_score, resolve_fisher_options
+from dmx.utils._fisher_kernels import poisson_score
+from dmx.utils.fisher import FisherScoreOptions, resolve_fisher_options
 from dmx.utils.vector import gammaln
 
 

@@ -20,7 +20,8 @@ from dmx.stats.pdist import (
     SequenceEncodableStatisticAccumulator,
     StatisticAccumulatorFactory,
 )
-from dmx.utils.fisher import FisherScoreOptions, gamma_score
+from dmx.utils._fisher_kernels import gamma_score
+from dmx.utils.fisher import FisherScoreOptions
 from dmx.utils.special import digamma, gammaln, trigamma
 
 
@@ -117,9 +118,13 @@ class GammaDistribution(SequenceEncodableProbabilityDistribution):
         """Return the whitened score of ``[x, log x]`` for each observation.
 
         The columns are ``L^{-1} (T - E[T])`` for the lower Cholesky factor ``L``
-        of the covariance of ``T = [x, log x]``; see
-        :func:`dmx.utils.fisher.gamma_score`. ``options`` has no effect on
-        scalar leaves.
+        of the covariance of ``T = [x, log x]``:
+
+        - ``s1 = (x - k theta) / (sqrt(k) theta)``
+        - ``s2 = (log x - digamma(k) - log theta - s1 / sqrt(k))
+          / sqrt(trigamma(k) - 1/k)``
+
+        ``options`` has no effect on scalar leaves.
 
         Args:
             x: Encoded sequence containing ``N`` observations.

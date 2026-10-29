@@ -21,7 +21,8 @@ from dmx.stats.pdist import (
     SequenceEncodableStatisticAccumulator,
     StatisticAccumulatorFactory,
 )
-from dmx.utils.fisher import FisherScoreOptions, geometric_score, resolve_fisher_options
+from dmx.utils._fisher_kernels import geometric_score
+from dmx.utils.fisher import FisherScoreOptions, resolve_fisher_options
 
 
 class GeometricDistribution(SequenceEncodableProbabilityDistribution):
