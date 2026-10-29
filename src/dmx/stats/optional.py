@@ -28,6 +28,12 @@ from dmx.stats.pdist import (
     SequenceEncodableStatisticAccumulator,
     StatisticAccumulatorFactory,
 )
+from dmx.utils._fisher_kernels import optional_score
+from dmx.utils.fisher import (
+    FisherScoreArray,
+    FisherScoreOptions,
+    resolve_fisher_options,
+)
 
 T = TypeVar("T")
 E = TypeVar("E")
@@ -189,6 +195,56 @@ class OptionalDistribution(SequenceEncodableProbabilityDistribution):
             rv[nz_idx] = self.dist.seq_log_density(enc_data)
 
         return rv
+
+    def seq_fisher_score(
+        self,
+        x: "OptionalEncodedDataSequence",
+        options: Optional[FisherScoreOptions] = None,
+    ) -> FisherScoreArray:
+        """Return the missing-indicator score followed by the child's score.
+
+        With missing probability ``p`` and missing indicator ``m`` the score is
+        ``[(m - p) / sqrt(p (1 - p)), (1 - m) s_child / sqrt(1 - p)]``; missing
+        rows have a zero child block. Without an estimated ``p``, or with
+        ``p == 0``, the indicator column is dropped and the child block is not
+        rescaled. ``p`` is clipped with ``options.prob_floor``.
+
+        Args:
+            x: Encoded sequence containing ``N`` observations.
+            options: Score options, also passed to the child.
+
+        Returns:
+            Array, or CSR matrix if the child's score is sparse, of shape
+            ``(N, fisher_dim(options))``.
+
+        Raises:
+            TypeError: If ``x`` is not an OptionalEncodedDataSequence.
+        """
+        if not isinstance(x, OptionalEncodedDataSequence):
+            raise TypeError(
+                "OptionalDistribution.seq_fisher_score() requires "
+                "OptionalEncodedDataSequence."
+            )
+        opts = resolve_fisher_options(options)
+        size, missing, present, encoded = x.data
+        child_dim = self.dist.fisher_dim(opts)
+        if child_dim > 0:
+            child_scores = self.dist.seq_fisher_score(encoded, opts)
+        else:
+            child_scores = np.zeros((len(present), 0))
+        return optional_score(
+            child_scores,
+            missing,
+            present,
+            size,
+            self.p if self.has_p else None,
+            opts.prob_floor,
+        )
+
+    def fisher_dim(self, options: Optional[FisherScoreOptions] = None) -> int:
+        """Return the child's dimension, plus one for the missing indicator."""
+        indicator = 1 if self.has_p and self.p > 0.0 else 0
+        return int(self.dist.fisher_dim(options)) + indicator
 
     def sampler(self, seed: Optional[int] = None) -> "OptionalSampler":
         """Create a missingness-aware child sampler."""

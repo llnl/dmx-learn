@@ -14,11 +14,13 @@ issue implements the score.
 
 from __future__ import annotations
 
-from typing import Any
+from typing import Any, Optional, cast
 
 import numpy as np
 from scipy.linalg import solve_triangular
 from scipy.sparse import csr_matrix
+from scipy.sparse import hstack as sparse_hstack
+from scipy.sparse import issparse
 
 from dmx.utils.fisher import FisherScoreArray, as_score_array
 from dmx.utils.special import digamma, trigamma
@@ -364,3 +366,98 @@ def dirichlet_score(log_x: Any, alpha: Any) -> np.ndarray:
     centered = np.asarray(log_x, dtype=np.float64) - mean
     u = solve_triangular(chol_lower, centered.T, lower=True).T
     return as_score_array(u, len(alpha))
+
+
+# --- Combinator helpers ------------------------------------------------------
+
+
+def place_rows(scores: FisherScoreArray, rows: Any, n: int) -> FisherScoreArray:
+    """Scatter score rows into an ``n``-row matrix, leaving other rows zero.
+
+    Args:
+        scores: Scores of shape ``(len(rows), d)``, dense or CSR.
+        rows: Destination row of each score row.
+        n: Number of rows in the result.
+
+    Returns:
+        Scores of shape ``(n, d)``, CSR if ``scores`` is sparse.
+    """
+    rows = np.asarray(rows, dtype=np.intp)
+    if issparse(scores):
+        coo = cast(Any, scores).tocoo()
+        return csr_matrix((coo.data, (rows[coo.row], coo.col)), shape=(n, coo.shape[1]))
+    dense = np.asarray(scores, dtype=np.float64)
+    out = np.zeros((n, dense.shape[1]))
+    out[rows] = dense
+    return out
+
+
+def hstack_scores(blocks: list, n: int) -> FisherScoreArray:
+    """Concatenate score blocks column-wise; CSR if any block is sparse.
+
+    Args:
+        blocks: Score blocks, each with ``n`` rows, dense or CSR.
+        n: Number of rows, used when ``blocks`` is empty.
+
+    Returns:
+        Scores with ``n`` rows and the blocks' columns side by side.
+    """
+    if not blocks:
+        return np.zeros((n, 0))
+    if any(issparse(block) for block in blocks):
+        return csr_matrix(sparse_hstack(blocks, format="csr", dtype=np.float64))
+    return np.ascontiguousarray(np.hstack(blocks), dtype=np.float64)
+
+
+def scale_columns(scores: FisherScoreArray, weights: Any) -> FisherScoreArray:
+    """Multiply each score column by a weight, preserving dense or CSR form."""
+    weights = np.asarray(weights, dtype=np.float64)
+    if issparse(scores):
+        return csr_matrix(cast(Any, scores).multiply(weights[None, :]))
+    return np.asarray(scores) * weights
+
+
+def optional_score(
+    child_scores: FisherScoreArray,
+    missing: Any,
+    present: Any,
+    n: int,
+    missing_prob: Optional[float],
+    floor: float,
+) -> FisherScoreArray:
+    """Return the whitened score of a distribution with missing values.
+
+    With missing probability ``q`` and missing indicator ``m`` the score is
+    ``[(m - q) / sqrt(q (1 - q)), (1 - m) s_child / sqrt(1 - q)]``: the
+    child's score is scaled by ``1 / sqrt(1 - q)`` because it is observed
+    with probability ``1 - q``, and missing rows have a zero child block.
+    When ``q`` is None (missingness not modeled) or zero, the indicator
+    column is dropped and the child block is not rescaled.
+
+    Args:
+        child_scores: Child scores of the present rows, shape
+            ``(len(present), d)``, dense or CSR.
+        missing: Row indices of missing observations.
+        present: Row indices of present observations.
+        n: Total number of observations.
+        missing_prob: Missing probability ``q``, or None.
+        floor: Probability floor used to clip ``q``.
+
+    Returns:
+        Scores of shape ``(n, d)`` or ``(n, d + 1)``, CSR if the child's are.
+    """
+    child_block = place_rows(child_scores, present, n)
+    if missing_prob is None or missing_prob <= 0.0:
+        return child_block
+    q = clamp_probability(missing_prob, floor)
+    indicator = np.zeros(n)
+    indicator[np.asarray(missing, dtype=np.intp)] = 1.0
+    return hstack_scores(
+        [
+            bernoulli_score(indicator, q, floor),
+            scale_columns(
+                child_block, np.full(child_block.shape[1], 1.0 / np.sqrt(1.0 - q))
+            ),
+        ],
+        n,
+    )

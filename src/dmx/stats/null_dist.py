@@ -27,6 +27,7 @@ from dmx.stats.pdist import (
     SequenceEncodableStatisticAccumulator,
     StatisticAccumulatorFactory,
 )
+from dmx.utils.fisher import FisherScoreOptions
 
 
 class NullDistribution(SequenceEncodableProbabilityDistribution):
@@ -84,6 +85,30 @@ class NullDistribution(SequenceEncodableProbabilityDistribution):
     def seq_log_density(self, x: "NullEncodedDataSequence") -> np.ndarray:
         """Return a one-element zero vector regardless of encoded input."""
         return vec.zeros(1)
+
+    def seq_fisher_score(
+        self,
+        x: "NullEncodedDataSequence",
+        options: Optional[FisherScoreOptions] = None,
+    ) -> np.ndarray:
+        """Return an empty score.
+
+        A null encoding stores no observations, so the row count is unknown and
+        the result has shape ``(0, 0)``. Combinators skip zero-dimension
+        children rather than calling this method.
+
+        Args:
+            x: Null encoded sequence.
+            options: Score options, accepted for the shared interface.
+
+        Returns:
+            Array of shape ``(0, 0)``.
+        """
+        return np.zeros((0, 0))
+
+    def fisher_dim(self, options: Optional[FisherScoreOptions] = None) -> int:
+        """Return 0: the null distribution has no parameters."""
+        return 0
 
     def sampler(self, seed: Optional[int] = None) -> "NullSampler":
         """Create a sampler that always returns ``None``."""

@@ -24,6 +24,7 @@ from dmx.stats.pdist import (
     SequenceEncodableStatisticAccumulator,
     StatisticAccumulatorFactory,
 )
+from dmx.utils.fisher import FisherScoreOptions
 
 T = TypeVar("T")
 E = TypeVar("E")
@@ -117,6 +118,28 @@ class IgnoredDistribution(SequenceEncodableProbabilityDistribution):
             raise TypeError("Wrong EncodedDataSequence passed to seq_log_density().")
 
         return rv
+
+    def seq_fisher_score(
+        self, x: EncodedDataSequence, options: Optional[FisherScoreOptions] = None
+    ) -> np.ndarray:
+        """Return an empty ``(N, 0)`` score.
+
+        The wrapped distribution's parameters are fixed, so they contribute no
+        score directions, although the wrapped log-density still counts in
+        ``seq_log_density``.
+
+        Args:
+            x: An ignored-wrapper encoding or the child's encoding directly.
+            options: Score options, accepted for the shared interface.
+
+        Returns:
+            Array of shape ``(N, 0)``.
+        """
+        return np.zeros((len(np.atleast_1d(self.seq_log_density(x))), 0))
+
+    def fisher_dim(self, options: Optional[FisherScoreOptions] = None) -> int:
+        """Return 0: ignored parameters have no score."""
+        return 0
 
     def sampler(self, seed: Optional[int] = None) -> "IgnoredSampler":
         """Create a sampler that delegates to the child sampler."""
