@@ -185,6 +185,40 @@ with the parameters it uses.
 A family that has no score raises :class:`NotImplementedError` naming its
 class.
 
+Variable-length records
+-----------------------
+
+Sequences, multinomial count vectors, and sets have a different number of
+elements per record. A sequence of ``n`` independent elements has score
+
+.. math::
+
+   \bigl[\textstyle\sum_{t=1}^{n} s_{\text{elem}}(x_t) / \mathrm{scale}(n),\;
+   s_{\text{len}}(n)\bigr],
+
+where :math:`s_{\text{len}}` is the length distribution's own score (omitted
+when the length distribution is null). The summed element score has
+covariance :math:`n I`, and ``FisherScoreOptions.sequence_scaling`` decides how
+it is whitened:
+
+``"conditional"`` (default)
+    :math:`\mathrm{scale}(n) = \sqrt{n}`. The element block is whitened given
+    the observed length, so records are compared by the content of their
+    elements regardless of length; length differences show up only in the
+    length block. An empty record has a zero element block.
+
+``"marginal"``
+    :math:`\mathrm{scale}(n) = \sqrt{E[n]}` under the length distribution. The
+    element block is whitened on average, so longer records sit farther from
+    the origin and length also separates records through the element block.
+    It needs the mean of the length distribution, which is known for
+    Poisson, geometric, binomial, integer-categorical, and categorical
+    lengths.
+
+Multinomials use the same rule with the total count in place of ``n``; for a
+categorical element with conditional scaling the count block is
+:math:`(n_c - N p_c) / \sqrt{N p_c}`.
+
 API reference
 -------------
 

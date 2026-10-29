@@ -17,10 +17,10 @@ from dmx.stats import (
     CompositeDistribution,
     GaussianDistribution,
     IgnoredDistribution,
-    MarkovChainDistribution,
     NullDistribution,
     OptionalDistribution,
     PoissonDistribution,
+    VonMisesFisherDistribution,
 )
 from dmx.utils.fisher import FisherScoreOptions, has_fisher_score
 
@@ -198,12 +198,12 @@ def test_composite_of_only_empty_fields() -> None:
 
 
 def test_support_check_recurses_into_children() -> None:
-    chain = MarkovChainDistribution({"a": 1.0}, {"a": {"a": 1.0}})
+    unscored = VonMisesFisherDistribution([1.0, 0.0], 2.0)
     assert has_fisher_score(_mixed())
     assert not has_fisher_score(
-        CompositeDistribution((GaussianDistribution(0.0, 1.0), chain))
+        CompositeDistribution((GaussianDistribution(0.0, 1.0), unscored))
     )
-    assert not has_fisher_score(OptionalDistribution(chain, p=0.1))
+    assert not has_fisher_score(OptionalDistribution(unscored, p=0.1))
 
 
 @pytest.mark.parametrize(

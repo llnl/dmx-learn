@@ -12,6 +12,11 @@ from numpy.random import RandomState
 
 import dmx.utils.vector as vec
 from dmx.arithmetic import inf, maxrandint
+from dmx.stats._fisher_lengths import (
+    length_score_dim,
+    part_slices,
+    variable_length_score,
+)
 from dmx.stats.null_dist import (
     NullAccumulator,
     NullAccumulatorFactory,
@@ -27,6 +32,12 @@ from dmx.stats.pdist import (
     SequenceEncodableProbabilityDistribution,
     SequenceEncodableStatisticAccumulator,
     StatisticAccumulatorFactory,
+)
+from dmx.utils._fisher_kernels import categorical_score
+from dmx.utils.fisher import (
+    FisherScoreArray,
+    FisherScoreOptions,
+    resolve_fisher_options,
 )
 
 SS0 = TypeVar("SS0")
@@ -162,6 +173,74 @@ class IntegerMultinomialDistribution(SequenceEncodableProbabilityDistribution):
             ll += self.len_dist.seq_log_density(tcnt)
 
         return ll
+
+    def seq_fisher_score(
+        self,
+        x: "IntegerMultinomialEncodedDataSequence",
+        options: Optional[FisherScoreOptions] = None,
+    ) -> FisherScoreArray:
+        """Return ``[(n_c - N p_c) / scale(N) sqrt(p_c), s_len(N)]`` for each record.
+
+        ``n_c`` is the count of value ``min_val + c`` and ``N`` the total count;
+        with conditional scaling the first block is
+        ``(n_c - N p_c) / sqrt(N p_c)``. ``p`` is ``p_vec`` floored at
+        ``options.prob_floor`` and normalized. Out-of-range values have zero
+        probability and only enter through ``N``. Above
+        ``options.dense_category_limit`` values the count block is returned in
+        the sparse form ``n_c / scale(N) sqrt(p_c)``, which drops
+        ``N sqrt(p) / scale(N)`` and so is exact only between records with the
+        same total.
+
+        ``options.sequence_scaling`` sets ``scale(N)``: ``"conditional"`` uses
+        ``sqrt(N)``, whitening the block given the observed total (a record with
+        ``N = 0`` gets a zero block); ``"marginal"`` uses ``sqrt(E[N])`` under
+        ``len_dist``, so records with larger totals sit farther out. The length
+        block is ``len_dist``'s own score, omitted when ``len_dist`` is null.
+
+        Args:
+            x: Encoded sequence containing ``N`` records.
+            options: Score options, also passed to ``len_dist``.
+
+        Returns:
+            Array or CSR matrix of shape ``(N, fisher_dim(options))``.
+
+        Raises:
+            TypeError: If ``x`` is not an IntegerMultinomialEncodedDataSequence.
+            ValueError: If marginal scaling is requested and the mean of
+                ``len_dist`` is unknown.
+        """
+        if not isinstance(x, IntegerMultinomialEncodedDataSequence):
+            raise TypeError(
+                "IntegerMultinomialDistribution.seq_fisher_score() requires "
+                "IntegerMultinomialEncodedDataSequence."
+            )
+        opts = resolve_fisher_options(options)
+        size, idx, counts, values, enc_totals = x.data
+        index = np.asarray(values, dtype=np.intp) - self.min_val
+        index[(index < 0) | (index >= self.num_vals)] = -1
+        entry_scores = categorical_score(
+            index, self.p_vec, opts.prob_floor, opts.dense_category_limit
+        )
+        totals = np.bincount(idx, weights=counts, minlength=size)
+        return variable_length_score(
+            entry_scores, idx, totals, self.len_dist, enc_totals, opts, weights=counts
+        )
+
+    def fisher_dim(self, options: Optional[FisherScoreOptions] = None) -> int:
+        """Return the number of values plus the length dimension."""
+        return int(self.num_vals) + length_score_dim(self.len_dist, options)
+
+    def fisher_field_slices(
+        self, options: Optional[FisherScoreOptions] = None
+    ) -> Dict[str, slice]:
+        """Map ``"counts"`` and ``"length"`` to their score columns."""
+        return part_slices(
+            self,
+            [
+                ("counts", int(self.num_vals)),
+                ("length", length_score_dim(self.len_dist, options)),
+            ],
+        )
 
     def sampler(self, seed: Optional[int] = None) -> "IntegerMultinomialSampler":
         """Create a sampler when a total-count distribution is configured."""

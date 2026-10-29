@@ -10,6 +10,8 @@ Per-family hand-computed value tests live with each family's implementation,
 not here.
 """
 
+from typing import Any
+
 import numpy as np
 import pytest
 
@@ -30,6 +32,7 @@ from dmx.stats import (
     IntegerCategoricalDistribution,
     IntegerMultinomialDistribution,
     LogGaussianDistribution,
+    MarkovChainDistribution,
     MixtureDistribution,
     MultinomialDistribution,
     MultivariateGaussianDistribution,
@@ -75,6 +78,24 @@ _MVN_5D = (
 def _lengths() -> IntegerCategoricalDistribution:
     """Return a length distribution on 1..3, so no sequence is empty."""
     return IntegerCategoricalDistribution(1, [0.3, 0.4, 0.3])
+
+
+def _markov_chain(len_dist: Any) -> MarkovChainDistribution:
+    """Return a well-mixed 3-state chain, so every transition is frequent."""
+    return MarkovChainDistribution(
+        dict(ABC),
+        {
+            "a": {"a": 0.3, "b": 0.4, "c": 0.3},
+            "b": {"a": 0.4, "b": 0.2, "c": 0.4},
+            "c": {"a": 0.35, "b": 0.35, "c": 0.3},
+        },
+        len_dist=len_dist,
+    )
+
+
+def _long_chain() -> MarkovChainDistribution:
+    """Return the 3-state chain with lengths 40..42."""
+    return _markov_chain(IntegerCategoricalDistribution(40, [0.3, 0.4, 0.3]))
 
 
 STATS_CASES = [
@@ -275,6 +296,33 @@ STATS_CASES = [
         options=MARGINAL,
         rank_deficit=1,
     ),
+    # Poisson lengths include empty sequences: under conditional scaling their
+    # zero element block makes that block's covariance (1 - P(n = 0)) I, here
+    # within tolerance; marginal scaling is exactly whitened.
+    FisherCase(
+        "sequence_poisson_conditional",
+        lambda: SequenceDistribution(
+            PoissonDistribution(1.5), len_dist=PoissonDistribution(4.0)
+        ),
+        VARIABLE_LENGTH,
+    ),
+    FisherCase(
+        "sequence_poisson_marginal",
+        lambda: SequenceDistribution(
+            PoissonDistribution(1.5), len_dist=PoissonDistribution(4.0)
+        ),
+        VARIABLE_LENGTH,
+        options=MARGINAL,
+    ),
+    FisherCase(
+        "integer_multinomial_marginal",
+        lambda: IntegerMultinomialDistribution(
+            0, [0.2, 0.3, 0.5], len_dist=IntegerCategoricalDistribution(2, [0.5, 0.5])
+        ),
+        VARIABLE_LENGTH,
+        options=MARGINAL,
+        rank_deficit=2,
+    ),
     FisherCase(
         "integer_multinomial",
         lambda: IntegerMultinomialDistribution(
@@ -303,6 +351,39 @@ STATS_CASES = [
         VARIABLE_LENGTH,
         options=SPARSE_CATEGORIES,
         centered=False,
+    ),
+    # Markov chains: one categorical block for the initial state, one per
+    # transition row, and one for categorical lengths. Conditional scaling is
+    # whitened only approximately (the visit count depends on the transitions
+    # it counts); the bias shrinks with length, so these chains are long.
+    FisherCase(
+        "markov_chain_conditional",
+        _long_chain,
+        VARIABLE_LENGTH,
+        rank_deficit=5,
+    ),
+    FisherCase(
+        "markov_chain_sparse",
+        _long_chain,
+        VARIABLE_LENGTH,
+        options=SPARSE_CATEGORIES,
+        rank_deficit=5,
+        centered=False,
+    ),
+    # Marginal scaling is exactly whitened, so short chains suffice.
+    FisherCase(
+        "markov_chain_marginal",
+        lambda: _markov_chain(IntegerCategoricalDistribution(10, [0.3, 0.4, 0.3])),
+        VARIABLE_LENGTH,
+        options=MARGINAL,
+        rank_deficit=5,
+    ),
+    FisherCase(
+        "markov_chain_poisson_marginal",
+        lambda: _markov_chain(PoissonDistribution(8.0)),
+        VARIABLE_LENGTH,
+        options=MARGINAL,
+        rank_deficit=4,
     ),
     # Phase D: latent-variable components. Their scores are whitened
     # empirically, so moments hold by construction and are not checked.
