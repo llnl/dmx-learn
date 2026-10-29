@@ -120,26 +120,30 @@ dmx already provides (pattern: `tests/stats/num_params_test.py`).
 
 Scope:
 
-- add `tests/stats/fisher_score_test.py` with a registry of
-  `(distribution_factory, tolerance)` cases covering every family named in
-  roadmap section 4.3 phases B, C, D; unimplemented families are
-  `pytest.skip`ped with a reason so the file tracks progress
+- add `tests/stats/fisher_score_test.py` with a registry of `FisherCase`
+  entries (distribution factory, implementing issue, options, expected
+  covariance `rank_deficit`) covering every family named in roadmap section
+  4.3 phases B, C, D; unimplemented families are `pytest.skip`ped with the
+  implementing issue so the file tracks progress
+- shared checks live in `tests/fisher_contract.py`
 - for each case:
-  - draw `n = 20_000` samples with a fixed seed via `dist.sampler(seed)`,
-    encode with `dist.dist_to_encoder().seq_encode`, call
-    `seq_fisher_score`
+  - draw `n = 1000` samples with a seed derived from the case id via
+    `dist.sampler(seed)`, encode with the package's encoder
+    (`dist.dist_to_encoder().seq_encode` for `dmx.stats`, `dist.seq_encode`
+    for `dmx.bstats`), call `seq_fisher_score`
   - assert shape `(n, fisher_dim())`, all finite, dtype float64
-  - assert sample mean ≈ 0 and sample covariance ≈ the expected matrix
-    (identity, or the projector `I - sqrt(p) sqrt(p)^T` for
-    Categorical-type encodings) within a tolerance scaled by `1/sqrt(n)`
+  - assert sample mean ≈ 0 and sample covariance ≈ the identity, or a
+    projector of rank `fisher_dim() - rank_deficit` for one-hot style
+    encodings, within 5 standard errors estimated from the sample
   - assert determinism: same input gives identical output
   - assert `fisher_field_slices` partitions `range(fisher_dim())`
 - add a hand-computed value test per family (small input, closed-form
   expected rows) in each leaf issue, not here
 - add `tests/bstats/fisher_score_test.py` reusing the same helpers for
-  `dmx.bstats` (cases added in issue 11)
-- keep runtime under ~30 s total; mark heavy cases `@pytest.mark.slow` if
-  needed
+  `dmx.bstats` (cases implemented in issue 11)
+- self-test the contract on correct and deliberately broken toy scores
+- keep the contract suite well under a second, excluding the one-time
+  `dmx.stats` import
 
 Acceptance criteria:
 
