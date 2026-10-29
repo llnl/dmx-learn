@@ -58,11 +58,12 @@ cluster."*
 
 **Gaps that block an agent from being an expert:**
 
-1. No parameter counting, so no BIC, AIC, or ICL.
+1. No parameter counting, so no BIC, AIC, or ICL. *(Addressed in Epic 2:
+   #206, #207, #208.)*
 2. No general marginal or conditional query API on fitted composites and
    mixtures (for example, P(field_j | other fields) or imputation).
 3. Fitting helpers `print` to stdout, so there are no structured progress
-   events or quiet mode for tools.
+   events or quiet mode for tools. *(Addressed in Epic 2: #209.)*
 4. `DatumNode` infers a schema implicitly. There is no editable, serializable
    schema the user and agent can negotiate.
 5. No DataFrame or CSV ingestion. Users have to hand-build tuples.
@@ -104,13 +105,13 @@ orchestrates deterministic tools. That keeps results reproducible and makes
 
 | Item | Detail |
 |---|---|
-| `num_params()` on every distribution | Free-parameter count, recursive through composite and mixture. Enables BIC, AIC, and ICL. |
-| Structured logging | Replace `print` in `optimize`, `best_of`, `get_dpm_mixture`, `htsne`, and `humap` with a callback or `logging` plus `verbose=` (default behavior unchanged). Tools get JSON progress events. |
+| `num_params()` on every distribution | Free-parameter count, recursive through composite and mixture. Enables BIC, AIC, and ICL. **Done in Epic 2** for every `dmx.stats` and `dmx.bstats` distribution, with keyed parameters counted once (#206, #207). |
+| Structured logging | Replace `print` in `optimize`, `best_of`, `get_dpm_mixture`, `htsne`, and `humap` with a callback or `logging` plus `verbose=` (default behavior unchanged). Tools get JSON progress events. **Done in Epic 2** (#209): `verbose=` and `progress_callback` on the fitting and embedding helpers (including `bstats` and MPI variants), DEBUG logging per module, and `dmx.utils.progress.ProgressEvent` with `to_dict()` for JSON. |
 | Marginal and conditional ops | `marginalize(dist, keep_fields)` for composite, mixture, and optional; `conditional(dist, observed)` returning the posterior-reweighted mixture over unobserved fields; `impute`. The math is already in `_references/posterior-reweighting.md`. |
 | Posterior API parity | Uniform `seq_posterior` for mixture, hierarchical, joint, DPM, and HMM (state marginals) so explore tools are type-agnostic. |
 | JSON model spec | `to_spec()` / `from_spec()`: a stable, versioned, human-readable tree (family, params, keys, children). Pickle stays for speed. |
 | `to_graph()` | Emit the estimator tree as a graphical model (latent nodes, observed fields, shared keys) in Mermaid or Graphviz, so the agent can show the model. |
-| Seed discipline | Every stochastic entry point takes `seed`/`rng` and records it in the spec. |
+| Seed discipline | Every stochastic entry point takes `seed`/`rng` and records it in the spec. **Done in Epic 2** (#210) except the spec: no entry point falls back to NumPy's global state, an unseeded call draws and reports its seed (a `"start"` progress event, `sampler.seed`), and `docs/seeds.rst` audits every entry point. Recording the seed in the JSON spec waits for `to_spec`. |
 
 Exit criteria: tests for each op on composite, mixture, and DPM, plus a
 round-trip of every distribution through `to_spec`/`from_spec`.
@@ -150,10 +151,16 @@ zip code as an ID, not a number") and never sees an encoding step.
 
 ### 6.1 Scoring
 
-- Held-out log-likelihood (k-fold through `partition_data`), the default.
+- Held-out log-likelihood (k-fold through `k_fold_split_index`), the default.
+  `heldout_log_likelihood` and `kfold_log_likelihood` are in `dmx.utils.scores`
+  (Epic 2, #208).
 - BIC, AIC, and ICL (needs `num_params`). ICL penalizes posterior entropy
-  and is good for "are these clusters real?"
-- ELBO for `bstats`, and effective component count for DPM.
+  and is good for "are these clusters real?" Implemented in `dmx.utils.scores`
+  (Epic 2, #208) on the deviance scale (lower is better). ICL covers
+  mixture-type models with an `(n, K)` `seq_posterior`; HMMs need the
+  state-path entropy from pairwise posteriors, after posterior parity (#240).
+- ELBO for `bstats`, and effective component count for DPM. The DPM
+  effective component count shipped in Epic 2 (#207); ELBO is still open.
 - Task scores: `ranking_depth`, classification accuracy, and imputation
   error.
 - Stability: adjusted Rand index across restarts and seeds, plus
@@ -370,6 +377,7 @@ keep current behavior (D3). Breaking changes wait for 2.0.
 | Epic | Issue | Status | Delivered |
 |---|---|---|---|
 | 1. Positioning and packaging (1.2) | #200 | Complete | README and package metadata repositioned around the expert agent (#201); `docs/scope.rst` scope and non-goals page (#202); pyspark moved from core to the `[spark]` and `[distributed]` extras with import guards (#203); `[viz]` and `[agent]` extras plus the shared `dmx.utils.optional` import-guard helper (#204) |
+| 2. Engine hardening for scoring and quiet tools (1.2) | #205 | Complete | `num_params()` on every `dmx.stats` distribution, with keyed parameters counted once (#206); `num_params()` on every `dmx.bstats` distribution plus DPM `effective_num_components` / `effective_num_params` (#207); `dmx.utils.scores` with held-out and k-fold log-likelihood, BIC, AIC, and ICL (#208); `verbose=` and `progress_callback` with `dmx.utils.progress` events and per-module DEBUG logging, default output unchanged (#209); seed discipline with `dmx.utils.seeding`, reported seeds, `sampler.seed`, and the `docs/seeds.rst` audit (#210). Also fixed the pylint gate so `examples/` is linted (#270) |
 
 ---
 
