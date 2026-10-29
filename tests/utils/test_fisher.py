@@ -74,6 +74,8 @@ def test_options_defaults() -> None:
     assert options.balance_fields is False
     assert options.on_missing == "raise"
     assert options.dense_category_limit == 256
+    assert options.whitening_samples == 4096
+    assert options.whitening_seed == 0
 
 
 def test_options_are_frozen() -> None:
@@ -93,6 +95,9 @@ def test_options_are_frozen() -> None:
         {"dense_category_limit": 0},
         {"dense_category_limit": 2.5},
         {"dense_category_limit": True},
+        {"whitening_samples": 1},
+        {"whitening_samples": 10.0},
+        {"whitening_seed": -1},
     ],
 )
 def test_options_reject_invalid_values(kwargs: dict[str, Any]) -> None:

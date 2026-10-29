@@ -39,16 +39,19 @@ scores.
 
 from __future__ import annotations
 
-from dataclasses import dataclass
-from typing import Any, Literal, Optional, Union
+import warnings
+from dataclasses import dataclass, field
+from typing import Any, List, Literal, Optional, Sequence, Tuple, Union
 
 import numpy as np
 from scipy.sparse import csr_matrix
 
 __all__ = [
+    "EmpiricalFisherWhitener",
     "FisherScoreArray",
     "FisherScoreOptions",
     "as_score_array",
+    "component_score_dims",
     "fisher_score_unsupported",
     "has_fisher_score",
     "resolve_fisher_options",
@@ -92,13 +95,19 @@ class FisherScoreOptions:
             root of its dimension, so fields with many parameters do not
             dominate distances. Off by default, which keeps the pure Fisher
             weighting.
-        on_missing: What a mixture-level embedding does with a component
-            whose distribution tree has no Fisher score. ``"raise"`` fails;
-            ``"posterior_only"`` keeps only that component's posterior block
-            and warns.
+        on_missing: What a mixture does with a component whose distribution
+            tree has no Fisher score. ``"raise"`` fails; ``"posterior_only"``
+            keeps only that component's posterior information and warns once
+            per call.
         dense_category_limit: Largest number of levels for which categorical
             families return a dense score. Larger supports use a sparse form.
             Must be at least 1.
+        whitening_samples: Number of draws from the model used to estimate
+            the covariance of scores that have no closed-form Fisher
+            information, such as nested mixtures. Must be at least 2.
+        whitening_seed: Seed for those draws, so the whitening, and hence the
+            score, is a deterministic function of the model. Must be a
+            nonnegative integer.
 
     Raises:
         ValueError: If a value is outside its documented range.
@@ -110,9 +119,21 @@ class FisherScoreOptions:
     balance_fields: bool = False
     on_missing: OnMissing = "raise"
     dense_category_limit: int = 256
+    whitening_samples: int = 4096
+    whitening_seed: int = 0
 
     def __post_init__(self) -> None:
         """Validate option values."""
+        for name, minimum in (
+            ("dense_category_limit", 1),
+            ("whitening_samples", 2),
+            ("whitening_seed", 0),
+        ):
+            value = getattr(self, name)
+            if isinstance(value, bool) or not isinstance(value, int) or value < minimum:
+                raise ValueError(
+                    f"{name} must be an integer of at least {minimum}, got {value!r}."
+                )
         if not 0.0 < self.prob_floor < 1.0:
             raise ValueError(f"prob_floor must lie in (0, 1), got {self.prob_floor!r}.")
         if self.sequence_scaling not in _SEQUENCE_SCALINGS:
@@ -123,15 +144,6 @@ class FisherScoreOptions:
         if self.on_missing not in _ON_MISSING:
             raise ValueError(
                 f"on_missing must be one of {_ON_MISSING}, " f"got {self.on_missing!r}."
-            )
-        if (
-            isinstance(self.dense_category_limit, bool)
-            or not isinstance(self.dense_category_limit, int)
-            or self.dense_category_limit < 1
-        ):
-            raise ValueError(
-                "dense_category_limit must be an integer of at least 1, "
-                f"got {self.dense_category_limit!r}."
             )
 
 
@@ -210,3 +222,175 @@ def as_score_array(values: Any, dim: int) -> np.ndarray:
     if rv.ndim != 2 or rv.shape[1] != dim:
         raise ValueError(f"Expected Fisher scores of shape (N, {dim}), got {rv.shape}.")
     return np.ascontiguousarray(rv)
+
+
+def component_score_dims(
+    components: Sequence[Any], options: FisherScoreOptions
+) -> Tuple[List[Optional[int]], List[str]]:
+    """Return each component's score dimension, or None where unsupported.
+
+    With ``options.on_missing == "raise"`` an unsupported component raises
+    :class:`NotImplementedError`. With ``"posterior_only"`` its dimension is
+    None and the class that lacks a score is reported, so the caller can skip
+    the component and warn once.
+
+    Args:
+        components: Component distributions of a mixture.
+        options: Resolved score options.
+
+    Returns:
+        The dimensions, and the names of the classes without a score (empty
+        when every component is supported).
+
+    Raises:
+        NotImplementedError: If a component has no score and
+            ``options.on_missing == "raise"``.
+    """
+    dims: List[Optional[int]] = []
+    unsupported: List[str] = []
+    for component in components:
+        try:
+            dims.append(int(component.fisher_dim(options)))
+        except NotImplementedError as err:
+            if options.on_missing == "raise":
+                raise
+            dims.append(None)
+            # The message starts with the class that has no score.
+            name = str(err).split(" ", 1)[0] or type(component).__name__
+            if name not in unsupported:
+                unsupported.append(name)
+    return dims, unsupported
+
+
+def warn_unsupported(unsupported: Sequence[str]) -> None:
+    """Warn once that components of these classes contribute no score."""
+    if unsupported:
+        warnings.warn(
+            "Fisher scores skip components without a score (on_missing="
+            f"'posterior_only'): {', '.join(unsupported)}.",
+            UserWarning,
+            stacklevel=3,
+        )
+
+
+WhiteningMethod = Literal["full", "diag", "pca"]
+
+
+@dataclass
+class EmpiricalFisherWhitener:
+    """Whiten score vectors with a covariance estimated from samples.
+
+    Used for scores whose Fisher information has no closed form, such as
+    nested mixtures, and by mixture-level embeddings. ``fit`` estimates the
+    (optionally weighted) covariance ``C`` of the samples; ``transform`` maps
+    a score ``s`` to ``(s - mean) W`` so the transformed samples have identity
+    covariance on the span of ``C``. Fitting is deterministic. A fitted
+    whitener is a plain dataclass of arrays and pickles with the embedding
+    that uses it.
+
+    Attributes:
+        method: ``"full"`` uses the symmetric (ZCA) whitening
+            ``C^{-1/2}``, which keeps the dimension and stays as close as
+            possible to the original coordinates; ``"diag"`` divides each
+            coordinate by its standard deviation; ``"pca"`` projects onto the
+            top ``rank`` principal directions and scales them to unit variance.
+        rank: Number of directions kept by ``"pca"``; None keeps every
+            direction with nonzero variance.
+        center: Subtract the sample mean. Use False for scores whose mean is
+            exactly zero under the model, so the transform stays linear.
+        tol: Directions (or coordinates) with variance at most ``tol`` times
+            the largest are treated as null and mapped to zero.
+        mean_: Fitted mean, shape ``(d,)`` (zero when ``center`` is False).
+        matrix_: Fitted whitening matrix ``W``, shape ``(d, k)``.
+    """
+
+    method: WhiteningMethod = "full"
+    rank: Optional[int] = None
+    center: bool = True
+    tol: float = 1.0e-10
+    mean_: Optional[np.ndarray] = field(default=None, repr=False)
+    matrix_: Optional[np.ndarray] = field(default=None, repr=False)
+
+    def fit(
+        self, scores: Any, weights: Optional[Any] = None
+    ) -> "EmpiricalFisherWhitener":
+        """Estimate the whitening transform from sample scores.
+
+        Args:
+            scores: Sample scores, shape ``(n, d)`` with ``n >= 2``, dense or
+                sparse.
+            weights: Optional nonnegative weight per sample, such as
+                posterior probabilities.
+
+        Returns:
+            This whitener, fitted.
+
+        Raises:
+            ValueError: If ``method`` is unknown, there are fewer than two
+                samples, or the weights do not match the samples.
+        """
+        if self.method not in ("full", "diag", "pca"):
+            raise ValueError(f"Unknown whitening method {self.method!r}.")
+        x = _dense(scores)
+        if x.ndim != 2 or x.shape[0] < 2:
+            raise ValueError(
+                f"Whitening needs at least two samples of shape (n, d), got {x.shape}."
+            )
+        w = np.ones(x.shape[0]) if weights is None else np.asarray(weights, float)
+        if w.shape != (x.shape[0],) or np.any(w < 0) or w.sum() <= 0:
+            raise ValueError("weights must be nonnegative, one per sample, not all 0.")
+        w = w / w.sum()
+        mean = w @ x if self.center else np.zeros(x.shape[1])
+        centered = x - mean
+        covariance = (centered * w[:, None]).T @ centered
+        if self.method == "diag":
+            variance = np.diag(covariance)
+            keep = variance > self.tol * max(float(variance.max(initial=0.0)), 0.0)
+            scale = np.zeros(len(variance))
+            scale[keep] = 1.0 / np.sqrt(variance[keep])
+            matrix = np.diag(scale)
+        else:
+            values, vectors = np.linalg.eigh(covariance)
+            keep = values > self.tol * max(float(values.max(initial=0.0)), 0.0)
+            if self.method == "full":
+                inv_sqrt = np.zeros(len(values))
+                inv_sqrt[keep] = 1.0 / np.sqrt(values[keep])
+                matrix = (vectors * inv_sqrt) @ vectors.T
+            else:
+                order = np.argsort(values)[::-1]
+                order = order[keep[order]]
+                if self.rank is not None:
+                    order = order[: self.rank]
+                matrix = vectors[:, order] / np.sqrt(values[order])
+        self.mean_ = np.asarray(mean, dtype=np.float64)
+        self.matrix_ = np.asarray(matrix, dtype=np.float64)
+        return self
+
+    def transform(self, scores: Any) -> np.ndarray:
+        """Return ``(scores - mean_) @ matrix_``.
+
+        Args:
+            scores: Scores of shape ``(n, d)``, dense or sparse.
+
+        Returns:
+            Whitened scores of shape ``(n, k)``.
+
+        Raises:
+            RuntimeError: If the whitener has not been fitted.
+            ValueError: If ``scores`` has the wrong number of columns.
+        """
+        if self.mean_ is None or self.matrix_ is None:
+            raise RuntimeError("EmpiricalFisherWhitener.transform() before fit().")
+        x = _dense(scores)
+        if x.ndim != 2 or x.shape[1] != self.matrix_.shape[0]:
+            raise ValueError(
+                f"Expected scores with {self.matrix_.shape[0]} columns, got {x.shape}."
+            )
+        return np.ascontiguousarray((x - self.mean_) @ self.matrix_)
+
+
+def _dense(scores: Any) -> np.ndarray:
+    """Return scores as a dense float64 array."""
+    if hasattr(scores, "toarray"):
+        scores = scores.toarray()
+    return np.asarray(scores, dtype=np.float64)
