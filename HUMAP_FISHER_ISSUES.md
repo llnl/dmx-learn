@@ -165,7 +165,7 @@ shared score kernels).
 Epic: Fisher-geometry humap. Phase B. Milestone M2. Suggested branch slug:
 `fisher-score-continuous-leaves`.
 
-Closed-form whitened scores. Add the kernel to `src/dmx/utils/fisher.py` and
+Closed-form whitened scores. Add the kernel to `src/dmx/utils/_fisher_kernels.py` and
 a thin `seq_fisher_score` / `fisher_dim` on each `dmx.stats` class.
 
 Scores (with `u = (x - mu) / sigma`):
@@ -207,7 +207,7 @@ distributions).
 Epic: Fisher-geometry humap. Phase B. Milestone M2. Suggested branch slug:
 `fisher-score-count-leaves`.
 
-Closed-form whitened scores; kernels in `src/dmx/utils/fisher.py`.
+Closed-form whitened scores; kernels in `src/dmx/utils/_fisher_kernels.py`.
 
 | Class | Parameters | Score | dim |
 |---|---|---|---|
@@ -513,7 +513,7 @@ Scope:
 - implement `seq_fisher_score`, `fisher_dim`, `fisher_field_slices` on
   `dmx.bstats` Gaussian, Categorical, Poisson, Bernoulli, Exponential,
   Geometric, Gamma, Composite, Optional, Sequence, Ignored, and NullDist,
-  calling the shared kernels in `src/dmx/utils/fisher.py` (no duplicated
+  calling the shared kernels in `src/dmx/utils/_fisher_kernels.py` (no duplicated
   math)
 - use plug-in parameters (`get_parameters()`, posterior means), decision F6;
   note in docstrings that expected scores under the parameter posterior are

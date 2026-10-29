@@ -143,10 +143,14 @@ def fisher_field_slices(self, options=None) -> Dict[str, slice]: ...  # optional
 (`"conditional"` | `"marginal"`), `balance_fields` (opt-in, see F9),
 `on_missing` (`"raise"` | `"posterior_only"`).
 
-Closed-form kernels live as pure functions of parameters in a new module
-`src/dmx/utils/fisher.py` (for example
-`gaussian_score(x, mu, sigma2) -> (N, 2)`), so `dmx.stats` and `dmx.bstats`
-share one implementation and one set of tests.
+Closed-form kernels live as pure functions of parameters in the private
+module `src/dmx/utils/_fisher_kernels.py` (for example
+`gaussian_score(x, mu, sigma2) -> (N, 2)`), so `dmx.stats` and `dmx.bstats`,
+which never import each other, share one implementation and one set of
+tests. The kernels are not public API: callers use `seq_fisher_score`, and
+each distribution's docstring states its formula. `dmx.utils.fisher` holds
+only the public pieces (options, support check, score-array helper, and the
+shared error).
 
 ### 4.2 Data flow
 
@@ -214,7 +218,7 @@ Critical path to a usable feature: 1 → 2 → 3, 4, 5 → 7 → 11 → 12 → 1
 | Model misspecification yields misleading geometry | Document; validation issue compares against raw-feature baselines |
 | Latent-variable components lack closed-form Fisher information | Empirical whitening fallback (issue 9) |
 | Memory of `phi` for large N | CSR, float32, top-`m`; optional PCA / random projection before UMAP |
-| bstats and stats implementations drift | Shared kernels in `dmx/utils/fisher.py`; one contract test parametrised over both packages |
+| bstats and stats implementations drift | Shared private kernels in `dmx/utils/_fisher_kernels.py`; one contract test parametrised over both packages |
 
 ## 8. Out of scope for this epic
 

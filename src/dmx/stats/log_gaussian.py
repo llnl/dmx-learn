@@ -21,7 +21,8 @@ from dmx.stats.pdist import (
     SequenceEncodableStatisticAccumulator,
     StatisticAccumulatorFactory,
 )
-from dmx.utils.fisher import FisherScoreOptions, gaussian_score
+from dmx.utils._fisher_kernels import gaussian_score
+from dmx.utils.fisher import FisherScoreOptions
 
 
 class LogGaussianDistribution(SequenceEncodableProbabilityDistribution):
