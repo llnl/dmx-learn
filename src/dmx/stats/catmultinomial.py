@@ -14,6 +14,11 @@ import numpy as np
 from numpy.random import RandomState
 
 from dmx.arithmetic import maxrandint
+from dmx.stats._fisher_lengths import (
+    length_score_dim,
+    part_slices,
+    variable_length_score,
+)
 from dmx.stats.null_dist import (
     NullAccumulator,
     NullAccumulatorFactory,
@@ -28,6 +33,11 @@ from dmx.stats.pdist import (
     SequenceEncodableProbabilityDistribution,
     SequenceEncodableStatisticAccumulator,
     StatisticAccumulatorFactory,
+)
+from dmx.utils.fisher import (
+    FisherScoreArray,
+    FisherScoreOptions,
+    resolve_fisher_options,
 )
 
 T = TypeVar("T")  ## Generic data type for value.
@@ -176,6 +186,71 @@ class MultinomialDistribution(SequenceEncodableProbabilityDistribution):
             ll_sum += nll
 
         return ll_sum
+
+    def seq_fisher_score(
+        self,
+        x: "MultinomialEncodedDataSequence",
+        options: Optional[FisherScoreOptions] = None,
+    ) -> FisherScoreArray:
+        """Return ``[sum_v n_v s_elem(v) / scale(N), s_len(N)]`` for each record.
+
+        ``n_v`` is the count of value ``v`` and ``N`` the total count. For a
+        categorical ``dist`` with conditional scaling the first block is
+        ``(n_c - N p_c) / sqrt(N p_c)``.
+
+        ``options.sequence_scaling`` sets ``scale(N)``: ``"conditional"`` uses
+        ``sqrt(N)``, whitening the block given the observed total (a record with
+        ``N = 0`` gets a zero block); ``"marginal"`` uses ``sqrt(E[N])`` under
+        ``len_dist``, so records with larger totals sit farther out. The length
+        block is ``len_dist``'s own score, omitted when ``len_dist`` is null.
+        ``len_normalized`` does not change the score.
+
+        Args:
+            x: Encoded sequence containing ``N`` records.
+            options: Score options, also passed to ``dist`` and ``len_dist``.
+
+        Returns:
+            Array, or CSR if the element score is sparse, of shape
+            ``(N, fisher_dim(options))``.
+
+        Raises:
+            TypeError: If ``x`` is not a MultinomialEncodedDataSequence.
+            ValueError: If marginal scaling is requested and the mean of
+                ``len_dist`` is unknown.
+        """
+        if not isinstance(x, MultinomialEncodedDataSequence):
+            raise TypeError(
+                "MultinomialDistribution.seq_fisher_score() requires "
+                "MultinomialEncodedDataSequence."
+            )
+        opts = resolve_fisher_options(options)
+        idx, _, _, enc_seq, enc_totals, counts, totals = x.data
+        element_dim = self.dist.fisher_dim(opts)
+        if len(idx) > 0 and element_dim > 0:
+            element_scores = self.dist.seq_fisher_score(enc_seq, opts)
+        else:
+            element_scores = np.zeros((len(idx), element_dim))
+        return variable_length_score(
+            element_scores, idx, totals, self.len_dist, enc_totals, opts, weights=counts
+        )
+
+    def fisher_dim(self, options: Optional[FisherScoreOptions] = None) -> int:
+        """Return the element dimension plus the length dimension."""
+        return int(self.dist.fisher_dim(options)) + length_score_dim(
+            self.len_dist, options
+        )
+
+    def fisher_field_slices(
+        self, options: Optional[FisherScoreOptions] = None
+    ) -> Dict[str, slice]:
+        """Map ``"counts"`` and ``"length"`` to their score columns."""
+        return part_slices(
+            self,
+            [
+                ("counts", self.dist.fisher_dim(options)),
+                ("length", length_score_dim(self.len_dist, options)),
+            ],
+        )
 
     def sampler(self, seed: Optional[int] = None) -> "MultinomialSampler":
         """Create a MultinomialSampler object from this distribution.

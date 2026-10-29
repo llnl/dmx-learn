@@ -461,3 +461,108 @@ def optional_score(
         ],
         n,
     )
+
+
+def sum_rows(
+    scores: FisherScoreArray, owner: Any, n: int, weights: Optional[Any] = None
+) -> FisherScoreArray:
+    """Sum score rows into ``n`` groups, optionally weighting each row.
+
+    Args:
+        scores: Element scores of shape ``(M, d)``, dense or CSR.
+        owner: Group (record) index of each element row, shape ``(M,)``.
+        n: Number of groups.
+        weights: Optional weight of each element row, such as a count.
+
+    Returns:
+        Group sums of shape ``(n, d)``, CSR if ``scores`` is sparse.
+    """
+    owner = np.asarray(owner, dtype=np.intp)
+    w = np.ones(len(owner)) if weights is None else np.asarray(weights, float)
+    aggregate = csr_matrix((w, (owner, np.arange(len(owner)))), shape=(n, len(owner)))
+    total = aggregate @ scores
+    if issparse(total):
+        return csr_matrix(total)
+    return np.ascontiguousarray(total, dtype=np.float64)
+
+
+def scale_rows(scores: FisherScoreArray, weights: Any) -> FisherScoreArray:
+    """Multiply each score row by a weight, preserving dense or CSR form."""
+    weights = np.asarray(weights, dtype=np.float64)
+    if issparse(scores):
+        return csr_matrix(cast(Any, scores).multiply(weights[:, None]))
+    return np.asarray(scores) * weights[:, None]
+
+
+def length_weights(
+    lengths: Any, scaling: str, mean_length: Optional[float] = None
+) -> np.ndarray:
+    """Return the per-record factor applied to a summed element score.
+
+    A sum of ``n`` independent whitened element scores has covariance
+    ``n I``. ``"conditional"`` divides it by ``sqrt(n)``, whitening it given
+    the observed length (records with ``n = 0`` get a zero block).
+    ``"marginal"`` divides by ``sqrt(E[n])``, whitening it on average, so
+    longer records are farther from the origin.
+
+    Args:
+        lengths: Length (or total count) of each record, shape ``(N,)``.
+        scaling: ``"conditional"`` or ``"marginal"``.
+        mean_length: ``E[n]`` under the length distribution; required for
+            ``"marginal"``.
+
+    Returns:
+        Factors of shape ``(N,)``.
+
+    Raises:
+        ValueError: If ``"marginal"`` is requested without a positive
+            ``mean_length``.
+    """
+    lengths = np.asarray(lengths, dtype=np.float64)
+    if scaling == "marginal":
+        if mean_length is None or mean_length <= 0.0:
+            raise ValueError(
+                "Marginal sequence scaling needs a positive mean length, "
+                f"got {mean_length!r}."
+            )
+        return np.full(len(lengths), 1.0 / np.sqrt(mean_length))
+    weights = np.zeros(len(lengths))
+    positive = lengths > 0
+    weights[positive] = 1.0 / np.sqrt(lengths[positive])
+    return weights
+
+
+def bernoulli_set_score(
+    owner: Any, member: Any, n: int, probs: Any, floor: float, dense_limit: int
+) -> FisherScoreArray:
+    """Return the whitened score of independent element inclusions.
+
+    Element ``e`` is in the set with probability ``p_e``; its score column is
+    ``(1[e in set] - p_e) / sqrt(p_e (1 - p_e))``. Above ``dense_limit``
+    elements the offset-free form ``1[e in set] / sqrt(p_e (1 - p_e))`` is
+    returned as CSR, which differs from the dense form by a constant.
+
+    Args:
+        owner: Record index of each observed (record, element) pair.
+        member: Element column of each pair, or ``-1`` for an element outside
+            the support (ignored).
+        n: Number of records.
+        probs: Inclusion probabilities, shape ``(C,)``, clipped to
+            ``[floor, 1 - floor]``.
+        floor: Probability floor.
+        dense_limit: Largest number of elements returned densely.
+
+    Returns:
+        Float64 array, or CSR above ``dense_limit``, of shape ``(n, C)``.
+    """
+    p = np.clip(np.asarray(probs, dtype=np.float64), floor, 1.0 - floor)
+    inv_sd = 1.0 / np.sqrt(p * (1.0 - p))
+    owner = np.asarray(owner, dtype=np.intp)
+    member = np.asarray(member, dtype=np.intp)
+    keep = member >= 0
+    rows, cols = owner[keep], member[keep]
+    if len(p) > dense_limit:
+        return csr_matrix((inv_sd[cols], (rows, cols)), shape=(n, len(p)))
+    scores = np.tile(-p * inv_sd, (n, 1))
+    scores[rows, cols] += inv_sd[cols]
+    return as_score_array(scores, len(p))

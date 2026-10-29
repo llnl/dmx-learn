@@ -275,6 +275,33 @@ STATS_CASES = [
         options=MARGINAL,
         rank_deficit=1,
     ),
+    # Poisson lengths include empty sequences: under conditional scaling their
+    # zero element block makes that block's covariance (1 - P(n = 0)) I, here
+    # within tolerance; marginal scaling is exactly whitened.
+    FisherCase(
+        "sequence_poisson_conditional",
+        lambda: SequenceDistribution(
+            PoissonDistribution(1.5), len_dist=PoissonDistribution(4.0)
+        ),
+        VARIABLE_LENGTH,
+    ),
+    FisherCase(
+        "sequence_poisson_marginal",
+        lambda: SequenceDistribution(
+            PoissonDistribution(1.5), len_dist=PoissonDistribution(4.0)
+        ),
+        VARIABLE_LENGTH,
+        options=MARGINAL,
+    ),
+    FisherCase(
+        "integer_multinomial_marginal",
+        lambda: IntegerMultinomialDistribution(
+            0, [0.2, 0.3, 0.5], len_dist=IntegerCategoricalDistribution(2, [0.5, 0.5])
+        ),
+        VARIABLE_LENGTH,
+        options=MARGINAL,
+        rank_deficit=2,
+    ),
     FisherCase(
         "integer_multinomial",
         lambda: IntegerMultinomialDistribution(
