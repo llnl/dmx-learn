@@ -174,10 +174,10 @@ same rows; only the final UMAP fit is centralised.
 | Phase | Distributions | Score |
 |---|---|---|
 | B. Leaves (`dmx.stats`) | Gaussian, LogGaussian, Exponential, Gamma, Poisson, Geometric, Binomial, Categorical, IntRange, MVN, DiagonalGaussian, Dirichlet | Closed form |
-| C. Observed combinators | Composite, Optional, Ignored, NullDist, Sequence, SetDist, IntMultinomial, CatMultinomial | Closed form, recursive |
+| C. Observed combinators | Composite, Optional, Ignored, NullDist, Sequence, SetDist, IntMultinomial, CatMultinomial, MarkovChain (stretch) | Closed form, recursive |
 | D. Latent-variable | nested Mixture, HeterogeneousMixture; HMM family (stretch) | Expected sufficient statistics + empirical whitening |
 | E. `dmx.bstats` parity | Gaussian, Categorical, Poisson, Bernoulli, Exponential, Geometric, Gamma, Composite, Optional, Sequence, Ignored, NullDist | Shared kernels, plug-in parameters |
-| Later / out of epic | VMF, MarkovChain, IntSetDist, edit set distributions, Spearman rho, LDA, PLSI, ICL tree, tree HMM, hidden association, Conditional, Weighted | Use `on_missing="posterior_only"` until implemented |
+| Later / out of epic | VMF, IntSetDist, edit set distributions, Spearman rho, LDA, PLSI, ICL tree, tree HMM, hidden association, Conditional, Weighted | Use `on_missing="posterior_only"` until implemented |
 
 ## 5. Decisions
 

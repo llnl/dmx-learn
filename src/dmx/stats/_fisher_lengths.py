@@ -61,6 +61,42 @@ def length_mean(len_dist: Any) -> float:
     )
 
 
+def length_pmf(len_dist: Any, tail: float = 1.0e-12) -> np.ndarray:
+    """Return ``P(n = k)`` for ``k = 0, ..., K`` under a length distribution.
+
+    Supports the same families as :func:`length_mean`. Finite supports are
+    returned exactly (IntegerCategorical and Categorical normalized as in
+    :func:`length_mean`); unbounded ones are truncated once the remaining
+    mass is below ``tail``.
+
+    Args:
+        len_dist: Length distribution of a sequence.
+        tail: Largest probability mass left beyond ``K``.
+
+    Returns:
+        Probabilities of shape ``(K + 1,)``.
+
+    Raises:
+        ValueError: If the distribution of ``len_dist`` is not known here.
+    """
+    mean = length_mean(len_dist)
+    if isinstance(len_dist, IntegerCategoricalDistribution):
+        p = np.asarray(len_dist.p_vec, dtype=np.float64)
+        return np.concatenate((np.zeros(max(len_dist.min_val, 0)), p / p.sum()))
+    if isinstance(len_dist, CategoricalDistribution):
+        pmf = np.zeros(int(max(len_dist.pmap)) + 1)
+        for length, prob in len_dist.pmap.items():
+            pmf[int(length)] += prob
+        return np.asarray(pmf / pmf.sum())
+    # Geometric lengths start at 1; its density formula is not zero at 0.
+    probs = [0.0] if isinstance(len_dist, GeometricDistribution) else []
+    total = 0.0
+    while total < 1.0 - tail or len(probs) <= mean:
+        probs.append(float(len_dist.density(len(probs))))
+        total += probs[-1]
+    return np.asarray(probs)
+
+
 def length_score_dim(len_dist: Any, options: Optional[FisherScoreOptions]) -> int:
     """Return the length block's dimension: zero for a null length distribution."""
     if len_dist is None or isinstance(len_dist, NullDistribution):
