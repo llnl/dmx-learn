@@ -31,6 +31,7 @@ from typing import Any, Dict, Generic, Optional, Set, TypeVar
 import numpy as np
 
 from dmx.arithmetic import maxrandint
+from dmx.utils.fisher import FisherScoreOptions, fisher_score_unsupported
 from dmx.utils.seeding import resolve_sampler_seed
 
 SS = TypeVar("SS")
@@ -193,6 +194,71 @@ class ProbabilityDistribution:
             return False
         seen_keys.add(key)
         return True
+
+    def seq_fisher_score(
+        self, x: Any, options: Optional[FisherScoreOptions] = None
+    ) -> np.ndarray:
+        """Return the whitened Fisher score of each encoded observation.
+
+        The score is ``I^{-1/2} (T(x) - E[T])`` for sufficient statistics
+        ``T`` and Fisher information ``I``, so it has mean zero and identity
+        covariance under this distribution. Combinators concatenate or
+        reweight their children's scores using the same ``options``. See
+        :mod:`dmx.utils.fisher`.
+
+        Args:
+            x: Encoded sequence of ``N`` observations from
+                ``dist_to_encoder().seq_encode``.
+            options: Score options; None uses the defaults.
+
+        Returns:
+            np.ndarray: Float64 array of shape ``(N, fisher_dim(options))``.
+
+        Raises:
+            NotImplementedError: If this distribution has no Fisher score.
+
+        """
+        raise fisher_score_unsupported(self, "seq_fisher_score")
+
+    def fisher_dim(self, options: Optional[FisherScoreOptions] = None) -> int:
+        """Return the number of columns returned by ``seq_fisher_score``.
+
+        Combinators sum their children's dimensions, so a successful call
+        means the whole distribution tree supports Fisher scores.
+
+        Args:
+            options: Score options; some change the dimension.
+
+        Returns:
+            int: Score dimension.
+
+        Raises:
+            NotImplementedError: If this distribution has no Fisher score.
+
+        """
+        raise fisher_score_unsupported(self, "fisher_dim")
+
+    def fisher_field_slices(
+        self, options: Optional[FisherScoreOptions] = None
+    ) -> Dict[str, slice]:
+        """Map field names to their columns in ``seq_fisher_score``.
+
+        The default covers the whole score with one entry named after the
+        distribution's ``name``, or its class name when unnamed. Combinators
+        return one entry per field.
+
+        Args:
+            options: Score options passed to ``fisher_dim``.
+
+        Returns:
+            Dict[str, slice]: Field name to column slice.
+
+        Raises:
+            NotImplementedError: If this distribution has no Fisher score.
+
+        """
+        name = getattr(self, "name", None) or type(self).__name__
+        return {name: slice(0, self.fisher_dim(options))}
 
     def __eq__(self, other: Any) -> bool:
         """Tests if a ProbabilityDistribution is equivilent to another.
