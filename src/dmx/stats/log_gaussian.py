@@ -21,6 +21,7 @@ from dmx.stats.pdist import (
     SequenceEncodableStatisticAccumulator,
     StatisticAccumulatorFactory,
 )
+from dmx.utils.fisher import FisherScoreOptions, gaussian_score
 
 
 class LogGaussianDistribution(SequenceEncodableProbabilityDistribution):
@@ -126,6 +127,37 @@ class LogGaussianDistribution(SequenceEncodableProbabilityDistribution):
         rv -= x.data
 
         return np.asarray(rv)
+
+    def seq_fisher_score(
+        self,
+        x: "LogGaussianEncodedDataSequence",
+        options: Optional[FisherScoreOptions] = None,
+    ) -> np.ndarray:
+        """Return the whitened score ``[u, (u^2 - 1) / sqrt(2)]`` of each observation.
+
+        Here ``u = (log x - mu) / sigma``: the Gaussian score of ``log x``,
+        which the encoder already stores. ``options`` has no effect on scalar leaves.
+
+        Args:
+            x: Encoded sequence containing ``N`` observations.
+            options: Score options, accepted for the shared interface.
+
+        Returns:
+            Array of shape ``(N, 2)``.
+
+        Raises:
+            TypeError: If ``x`` is not a LogGaussianEncodedDataSequence.
+        """
+        if not isinstance(x, LogGaussianEncodedDataSequence):
+            raise TypeError(
+                "LogGaussianDistribution.seq_fisher_score() requires "
+                "LogGaussianEncodedDataSequence."
+            )
+        return gaussian_score(x.data, self.mu, self.sigma2)
+
+    def fisher_dim(self, options: Optional[FisherScoreOptions] = None) -> int:
+        """Return 2: the location and scale score columns of ``log x``."""
+        return 2
 
     def sampler(self, seed: Optional[int] = None) -> "LogGaussianSampler":
         """Create a sampler, optionally initialized with ``seed``."""

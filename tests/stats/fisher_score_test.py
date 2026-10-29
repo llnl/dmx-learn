@@ -71,10 +71,23 @@ def _lengths() -> IntegerCategoricalDistribution:
 STATS_CASES = [
     # Phase B: continuous scalar leaves.
     FisherCase("gaussian", lambda: GaussianDistribution(1.0, 4.0), CONTINUOUS),
+    FisherCase(
+        "gaussian_small_variance",
+        lambda: GaussianDistribution(-3.0, 1.0e-4),
+        CONTINUOUS,
+    ),
     FisherCase("log_gaussian", lambda: LogGaussianDistribution(0.5, 0.25), CONTINUOUS),
     FisherCase("exponential", lambda: ExponentialDistribution(2.0), CONTINUOUS),
+    FisherCase(
+        "exponential_small_mean", lambda: ExponentialDistribution(0.05), CONTINUOUS
+    ),
     FisherCase("gamma_small_shape", lambda: GammaDistribution(0.7, 2.0), CONTINUOUS),
     FisherCase("gamma_large_shape", lambda: GammaDistribution(20.0, 0.5), CONTINUOUS),
+    FisherCase("gamma_unit_shape", lambda: GammaDistribution(1.0, 3.0), CONTINUOUS),
+    # Large enough to use the series for trigamma(k) - 1/k.
+    FisherCase(
+        "gamma_huge_shape", lambda: GammaDistribution(1.0e4, 1.0e-2), CONTINUOUS
+    ),
     # Phase B: count leaves.
     FisherCase("poisson", lambda: PoissonDistribution(3.5), COUNT),
     FisherCase("poisson_small_rate", lambda: PoissonDistribution(0.8), COUNT),

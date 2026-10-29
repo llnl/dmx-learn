@@ -44,12 +44,18 @@ from typing import Any, Literal, Optional
 
 import numpy as np
 
+from dmx.utils.special import digamma, trigamma
+
 __all__ = [
     "FisherScoreOptions",
     "as_score_array",
+    "exponential_score",
     "fisher_score_unsupported",
+    "gamma_score",
+    "gaussian_score",
     "has_fisher_score",
     "resolve_fisher_options",
+    "trigamma_minus_reciprocal",
 ]
 
 SequenceScaling = Literal["conditional", "marginal"]
@@ -199,3 +205,98 @@ def as_score_array(values: Any, dim: int) -> np.ndarray:
     if rv.ndim != 2 or rv.shape[1] != dim:
         raise ValueError(f"Expected Fisher scores of shape (N, {dim}), got {rv.shape}.")
     return np.ascontiguousarray(rv)
+
+
+# --- Score kernels -----------------------------------------------------------
+
+_SQRT_HALF = float(np.sqrt(0.5))
+
+# Shape above which trigamma(k) - 1/k is taken from its asymptotic series.
+_TRIGAMMA_SERIES_SHAPE = 50.0
+
+
+def gaussian_score(x: Any, mu: float, sigma2: float) -> np.ndarray:
+    """Return the whitened score of a univariate Gaussian.
+
+    With ``u = (x - mu) / sigma`` the score is ``[u, (u^2 - 1) / sqrt(2)]``:
+    the location and scale directions, each with unit variance and
+    uncorrelated under the Gaussian.
+
+    Args:
+        x: Observations, shape ``(N,)``.
+        mu: Mean.
+        sigma2: Positive variance.
+
+    Returns:
+        Array of shape ``(N, 2)``.
+    """
+    u = (np.asarray(x, dtype=np.float64) - mu) / np.sqrt(sigma2)
+    return as_score_array(np.column_stack((u, (u * u - 1.0) * _SQRT_HALF)), 2)
+
+
+def exponential_score(x: Any, beta: float) -> np.ndarray:
+    """Return the whitened score of an exponential distribution with mean ``beta``.
+
+    The score is ``x / beta - 1``.
+
+    Args:
+        x: Nonnegative observations, shape ``(N,)``.
+        beta: Positive mean (scale).
+
+    Returns:
+        Array of shape ``(N, 1)``.
+    """
+    return as_score_array(np.asarray(x, dtype=np.float64) / beta - 1.0, 1)
+
+
+def trigamma_minus_reciprocal(k: float) -> float:
+    """Return ``trigamma(k) - 1/k`` accurately for large ``k``.
+
+    The difference is positive for every ``k > 0`` and behaves like
+    ``1 / (2 k^2)`` for large ``k``, so subtracting the two terms directly
+    loses about ``log10(2 k)`` significant digits (relative error near
+    ``2e-10`` at ``k = 1e6``). For ``k >= 50`` the asymptotic series is used
+    instead, which stays accurate to rounding error.
+
+    Args:
+        k: Positive gamma shape.
+
+    Returns:
+        ``trigamma(k) - 1/k``.
+    """
+    if k < _TRIGAMMA_SERIES_SHAPE:
+        return float(trigamma(k)) - 1.0 / k
+    r = 1.0 / k
+    r2 = r * r
+    # 1/(2k^2) + 1/(6k^3) - 1/(30k^5) + 1/(42k^7) - 1/(30k^9), in Horner form.
+    series = 1.0 / 6.0 + r2 * (-1.0 / 30.0 + r2 * (1.0 / 42.0 - r2 / 30.0))
+    return float(r2 * (0.5 + r * series))
+
+
+def gamma_score(x: Any, log_x: Any, k: float, theta: float) -> np.ndarray:
+    """Return the whitened score of a gamma distribution with shape and scale.
+
+    The sufficient statistics ``[x, log x]`` have mean
+    ``[k theta, digamma(k) + log theta]`` and covariance
+    ``[[k theta^2, theta], [theta, trigamma(k)]]``. The score is
+    ``L^{-1} (T - mean)`` for the lower Cholesky factor ``L`` of that
+    covariance:
+
+    - ``s1 = (x - k theta) / (sqrt(k) theta)``
+    - ``s2 = (log x - digamma(k) - log theta - s1 / sqrt(k))
+      / sqrt(trigamma(k) - 1/k)``
+
+    Args:
+        x: Positive observations, shape ``(N,)``.
+        log_x: ``log(x)``, shape ``(N,)``, as stored by the gamma encoder.
+        k: Positive shape.
+        theta: Positive scale.
+
+    Returns:
+        Array of shape ``(N, 2)``.
+    """
+    sqrt_k = np.sqrt(k)
+    s1 = (np.asarray(x, dtype=np.float64) - k * theta) / (sqrt_k * theta)
+    centered_log = np.asarray(log_x, dtype=np.float64) - (digamma(k) + np.log(theta))
+    s2 = (centered_log - s1 / sqrt_k) / np.sqrt(trigamma_minus_reciprocal(k))
+    return as_score_array(np.column_stack((s1, s2)), 2)

@@ -19,6 +19,7 @@ from dmx.stats.pdist import (
     SequenceEncodableStatisticAccumulator,
     StatisticAccumulatorFactory,
 )
+from dmx.utils.fisher import FisherScoreOptions, exponential_score
 
 
 class ExponentialDistribution(SequenceEncodableProbabilityDistribution):
@@ -99,6 +100,37 @@ class ExponentialDistribution(SequenceEncodableProbabilityDistribution):
         rv = x.data * (-1.0 / self.beta)
         rv -= self.log_beta
         return np.asarray(rv)
+
+    def seq_fisher_score(
+        self,
+        x: "ExponentialEncodedDataSequence",
+        options: Optional[FisherScoreOptions] = None,
+    ) -> np.ndarray:
+        """Return the whitened score ``x / beta - 1`` of each observation.
+
+        The sufficient statistic ``x`` has mean ``beta`` and standard deviation
+        ``beta``. ``options`` has no effect on scalar leaves.
+
+        Args:
+            x: Encoded sequence containing ``N`` observations.
+            options: Score options, accepted for the shared interface.
+
+        Returns:
+            Array of shape ``(N, 1)``.
+
+        Raises:
+            TypeError: If ``x`` is not a ExponentialEncodedDataSequence.
+        """
+        if not isinstance(x, ExponentialEncodedDataSequence):
+            raise TypeError(
+                "ExponentialDistribution.seq_fisher_score() requires "
+                "ExponentialEncodedDataSequence."
+            )
+        return exponential_score(x.data, self.beta)
+
+    def fisher_dim(self, options: Optional[FisherScoreOptions] = None) -> int:
+        """Return 1: the exponential has one parameter."""
+        return 1
 
     def sampler(self, seed: Optional[int] = None) -> "ExponentialSampler":
         """Return an ExponentialSampler for this distribution.

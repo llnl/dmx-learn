@@ -3,22 +3,20 @@
 import dataclasses
 from typing import Any, Optional
 
+import mpmath
 import numpy as np
 import pytest
 
 from dmx.bstats import GaussianDistribution as BstatsGaussianDistribution
-from dmx.stats import (
-    CategoricalDistribution,
-    CompositeDistribution,
-    GaussianDistribution,
-    MarkovChainDistribution,
-    MixtureDistribution,
-)
+from dmx.bstats.pdist import ProbabilityDistribution as BstatsProbabilityDistribution
+from dmx.stats import GaussianDistribution, MarkovChainDistribution
+from dmx.stats.pdist import ProbabilityDistribution
 from dmx.utils.fisher import (
     FisherScoreOptions,
     as_score_array,
     has_fisher_score,
     resolve_fisher_options,
+    trigamma_minus_reciprocal,
 )
 
 
@@ -41,18 +39,29 @@ class _ScoredBstatsGaussian(BstatsGaussianDistribution):
         return 2
 
 
+# Test-only distributions that never implement a Fisher score, so these tests
+# do not change as real families gain scores.
+class _UnscoredStats(GaussianDistribution):
+    """dmx.stats distribution without a Fisher score.
+
+    A concrete subclass with the base-class Fisher methods restored, so it can
+    be instantiated while behaving like a family that has no score.
+    """
+
+    seq_fisher_score = ProbabilityDistribution.seq_fisher_score
+    fisher_dim = ProbabilityDistribution.fisher_dim
+
+
+# pylint: disable-next=abstract-method
+class _UnscoredBstats(BstatsProbabilityDistribution):
+    """dmx.bstats distribution without a Fisher score."""
+
+
 def _unsupported_stats() -> list[Any]:
-    """Return dmx.stats distributions that have no Fisher score yet."""
+    """Return dmx.stats distributions without a Fisher score."""
+    # MarkovChainDistribution is outside the humap-fisher plan.
     return [
-        GaussianDistribution(0.0, 1.0),
-        CategoricalDistribution({"a": 0.5, "b": 0.5}),
-        CompositeDistribution(
-            (GaussianDistribution(0.0, 1.0), CategoricalDistribution({"a": 1.0}))
-        ),
-        MixtureDistribution(
-            [GaussianDistribution(0.0, 1.0), GaussianDistribution(1.0, 1.0)],
-            [0.5, 0.5],
-        ),
+        _UnscoredStats(0.0, 1.0),
         MarkovChainDistribution({"a": 1.0}, {"a": {"a": 1.0}}),
     ]
 
@@ -110,12 +119,12 @@ def test_stats_base_methods_raise_naming_the_class(dist: Any) -> None:
 
 
 def test_bstats_base_methods_raise_naming_the_class() -> None:
-    dist = BstatsGaussianDistribution(0.0, 1.0)
-    with pytest.raises(NotImplementedError, match="GaussianDistribution"):
+    dist = _UnscoredBstats()
+    with pytest.raises(NotImplementedError, match="_UnscoredBstats"):
         dist.seq_fisher_score(np.zeros(1))
-    with pytest.raises(NotImplementedError, match="GaussianDistribution"):
+    with pytest.raises(NotImplementedError, match="_UnscoredBstats"):
         dist.fisher_dim()
-    with pytest.raises(NotImplementedError, match="GaussianDistribution"):
+    with pytest.raises(NotImplementedError, match="_UnscoredBstats"):
         dist.fisher_field_slices()
     assert not has_fisher_score(dist)
 
@@ -167,3 +176,11 @@ def test_as_score_array_shapes() -> None:
 def test_as_score_array_rejects_wrong_shapes(values: Any, dim: int) -> None:
     with pytest.raises(ValueError, match="Fisher scores"):
         as_score_array(values, dim)
+
+
+@pytest.mark.parametrize("k", [0.3, 2.0, 49.999, 50.0, 1.0e3, 1.0e6, 1.0e9])
+def test_trigamma_minus_reciprocal_matches_high_precision(k: float) -> None:
+    with mpmath.workdps(50):
+        exact = mpmath.polygamma(1, k) - 1 / mpmath.mpf(k)
+        relative_error = abs((trigamma_minus_reciprocal(k) - exact) / exact)
+    assert relative_error < 1e-13

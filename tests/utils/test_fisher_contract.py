@@ -95,6 +95,10 @@ class _WhitenedCategorical(CategoricalDistribution):
         return scores
 
 
+class _Unscored:
+    """Object with no Fisher score, standing in for an unimplemented family."""
+
+
 def _categorical(offset_free: bool = False) -> _WhitenedCategorical:
     """Return a toy categorical."""
     dist = _WhitenedCategorical({"a": 0.5, "b": 0.3, "c": 0.2})
@@ -162,8 +166,8 @@ def test_offset_free_categorical_fails_when_centered() -> None:
 
 
 def test_unsupported_family_is_skipped_with_issue() -> None:
-    case = FisherCase("plain_gaussian", lambda: GaussianDistribution(0.0, 1.0), 279)
-    with pytest.raises(pytest.skip.Exception, match="llnl/dmx-learn#279"):
+    case = FisherCase("unscored", _Unscored, 999)
+    with pytest.raises(pytest.skip.Exception, match="llnl/dmx-learn#999"):
         run_fisher_contract(case)
 
 
