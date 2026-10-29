@@ -20,6 +20,7 @@ from dmx.stats.pdist import (
     SequenceEncodableStatisticAccumulator,
     StatisticAccumulatorFactory,
 )
+from dmx.utils.fisher import FisherScoreOptions, gaussian_score
 
 
 class GaussianDistribution(SequenceEncodableProbabilityDistribution):
@@ -118,6 +119,37 @@ class GaussianDistribution(SequenceEncodableProbabilityDistribution):
         rv += self.log_const
 
         return np.asarray(rv)
+
+    def seq_fisher_score(
+        self,
+        x: "GaussianEncodedDataSequence",
+        options: Optional[FisherScoreOptions] = None,
+    ) -> np.ndarray:
+        """Return the whitened score ``[u, (u^2 - 1) / sqrt(2)]`` of each observation.
+
+        Here ``u = (x - mu) / sigma``; the columns are the location and scale
+        directions. ``options`` has no effect on scalar leaves.
+
+        Args:
+            x: Encoded sequence containing ``N`` observations.
+            options: Score options, accepted for the shared interface.
+
+        Returns:
+            Array of shape ``(N, 2)``.
+
+        Raises:
+            TypeError: If ``x`` is not a GaussianEncodedDataSequence.
+        """
+        if not isinstance(x, GaussianEncodedDataSequence):
+            raise TypeError(
+                "GaussianDistribution.seq_fisher_score() requires "
+                "GaussianEncodedDataSequence."
+            )
+        return gaussian_score(x.data, self.mu, self.sigma2)
+
+    def fisher_dim(self, options: Optional[FisherScoreOptions] = None) -> int:
+        """Return 2: the location and scale score columns."""
+        return 2
 
     def sampler(self, seed: Optional[int] = None) -> "GaussianSampler":
         """Return a GaussianSampler for this distribution.

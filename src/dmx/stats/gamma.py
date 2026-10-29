@@ -20,6 +20,7 @@ from dmx.stats.pdist import (
     SequenceEncodableStatisticAccumulator,
     StatisticAccumulatorFactory,
 )
+from dmx.utils.fisher import FisherScoreOptions, gamma_score
 from dmx.utils.special import digamma, gammaln, trigamma
 
 
@@ -107,6 +108,39 @@ class GammaDistribution(SequenceEncodableProbabilityDistribution):
             rv += x.data[1] * (self.k - 1.0)
         rv += self.log_const
         return np.asarray(rv)
+
+    def seq_fisher_score(
+        self,
+        x: "GammaEncodedDataSequence",
+        options: Optional[FisherScoreOptions] = None,
+    ) -> np.ndarray:
+        """Return the whitened score of ``[x, log x]`` for each observation.
+
+        The columns are ``L^{-1} (T - E[T])`` for the lower Cholesky factor ``L``
+        of the covariance of ``T = [x, log x]``; see
+        :func:`dmx.utils.fisher.gamma_score`. ``options`` has no effect on
+        scalar leaves.
+
+        Args:
+            x: Encoded sequence containing ``N`` observations.
+            options: Score options, accepted for the shared interface.
+
+        Returns:
+            Array of shape ``(N, 2)``.
+
+        Raises:
+            TypeError: If ``x`` is not a GammaEncodedDataSequence.
+        """
+        if not isinstance(x, GammaEncodedDataSequence):
+            raise TypeError(
+                "GammaDistribution.seq_fisher_score() requires "
+                "GammaEncodedDataSequence."
+            )
+        return gamma_score(x.data[0], x.data[1], self.k, self.theta)
+
+    def fisher_dim(self, options: Optional[FisherScoreOptions] = None) -> int:
+        """Return 2: the shape and scale score columns."""
+        return 2
 
     def sampler(self, seed: Optional[int] = None) -> "GammaSampler":
         """Return a GammaSampler for this distribution.
