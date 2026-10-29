@@ -32,6 +32,13 @@ from numpy.random import RandomState
 
 import dmx.utils.vector as vec
 from dmx.arithmetic import exp, log, maxrandint
+from dmx.stats._fisher_latent import (
+    HmmPosteriors,
+    hmm_raw_score,
+    hmm_slices,
+    model_whitener,
+)
+from dmx.stats._fisher_lengths import length_score_dim
 from dmx.stats.markovchain import MarkovChainDistribution
 from dmx.stats.mixture import MixtureDistribution
 from dmx.stats.null_dist import (
@@ -49,6 +56,12 @@ from dmx.stats.pdist import (
     SequenceEncodableProbabilityDistribution,
     SequenceEncodableStatisticAccumulator,
     StatisticAccumulatorFactory,
+)
+from dmx.utils.fisher import (
+    FisherScoreOptions,
+    component_score_dims,
+    resolve_fisher_options,
+    warn_unsupported,
 )
 
 T = TypeVar("T")
@@ -603,6 +616,128 @@ class HiddenMarkovModelDistribution(SequenceEncodableProbabilityDistribution):
             ptr[prev_band_idx] += np.argmax(v[prev_band_idx, :], axis=1)
 
         return ptr
+
+    def seq_fisher_score(
+        self,
+        x: "HiddenMarkovEncodedDataSequence",
+        options: Optional[FisherScoreOptions] = None,
+    ) -> np.ndarray:
+        """Return the whitened score of each hidden Markov sequence.
+
+        The raw score stacks, per sequence, the initial block
+        ``gamma_0 - w``, the transition block ``xi_ij - (sum_j xi_ij) A_ij``
+        (expected transition counts minus their model mean), the emission block
+        ``sum_t gamma_t(k) s_k(x_t)`` for each state, and the length score, using
+        per-sequence forward-backward posteriors. With
+        ``options.sequence_scaling == "conditional"`` the transition block is
+        divided by ``sqrt(T - 1)`` and the emission blocks by ``sqrt(T)``. The
+        result is whitened (ZCA) with its covariance over
+        ``options.whitening_samples`` draws from this model, so it depends only
+        on the model; its covariance is a projector with one null direction for
+        the initial block and one per transition row.
+
+        Args:
+            x: Encoded sequence containing ``N`` sequences (either encoding).
+            options: Score options, also passed to the emission and length
+                distributions.
+
+        Returns:
+            Array of shape ``(N, fisher_dim(options))``.
+
+        Raises:
+            TypeError: If ``x`` is not a HiddenMarkovEncodedDataSequence.
+            NotImplementedError: If the model uses ``taus`` (topic mixtures), or
+                an emission distribution has no score and
+                ``options.on_missing == "raise"``.
+        """
+        if not isinstance(x, HiddenMarkovEncodedDataSequence):
+            raise TypeError(
+                "HiddenMarkovModelDistribution.seq_fisher_score() requires "
+                "HiddenMarkovEncodedDataSequence."
+            )
+        opts = resolve_fisher_options(options)
+        dims, unsupported = self._fisher_emission_dims(opts)
+        warn_unsupported(unsupported)
+
+        def raw_score(encoded: "HiddenMarkovEncodedDataSequence") -> np.ndarray:
+            posteriors, enc_data, len_enc = self._fisher_posteriors(encoded)
+            emissions = [
+                topic.seq_fisher_score(enc_data, opts) if dim else None
+                for topic, dim in zip(self.topics, dims)
+            ]
+            length_block = None
+            if length_score_dim(self.len_dist, opts) > 0:
+                length_block = self.len_dist.seq_fisher_score(len_enc, opts)
+            return hmm_raw_score(
+                posteriors, self.w, self.transitions, emissions, length_block, opts
+            )
+
+        return model_whitener(self, raw_score, opts).transform(raw_score(x))
+
+    def _fisher_emission_dims(
+        self, options: FisherScoreOptions
+    ) -> Tuple[List[Optional[int]], List[str]]:
+        """Return the emission score dimensions and unsupported classes."""
+        if self.has_topics:
+            raise NotImplementedError(
+                f"{type(self).__name__} with taus (topic mixtures) does not "
+                "implement fisher_dim()."
+            )
+        return component_score_dims(self.topics, options)
+
+    def _fisher_posteriors(
+        self, x: "HiddenMarkovEncodedDataSequence"
+    ) -> Tuple[HmmPosteriors, Any, Any]:
+        """Return per-sequence posteriors, element encoding, and length encoding."""
+        if x.numba_enc:
+            (idx, sz, enc_data), len_enc = x.data
+            lengths = np.asarray(sz, dtype=np.intp)
+            owner = np.asarray(idx, dtype=np.intp)
+            order = None
+        else:
+            (_, _, _, _, idx_mat, _, enc_data), _, len_enc = x.data
+            good = idx_mat >= 0
+            lengths = good.sum(axis=1).astype(np.intp)
+            # Banded elements are stored time-major; idx_mat lists each
+            # sequence's elements in time order.
+            order = idx_mat[good]
+            owner = np.empty(len(order), dtype=np.intp)
+            owner[order] = np.repeat(np.arange(len(lengths)), lengths)
+        log_obs = np.column_stack(
+            [topic.seq_log_density(enc_data) for topic in self.topics]
+        )
+        if order is None:
+            initial, transitions, gamma = hmm_forward_backward(
+                log_obs, lengths, self.w, self.transitions
+            )
+        else:
+            initial, transitions, ordered_gamma = hmm_forward_backward(
+                log_obs[order], lengths, self.w, self.transitions
+            )
+            gamma = np.empty_like(ordered_gamma)
+            gamma[order] = ordered_gamma
+        posteriors = HmmPosteriors(initial, transitions, gamma, owner, lengths)
+        return posteriors, enc_data, len_enc
+
+    def fisher_dim(self, options: Optional[FisherScoreOptions] = None) -> int:
+        """Return ``K + K^2`` plus the emission and length dimensions."""
+        opts = resolve_fisher_options(options)
+        dims, _ = self._fisher_emission_dims(opts)
+        k = self.n_states
+        return (
+            k
+            + k * k
+            + sum(dim or 0 for dim in dims)
+            + length_score_dim(self.len_dist, opts)
+        )
+
+    def fisher_field_slices(
+        self, options: Optional[FisherScoreOptions] = None
+    ) -> Dict[str, slice]:
+        """Map ``initial``, ``transitions``, ``emission_<k>``, ``length``."""
+        opts = resolve_fisher_options(options)
+        dims, _ = self._fisher_emission_dims(opts)
+        return hmm_slices(self.n_states, dims, length_score_dim(self.len_dist, opts))
 
     def sampler(self, seed: Optional[int] = None) -> "HiddenMarkovSampler":
         """Create a sampler using sequence lengths or terminal values."""
@@ -2316,3 +2451,55 @@ def numba_baum_welch_alphas(  # pylint: disable=unused-argument
 
             for i in range(num_states):
                 alpha_loc[s, i] /= alpha_sum
+
+
+def hmm_forward_backward(
+    log_obs: np.ndarray,
+    lengths: np.ndarray,
+    w: np.ndarray,
+    transitions: np.ndarray,
+    log_space: bool = True,
+) -> Tuple[np.ndarray, np.ndarray, np.ndarray]:
+    """Return per-sequence forward-backward statistics.
+
+    Runs :func:`numba_baum_welch2` with unit weights, which leaves the
+    statistics of each sequence separate instead of summing them.
+
+    Args:
+        log_obs: Log-likelihood of each element under each state, shape
+            ``(M, K)``, with each sequence's elements contiguous and in order.
+            With ``log_space=False``, likelihoods instead of log-likelihoods,
+            which avoids a log/exp round trip for tabulated emissions.
+        lengths: Length of each sequence, shape ``(N,)``; they sum to ``M``.
+        w: Initial state probabilities, shape ``(K,)``.
+        transitions: Transition matrix, shape ``(K, K)``.
+        log_space: Whether ``log_obs`` holds log-likelihoods.
+
+    Returns:
+        Posterior of the first state ``(N, K)`` (zero for empty sequences),
+        expected transition counts ``(N, K, K)``, and the posterior state of
+        each element ``(M, K)``.
+    """
+    num_seq, num_states = len(lengths), len(w)
+    total = int(np.sum(lengths))
+    initial = np.zeros((num_seq, num_states), dtype=np.float64)
+    expected = np.zeros((num_seq, num_states, num_states), dtype=np.float64)
+    gamma = np.zeros((total, num_states), dtype=np.float64)
+    if total == 0:
+        return initial, expected, gamma
+    obs = np.asarray(log_obs, dtype=np.float64)
+    if log_space:
+        obs = np.exp(obs - obs.max(axis=1, keepdims=True))
+    tz = np.concatenate([[0], np.cumsum(lengths)]).astype(np.int32)
+    numba_baum_welch2(
+        num_states,
+        tz,
+        np.ascontiguousarray(obs),
+        np.ascontiguousarray(w, dtype=np.float64),
+        np.ascontiguousarray(transitions, dtype=np.float64),
+        np.ones(num_seq, dtype=np.float64),
+        gamma,
+        expected,
+        initial,
+    )
+    return initial, expected, gamma
