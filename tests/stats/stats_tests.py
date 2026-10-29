@@ -74,6 +74,14 @@ def sampler_repeat_test(
     return all(rv), rv
 
 
+def sampler_seed_test(dist: SequenceEncodableProbabilityDistribution) -> bool:
+    """Check that an unseeded sampler's ``seed`` attribute reproduces its draws."""
+    s = dist.sampler()
+    d1 = s.sample(size=20)
+    d2 = dist.sampler(seed=s.seed).sample(size=20)
+    return all(u[0] == u[1] for u in zip(map(str, d1), map(str, d2)))
+
+
 def log_density_test(
     dist: SequenceEncodableProbabilityDistribution, encoder: DataSequenceEncoder
 ) -> tuple[bool, str]:
@@ -375,6 +383,9 @@ class StatsTestClass(unittest.TestCase, metaclass=abc.ABCMeta):
         for x in self.density_dist_encoder:
             res = seq_update_test(*x)
             self.assertTrue(res[0], str(res[1]))
+
+    def test_11_sampler_seed(self) -> None:
+        self.assertTrue(sampler_seed_test(self.sampler_dist))
 
     def test_10_num_params(self) -> None:
         for dist, expected in self.num_params_cases:

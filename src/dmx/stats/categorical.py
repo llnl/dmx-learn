@@ -208,8 +208,8 @@ class CategoricalSampler(DistributionSampler):
     """CategoricalSampler object used to generate samples from CategoricalDistribution.
 
     Attributes:
-         rng (RandomState): RandomState with seed set to seed if provided. Else just
-             RandomState().
+         rng (RandomState): RandomState built from ``seed`` (see
+             :attr:`DistributionSampler.seed`).
          levels (List[Any]): Category labels for the CategoricalDistribution.
          probs (List[float]): Probabilities for each category in
              CategoricalDistribution.

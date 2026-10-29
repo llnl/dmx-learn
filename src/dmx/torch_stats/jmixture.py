@@ -16,7 +16,6 @@ from typing import Any, Dict, List, Optional, Sequence, Tuple, TypeVar, Union
 
 import numpy as np
 import torch as tn
-from numpy.random import RandomState
 
 import dmx.torch_utils.vector as vec
 from dmx.arithmetic import maxrandint
@@ -207,7 +206,7 @@ class JointMixtureSampler(DistributionSampler):
         self, dist: JointMixtureDistribution, seed: Optional[int] = None
     ) -> None:
         """Initialize CPU parameters and independently seeded component samplers."""
-        self.rng = RandomState(seed)
+        self.rng = self._seed_rng(seed)
         self.w1 = dist.w1.data.cpu().numpy()
         self.w2 = dist.w2.data.cpu().numpy()
         self.taus12 = dist.taus12.data.cpu().numpy()

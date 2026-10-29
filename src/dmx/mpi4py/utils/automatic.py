@@ -26,6 +26,7 @@ def get_dpm_mixture_mpi(
     mix_threshold_count: float = 0.5,
     verbose: bool = True,
     progress_callback: Optional[ProgressCallback] = None,
+    seed: Optional[int] = None,
 ) -> MixtureDistribution:
     """Fit and prune a Dirichlet process mixture with MPI.
 
@@ -41,8 +42,9 @@ def get_dpm_mixture_mpi(
         estimator (Optional[ParameterEstimator]): Base estimator to use. If
             omitted, rank 0 infers it from `data`.
         max_comp (int): Maximum number of components in the mixture.
-        rng (Optional[numpy.random.RandomState]): Random number generator used
-            during mixture optimization.
+        rng (Optional[numpy.random.RandomState]): Caller-owned random state
+            used during mixture optimization, or ``None`` to build one from
+            ``seed``.
         max_its (int): Maximum number of iterations for optimization.
         print_iter (int): Frequency of printing iteration progress.
         mix_threshold_count (float): Component-count threshold. On rank 0 this
@@ -56,12 +58,17 @@ def get_dpm_mixture_mpi(
             optimizer iteration, plus one ``"result"`` event with the retained
             ``weights`` and ``num_components``. Messages and events are
             produced on rank 0 only.
+        seed (Optional[int]): Seed passed to the optimizer and used on every
+            rank. With neither ``seed`` nor ``rng``, the optimizer has rank 0
+            draw a fresh seed and broadcast it; the seed used is reported in
+            its ``"start"`` event. Pass at most one of ``seed`` and ``rng``.
 
     Returns:
         MixtureDistribution: Pruned mixture distribution on every rank.
 
     Raises:
-        ValueError: If `data` is `None` on rank 0.
+        ValueError: If `data` is `None` on rank 0, or both ``seed`` and
+            ``rng`` are given.
         RuntimeError: If collective DPM optimization does not return a model on
             rank 0.
     """
@@ -98,6 +105,7 @@ def get_dpm_mixture_mpi(
         print_iter=print_iter,
         verbose=verbose,
         progress_callback=progress_callback,
+        seed=seed,
     )
 
     if world_rank == 0:

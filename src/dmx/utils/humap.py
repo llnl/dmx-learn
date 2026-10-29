@@ -1,5 +1,6 @@
 """Embed heterogeneous observations using mixture posteriors and UMAP."""
 
+import logging
 from typing import Any, Dict, Optional, Sequence, Tuple, TypeVar
 
 import numpy as np
@@ -8,7 +9,10 @@ from numpy.random import RandomState
 from umap import UMAP
 
 from dmx.utils.automatic import MixtureModel, prepare_mixture_model
-from dmx.utils.progress import ProgressCallback
+from dmx.utils.progress import ProgressCallback, ProgressReporter
+from dmx.utils.seeding import resolve_seed
+
+logger = logging.getLogger(__name__)
 
 DATUM_TYPE = TypeVar("DATUM_TYPE")
 
@@ -65,8 +69,10 @@ def humap(
             mixture fitting.
         max_its: Maximum mixture-fitting iterations.
         print_iter: Interval for mixture-fitting progress output.
-        seed: Seed for the local legacy NumPy random state used in mixture
-            fitting. ``None`` uses OS entropy.
+        seed: Seed for the random state used in mixture fitting. ``None``
+            draws a fresh seed from OS entropy; the seed used is sent to
+            ``progress_callback`` as a ``"start"`` event and logged at DEBUG.
+            UMAP randomness is separate: set ``umap_kwargs["random_state"]``.
         comp_estimator: Optional estimator for one mixture component.
         mix_model: Optional pre-fitted mixture distribution.
         umap_kwargs: Options passed to :class:`umap.UMAP`. Defaults are added
@@ -88,7 +94,11 @@ def humap(
             or UMAP rejects its inputs or options.
         RuntimeError: If mixture fitting produces no components.
     """
-    rng = RandomState(seed) if seed is not None else RandomState()
+    seed = resolve_seed(seed)
+    ProgressReporter(
+        "humap", logger, verbose=verbose, callback=progress_callback
+    ).start(seed)
+    rng = RandomState(seed)
     mix_model, _, posteriors = prepare_mixture_model(
         data,
         rng,

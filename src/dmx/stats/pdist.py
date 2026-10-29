@@ -31,6 +31,7 @@ from typing import Any, Dict, Generic, Optional, Set, TypeVar
 import numpy as np
 
 from dmx.arithmetic import maxrandint
+from dmx.utils.seeding import resolve_sampler_seed
 
 SS = TypeVar("SS")
 
@@ -255,6 +256,10 @@ class DistributionSampler:
 
     Attributes:
         dist: Distribution to sample from.
+        seed (Any): Seed ``rng`` was built from, an int unless an array-like
+            seed was passed. When the sampler is created with ``seed=None`` a
+            fresh seed is drawn from OS entropy, so
+            ``dist.sampler(seed=sampler.seed)`` reproduces the samples.
         rng (RandomState): Random number generator.
 
     """
@@ -264,11 +269,13 @@ class DistributionSampler:
 
         Args:
             dist: Distribution to sample from.
-            seed (Optional[int]): Used to set seed on rng.
+            seed (Optional[int]): Seed for ``rng``. ``None`` draws a fresh
+                seed, stored in :attr:`seed`.
 
         """
         self.dist: Any = dist
-        self.rng = np.random.RandomState(seed)
+        self.seed: Any = resolve_sampler_seed(seed)
+        self.rng = np.random.RandomState(self.seed)
 
     def new_seed(self) -> int:
         """Generate a new random seed from the random number generator.

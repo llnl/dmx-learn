@@ -149,9 +149,7 @@ class ExponentialSampler(DistributionSampler):
             tng (tn.Generator): RandomState with seed set to seed if passed in args.
 
         """
-        self.rng = (
-            np.random.RandomState(seed) if seed is not None else np.random.RandomState()
-        )
+        self.rng = self._seed_rng(seed)
         self.beta = dist.beta
 
     def sample(self, size: Optional[int] = None) -> Union[float, np.ndarray]:

@@ -362,7 +362,7 @@ class DiracMixtureSampler(DistributionSampler):
             seed (Optional[int], optional): Seed for random number generator.
         """
         super().__init__(dist, seed)
-        rng_loc = np.random.RandomState(seed)
+        rng_loc = np.random.RandomState(self.seed)
         self.rng = np.random.RandomState(rng_loc.randint(0, maxrandint))
         self.p = np.exp(dist.log_p)
         self.dist_sampler = dist.dist.sampler(seed=self.rng.randint(maxrandint))

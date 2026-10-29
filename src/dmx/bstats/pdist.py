@@ -18,6 +18,7 @@ import numpy as np
 import pandas as pd
 
 from dmx.arithmetic import exp, maxrandint
+from dmx.utils.seeding import resolve_sampler_seed
 
 X = TypeVar("X")
 E = TypeVar("E")
@@ -348,17 +349,27 @@ class ProbabilityDistributionFactory(Generic[X, P, V]):
 
 
 class DistributionSampler(Generic[X]):
-    """Base contract for sampling observations from a distribution."""
+    """Base contract for sampling observations from a distribution.
+
+    Attributes:
+        dist: Distribution to sample from.
+        seed: Seed the sampler's random state was built from; drawn from OS
+            entropy when ``seed`` is None. Passing it back reproduces the
+            samples.
+        rng: Random state used for sampling.
+    """
 
     def __init__(self, dist: Any, seed: Optional[int] = None) -> None:
         """Initialize the sampler.
 
         Args:
             dist: Distribution to sample from.
-            seed: Optional random seed.
+            seed: Optional random seed. When ``None``, a fresh seed is drawn
+                and recorded in ``self.seed``.
         """
         self.dist = dist
-        self.rng = np.random.RandomState(seed)
+        self.seed = resolve_sampler_seed(seed)
+        self.rng = np.random.RandomState(self.seed)
 
     def new_seed(self) -> int:
         """Draw a child seed from this sampler's random state."""

@@ -178,7 +178,7 @@ class DiagonalGaussianSampler(DistributionSampler):
             seed (Optional[int]): Seed for random number generator.
 
         """
-        self.rng = np.random.RandomState(seed)
+        self.rng = self._seed_rng(seed)
         self.mu = dist.mu.data.cpu().numpy()
         self.covar = dist.covar.data.cpu().numpy()
         self.dim = dist.dim

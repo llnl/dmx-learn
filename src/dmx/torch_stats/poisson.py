@@ -12,7 +12,6 @@ from typing import Any, Dict, Optional, Sequence, Tuple, Union
 
 import numpy as np
 import torch as tn
-from numpy.random import RandomState
 
 import dmx.torch_utils.vector as vec
 from dmx.torch_stats.pdist import (
@@ -126,7 +125,7 @@ class PoissonSampler(DistributionSampler):
                 used in sampling.
 
         """
-        self.rng = RandomState(seed)
+        self.rng = self._seed_rng(seed)
         self.dist = dist
 
     def sample(self, size: Optional[int] = None) -> Union[int, np.ndarray]:

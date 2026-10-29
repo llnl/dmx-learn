@@ -1,9 +1,9 @@
 """Torch-backed estimation helpers for local and distributed EM fitting."""
 
+import logging
 import sys
 from typing import IO, Any, List, Optional, Sequence, Tuple, TypeVar
 
-import numpy as np
 import torch as tn
 
 from dmx.torch_stats import (
@@ -27,6 +27,9 @@ from dmx.torch_utils.vector import (
     resolve_device,
     set_default_float_dtype,
 )
+from dmx.utils.seeding import resolve_seed
+
+logger = logging.getLogger(__name__)
 
 T = TypeVar("T")
 EncodedChunks = List[Tuple[int, Any]]
@@ -123,8 +126,10 @@ def optimize(
             compatible with the estimator.
         estimator (TorchParameterEstimator): Estimator used to specify the
             distribution for observed data.
-        seed (Optional[int]): Seed for initialization. If `None`, a seed is
-            drawn from NumPy's global random state.
+        seed (Optional[int]): Seed for initialization. If `None`, a fresh seed
+            is drawn from OS entropy (never NumPy's global random state). The
+            seed used is logged at DEBUG on this module's logger; passing it
+            back reproduces the fit. Ignored when `prev_estimate` is supplied.
         max_its (int): Maximum number of EM iterations to be performed.
             Default value is 10 iterations.
         delta (Optional[float]): Stop when the signed likelihood improvement
@@ -181,7 +186,8 @@ def optimize(
         else:
             p = min(max(init_p, 0.0), 1.0)
 
-        seed = seed if seed is not None else np.random.randint(2**31)
+        seed = resolve_seed(seed)
+        logger.debug("optimize seed=%s", seed)
         mm = seq_initialize(
             enc_data=enc_data, estimator=est, seed=seed, p=p, device=target_device
         )
@@ -304,10 +310,11 @@ def optimize_mp(
         init_p (float): Proportion of data points used in initialization.
             Values at or below zero become `0.1`; values above one are clamped
             to one.
-        seed (Optional[int]): Seed for initialization. If `None`, each rank
-            draws from its NumPy global random state before the collective
-            initialization call, so callers should synchronize this value when
-            reproducibility across ranks matters.
+        seed (Optional[int]): Seed for initialization. Only rank 0's value is
+            used: rank 0 derives and broadcasts the per-rank initialization
+            seeds. If `None`, a fresh seed is drawn from OS entropy (never
+            NumPy's global random state), and rank 0 logs the seed used at
+            DEBUG on this module's logger; passing it back reproduces the fit.
         prev_estimate (Optional[TorchProbabilityDistribution]): Optional model
             estimate from prior fitting, expected to be available consistently
             on all ranks.
@@ -356,7 +363,9 @@ def optimize_mp(
 
     if prev_estimate is None:
         p = 0.10 if init_p <= 0.0 else min(max(init_p, 0.0), 1.0)
-        seed = np.random.randint(2**31) if seed is None else seed
+        seed = resolve_seed(seed)
+        if world_rank == 0:
+            logger.debug("optimize_mp seed=%s", seed)
         mm = seq_initialize_mp(
             world_rank=world_rank,
             world_size=world_size,

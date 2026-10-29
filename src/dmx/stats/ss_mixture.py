@@ -291,7 +291,7 @@ class SemiSupervisedMixtureSampler(DistributionSampler):
     ) -> None:
         """Initialize a semi-supervised mixture sampler."""
         super().__init__(dist, seed)
-        rng_loc = RandomState(seed)
+        rng_loc = RandomState(self.seed)
         self.rng = RandomState(rng_loc.randint(0, maxrandint))
         self.dist = dist
         self.comp_samplers = [

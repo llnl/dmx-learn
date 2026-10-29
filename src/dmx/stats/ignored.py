@@ -154,7 +154,7 @@ class IgnoredSampler(DistributionSampler):
 
         """
         super().__init__(dist, seed)
-        self.dist_sampler = dist.dist.sampler(seed)
+        self.dist_sampler = dist.dist.sampler(self.seed)
         self.null_sampler = isinstance(self.dist_sampler, NullSampler)
 
     def sample(self, size: Optional[int] = None) -> Any:

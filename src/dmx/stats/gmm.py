@@ -366,7 +366,7 @@ class GaussianMixtureSampler(DistributionSampler):
             seed (Optional[int], optional): Seed for random number generator.
         """
         super().__init__(dist, seed)
-        rng_loc = np.random.RandomState(seed)
+        rng_loc = np.random.RandomState(self.seed)
         self.rng = np.random.RandomState(rng_loc.randint(0, maxrandint))
         self.dist = dist
         self._tied = isinstance(self.dist.sigma2, float)

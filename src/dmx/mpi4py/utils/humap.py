@@ -1,22 +1,24 @@
 """MPI helpers for heterogeneous UMAP embeddings."""
 
+import logging
 from typing import Any, Dict, Optional, Sequence, Tuple, TypeVar, Union
 
 import numpy as np
 import umap  # type: ignore[import-untyped]
-from numpy.random import RandomState
 from umap import UMAP
 
 from dmx.bstats import MixtureDistribution as BMixtureDistribution
 from dmx.bstats.pdist import ParameterEstimator
-from dmx.mpi4py.utils import get_runtime_attr
+from dmx.mpi4py.utils import get_runtime_attr, resolve_rng_mpi
 from dmx.mpi4py.utils.automatic import get_dpm_mixture_mpi
 from dmx.stats import MixtureDistribution
-from dmx.utils.progress import ProgressCallback
+from dmx.utils.progress import ProgressCallback, ProgressReporter
 
 T = TypeVar("T")
 MIX_TYPE = Union[MixtureDistribution, BMixtureDistribution]
 MPI = get_runtime_attr("mpi4py", "MPI")
+
+logger = logging.getLogger(__name__)
 
 
 # Keep the current public call signature stable for now.
@@ -50,8 +52,12 @@ def humap_mpi(
         mix_threshold_count (float): Threshold for mixture component selection.
         max_its (int): Maximum number of DPM fitting iterations.
         print_iter (int): Number of iteration to print while fitting the DPM.
-        seed (Optional[int]): Random seed for mixture fitting. UMAP randomness
-            is controlled through `umap_kwargs`, such as `random_state`.
+        seed (Optional[int]): Seed for mixture fitting, used on every rank.
+            When ``None`` and a mixture is fitted, rank 0 draws a fresh seed
+            from OS entropy and broadcasts it; the seed used is sent to
+            ``progress_callback`` as a ``"start"`` event and logged at DEBUG
+            on rank 0. UMAP randomness is controlled through `umap_kwargs`,
+            such as `random_state`.
         comp_estimator (Optional[ParameterEstimator]): Component estimator
             for mixture model.
         mix_model (Optional[MIX_TYPE]): Precomputed mixture model. Supplying one
@@ -63,7 +69,8 @@ def humap_mpi(
             DEBUG.
         progress_callback (Optional[ProgressCallback]): Optional function
             receiving the :class:`~dmx.utils.progress.ProgressEvent` objects
-            from mixture fitting, on rank 0 only.
+            from mixture fitting, including a ``"start"`` event with the seed,
+            on rank 0 only.
 
     Returns:
         Optional[Tuple[Any, MIX_TYPE, UMAP, numpy.ndarray]]: On rank 0, returns
@@ -72,8 +79,8 @@ def humap_mpi(
         `(len(data), mix_model.num_components)`. Worker ranks return `None`.
 
     Raises:
-        ValueError: If `data` is missing on rank 0, `max_components <= 1`, or
-            the mixture has no components.
+        ValueError: If `data` is missing on rank 0, `max_components <= 1`,
+            `seed` is out of range, or the mixture has no components.
         RuntimeError: If collective mixture fitting does not return a model.
     """
     # Get MPI communicator, rank, and size
@@ -83,13 +90,17 @@ def humap_mpi(
     if world_rank == 0 and data is None:
         raise ValueError("Data must be defined on rank 0 for humap.")
 
-    rng = RandomState(seed) if seed is not None else RandomState()
     if max_components <= 1:
         max_components = int(max_components)
         raise ValueError("max_components must be and integer greater than 1.")
 
     # Fit DPM to data using comp_estimator if passed.
     if mix_model is None:
+        rng, used_seed = resolve_rng_mpi(comm, seed)
+        if world_rank == 0:
+            ProgressReporter(
+                "humap_mpi", logger, verbose=verbose, callback=progress_callback
+            ).start(used_seed)
         mix_model = get_dpm_mixture_mpi(
             data=data,
             estimator=comp_estimator,

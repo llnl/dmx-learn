@@ -46,6 +46,7 @@ Contents
 
    scope.rst
    installation.rst
+   seeds.rst
    docstring_style.rst
    stats/index.rst
    bstats/index.rst

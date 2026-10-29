@@ -29,6 +29,7 @@ from dmx.bstats import (
 )
 from dmx.bstats.pdist import ParameterEstimator, ProbabilityDistribution
 from dmx.utils.progress import ProgressCallback, ProgressReporter
+from dmx.utils.seeding import resolve_rng
 
 logger = logging.getLogger(__name__)
 
@@ -37,11 +38,6 @@ Model = ProbabilityDistribution[Any, Any, Any]
 Estimator = ParameterEstimator[Any, Any, Any, Any]
 EncodedChunk = tuple[int, Any]
 EncodedChunks = Sequence[EncodedChunk]
-
-
-def _random_state(rng: Optional[RandomState]) -> RandomState:
-    """Return the supplied random state or a fresh local state."""
-    return RandomState() if rng is None else rng
 
 
 def _validate_init_p(init_p: float) -> None:
@@ -184,6 +180,7 @@ def best_of(
     print_iter: int = 1,
     verbose: bool = True,
     progress_callback: Optional[ProgressCallback] = None,
+    seed: Optional[int] = None,
 ) -> tuple[float, Model]:
     """Run randomized variational fits and return the best validation model.
 
@@ -201,7 +198,8 @@ def best_of(
         init_p: Probability that an observation participates in initialization.
         delta: Minimum training log-likelihood improvement, or ``None`` to run
             every update.
-        rng: Random state for initialization, or ``None`` for a fresh state.
+        rng: Caller-owned random state used for initialization and advanced
+            in place, or ``None`` to build one from ``seed``.
         init_estimator: Optional estimator used only during initialization.
         enc_data: Optional pre-encoded training chunks of the form
             ``(observation_count, encoded_data)``.
@@ -212,11 +210,16 @@ def best_of(
             nothing is written; messages are still logged at DEBUG.
         progress_callback: Optional function receiving a
             :class:`~dmx.utils.progress.ProgressEvent` for every iteration and trial.
+        seed: Seed for a private random state. With neither ``seed`` nor
+            ``rng``, a fresh seed is drawn from OS entropy. The seed used is
+            sent to ``progress_callback`` as a ``"start"`` event and logged
+            at DEBUG. Pass at most one of ``seed`` and ``rng``.
 
     Returns:
         Best validation log-likelihood and its fitted model.
 
     Raises:
+        ValueError: If both ``seed`` and ``rng`` are given.
         ValueError: If ``trials`` is not positive or ``init_p`` is outside
             ``(0, 1]``.
         RuntimeError: If no trial produces a selectable model.
@@ -225,7 +228,8 @@ def best_of(
     _validate_init_p(init_p)
     if trials <= 0:
         raise ValueError("trials must be positive.")
-    active_rng = _random_state(rng)
+    active_rng, used_seed = resolve_rng(seed, rng)
+    reporter.start(used_seed)
     initialization_estimator = est if init_estimator is None else init_estimator
     best_likelihood = float(-np.inf)
     best_model: Optional[Model] = None
@@ -293,6 +297,7 @@ def optimize(
     print_iter: int = 1,
     verbose: bool = True,
     progress_callback: Optional[ProgressCallback] = None,
+    seed: Optional[int] = None,
 ) -> Model:
     """Optimize locally until LL improvement is below ``delta``.
 
@@ -309,7 +314,8 @@ def optimize(
             every update and retain likelihood-decreasing proposals.
         init_estimator: Optional estimator used only during initialization.
         init_p: Probability that an observation participates in initialization.
-        rng: Random state for initialization, or ``None`` for a fresh state.
+        rng: Caller-owned random state used for initialization and advanced
+            in place, or ``None`` to build one from ``seed``.
         prev_estimate: Existing model to update instead of initializing one.
         vdata: Validation observations, defaulting to ``data``.
         enc_data: Optional pre-encoded training chunks of the form
@@ -321,18 +327,24 @@ def optimize(
             nothing is written; messages are still logged at DEBUG.
         progress_callback: Optional function receiving a
             :class:`~dmx.utils.progress.ProgressEvent` for every iteration.
+        seed: Seed for a private random state. With neither ``seed`` nor
+            ``rng``, a fresh seed is drawn from OS entropy. The seed used is
+            sent to ``progress_callback`` as a ``"start"`` event and logged
+            at DEBUG. Pass at most one of ``seed`` and ``rng``.
 
     Returns:
         Model with the highest validation log-likelihood among retained
         estimates.
 
     Raises:
+        ValueError: If both ``seed`` and ``rng`` are given.
         ValueError: If initialization is needed and ``init_p`` is outside
             ``(0, 1]``.
         AttributeError: If ``estimator`` has no ``model_log_density`` method.
     """
     reporter = ProgressReporter("optimize", logger, out, verbose, progress_callback)
-    active_rng = _random_state(rng)
+    active_rng, used_seed = resolve_rng(seed, rng)
+    reporter.start(used_seed)
     initialization_estimator = estimator if init_estimator is None else init_estimator
     if prev_estimate is None:
         _validate_init_p(init_p)
@@ -414,6 +426,7 @@ def iterate(
     print_iter: int = 1,
     verbose: bool = True,
     progress_callback: Optional[ProgressCallback] = None,
+    seed: Optional[int] = None,
 ) -> Model:
     """Run exactly ``max_its`` updates and report mean iteration time.
 
@@ -423,7 +436,8 @@ def iterate(
         max_its: Number of variational updates to run.
         prev_estimate: Existing model to update instead of initializing one.
         init_p: Probability that an observation participates in initialization.
-        rng: Random state for initialization, or ``None`` for a fresh state.
+        rng: Caller-owned random state used for initialization and advanced
+            in place, or ``None`` to build one from ``seed``.
         out: Text stream receiving timing messages.
         is_encoded: Whether ``data`` already contains encoded chunks.
         init_estimator: Optional estimator used only during initialization.
@@ -432,15 +446,22 @@ def iterate(
             nothing is written; messages are still logged at DEBUG.
         progress_callback: Optional function receiving a
             :class:`~dmx.utils.progress.ProgressEvent` for every iteration.
+        seed: Seed for a private random state. With neither ``seed`` nor
+            ``rng``, a fresh seed is drawn from OS entropy. The seed used is
+            sent to ``progress_callback`` as a ``"start"`` event and logged
+            at DEBUG. Pass at most one of ``seed`` and ``rng``.
 
     Returns:
         Model produced by the final update.
 
     Raises:
+        ValueError: If both ``seed`` and ``rng`` are given.
         ValueError: If encoded data is supplied without ``prev_estimate``, or
             initialization is needed and ``init_p`` is outside ``(0, 1]``.
     """
-    active_rng = _random_state(rng)
+    reporter = ProgressReporter("iterate", logger, out, verbose, progress_callback)
+    active_rng, used_seed = resolve_rng(seed, rng)
+    reporter.start(used_seed)
     initialization_estimator = estimator if init_estimator is None else init_estimator
     if prev_estimate is None:
         _validate_init_p(init_p)
@@ -457,7 +478,6 @@ def iterate(
     if hasattr(encoded, "cache"):
         cast(Any, encoded).cache()
 
-    reporter = ProgressReporter("iterate", logger, out, verbose, progress_callback)
     start = time.time()
     for iteration in range(max_its):
         model = seq_estimate(encoded, estimator, model)
