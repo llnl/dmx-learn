@@ -23,6 +23,8 @@ from dmx.stats.pdist import (
     SequenceEncodableStatisticAccumulator,
     StatisticAccumulatorFactory,
 )
+from dmx.utils._fisher_kernels import mvn_score
+from dmx.utils.fisher import FisherScoreOptions, resolve_fisher_options
 
 
 class MultivariateGaussianDistribution(SequenceEncodableProbabilityDistribution):
@@ -146,6 +148,50 @@ class MultivariateGaussianDistribution(SequenceEncodableProbabilityDistribution)
         soln = scipy.linalg.cho_solve((self.chol, self.lower), diff.T).T
         rv = self.chol_const - 0.5 * ((diff * soln).sum(axis=1))
         return np.asarray(rv)
+
+    def seq_fisher_score(
+        self,
+        x: "MultivariateGaussianEncodedDataSequence",
+        options: Optional[FisherScoreOptions] = None,
+    ) -> np.ndarray:
+        """Return the whitened location and covariance score of each observation.
+
+        With ``u = L^{-1} (x - mu)`` for the lower Cholesky factor ``L`` of
+        ``covar``, the score is ``u`` followed by the covariance block over the
+        upper triangle ``i <= j``: ``(u_i^2 - 1) / sqrt(2)`` on the diagonal
+        and ``u_i u_j`` off it. ``options.location_only`` keeps only ``u``,
+        which drops scale information but grows linearly rather than
+        quadratically with ``d``; it is the recommended setting when ``d`` is
+        large.
+
+        Args:
+            x: Encoded sequence containing ``N`` observations of dimension ``d``.
+            options: Score options; ``location_only`` is used.
+
+        Returns:
+            Array of shape ``(N, fisher_dim(options))``.
+
+        Raises:
+            TypeError: If ``x`` is not a MultivariateGaussianEncodedDataSequence.
+        """
+        if not isinstance(x, MultivariateGaussianEncodedDataSequence):
+            raise TypeError(
+                "MultivariateGaussianDistribution.seq_fisher_score() requires "
+                "MultivariateGaussianEncodedDataSequence."
+            )
+        chol_lower = np.tril(self.chol) if self.lower else np.triu(self.chol).T
+        return mvn_score(
+            x.data,
+            self.mu,
+            chol_lower,
+            location_only=resolve_fisher_options(options).location_only,
+        )
+
+    def fisher_dim(self, options: Optional[FisherScoreOptions] = None) -> int:
+        """Return ``d``, or ``d + d (d + 1) / 2`` with the covariance block."""
+        if resolve_fisher_options(options).location_only:
+            return int(self.dim)
+        return int(self.dim + self.dim * (self.dim + 1) // 2)
 
     def sampler(self, seed: Optional[int] = None) -> "MultivariateGaussianSampler":
         """Create a sampler, optionally initialized with ``seed``."""

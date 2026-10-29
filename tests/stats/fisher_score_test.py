@@ -63,6 +63,15 @@ SPARSE_CATEGORIES = FisherScoreOptions(dense_category_limit=2)
 ABC = {"a": 0.5, "b": 0.3, "c": 0.2}
 
 
+# A 5-dimensional mean and a well-conditioned covariance with correlations.
+_MVN_5D = (
+    [0.0, 1.0, -1.0, 2.0, 0.5],
+    (0.5 * np.eye(5) + 0.5 * np.full((5, 5), 0.3) + np.diag([0.5, 1.0, 1.5, 2.0, 2.5]))
+    .round(6)
+    .tolist(),
+)
+
+
 def _lengths() -> IntegerCategoricalDistribution:
     """Return a length distribution on 1..3, so no sequence is empty."""
     return IntegerCategoricalDistribution(1, [0.3, 0.4, 0.3])
@@ -153,6 +162,39 @@ STATS_CASES = [
     ),
     FisherCase(
         "dirichlet", lambda: DirichletDistribution([2.0, 3.0, 5.0]), MULTIVARIATE
+    ),
+    # Dimensions 1 and 5 for each multivariate family.
+    FisherCase(
+        "mvn_1d",
+        lambda: MultivariateGaussianDistribution([2.0], [[0.5]]),
+        MULTIVARIATE,
+    ),
+    FisherCase(
+        "mvn_5d", lambda: MultivariateGaussianDistribution(*_MVN_5D), MULTIVARIATE
+    ),
+    FisherCase(
+        "mvn_5d_location_only",
+        lambda: MultivariateGaussianDistribution(*_MVN_5D),
+        MULTIVARIATE,
+        options=LOCATION_ONLY,
+    ),
+    FisherCase(
+        "diagonal_gaussian_1d",
+        lambda: DiagonalGaussianDistribution([-1.0], [3.0]),
+        MULTIVARIATE,
+    ),
+    FisherCase(
+        "diagonal_gaussian_5d",
+        lambda: DiagonalGaussianDistribution(
+            [0.0, 1.0, 2.0, 3.0, 4.0], [0.5, 1.0, 2.0, 4.0, 8.0]
+        ),
+        MULTIVARIATE,
+    ),
+    FisherCase("dirichlet_2d", lambda: DirichletDistribution([1.5, 4.0]), MULTIVARIATE),
+    FisherCase(
+        "dirichlet_5d",
+        lambda: DirichletDistribution([1.0, 2.0, 3.0, 4.0, 5.0]),
+        MULTIVARIATE,
     ),
     # Phase C: observed combinators.
     FisherCase(

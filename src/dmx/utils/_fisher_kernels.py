@@ -17,6 +17,7 @@ from __future__ import annotations
 from typing import Any
 
 import numpy as np
+from scipy.linalg import solve_triangular
 from scipy.sparse import csr_matrix
 
 from dmx.utils.fisher import FisherScoreArray, as_score_array
@@ -265,3 +266,101 @@ def categorical_score(
     scores = np.tile(-np.sqrt(q), (n, 1))
     scores[rows, cols] += values
     return as_score_array(scores, num_levels)
+
+
+def _gaussian_scale_block(u: np.ndarray) -> np.ndarray:
+    """Return the whitened covariance score of standardized Gaussian rows ``u``.
+
+    Columns run over the upper triangle ``i <= j`` in row-major order:
+    ``(u_i^2 - 1) / sqrt(2)`` on the diagonal and ``u_i u_j`` off it. For
+    ``u ~ N(0, I)`` these have unit variance and are uncorrelated with each
+    other and with ``u``.
+    """
+    rows, cols = np.triu_indices(u.shape[1])
+    block = u[:, rows] * u[:, cols]
+    diagonal = rows == cols
+    block[:, diagonal] = (block[:, diagonal] - 1.0) * _SQRT_HALF
+    return np.asarray(block)
+
+
+def mvn_score(
+    x: Any, mu: Any, chol_lower: Any, location_only: bool = False
+) -> np.ndarray:
+    """Return the whitened score of a multivariate Gaussian.
+
+    With ``u = L^{-1} (x - mu)`` for the lower Cholesky factor ``L`` of the
+    covariance, the score is ``u`` followed, unless ``location_only``, by the
+    scale block from :func:`_gaussian_scale_block`.
+
+    Args:
+        x: Observations, shape ``(N, d)``.
+        mu: Mean, shape ``(d,)``.
+        chol_lower: Lower Cholesky factor of the covariance, shape ``(d, d)``.
+        location_only: Return only the location block.
+
+    Returns:
+        Array of shape ``(N, d)`` with ``location_only``, else
+        ``(N, d + d (d + 1) / 2)``.
+    """
+    centered = np.asarray(x, dtype=np.float64) - np.asarray(mu, dtype=np.float64)
+    u = solve_triangular(chol_lower, centered.T, lower=True).T
+    dim = u.shape[1]
+    if location_only:
+        return as_score_array(u, dim)
+    return as_score_array(
+        np.hstack((u, _gaussian_scale_block(u))), dim + dim * (dim + 1) // 2
+    )
+
+
+def diagonal_gaussian_score(
+    x: Any, mu: Any, variances: Any, location_only: bool = False
+) -> np.ndarray:
+    """Return the whitened score of a Gaussian with diagonal covariance.
+
+    With ``u = (x - mu) / sigma`` per dimension, the score is ``u`` followed,
+    unless ``location_only``, by ``(u^2 - 1) / sqrt(2)``: the univariate
+    Gaussian score of each dimension, grouped as all location columns, then
+    all scale columns.
+
+    Args:
+        x: Observations, shape ``(N, d)``.
+        mu: Means, shape ``(d,)``.
+        variances: Positive variances, shape ``(d,)``.
+        location_only: Return only the location columns.
+
+    Returns:
+        Array of shape ``(N, d)`` with ``location_only``, else ``(N, 2 d)``.
+    """
+    u = (np.asarray(x, dtype=np.float64) - np.asarray(mu, dtype=np.float64)) / (
+        np.sqrt(np.asarray(variances, dtype=np.float64))
+    )
+    dim = u.shape[1]
+    if location_only:
+        return as_score_array(u, dim)
+    return as_score_array(np.hstack((u, (u * u - 1.0) * _SQRT_HALF)), 2 * dim)
+
+
+def dirichlet_score(log_x: Any, alpha: Any) -> np.ndarray:
+    """Return the whitened score of a Dirichlet distribution.
+
+    The sufficient statistics ``log x`` have mean
+    ``digamma(alpha) - digamma(alpha_0)`` and covariance
+    ``diag(trigamma(alpha)) - trigamma(alpha_0)``, with
+    ``alpha_0 = sum(alpha)``. The score is ``L^{-1} (log x - mean)`` for the
+    lower Cholesky factor ``L`` of that covariance.
+
+    Args:
+        log_x: ``log`` of the simplex observations, shape ``(N, d)``.
+        alpha: Positive concentration parameters, shape ``(d,)``.
+
+    Returns:
+        Array of shape ``(N, d)``.
+    """
+    alpha = np.asarray(alpha, dtype=np.float64)
+    alpha_0 = float(alpha.sum())
+    mean = digamma(alpha) - digamma(alpha_0)
+    covariance = np.diag(trigamma(alpha)) - trigamma(alpha_0)
+    chol_lower = np.linalg.cholesky(covariance)
+    centered = np.asarray(log_x, dtype=np.float64) - mean
+    u = solve_triangular(chol_lower, centered.T, lower=True).T
+    return as_score_array(u, len(alpha))

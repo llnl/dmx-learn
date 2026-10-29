@@ -16,12 +16,15 @@ import scipy.sparse
 from dmx.stats import (
     BinomialDistribution,
     CategoricalDistribution,
+    DiagonalGaussianDistribution,
+    DirichletDistribution,
     ExponentialDistribution,
     GammaDistribution,
     GaussianDistribution,
     GeometricDistribution,
     IntegerCategoricalDistribution,
     LogGaussianDistribution,
+    MultivariateGaussianDistribution,
     PoissonDistribution,
 )
 from dmx.utils._fisher_kernels import bernoulli_score
@@ -271,5 +274,87 @@ def test_wrong_encoding_raises(dist: Any) -> None:
         else ExponentialDistribution(1.0)
     )
     encoded = wrong.dist_to_encoder().seq_encode([1.0, 2.0])
+    with pytest.raises(TypeError, match="seq_fisher_score"):
+        dist.seq_fisher_score(encoded)
+
+
+LOCATION_ONLY = FisherScoreOptions(location_only=True)
+
+
+def test_mvn_values_with_correlation() -> None:
+    # covar = [[4, 2], [2, 2]] has lower Cholesky factor [[2, 0], [1, 1]].
+    dist = MultivariateGaussianDistribution([1.0, 1.0], [[4.0, 2.0], [2.0, 2.0]])
+    # x - mu = [2, 1] gives u = [1, 0]; x - mu = [0, 1] gives u = [0, 1].
+    # Scale columns: (0, 0), (0, 1), (1, 1).
+    expected = [
+        [1.0, 0.0, 0.0, 0.0, -SQRT_HALF],
+        [0.0, 1.0, -SQRT_HALF, 0.0, 0.0],
+    ]
+    data = [[3.0, 2.0], [1.0, 2.0]]
+    np.testing.assert_allclose(_scores(dist, data), expected, atol=1e-12)
+    encoded = dist.dist_to_encoder().seq_encode(data)
+    location = np.asarray(dist.seq_fisher_score(encoded, LOCATION_ONLY))
+    np.testing.assert_allclose(location, [[1.0, 0.0], [0.0, 1.0]], atol=1e-12)
+    assert dist.fisher_dim() == 5
+    assert dist.fisher_dim(LOCATION_ONLY) == 2
+
+
+def test_diagonal_gaussian_values() -> None:
+    dist = DiagonalGaussianDistribution([0.0, 1.0], [1.0, 4.0])
+    data = [[1.0, 3.0], [0.0, 1.0]]
+    expected = [[1.0, 1.0, 0.0, 0.0], [0.0, 0.0, -SQRT_HALF, -SQRT_HALF]]
+    np.testing.assert_allclose(_scores(dist, data), expected, atol=1e-12)
+    encoded = dist.dist_to_encoder().seq_encode(data)
+    location = np.asarray(dist.seq_fisher_score(encoded, LOCATION_ONLY))
+    np.testing.assert_allclose(location, [[1.0, 1.0], [0.0, 0.0]], atol=1e-12)
+    assert dist.fisher_dim() == 4
+    assert dist.fisher_dim(LOCATION_ONLY) == 2
+
+
+def test_diagonal_mvn_matches_diagonal_gaussian() -> None:
+    data = [[0.3, -1.2], [2.0, 0.5], [-0.7, 1.1]]
+    mvn = _scores(
+        MultivariateGaussianDistribution([0.5, 0.0], np.diag([2.0, 0.5])), data
+    )
+    diagonal = _scores(DiagonalGaussianDistribution([0.5, 0.0], [2.0, 0.5]), data)
+    # Same location columns; MVN scale columns (0,0), (0,1), (1,1) hold the
+    # diagonal ones at positions 2 and 4.
+    np.testing.assert_allclose(mvn[:, :2], diagonal[:, :2], rtol=1e-12)
+    np.testing.assert_allclose(mvn[:, [2, 4]], diagonal[:, 2:], rtol=1e-12)
+
+
+def test_dirichlet_values() -> None:
+    # alpha = [1, 1]: mean of log x is digamma(1) - digamma(2) = -1 per
+    # coordinate; covariance is [[1, -b], [-b, 1]] with b = pi^2 / 6 - 1.
+    dist = DirichletDistribution([1.0, 1.0])
+    b = math.pi**2 / 6.0 - 1.0
+    centered = np.log(np.asarray([[0.5, 0.5], [0.2, 0.8]])) + 1.0
+    u1 = centered[:, 0]
+    u2 = (centered[:, 1] + b * u1) / math.sqrt(1.0 - b * b)
+    np.testing.assert_allclose(
+        _scores(dist, [[0.5, 0.5], [0.2, 0.8]]),
+        np.column_stack((u1, u2)),
+        rtol=1e-12,
+    )
+
+
+def test_dirichlet_rejects_nonpositive_alpha() -> None:
+    dist = DirichletDistribution([0.0, 1.0])
+    encoded = dist.dist_to_encoder().seq_encode([[0.5, 0.5]])
+    with pytest.raises(ValueError, match="positive alpha"):
+        dist.seq_fisher_score(encoded)
+
+
+@pytest.mark.parametrize(
+    "dist",
+    [
+        MultivariateGaussianDistribution([0.0, 0.0], np.eye(2)),
+        DiagonalGaussianDistribution([0.0, 0.0], [1.0, 1.0]),
+        DirichletDistribution([1.0, 1.0]),
+    ],
+    ids=lambda v: type(v).__name__,
+)
+def test_multivariate_wrong_encoding_raises(dist: Any) -> None:
+    encoded = GaussianDistribution(0.0, 1.0).dist_to_encoder().seq_encode([1.0])
     with pytest.raises(TypeError, match="seq_fisher_score"):
         dist.seq_fisher_score(encoded)
