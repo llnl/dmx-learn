@@ -220,6 +220,43 @@ STATS_CASES = [
         COMBINATORS,
         rank_deficit=1,
     ),
+    FisherCase(
+        "composite_nested",
+        lambda: CompositeDistribution(
+            (
+                ExponentialDistribution(1.5, name="wait"),
+                CompositeDistribution(
+                    (
+                        PoissonDistribution(3.0, name="count"),
+                        IntegerCategoricalDistribution(
+                            0, [0.3, 0.3, 0.4], name="level"
+                        ),
+                    ),
+                    name="inner",
+                ),
+            )
+        ),
+        COMBINATORS,
+        rank_deficit=1,
+    ),
+    FisherCase(
+        "composite_sparse_field",
+        lambda: CompositeDistribution(
+            (
+                GaussianDistribution(0.0, 2.0, name="x"),
+                CategoricalDistribution(dict(ABC), name="color"),
+            )
+        ),
+        COMBINATORS,
+        options=SPARSE_CATEGORIES,
+        rank_deficit=1,
+        centered=False,
+    ),
+    FisherCase(
+        "optional_unmodeled_missing",
+        lambda: OptionalDistribution(PoissonDistribution(2.5)),
+        COMBINATORS,
+    ),
     # Phase C: variable-length observed data.
     FisherCase(
         "sequence_conditional",

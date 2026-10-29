@@ -11,6 +11,7 @@ CompositeDistribution has data type T_k that
 must be compatible with data type T_k.
 """
 
+from dataclasses import replace
 from typing import Any, Dict, List, Optional, Sequence, Set, Tuple, Union
 
 import numpy as np
@@ -25,6 +26,12 @@ from dmx.stats.pdist import (
     SequenceEncodableProbabilityDistribution,
     SequenceEncodableStatisticAccumulator,
     StatisticAccumulatorFactory,
+)
+from dmx.utils._fisher_kernels import hstack_scores, scale_columns
+from dmx.utils.fisher import (
+    FisherScoreArray,
+    FisherScoreOptions,
+    resolve_fisher_options,
 )
 
 
@@ -131,6 +138,102 @@ class CompositeDistribution(SequenceEncodableProbabilityDistribution):
         for i in range(1, self.count):
             rv += self.dists[i].seq_log_density(x.data[i])
         return rv
+
+    def seq_fisher_score(
+        self,
+        x: "CompositeEncodedDataSequence",
+        options: Optional[FisherScoreOptions] = None,
+    ) -> FisherScoreArray:
+        """Return the fields' scores side by side.
+
+        Independent fields have block-diagonal Fisher information, so the
+        whitened score of the record is the concatenation of the fields'
+        whitened scores, in field order. Fields with no score columns are
+        skipped. With ``options.balance_fields`` each field reported by
+        :meth:`fisher_field_slices` is divided by the square root of its
+        width, once, however deeply composites are nested.
+
+        Args:
+            x: Encoded sequence containing ``N`` records.
+            options: Score options, passed to every field.
+
+        Returns:
+            Array, or CSR matrix if any field's score is sparse, of shape
+            ``(N, fisher_dim(options))``.
+
+        Raises:
+            TypeError: If ``x`` is not a CompositeEncodedDataSequence.
+        """
+        if not isinstance(x, CompositeEncodedDataSequence):
+            raise TypeError(
+                "CompositeDistribution.seq_fisher_score() requires "
+                "CompositeEncodedDataSequence."
+            )
+        opts = resolve_fisher_options(options)
+        # Fields are balanced here, over the flattened field slices, so nested
+        # composites must not balance again.
+        field_opts = replace(opts, balance_fields=False)
+        blocks = [
+            dist.seq_fisher_score(data, field_opts)
+            for dist, data in zip(self.dists, x.data)
+            if dist.fisher_dim(field_opts) > 0
+        ]
+        if blocks:
+            n = blocks[0].shape[0]
+        else:
+            n = len(np.atleast_1d(self.seq_log_density(x)))
+        scores = hstack_scores(blocks, n)
+        if opts.balance_fields:
+            weights = np.ones(scores.shape[1])
+            for columns in self.fisher_field_slices(opts).values():
+                width = columns.stop - columns.start
+                if width > 0:
+                    weights[columns] = 1.0 / np.sqrt(width)
+            scores = scale_columns(scores, weights)
+        return scores
+
+    def fisher_dim(self, options: Optional[FisherScoreOptions] = None) -> int:
+        """Return the sum of the fields' dimensions."""
+        return int(sum(dist.fisher_dim(options) for dist in self.dists))
+
+    def fisher_field_slices(
+        self, options: Optional[FisherScoreOptions] = None
+    ) -> Dict[str, slice]:
+        """Map each field to its score columns.
+
+        A field is named by its distribution's ``name``, or ``field_<i>`` for
+        the ``i``-th field when unnamed (a repeated name gets ``_<i>``
+        appended). A field whose own slices name several parts, such as a
+        nested composite, contributes ``field.part`` entries. Fields with no
+        score columns are omitted.
+
+        Args:
+            options: Score options passed to the fields.
+
+        Returns:
+            Dict[str, slice]: Field name to column slice.
+        """
+        slices: Dict[str, slice] = {}
+        offset = 0
+        for i, dist in enumerate(self.dists):
+            dim = dist.fisher_dim(options)
+            if dim == 0:
+                continue
+            field = getattr(dist, "name", None) or f"field_{i}"
+            if field in slices:
+                field = f"{field}_{i}"
+            parts = dist.fisher_field_slices(options)
+            if len(parts) == 1:
+                slices[field] = slice(offset, offset + dim)
+            else:
+                for part, columns in parts.items():
+                    slices[f"{field}.{part}"] = slice(
+                        offset + columns.start, offset + columns.stop
+                    )
+            offset += dim
+        if not slices:
+            return super().fisher_field_slices(options)
+        return slices
 
     def sampler(self, seed: Optional[int] = None) -> "CompositeSampler":
         """Create CompositeSampler for sampling from CompositeDistribution instance.
