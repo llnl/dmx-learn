@@ -16,6 +16,7 @@ from __future__ import annotations
 
 import copy
 from collections.abc import Iterable, MutableMapping, Sequence
+from dataclasses import replace
 from typing import Any, Optional, cast
 
 import numpy as np
@@ -31,6 +32,12 @@ from dmx.bstats.pdist import (
     SequenceEncodableAccumulator,
     StatisticAccumulator,
     StatisticAccumulatorFactory,
+)
+from dmx.utils._fisher_kernels import hstack_scores, scale_columns
+from dmx.utils.fisher import (
+    FisherScoreArray,
+    FisherScoreOptions,
+    resolve_fisher_options,
 )
 
 # Components erase their individual generic arguments at the heterogeneous product
@@ -178,6 +185,67 @@ class CompositeDistribution(
             for index, dist in enumerate(self.dists)
         ]
         return np.asarray(np.sum(values, axis=0, dtype=float), dtype=float)
+
+    def seq_fisher_score(
+        self,
+        x: CompositeEncoded | "CompositeEncodedData",
+        options: Optional[FisherScoreOptions] = None,
+    ) -> FisherScoreArray:
+        """Return the fields' plug-in Fisher scores side by side.
+
+        With ``options.balance_fields``, flattened field blocks are divided by
+        the square root of their width. Expected scores integrated over child
+        parameter posteriors are future work.
+        """
+        opts = resolve_fisher_options(options)
+        child_options = replace(opts, balance_fields=False)
+        encoded = self._encoded_values(x)
+        blocks = [
+            dist.seq_fisher_score(data, child_options)
+            for dist, data in zip(self.dists, encoded)
+            if dist.fisher_dim(child_options) > 0
+        ]
+        if blocks:
+            row_count = blocks[0].shape[0]
+        else:
+            row_count = len(np.atleast_1d(self.seq_log_density(x)))
+        scores = hstack_scores(blocks, row_count)
+        if opts.balance_fields:
+            weights = np.ones(scores.shape[1])
+            for columns in self.fisher_field_slices(opts).values():
+                width = columns.stop - columns.start
+                if width > 0:
+                    weights[columns] = 1.0 / np.sqrt(width)
+            scores = scale_columns(scores, weights)
+        return scores
+
+    def fisher_dim(self, options: Optional[FisherScoreOptions] = None) -> int:
+        """Return the sum of the child score dimensions."""
+        return int(sum(dist.fisher_dim(options) for dist in self.dists))
+
+    def fisher_field_slices(
+        self, options: Optional[FisherScoreOptions] = None
+    ) -> dict[str, slice]:
+        """Map flattened child field names to their score columns."""
+        slices: dict[str, slice] = {}
+        offset = 0
+        for index, dist in enumerate(self.dists):
+            dim = dist.fisher_dim(options)
+            if dim == 0:
+                continue
+            field = dist.get_name() or f"field_{index}"
+            if field in slices:
+                field = f"{field}_{index}"
+            parts = dist.fisher_field_slices(options)
+            if len(parts) == 1:
+                slices[field] = slice(offset, offset + dim)
+            else:
+                for part, columns in parts.items():
+                    slices[f"{field}.{part}"] = slice(
+                        offset + columns.start, offset + columns.stop
+                    )
+            offset += dim
+        return slices or super().fisher_field_slices(options)
 
     def df_log_density(self, df: pd.DataFrame) -> pd.Series:
         """Sum child DataFrame log-densities using component names."""

@@ -15,8 +15,10 @@ from typing import Any, Optional, cast
 
 import numpy as np
 
+from dmx.bstats.categorical import CategoricalDistribution
 from dmx.bstats.composite import CompositeDistribution
-from dmx.bstats.nulldist import null_dist, null_estimator
+from dmx.bstats.geometric import GeometricDistribution
+from dmx.bstats.nulldist import NullDistribution, null_dist, null_estimator
 from dmx.bstats.pdist import (
     DataSequenceEncoder,
     DistributionSampler,
@@ -26,6 +28,18 @@ from dmx.bstats.pdist import (
     SequenceEncodableAccumulator,
     StatisticAccumulator,
     StatisticAccumulatorFactory,
+)
+from dmx.bstats.poisson import PoissonDistribution
+from dmx.utils._fisher_kernels import (
+    hstack_scores,
+    length_weights,
+    scale_rows,
+    sum_rows,
+)
+from dmx.utils.fisher import (
+    FisherScoreArray,
+    FisherScoreOptions,
+    resolve_fisher_options,
 )
 
 # Legacy bstats implementations are concrete protocol classes.
@@ -38,6 +52,46 @@ AccumulatorFactory = StatisticAccumulatorFactory[Any, Any, Any]
 Array = np.ndarray[Any, Any]
 SequenceEncoded = tuple[Array, Array, Array, Any, Any]
 SequenceSuffStat = tuple[Any, Any]
+
+
+def _length_mean(dist: Model) -> float:
+    """Return the mean of a supported bstats length distribution."""
+    if isinstance(dist, PoissonDistribution):
+        return float(dist.get_parameters())
+    if isinstance(dist, GeometricDistribution):
+        return 1.0 / float(dist.get_parameters())
+    if isinstance(dist, CategoricalDistribution):
+        parameters = dist.get_parameters()
+        lengths = np.asarray(list(parameters), dtype=np.float64)
+        probabilities = np.asarray(list(parameters.values()), dtype=np.float64)
+        return float(np.dot(lengths, probabilities) / probabilities.sum())
+    raise ValueError(
+        "sequence_scaling='marginal' needs the mean length, which is not known "
+        f"for {type(dist).__name__}; use sequence_scaling='conditional'."
+    )
+
+
+def _length_score_dim(
+    dist: Optional[Model], options: Optional[FisherScoreOptions]
+) -> int:
+    """Return zero for a null length factor, else its score dimension."""
+    if dist is None or isinstance(dist, NullDistribution):
+        return 0
+    return int(dist.fisher_dim(options))
+
+
+def _part_slices(dist: Model, parts: list[tuple[str, int]]) -> dict[str, slice]:
+    """Return consecutive named slices, preserving the single-field default."""
+    nonempty = [(name, dim) for name, dim in parts if dim > 0]
+    if len(nonempty) <= 1:
+        name = dist.get_name() or type(dist).__name__
+        return {name: slice(0, sum(dim for _, dim in parts))}
+    result: dict[str, slice] = {}
+    offset = 0
+    for name, dim in nonempty:
+        result[name] = slice(offset, offset + dim)
+        offset += dim
+    return result
 
 
 class SequenceDistribution(
@@ -183,6 +237,67 @@ class SequenceDistribution(
                 self.len_dist.seq_expected_log_density(length_data), dtype=float
             )
         return values
+
+    def seq_fisher_score(
+        self,
+        x: SequenceEncoded,
+        options: Optional[FisherScoreOptions] = None,
+    ) -> FisherScoreArray:
+        """Return plug-in element-sum and length score blocks.
+
+        Element scores are divided by ``sqrt(n)`` for conditional scaling or
+        ``sqrt(E[n])`` for marginal scaling. Expected scores integrated over
+        child parameter posteriors are future work.
+        """
+        opts = resolve_fisher_options(options)
+        indices, inverse_lengths, _nonempty, child_data, length_data = x
+        row_count = len(inverse_lengths)
+        lengths = np.bincount(indices, minlength=row_count)
+        child_dim = self.dist.fisher_dim(opts)
+        if indices.size and child_dim > 0:
+            child_scores = self.dist.seq_fisher_score(child_data, opts)
+        else:
+            child_scores = np.zeros((len(indices), child_dim))
+        summed = sum_rows(child_scores, indices, row_count)
+        mean_length = None
+        if opts.sequence_scaling == "marginal":
+            if self.len_dist is None:
+                raise ValueError(
+                    "sequence_scaling='marginal' requires a length distribution."
+                )
+            mean_length = _length_mean(self.len_dist)
+        blocks = [
+            scale_rows(
+                summed,
+                length_weights(lengths, opts.sequence_scaling, mean_length),
+            )
+        ]
+        length_dist = self.len_dist
+        if (
+            length_dist is not None
+            and not isinstance(length_dist, NullDistribution)
+            and length_dist.fisher_dim(opts) > 0
+        ):
+            blocks.append(length_dist.seq_fisher_score(length_data, opts))
+        return hstack_scores(blocks, row_count)
+
+    def fisher_dim(self, options: Optional[FisherScoreOptions] = None) -> int:
+        """Return the element dimension plus the length dimension."""
+        return int(self.dist.fisher_dim(options)) + _length_score_dim(
+            self.len_dist, options
+        )
+
+    def fisher_field_slices(
+        self, options: Optional[FisherScoreOptions] = None
+    ) -> dict[str, slice]:
+        """Map element and length blocks to their score columns."""
+        return _part_slices(
+            self,
+            [
+                ("elements", self.dist.fisher_dim(options)),
+                ("length", _length_score_dim(self.len_dist, options)),
+            ],
+        )
 
     def seq_encode(self, x: Iterable[list[Any]]) -> SequenceEncoded:
         """Flatten variable-length lists while retaining grouping and lengths."""

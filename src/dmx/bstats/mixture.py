@@ -30,6 +30,12 @@ from dmx.bstats.pdist import (
     StatisticAccumulatorFactory,
 )
 from dmx.bstats.symdirichlet import SymmetricDirichletDistribution
+from dmx.utils._fisher_mixture import (
+    nested_mixture_dim,
+    nested_mixture_score,
+    nested_mixture_slices,
+)
+from dmx.utils.fisher import FisherScoreOptions, resolve_fisher_options
 from dmx.utils.seeding import resolve_sampler_seed
 from dmx.utils.special import digamma
 
@@ -265,6 +271,31 @@ class MixtureDistribution(ProbabilityDistribution[Any, MixtureParameters, Any]):
     def seq_posterior(self, x: Any) -> Array:
         """Return posterior responsibilities shaped ``(N, K)``."""
         return self._responsibilities(self.seq_component_log_density(x))
+
+    def seq_fisher_score(
+        self, x: Any, options: Optional[FisherScoreOptions] = None
+    ) -> Array:
+        """Return the empirically whitened plug-in score of this mixture.
+
+        Component scores use plug-in parameters. Expected scores integrated
+        over Bayesian parameter posteriors are future work.
+        """
+        return nested_mixture_score(
+            self,
+            x,
+            lambda encoded, _index: _encoded_value(encoded),
+            resolve_fisher_options(options),
+        )
+
+    def fisher_dim(self, options: Optional[FisherScoreOptions] = None) -> int:
+        """Return weight columns plus the component score dimensions."""
+        return nested_mixture_dim(self, resolve_fisher_options(options))
+
+    def fisher_field_slices(
+        self, options: Optional[FisherScoreOptions] = None
+    ) -> dict[str, slice]:
+        """Map mixture weights and component blocks to score columns."""
+        return nested_mixture_slices(self, resolve_fisher_options(options))
 
     def seq_encode(self, x: Iterable[Any]) -> Any:
         """Encode observations with the first homogeneous component."""

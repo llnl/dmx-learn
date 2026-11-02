@@ -23,6 +23,7 @@ from dmx.bstats.pdist import (
     StatisticAccumulator,
     StatisticAccumulatorFactory,
 )
+from dmx.utils.fisher import FisherScoreOptions
 
 Model = ProbabilityDistribution[Any, Any, Any]
 
@@ -84,6 +85,18 @@ class IgnoredDistribution(ProbabilityDistribution[Any, Any, Any]):
         """Evaluate wrapped expected log-densities for encoded observations."""
         encoded = x.data if isinstance(x, IgnoredEncodedData) else x
         return np.asarray(self.dist.seq_expected_log_density(encoded), dtype=np.float64)
+
+    def seq_fisher_score(
+        self, x: Any, options: Optional[FisherScoreOptions] = None
+    ) -> np.ndarray[Any, np.dtype[np.float64]]:
+        """Return an empty score because ignored parameters remain fixed."""
+        del options
+        return np.zeros((len(np.atleast_1d(self.seq_log_density(x))), 0))
+
+    def fisher_dim(self, options: Optional[FisherScoreOptions] = None) -> int:
+        """Return 0 because ignored parameters have no score directions."""
+        del options
+        return 0
 
     def seq_encode(self, x: Iterable[Any]) -> Any:
         """Delegate direct sequence encoding to the wrapped distribution."""

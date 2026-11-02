@@ -22,6 +22,7 @@ from dmx.bstats.pdist import (
     StatisticAccumulator,
     StatisticAccumulatorFactory,
 )
+from dmx.utils.fisher import FisherScoreOptions
 
 NullSequence = Sequence[Any]
 Model = ProbabilityDistribution[Any, Any, Any]
@@ -95,6 +96,21 @@ class NullDistribution(ProbabilityDistribution[Any, None, NullSequence]):
     ) -> np.ndarray[Any, np.dtype[np.float64]]:
         """Return one zero expected log-density per encoded observation."""
         return self.seq_log_density(x)
+
+    def seq_fisher_score(
+        self,
+        x: NullSequence | "NullEncodedData",
+        options: Optional[FisherScoreOptions] = None,
+    ) -> np.ndarray[Any, np.dtype[np.float64]]:
+        """Return one empty plug-in score row per observation."""
+        del options
+        observations = x.data if isinstance(x, NullEncodedData) else x
+        return np.zeros((len(observations), 0))
+
+    def fisher_dim(self, options: Optional[FisherScoreOptions] = None) -> int:
+        """Return 0 because the null distribution has no parameters."""
+        del options
+        return 0
 
     def sampler(self, seed: Optional[int] = None) -> "NullSampler":
         """Create a sampler that emits ``None`` placeholders."""
