@@ -30,6 +30,7 @@ from dmx.stats import (
     HiddenMarkovModelDistribution,
     IgnoredDistribution,
     IntegerCategoricalDistribution,
+    IntegerHiddenMarkovModelDistribution,
     IntegerMultinomialDistribution,
     LogGaussianDistribution,
     MarkovChainDistribution,
@@ -432,8 +433,49 @@ STATS_CASES = [
             len_dist=IntegerCategoricalDistribution(2, [0.5, 0.5]),
         ),
         HMM,
-        # Whitened empirically like nested mixtures once implemented (#286).
-        check_moments=False,
+        # One null direction for the initial block, one per transition row,
+        # and one for the categorical length.
+        rank_deficit=4,
+    ),
+    FisherCase(
+        "hmm_numba_encoding_marginal",
+        lambda: HiddenMarkovModelDistribution(
+            [GaussianDistribution(-1.0, 1.0), GaussianDistribution(2.0, 0.5)],
+            [0.3, 0.7],
+            [[0.7, 0.3], [0.4, 0.6]],
+            len_dist=PoissonDistribution(4.0),
+            use_numba=True,
+        ),
+        HMM,
+        options=MARGINAL,
+        rank_deficit=3,
+    ),
+    FisherCase(
+        "hmm_three_states_poisson_emissions",
+        lambda: HiddenMarkovModelDistribution(
+            [
+                PoissonDistribution(1.0),
+                PoissonDistribution(5.0),
+                PoissonDistribution(10.0),
+            ],
+            [0.5, 0.3, 0.2],
+            [[0.8, 0.1, 0.1], [0.1, 0.8, 0.1], [0.2, 0.2, 0.6]],
+            len_dist=IntegerCategoricalDistribution(3, [0.5, 0.5]),
+        ),
+        HMM,
+        rank_deficit=1 + 3 + 1,
+    ),
+    FisherCase(
+        "integer_hmm",
+        lambda: IntegerHiddenMarkovModelDistribution(
+            np.asarray([[0.5, 0.1], [0.3, 0.3], [0.2, 0.6]]),
+            [0.5, 0.5],
+            [[0.8, 0.2], [0.3, 0.7]],
+            len_dist=IntegerCategoricalDistribution(3, [0.5, 0.5]),
+        ),
+        HMM,
+        # Initial 1, transition rows 2, categorical emissions 2, length 1.
+        rank_deficit=6,
     ),
 ]
 

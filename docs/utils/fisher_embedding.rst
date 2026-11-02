@@ -246,6 +246,18 @@ only through the weight block, and one warning per call lists their
 classes; with the default ``"raise"`` they raise
 :class:`NotImplementedError`.
 
+Hidden Markov models (Gaussian-style and integer emissions) use per-sequence
+forward-backward posteriors: the raw score stacks the initial block
+:math:`\gamma_0 - w`, the transition block
+:math:`\xi_{ij} - (\sum_j \xi_{ij}) A_{ij}` from the expected transition counts,
+the emission blocks :math:`\sum_t \gamma_t(k)\, s_k(x_t)`, and the length
+score, and is whitened the same way. With conditional scaling the transition
+block is divided by :math:`\sqrt{T - 1}` and the emission blocks by
+:math:`\sqrt{T}`; marginal scaling leaves them unscaled, since whitening makes
+a constant factor irrelevant. Whitening draws sequences from the model, so an
+HMM needs a length distribution (or terminal values) to be scored. HMMs with
+``taus`` (topic mixtures) have no score yet.
+
 API reference
 -------------
 

@@ -15,6 +15,14 @@ from numpy.random import RandomState
 
 import dmx.utils.vector as vec
 from dmx.arithmetic import exp, maxrandint
+from dmx.stats._fisher_latent import (
+    HmmPosteriors,
+    hmm_raw_score,
+    hmm_slices,
+    model_whitener,
+)
+from dmx.stats._fisher_lengths import length_score_dim
+from dmx.stats.hidden_markov import hmm_forward_backward
 from dmx.stats.markovchain import MarkovChainDistribution
 from dmx.stats.null_dist import (
     NullAccumulator,
@@ -31,6 +39,12 @@ from dmx.stats.pdist import (
     SequenceEncodableProbabilityDistribution,
     SequenceEncodableStatisticAccumulator,
     StatisticAccumulatorFactory,
+)
+from dmx.utils._fisher_kernels import categorical_score
+from dmx.utils.fisher import (
+    FisherScoreArray,
+    FisherScoreOptions,
+    resolve_fisher_options,
 )
 
 T = TypeVar("T")
@@ -326,6 +340,85 @@ class IntegerHiddenMarkovModelDistribution(SequenceEncodableProbabilityDistribut
             states[t] = psi[t + 1, states[t + 1]]
 
         return states
+
+    def seq_fisher_score(
+        self,
+        x: "IntegerHiddenMarkovEncodedDataSequence",
+        options: Optional[FisherScoreOptions] = None,
+    ) -> FisherScoreArray:
+        """Return the whitened score of each integer hidden Markov sequence.
+
+        As for :class:`dmx.stats.hidden_markov.HiddenMarkovModelDistribution`,
+        the raw score stacks the initial block ``gamma_0 - w``, the transition
+        block ``xi_ij - (sum_j xi_ij) A_ij``, the emission block
+        ``sum_t gamma_t(k) s_k(x_t)`` for each state, and the length score; the
+        emission score ``s_k`` of a word is the categorical score under
+        ``pmat[:, k]``. The result is whitened (ZCA) with its covariance over
+        ``options.whitening_samples`` draws from this model. Its covariance is a
+        projector with one null direction for the initial block, one per
+        transition row, and one per state's emission block.
+
+        Args:
+            x: Encoded sequence containing ``N`` sequences.
+            options: Score options, also passed to the length distribution.
+
+        Returns:
+            Array of shape ``(N, fisher_dim(options))``.
+
+        Raises:
+            TypeError: If ``x`` is not an IntegerHiddenMarkovEncodedDataSequence.
+        """
+        if not isinstance(x, IntegerHiddenMarkovEncodedDataSequence):
+            raise TypeError(
+                "IntegerHiddenMarkovModelDistribution.seq_fisher_score() requires "
+                "IntegerHiddenMarkovEncodedDataSequence."
+            )
+        opts = resolve_fisher_options(options)
+
+        def raw_score(encoded: "IntegerHiddenMarkovEncodedDataSequence") -> np.ndarray:
+            words, tz, len_enc = encoded.data
+            words = np.asarray(words, dtype=np.intp)
+            lengths = np.diff(np.asarray(tz)).astype(np.intp)
+            index = np.where((words >= 0) & (words < self.n_words), words, -1)
+            # Emission probabilities are tabulated, so pass them directly.
+            likelihoods = self.pmat[np.maximum(index, 0), :]
+            initial, transitions, gamma = hmm_forward_backward(
+                likelihoods, lengths, self.w, self.transitions, log_space=False
+            )
+            owner = np.repeat(np.arange(len(lengths)), lengths)
+            posteriors = HmmPosteriors(initial, transitions, gamma, owner, lengths)
+            emissions = [
+                categorical_score(
+                    index,
+                    self.pmat[:, state],
+                    opts.prob_floor,
+                    opts.dense_category_limit,
+                )
+                for state in range(self.n_states)
+            ]
+            length_block = None
+            if length_score_dim(self.len_dist, opts) > 0:
+                length_block = self.len_dist.seq_fisher_score(len_enc, opts)
+            return hmm_raw_score(
+                posteriors, self.w, self.transitions, emissions, length_block, opts
+            )
+
+        return model_whitener(self, raw_score, opts).transform(raw_score(x))
+
+    def fisher_dim(self, options: Optional[FisherScoreOptions] = None) -> int:
+        """Return ``K + K^2 + K * num_words`` plus the length dimension."""
+        k, words = int(self.n_states), int(self.n_words)
+        return k + k * k + k * words + length_score_dim(self.len_dist, options)
+
+    def fisher_field_slices(
+        self, options: Optional[FisherScoreOptions] = None
+    ) -> Dict[str, slice]:
+        """Map ``initial``, ``transitions``, ``emission_<k>``, ``length``."""
+        return hmm_slices(
+            self.n_states,
+            [self.n_words] * self.n_states,
+            length_score_dim(self.len_dist, options),
+        )
 
     def sampler(self, seed: Optional[int] = None) -> "IntegerHiddenMarkovSampler":
         """Create a sampler using sequence lengths or terminal values."""
