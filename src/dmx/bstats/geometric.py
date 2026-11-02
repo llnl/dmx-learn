@@ -28,6 +28,8 @@ from dmx.bstats.pdist import (
     StatisticAccumulator,
     StatisticAccumulatorFactory,
 )
+from dmx.utils._fisher_kernels import geometric_score
+from dmx.utils.fisher import FisherScoreOptions, resolve_fisher_options
 from dmx.utils.special import digamma
 
 # Legacy bstats implementations are intentionally concrete protocol classes.
@@ -168,6 +170,25 @@ class GeometricDistribution(ProbabilityDistribution[int, float, GeometricEncoded
         )
         valid = np.isfinite(x) & (x >= 1.0) & (x == np.floor(x))
         return np.where(valid, result, -np.inf).astype(float)
+
+    def seq_fisher_score(
+        self,
+        x: GeometricEncoded,
+        options: Optional[FisherScoreOptions] = None,
+    ) -> np.ndarray[Any, np.dtype[np.float64]]:
+        """Return the plug-in score ``(p x - 1) / sqrt(1 - p)``.
+
+        The probability is clipped by ``options.prob_floor``. Expected scores
+        integrated over the parameter posterior are future work.
+        """
+        return geometric_score(
+            x, self.get_parameters(), resolve_fisher_options(options).prob_floor
+        )
+
+    def fisher_dim(self, options: Optional[FisherScoreOptions] = None) -> int:
+        """Return 1 for the plug-in geometric probability score."""
+        del options
+        return 1
 
     def seq_encode(self, x: Iterable[int]) -> GeometricEncoded:
         """Encode ``n`` trial counts as a float array of shape ``(n,)``."""

@@ -27,6 +27,12 @@ from dmx.bstats.pdist import (
     StatisticAccumulator,
     StatisticAccumulatorFactory,
 )
+from dmx.utils._fisher_kernels import optional_score
+from dmx.utils.fisher import (
+    FisherScoreArray,
+    FisherScoreOptions,
+    resolve_fisher_options,
+)
 from dmx.utils.special import digamma
 
 # Legacy bstats implementations are concrete protocol classes.
@@ -206,6 +212,41 @@ class OptionalDistribution(
             np.asarray(self.dist.seq_expected_log_density(child_data)) + present - total
         )
         return values
+
+    def seq_fisher_score(
+        self,
+        x: OptionalEncoded,
+        options: Optional[FisherScoreOptions] = None,
+    ) -> FisherScoreArray:
+        """Return plug-in missingness and present-child score blocks.
+
+        For missing indicator ``m`` and probability ``p`` the first column is
+        ``(m - p) / sqrt(p (1 - p))``; present child scores are divided by
+        ``sqrt(1 - p)``. Expected scores integrated over parameter posteriors
+        are future work.
+        """
+        opts = resolve_fisher_options(options)
+        count, present, missing, child_data = x
+        child_dim = self.dist.fisher_dim(opts)
+        if child_dim > 0:
+            child_scores = self.dist.seq_fisher_score(child_data, opts)
+        else:
+            child_scores = np.zeros((len(present), 0))
+        probability, _ = self.get_parameters()
+        return optional_score(
+            child_scores,
+            missing,
+            present,
+            count,
+            probability,
+            opts.prob_floor,
+        )
+
+    def fisher_dim(self, options: Optional[FisherScoreOptions] = None) -> int:
+        """Return the child dimension plus a nondegenerate missingness column."""
+        probability, _ = self.get_parameters()
+        indicator = 1 if probability > 0.0 else 0
+        return indicator + int(self.dist.fisher_dim(options))
 
     def seq_encode(self, x: Iterable[Any]) -> OptionalEncoded:
         """Partition observations and encode only present child values."""

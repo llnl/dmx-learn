@@ -27,6 +27,8 @@ from dmx.bstats.pdist import (
     StatisticAccumulator,
     StatisticAccumulatorFactory,
 )
+from dmx.utils._fisher_kernels import poisson_score
+from dmx.utils.fisher import FisherScoreOptions, resolve_fisher_options
 from dmx.utils.special import digamma, gammaln, stirling2
 
 # Legacy bstats implementations are intentionally concrete protocol classes.
@@ -173,6 +175,26 @@ class PoissonDistribution(ProbabilityDistribution[int, float, PoissonEncoded]):
         )
         valid = np.isfinite(values) & (values >= 0.0) & (values == np.floor(values))
         return np.where(valid, result, -np.inf).astype(float)
+
+    def seq_fisher_score(
+        self,
+        x: PoissonEncoded,
+        options: Optional[FisherScoreOptions] = None,
+    ) -> np.ndarray[Any, np.dtype[np.float64]]:
+        """Return the plug-in score ``(x - lam) / sqrt(lam)``.
+
+        The rate is floored for finite degenerate-limit behavior. Expected
+        scores integrated over the parameter posterior are future work.
+        """
+        values, _ = x
+        return poisson_score(
+            values, self.get_parameters(), resolve_fisher_options(options).prob_floor
+        )
+
+    def fisher_dim(self, options: Optional[FisherScoreOptions] = None) -> int:
+        """Return 1 for the plug-in Poisson rate score."""
+        del options
+        return 1
 
     def seq_encode(self, x: Iterable[int]) -> PoissonEncoded:
         """Encode count values and their log-factorials.
