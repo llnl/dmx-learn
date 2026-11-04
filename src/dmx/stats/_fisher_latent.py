@@ -14,6 +14,7 @@ from dmx.utils._fisher_kernels import length_weights, scale_rows, sum_rows
 from dmx.utils._fisher_mixture import (
     _raw_mixture_score,
     dense_scores,
+    mixture_fisher_embedding,
     model_whitener,
     nested_mixture_dim,
     nested_mixture_score,
@@ -25,6 +26,7 @@ __all__ = [
     "_raw_mixture_score",
     "hmm_raw_score",
     "hmm_slices",
+    "mixture_fisher_embedding",
     "model_whitener",
     "nested_mixture_dim",
     "nested_mixture_score",

@@ -34,24 +34,29 @@ so both packages return identical scores. They are not public API; each
 distribution's ``seq_fisher_score`` docstring states its formula.
 
 See ``docs/utils/fisher_embedding.rst`` for the embedding built from these
-scores.
+scores: :class:`FisherEmbedding`, produced by a mixture's
+``seq_fisher_embedding`` or by :func:`fisher_embedding`.
 """
 
 from __future__ import annotations
 
 import warnings
 from dataclasses import dataclass, field
-from typing import Any, List, Literal, Optional, Sequence, Tuple, Union
+from typing import Any, Dict, List, Literal, Optional, Sequence, Tuple, Union
 
 import numpy as np
 from scipy.sparse import csr_matrix
+from scipy.sparse import vstack as sparse_vstack
 
 __all__ = [
     "EmpiricalFisherWhitener",
+    "FisherEmbedding",
     "FisherScoreArray",
     "FisherScoreOptions",
+    "WhiteningMethod",
     "as_score_array",
     "component_score_dims",
+    "fisher_embedding",
     "fisher_score_unsupported",
     "has_fisher_score",
     "resolve_fisher_options",
@@ -343,6 +348,40 @@ class EmpiricalFisherWhitener:
         mean = w @ x if self.center else np.zeros(x.shape[1])
         centered = x - mean
         covariance = (centered * w[:, None]).T @ centered
+        return self.fit_covariance(covariance, mean)
+
+    def fit_covariance(
+        self, covariance: Any, mean: Optional[Any] = None
+    ) -> "EmpiricalFisherWhitener":
+        """Set the whitening transform from a covariance and mean.
+
+        Use this when the moments were accumulated elsewhere, for example
+        over chunks of data or reduced across processes. ``center`` is not
+        consulted: ``mean`` is subtracted as given.
+
+        Args:
+            covariance: Covariance of the scores about ``mean``, shape
+                ``(d, d)``.
+            mean: Vector subtracted by :meth:`transform`, shape ``(d,)``.
+                None means zero.
+
+        Returns:
+            This whitener, fitted.
+
+        Raises:
+            ValueError: If ``method`` is unknown or the shapes do not match.
+        """
+        if self.method not in ("full", "diag", "pca"):
+            raise ValueError(f"Unknown whitening method {self.method!r}.")
+        covariance = np.asarray(covariance, dtype=np.float64)
+        if covariance.ndim != 2 or covariance.shape[0] != covariance.shape[1]:
+            raise ValueError(
+                f"covariance must be a square matrix, got shape {covariance.shape}."
+            )
+        dim = covariance.shape[0]
+        mean = np.zeros(dim) if mean is None else np.asarray(mean, dtype=np.float64)
+        if mean.shape != (dim,):
+            raise ValueError(f"mean must have shape ({dim},), got {mean.shape}.")
         if self.method == "diag":
             variance = np.diag(covariance)
             keep = variance > self.tol * max(float(variance.max(initial=0.0)), 0.0)
@@ -394,3 +433,228 @@ def _dense(scores: Any) -> np.ndarray:
     if hasattr(scores, "toarray"):
         scores = scores.toarray()
     return np.asarray(scores, dtype=np.float64)
+
+
+@dataclass
+class FisherEmbedding:
+    """Fisher-geometry feature vectors of records under a fitted mixture.
+
+    Row ``i`` of ``matrix`` is
+
+    ``phi_i = [sqrt(z_i), sqrt(c * z_ik) s_ik for k in top_m(i)]``,
+
+    where ``z_i`` are the record's posteriors, ``s_ik`` its whitened score
+    under component ``k``, and ``c`` the ``scale``. Euclidean distances between
+    rows approximate twice the squared Hellinger distance between the
+    records' locally tilted models (see ``docs/utils/fisher_embedding.rst``).
+    With ``scale == 0`` the matrix holds only the posterior block.
+
+    Pass an embedding as ``like=`` to :func:`fisher_embedding` to place new
+    records in the same feature space.
+
+    Attributes:
+        matrix: CSR matrix of shape ``(N, K + sum_k dim_k)``.
+        scale: The ``c`` used.
+        top_m: Number of most probable components whose score block each row
+            keeps; None keeps every component with a nonzero posterior.
+        posterior_slice: Columns of the ``sqrt(z)`` block, always
+            ``slice(0, K)``.
+        component_slices: Columns of each component's score block, keyed by
+            component index. Components without a block (zero weight, or no
+            score under ``on_missing="posterior_only"``) are absent.
+        field_slices: Columns of each field inside a component block, keyed
+            by component index, from that component's
+            ``fisher_field_slices``. Empty for a component whose whitener
+            changes its dimension.
+        options: Score options used for every component.
+        whiteners: Optional data-fitted whitener per component, applied to
+            the component's score before weighting; None entries (or None)
+            mean no extra whitening.
+    """
+
+    matrix: csr_matrix
+    scale: float
+    top_m: Optional[int]
+    posterior_slice: slice
+    component_slices: Dict[int, slice]
+    field_slices: Dict[int, Dict[str, slice]]
+    options: FisherScoreOptions
+    whiteners: Optional[List[Optional[EmpiricalFisherWhitener]]] = None
+
+    @property
+    def shape(self) -> Tuple[int, int]:
+        """Return the shape of ``matrix``."""
+        rows, columns = self.matrix.shape
+        return int(rows), int(columns)
+
+
+def fisher_embedding(
+    model: Any,
+    data: Sequence[Any],
+    *,
+    scale: Optional[float] = None,
+    top_m: Optional[int] = 3,
+    options: Optional[FisherScoreOptions] = None,
+    chunk_size: Optional[int] = None,
+    whiten: Optional[Union[WhiteningMethod, EmpiricalFisherWhitener]] = None,
+    like: Optional[FisherEmbedding] = None,
+    dtype: Any = None,
+) -> FisherEmbedding:
+    """Encode records and compute their Fisher embedding under a mixture.
+
+    Records are encoded and embedded ``chunk_size`` at a time, so peak memory
+    is bounded by one chunk's scores plus the output. Rows equal those of a
+    single :meth:`seq_fisher_embedding` call on all records. With the default
+    ``scale`` a first pass over the chunks computes the posteriors needed for
+    ``c = 1 / p_eff``.
+
+    Args:
+        model: Fitted :mod:`dmx.stats` or :mod:`dmx.bstats`
+            ``MixtureDistribution`` whose components have Fisher scores.
+        data: Records to embed; must support ``len`` and slicing.
+        scale: Weight ``c`` of the score blocks. None uses
+            ``1 / p_eff`` with ``p_eff = mean_i sum_k z_ik dim_k`` over
+            ``data``.
+        top_m: Score blocks kept per record, for its most probable
+            components. None keeps all.
+        options: Score options passed to every component.
+        chunk_size: Records per chunk. None embeds all records at once.
+        whiten: Also whiten each component's score with an
+            :class:`EmpiricalFisherWhitener` fitted on ``data``, weighting
+            every record by its posterior for that component. Give a method
+            name, or an unfitted whitener to set ``rank``, ``center`` or
+            ``tol``. Moments are accumulated over chunks, so chunked and
+            unchunked results agree up to floating-point summation order.
+            A component with zero total posterior on ``data`` is not
+            whitened.
+        like: A previous embedding of this model. Its ``scale``, ``top_m``,
+            ``options``, whiteners and dtype are reused (``top_m`` and
+            ``dtype`` arguments are ignored), so new records land in the
+            same feature space.
+        dtype: Output dtype; None means float32, or the dtype of ``like``.
+
+    Returns:
+        The embedding of ``data``.
+
+    Raises:
+        TypeError: If ``model`` has no ``seq_fisher_embedding``.
+        ValueError: If ``data`` is empty, an argument is out of range,
+            ``scale``, ``options`` or ``whiten`` is given with ``like``, or
+            ``like`` does not match ``model``.
+        NotImplementedError: If a component has no score and
+            ``options.on_missing == "raise"``.
+    """
+    # Imported here because the helpers import this module.
+    # pylint: disable-next=import-outside-toplevel,cyclic-import
+    from dmx.utils._fisher_mixture import (
+        add_score_moments,
+        check_embedding_args,
+        default_scale,
+        embedding_layout,
+        fit_component_whiteners,
+        mixture_component_data,
+    )
+
+    if not hasattr(model, "seq_fisher_embedding"):
+        raise TypeError(
+            f"{type(model).__name__} has no seq_fisher_embedding(); use a "
+            "dmx.stats or dmx.bstats MixtureDistribution."
+        )
+    whiteners: Optional[List[Optional[EmpiricalFisherWhitener]]] = None
+    if like is not None:
+        if scale is not None or options is not None or whiten is not None:
+            raise ValueError("scale, options and whiten come from like; omit them.")
+        scale, top_m, options = like.scale, like.top_m, like.options
+        whiteners, dtype = like.whiteners, like.matrix.dtype
+    options = resolve_fisher_options(options)
+    dtype = np.float32 if dtype is None else dtype
+    check_embedding_args(scale, top_m)
+    if chunk_size is not None and (
+        isinstance(chunk_size, bool)
+        or not isinstance(chunk_size, int)
+        or chunk_size < 1
+    ):
+        raise ValueError(f"chunk_size must be a positive integer, got {chunk_size!r}.")
+    count = len(data)
+    if count == 0:
+        raise ValueError("fisher_embedding() needs at least one record.")
+    step = count if chunk_size is None else chunk_size
+    starts = range(0, count, step)
+    encoder = model.dist_to_encoder()
+
+    def encode(start: int) -> Any:
+        return encoder.seq_encode(data[start : start + step])
+
+    with warnings.catch_warnings(record=True) as caught:
+        warnings.simplefilter("always")
+        if whiten is not None:
+            template = (
+                whiten
+                if isinstance(whiten, EmpiricalFisherWhitener)
+                else EmpiricalFisherWhitener(whiten)
+            )
+            dims = embedding_layout(model, options, None).dims
+            posteriors = []
+            moments = None
+            for start in starts:
+                encoded = encode(start)
+                chunk = np.asarray(model.seq_posterior(encoded), dtype=np.float64)
+                posteriors.append(chunk)
+                moments = add_score_moments(
+                    model,
+                    mixture_component_data(encoded),
+                    chunk,
+                    dims,
+                    options,
+                    moments,
+                )
+            whiteners = fit_component_whiteners(template, moments)
+        elif scale is None and len(starts) > 1:
+            posteriors = [
+                np.asarray(model.seq_posterior(encode(start)), dtype=np.float64)
+                for start in starts
+            ]
+        else:
+            posteriors = None
+        if scale is None and posteriors is not None:
+            scale = default_scale(
+                posteriors, embedding_layout(model, options, whiteners).dims
+            )
+        pieces = [
+            model.seq_fisher_embedding(
+                encode(start),
+                scale=scale,
+                top_m=top_m,
+                options=options,
+                dtype=dtype,
+                whiteners=whiteners,
+            )
+            for start in starts
+        ]
+    for category, message in dict.fromkeys(
+        (item.category, str(item.message)) for item in caught
+    ):
+        warnings.warn(message, category, stacklevel=2)
+
+    first = pieces[0]
+    matrix = (
+        first.matrix
+        if len(pieces) == 1
+        else sparse_vstack([piece.matrix for piece in pieces], format="csr")
+    )
+    result = FisherEmbedding(
+        matrix=matrix,
+        scale=first.scale,
+        top_m=top_m,
+        posterior_slice=first.posterior_slice,
+        component_slices=first.component_slices,
+        field_slices=first.field_slices,
+        options=options,
+        whiteners=whiteners,
+    )
+    if like is not None and (
+        result.matrix.shape[1] != like.matrix.shape[1]
+        or result.component_slices != like.component_slices
+    ):
+        raise ValueError("like was computed with a different model layout.")
+    return result

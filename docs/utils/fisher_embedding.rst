@@ -258,6 +258,48 @@ a constant factor irrelevant. Whitening draws sequences from the model, so an
 HMM needs a length distribution (or terminal values) to be scored. HMMs with
 ``taus`` (topic mixtures) have no score yet.
 
+Mixture embedding
+-----------------
+
+``MixtureDistribution.seq_fisher_embedding`` (on both :mod:`dmx.stats` and
+:mod:`dmx.bstats` mixtures) assembles the feature map :math:`\phi` for an
+encoded sequence and returns a :class:`dmx.utils.fisher.FisherEmbedding`:
+
+.. code-block:: python
+
+   from dmx.utils.fisher import fisher_embedding
+
+   embedding = fisher_embedding(model, records, chunk_size=10_000)
+   embedding.matrix             # CSR float32, one row per record
+   embedding.scale              # the c used
+   embedding.component_slices   # {k: columns of component k's score block}
+   embedding.field_slices       # {k: {field: columns}}
+
+   new_rows = fisher_embedding(model, new_records, like=embedding)
+
+- Columns ``0..K-1`` hold :math:`\sqrt{z_i}`; with ``scale=0`` nothing else
+  is stored, which is the current posterior representation.
+- Each component with nonzero weight and a score has a block of
+  ``fisher_dim`` columns holding :math:`\sqrt{c\, z_{ik}}\, s_{ik}`, kept only
+  for the ``top_m`` most probable components of each record (default 3;
+  None keeps all).
+- The default scale is :math:`c = 1 / p_{\text{eff}}` with
+  :math:`p_{\text{eff}} = \operatorname{mean}_i \sum_k z_{ik} \dim_k` over the
+  records embedded.
+- :func:`dmx.utils.fisher.fisher_embedding` encodes the records and embeds
+  them in chunks; rows are identical to a single unchunked call. With the
+  default scale it makes one extra pass over the chunks to compute
+  :math:`p_{\text{eff}}`.
+- ``whiten="full"`` (or ``"diag"``, ``"pca"``) additionally whitens each
+  component's score with an :class:`dmx.utils.fisher.EmpiricalFisherWhitener`
+  fitted on the records, weighted by their posteriors. This corrects
+  scores whose model covariance is off, for example plug-in
+  :mod:`dmx.bstats` parameters. The moments are summed over chunks and the
+  whiteners are stored on the embedding.
+- ``like=embedding`` reuses an embedding's scale, ``top_m``, options and
+  whiteners, so new records are placed in the same feature space, as needed
+  for ``UMAP.transform``.
+
 API reference
 -------------
 
