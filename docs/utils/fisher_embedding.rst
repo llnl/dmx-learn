@@ -22,6 +22,234 @@ representation="fisher")``; see `Using it with humap`_.
    posterior information. The plan is tracked in
    ``HUMAP_FISHER_ROADMAP.md``.
 
+User guide
+----------
+
+.. code-block:: python
+
+   from dmx.utils.humap import humap, humap_transform
+
+   coords, model, fit, features, embedding = humap(
+       records, representation="fisher", return_embedding=True
+   )
+   new_coords = humap_transform(fit, model, new_records, embedding)
+
+``examples/utils_examples/humap_fisher_example.py`` compares posterior and
+Fisher embeddings side by side on synthetic and repository data.
+
+When to use it
+~~~~~~~~~~~~~~
+
+Use ``representation="fisher"`` when the structure *inside* clusters matters:
+nearby records within a component should land near each other, and the
+layout of each cluster should mean something. Posterior humap keeps only which
+component a record belongs to. With a well-separated model most posteriors are
+nearly one-hot, so each cluster collapses to a few points. When many records
+share exactly the same posteriors, UMAP can even fail to initialize. In the
+benchmark (``_benchmarks/fisher-humap.md``), Fisher humap recovered the
+within-cluster structure posterior humap lost, and it embedded 10⁶ records
+where posterior humap's UMAP fit failed.
+
+Posterior humap remains the default and is enough when you only need to see
+which records cluster together. It is also the fallback when the model has
+components without a Fisher score; see `Unsupported components`_.
+
+Choosing the options
+~~~~~~~~~~~~~~~~~~~~
+
+``fisher_scale`` (default ``None``, meaning :math:`c = 1/p_{\text{eff}}`)
+    Weight of the within-component score blocks against the posterior block.
+    Neighbour rankings inside a component do not depend on it; it only sets
+    how many within-component standard deviations count as much as a change
+    of component. Larger values spread each cluster out relative to the gaps
+    between clusters, and ``0`` reproduces the posterior geometry. The default
+    is a good start: in the benchmark, quality was flat for :math:`c` between
+    0.02 and 1.
+
+``top_m`` (default 3)
+    Number of most probable components whose score blocks each record keeps.
+    Components further down have posteriors so small that their blocks barely
+    change distances, so 3 is exact in practice. Raise it only for models
+    whose components overlap heavily, so that records often have four or more
+    non-negligible posteriors. ``None`` keeps all of them at a higher memory
+    cost.
+
+``fisher_options.balance_fields`` (``humap`` default ``True``)
+    Divides each field's block by the square root of its dimension. Without
+    it, every parameter counts equally, so a field with many parameters, such
+    as a categorical with many levels or a long sequence of categoricals,
+    can swamp the numeric fields. ``humap`` and ``humap_mpi`` balance fields
+    when ``fisher_options`` is None, which did best in the benchmark. Pass
+    ``FisherScoreOptions()`` for the pure Fisher weighting, for example when
+    every field has a similar number of parameters.
+
+``fisher_options.sequence_scaling`` (default ``"conditional"``)
+    For sequences, sets and count vectors. ``"conditional"`` compares records
+    by the content of their elements regardless of length, and length
+    differences come only from the length distribution's own score.
+    ``"marginal"`` also lets longer records sit farther from the center, so
+    length separates records more strongly. See `Variable-length records`_.
+
+``fisher_options.prob_floor`` and ``dense_category_limit``
+    ``prob_floor`` bounds the cost of rare or unseen categorical levels.
+    Categoricals with more than ``dense_category_limit`` levels (default 256)
+    use a sparse score, so high-cardinality fields stay cheap.
+
+Variable-length data
+~~~~~~~~~~~~~~~~~~~~
+
+Sequences, sets, multinomial counts and Markov chains are supported. Each
+record's element scores are summed and scaled by its length (see
+``sequence_scaling``), and the length distribution adds its own score block.
+Nested mixtures and hidden Markov models are whitened empirically with
+deterministic draws from the model, so their scores do not depend on the
+batch being embedded. See `Variable-length records`_ and
+`Latent-variable components`_.
+
+Unsupported components
+~~~~~~~~~~~~~~~~~~~~~~
+
+:func:`dmx.utils.fisher.has_fisher_score` tells whether a whole model tree
+has scores. A component without one raises :class:`NotImplementedError` by
+default. With ``fisher_options=FisherScoreOptions(on_missing="posterior_only",
+balance_fields=True)`` such a component contributes only its posterior and a
+single warning names it; the other components keep their score blocks.
+
+Supported distributions
+~~~~~~~~~~~~~~~~~~~~~~~
+
+This table is generated from the Fisher contract-test registries, so every
+listed family passes the score contract. Families not listed, such as
+von Mises-Fisher, integer sets, edit-distance sets, LDA, PLSI, tree HMMs and
+conditional distributions, raise until they are implemented.
+
+.. fisher-support-table-start
+
+.. list-table:: Distributions with Fisher scores
+   :header-rows: 1
+   :widths: 30 40 15 15
+
+   * - Group
+     - Distribution
+     - ``dmx.stats``
+     - ``dmx.bstats``
+   * - Numeric leaves
+     - ``ExponentialDistribution``
+     - yes
+     - yes
+   * - Numeric leaves
+     - ``GammaDistribution``
+     - yes
+     - yes
+   * - Numeric leaves
+     - ``GaussianDistribution``
+     - yes
+     - yes
+   * - Numeric leaves
+     - ``LogGaussianDistribution``
+     - yes
+     - -
+   * - Count leaves
+     - ``BernoulliDistribution``
+     - -
+     - yes
+   * - Count leaves
+     - ``BinomialDistribution``
+     - yes
+     - -
+   * - Count leaves
+     - ``GeometricDistribution``
+     - yes
+     - yes
+   * - Count leaves
+     - ``PoissonDistribution``
+     - yes
+     - yes
+   * - Categorical leaves
+     - ``CategoricalDistribution``
+     - yes
+     - yes
+   * - Categorical leaves
+     - ``IntegerCategoricalDistribution``
+     - yes
+     - -
+   * - Multivariate leaves
+     - ``DiagonalGaussianDistribution``
+     - yes
+     - -
+   * - Multivariate leaves
+     - ``DirichletDistribution``
+     - yes
+     - -
+   * - Multivariate leaves
+     - ``MultivariateGaussianDistribution``
+     - yes
+     - -
+   * - Combinators
+     - ``CompositeDistribution``
+     - yes
+     - yes
+   * - Combinators
+     - ``IgnoredDistribution``
+     - yes
+     - yes
+   * - Combinators
+     - ``NullDistribution``
+     - -
+     - yes
+   * - Combinators
+     - ``OptionalDistribution``
+     - yes
+     - yes
+   * - Variable-length
+     - ``BernoulliSetDistribution``
+     - yes
+     - -
+   * - Variable-length
+     - ``IntegerMultinomialDistribution``
+     - yes
+     - -
+   * - Variable-length
+     - ``MarkovChainDistribution``
+     - yes
+     - -
+   * - Variable-length
+     - ``MultinomialDistribution``
+     - yes
+     - -
+   * - Variable-length
+     - ``SequenceDistribution``
+     - yes
+     - yes
+   * - Latent (empirically whitened)
+     - ``HeterogeneousMixtureDistribution``
+     - yes
+     - -
+   * - Latent (empirically whitened)
+     - ``HiddenMarkovModelDistribution``
+     - yes
+     - -
+   * - Latent (empirically whitened)
+     - ``IntegerHiddenMarkovModelDistribution``
+     - yes
+     - -
+   * - Latent (empirically whitened)
+     - ``MixtureDistribution``
+     - yes
+     - -
+
+.. fisher-support-table-end
+
+Large data
+~~~~~~~~~~
+
+Building the features is cheap: about a second for 10⁶ records on one core.
+UMAP dominates the cost. For data that does not fit one process, use
+:func:`dmx.mpi4py.utils.humap.humap_mpi` (which calls
+:func:`dmx.mpi4py.utils.fisher.fisher_embedding_mpi`) or
+:func:`dmx.utils.spark.fisher_embedding_rdd`; see `Distributed computation`_.
+:func:`dmx.utils.fisher.fisher_embedding` computes the features without UMAP.
+
 The metric
 ----------
 

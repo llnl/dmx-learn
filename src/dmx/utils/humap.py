@@ -307,9 +307,12 @@ def humap(
     fit = umap.UMAP(**options)
     embeddings = fit.fit_transform(features)
 
+    # One return built from a list: the overloads give the exact tuple types,
+    # and linters do not mistake the four-value call for the five-value one.
+    outputs = [embeddings, mix_model, fit, features]
     if return_embedding:
-        return embeddings, mix_model, fit, features, embedding
-    return embeddings, mix_model, fit, features
+        outputs.append(embedding)
+    return tuple(outputs)
 
 
 def humap_transform(
