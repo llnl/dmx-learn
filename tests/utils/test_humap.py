@@ -1,9 +1,5 @@
 """Test integration with UMAP."""
 
-# humap's overloads return four values unless return_embedding=True; pylint
-# only sees the five-value branch of the implementation.
-# pylint: disable=unbalanced-tuple-unpacking
-
 import os
 import pickle
 from typing import Any, Dict, List, Tuple

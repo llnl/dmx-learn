@@ -198,14 +198,26 @@ same rows; only the final UMAP fit is centralised.
 
 ## 6. Milestones
 
-| Milestone | Issues | Exit criteria |
-|---|---|---|
-| M1. API and harness | 1, 2 | Base API, options, `dmx/utils/fisher.py`, design page; generic contract test runs (and skips unimplemented families) |
-| M2. `dmx.stats` leaves | 3–6 | Every Phase B leaf passes the contract test |
-| M3. Observed combinators | 7, 8 | Composite of mixed leaves passes the contract test; sequences whitened conditional on length |
-| M4. Usable humap (MVP) | 11, 12, 14 | `humap(data, representation="fisher")` works end to end on the default bstats DPM path and on a supplied `dmx.stats` mixture |
-| M5. Latent and scale-out | 9, 10, 13 | Nested mixtures score via empirical whitening; MPI path produces identical rows to the local path |
-| M6. Evidence and docs | 15, 16 | Benchmark shows within-cluster structure recovered where posterior humap collapses it; docs, example, changelog |
+Source issue `n` is GitHub issue `#(276 + n)`; the epic is #276.
+
+| Milestone | Issues | Exit criteria | Status |
+|---|---|---|---|
+| M1. API and harness | 1, 2 | Base API, options, `dmx/utils/fisher.py`, design page; generic contract test runs (and skips unimplemented families) | Done (#277, #278; PRs #293, #294) |
+| M2. `dmx.stats` leaves | 3–6 | Every Phase B leaf passes the contract test | Done (#279–#282; PRs #295–#298) |
+| M3. Observed combinators | 7, 8 | Composite of mixed leaves passes the contract test; sequences whitened conditional on length | Done (#283, #284; PRs #299, #301, plus #300 for `MarkovChainDistribution`) |
+| M4. Usable humap (MVP) | 11, 12, 14 | `humap(data, representation="fisher")` works end to end on the default bstats DPM path and on a supplied `dmx.stats` mixture | Done (#287, #288, #290; PRs #304, #305, #307) |
+| M5. Latent and scale-out | 9, 10, 13 | Nested mixtures score via empirical whitening; MPI path produces identical rows to the local path | Done (#285, #286, #289; PRs #302, #303, #306). MPI and Spark rows are bit-identical to local rows without `whiten` |
+| M6. Evidence and docs | 15, 16 | Benchmark shows within-cluster structure recovered where posterior humap collapses it; docs, example, changelog | Done (#291, PR #308; #292: user guide, example, changelog) |
+
+**Decisions changed by the benchmark** (`_benchmarks/fisher-humap.md`): F9
+now defaults `humap` to `balance_fields=True`. F4 (`c = 1/p_eff`) and F5
+(`top_m = 3`) are confirmed.
+
+**Follow-ups outside the epic:** multivariate Gaussian `seq_log_density` uses
+a blocked LAPACK solve, so its posteriors, and hence Fisher rows, can differ
+in the last bit between batch sizes at high dimension; the families under
+"Later" in section 4.3; expected scores under bstats parameter posteriors
+(F6).
 
 Critical path to a usable feature: 1 → 2 → 3, 4, 5 → 7 → 11 → 12 → 14.
 
