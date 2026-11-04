@@ -18,6 +18,7 @@ from dmx.stats import CompositeDistribution as Composite
 from dmx.stats import GaussianDistribution as Gaussian
 from dmx.stats import MixtureDistribution as Mix
 from dmx.utils.fisher import fisher_embedding
+from dmx.utils.humap import HUMAP_FISHER_OPTIONS
 
 DATA_DIR = "tests/data"
 
@@ -99,7 +100,7 @@ def test_humap_mpi_fisher_matches_local_features() -> None:
     if world_rank == 0:
         assert results is not None and data is not None
         embs, _, umap_fit, features, embedding = results
-        expected = fisher_embedding(model, data)
+        expected = fisher_embedding(model, data, options=HUMAP_FISHER_OPTIONS)
         ok = (
             embs.shape == (len(data), 2)
             and umap_fit.metric == "euclidean"

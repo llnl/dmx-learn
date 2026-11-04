@@ -140,7 +140,7 @@ def fisher_field_slices(self, options=None) -> Dict[str, slice]: ...  # optional
 
 `FisherScoreOptions` (frozen dataclass, passed down recursively):
 `prob_floor`, `location_only` (MVN/DMVN), `sequence_scaling`
-(`"conditional"` | `"marginal"`), `balance_fields` (opt-in, see F9),
+(`"conditional"` | `"marginal"`), `balance_fields` (on by default in `humap`, see F9),
 `on_missing` (`"raise"` | `"posterior_only"`).
 
 Closed-form kernels live as pure functions of parameters in the private
@@ -186,12 +186,12 @@ same rows; only the final UMAP fit is centralised.
 | F1 | Whitened score is the per-distribution primitive | Each family knows a convenient orthonormal basis (Gaussian `(x, x^2)` is strongly correlated, so diagonal whitening of `T` is wrong); Euclidean distance is rotation invariant |
 | F2 | `sqrt(z)` (Hellinger) block, not the Fisher-vector weight block `(z - pi)/sqrt(pi)` | Bounded, independent of `pi`, reduces exactly to current humap, and follows from the `Q_i` construction |
 | F3 | Euclidean `phi` is the default; exact Hellinger is a validation reference only | Works with standard UMAP/pynndescent, PCA and sparse input; exact in the regime UMAP uses |
-| F4 | Default `c = 1 / p_eff`; user-overridable `fisher_scale` | Balances within- vs between-component distances; ranking inside a component is independent of `c` |
-| F5 | Top-`m` truncation (default 3), CSR float32 output | Memory: dense float64 `phi` at N = 1e6, K = 30, p = 50 is ~12 GB |
+| F4 | Default `c = 1 / p_eff`; user-overridable `fisher_scale` | Balances within- vs between-component distances; ranking inside a component is independent of `c`. **Confirmed** by the benchmark (`_benchmarks/fisher-humap.md`): quality is flat for `c` in [0.02, 1] with balanced fields; the default sits where the Euclidean `phi` still agrees with the exact reference on 84% of 15-NN |
+| F5 | Top-`m` truncation (default 3), CSR float32 output | Memory: dense float64 `phi` at N = 1e6, K = 30, p = 50 is ~12 GB. **Confirmed**: `top_m` = 1, 3 and all give identical kNN graphs on the benchmark data |
 | F6 | `dmx.bstats` uses plug-in (posterior mean) parameters | The default `humap` path fits a bstats DPM; expected scores under the parameter posterior are a later refinement |
 | F7 | Categorical: probability floor from `default_value` / `prob_floor`; dense `e_x/sqrt(p_x) - sqrt(p)` up to 256 levels, sparse offset-free `e_x/sqrt(p_x)` above (exact for same-component pairs) | Avoids `1/p` blow-ups for unseen or rare levels and dense blow-up for high cardinality |
 | F8 | Sequences: `sequence_scaling="conditional"` divides the summed element score by `sqrt(n)`; length information comes from the length distribution's own score block | Whitened conditional on the observed length; consistent with `Sequence(len_normalized=...)` and htsne's `vlen` |
-| F9 | Pure Fisher weighting by default; `balance_fields=True` (each field block divided by `sqrt(dim_field)`) is opt-in and benchmarked | Under the Fisher metric a field contributes in proportion to its parameter count; high-cardinality categoricals can dominate |
+| F9 | `humap` and `humap_mpi` default to `balance_fields=True` (each field block divided by `sqrt(dim_field)`) when `fisher_options` is None; `FisherScoreOptions` itself keeps `balance_fields=False`, so scores and `fisher_embedding` stay pure Fisher unless asked | Under the Fisher metric a field contributes in proportion to its parameter count, so high-cardinality categoricals can dominate. Revised after the benchmark (`_benchmarks/fisher-humap.md`): balanced fields beat posterior humap, pure Fisher and raw-feature UMAP on every ground-truth metric, for both an oracle and a fitted DPM model. Pure Fisher lets a 6-level categorical swamp the numeric fields, and with a fitted DPM it does not beat posteriors. Pass `FisherScoreOptions()` to `humap` for pure Fisher weighting |
 | F10 | Components without a score raise by default; `on_missing="posterior_only"` contributes only the `sqrt(z)` block for them, with a warning | Never silently mix geometries |
 | F11 | `representation="posterior"` stays the `humap` default in 1.x; `"fisher"` is opt-in | Additive change policy (D3 in `DMX_EXPERT_AGENT_ROADMAP.md`) |
 | F12 | Shared (keyed) parameters do not change the score definition; scores are computed per occurrence with the occurrence's parameters | Keeps the primitive local; documented in the API page |
@@ -214,7 +214,7 @@ Critical path to a usable feature: 1 → 2 → 3, 4, 5 → 7 → 11 → 12 → 1
 | Risk | Mitigation |
 |---|---|
 | Second-order distances unbounded (rare categories, heavy tails) | `prob_floor`; exact per-field BC for Categorical available in the reference metric; benchmark clipping |
-| High-cardinality fields dominate | F7 sparse form; F9 opt-in balancing; report per-field contribution via `fisher_field_slices` |
+| High-cardinality fields dominate | F7 sparse form; F9 balancing (default in `humap`); report per-field contribution via `fisher_field_slices` |
 | Model misspecification yields misleading geometry | Document; validation issue compares against raw-feature baselines |
 | Latent-variable components lack closed-form Fisher information | Empirical whitening fallback (issue 9) |
 | Memory of `phi` for large N | CSR, float32, top-`m`; optional PCA / random projection before UMAP |

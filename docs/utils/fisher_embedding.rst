@@ -315,18 +315,27 @@ representation; the default stays ``representation="posterior"``:
        representation="fisher",   # default "posterior"
        fisher_scale=None,         # c; None means 1 / p_eff, 0 means posteriors
        top_m=3,                   # score blocks kept per record
-       fisher_options=None,       # FisherScoreOptions for the scores
+       fisher_options=None,       # None means balance_fields=True
        umap_kwargs={"random_state": 0},
        return_embedding=True,     # append the FisherEmbedding
    )
    new_coords = humap_transform(fit, model, new_records, embedding)
 
+- With ``fisher_options=None``, ``humap`` and ``humap_mpi`` use
+  :data:`dmx.utils.humap.HUMAP_FISHER_OPTIONS`, which sets
+  ``balance_fields=True``: each field's block is divided by the square root
+  of its dimension, so a many-level categorical does not swamp numeric
+  fields. It recovered within-cluster structure best in the benchmark
+  (``_benchmarks/fisher-humap.md``). Pass ``FisherScoreOptions()`` for the
+  pure Fisher weighting. Other callers of the scores and of
+  :func:`~dmx.utils.fisher.fisher_embedding` keep ``balance_fields=False``.
 - The default UMAP metric becomes ``"euclidean"``; a ``metric`` set in
   ``umap_kwargs`` is kept. The CSR feature matrix is passed to UMAP directly
   and returned as the fourth value, where posterior mode returns the
   posteriors.
 - ``progress_callback`` receives an ``"embedding"`` event with the scale,
-  ``p_eff``, ``top_m`` and feature dimension, which are also logged at DEBUG.
+  ``p_eff``, ``top_m``, ``balance_fields`` and feature dimension, which are
+  also logged at DEBUG.
 - :func:`dmx.utils.humap.humap_transform` computes the representation the fit
   used (pass ``embedding=None`` for a posterior fit) and calls
   ``fit.transform``.

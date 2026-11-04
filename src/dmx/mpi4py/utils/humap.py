@@ -12,7 +12,13 @@ from dmx.mpi4py.utils.automatic import get_dpm_mixture_mpi
 from dmx.mpi4py.utils.fisher import fisher_embedding_mpi
 from dmx.stats import MixtureDistribution
 from dmx.utils.fisher import FisherEmbedding, FisherScoreOptions
-from dmx.utils.humap import Features, Representation, report_embedding, umap_options
+from dmx.utils.humap import (
+    Features,
+    Representation,
+    report_embedding,
+    resolve_humap_fisher_options,
+    umap_options,
+)
 from dmx.utils.progress import ProgressCallback, ProgressReporter
 
 T = TypeVar("T")
@@ -90,7 +96,9 @@ def humap_mpi(
         fisher_scale: Weight ``c`` of the Fisher score blocks; None uses
             ``1 / p_eff`` over all records.
         top_m: Fisher score blocks kept per record; None keeps all.
-        fisher_options: Options for the components' Fisher scores.
+        fisher_options: Options for the components' Fisher scores. None uses
+            :data:`dmx.utils.humap.HUMAP_FISHER_OPTIONS`
+            (``balance_fields=True``), as :func:`dmx.utils.humap.humap` does.
         return_embedding: Also return the
             :class:`~dmx.utils.fisher.FisherEmbedding` (None for posteriors)
             on rank 0, for :func:`dmx.utils.humap.humap_transform`.
@@ -161,7 +169,7 @@ def humap_mpi(
             comm,
             scale=fisher_scale,
             top_m=top_m,
-            options=fisher_options,
+            options=resolve_humap_fisher_options(fisher_options),
         )
 
     if world_rank == 0:
