@@ -1,0 +1,8 @@
+{
+  "stage": "embed-mpi",
+  "count": 1000000,
+  "ranks": 1,
+  "seconds": 1.2925968330237083,
+  "max_rank_peak_rss_mb": 2187.609375,
+  "rows": 1000000
+}
