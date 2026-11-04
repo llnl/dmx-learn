@@ -24,6 +24,8 @@ from dmx.bstats.pdist import (
     StatisticAccumulator,
     StatisticAccumulatorFactory,
 )
+from dmx.utils._fisher_kernels import exponential_score
+from dmx.utils.fisher import FisherScoreOptions
 from dmx.utils.special import digamma
 
 # Legacy bstats implementations are concrete protocol classes.
@@ -118,6 +120,23 @@ class ExponentialDistribution(ProbabilityDistribution[float, float, Array]):
         shape, rate = self.conj_prior_params
         result = digamma(shape) - np.log(rate) - shape * x / rate
         return np.where(np.isfinite(x) & (x >= 0.0), result, -np.inf).astype(float)
+
+    def seq_fisher_score(
+        self, x: Array, options: Optional[FisherScoreOptions] = None
+    ) -> Array:
+        """Return the plug-in score ``lam * x - 1``.
+
+        The shared kernel uses the equivalent scale ``beta = 1 / lam``.
+        Expected scores integrated over the parameter posterior are future
+        work.
+        """
+        del options
+        return exponential_score(x, 1.0 / self.get_parameters())
+
+    def fisher_dim(self, options: Optional[FisherScoreOptions] = None) -> int:
+        """Return 1 for the plug-in exponential rate score."""
+        del options
+        return 1
 
     def seq_encode(self, x: Iterable[float]) -> Array:
         """Encode ``n`` observations as a float array of shape ``(n,)``."""

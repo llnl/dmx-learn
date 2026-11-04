@@ -20,6 +20,12 @@ from numpy.random import RandomState
 
 import dmx.utils.vector as vec
 from dmx.arithmetic import maxrandint
+from dmx.stats._fisher_latent import (
+    mixture_fisher_embedding,
+    nested_mixture_dim,
+    nested_mixture_score,
+    nested_mixture_slices,
+)
 from dmx.stats.pdist import (
     DataSequenceEncoder,
     DistributionSampler,
@@ -28,6 +34,12 @@ from dmx.stats.pdist import (
     SequenceEncodableProbabilityDistribution,
     SequenceEncodableStatisticAccumulator,
     StatisticAccumulatorFactory,
+)
+from dmx.utils.fisher import (
+    EmpiricalFisherWhitener,
+    FisherEmbedding,
+    FisherScoreOptions,
+    resolve_fisher_options,
 )
 
 T = TypeVar("T")  ### Type of Mixture component data.
@@ -309,6 +321,107 @@ class MixtureDistribution(SequenceEncodableProbabilityDistribution):
         ll_mat /= ll_max
 
         return np.asarray(ll_mat, dtype=float)
+
+    def seq_fisher_score(
+        self,
+        x: "MixtureEncodedDataSequence",
+        options: Optional[FisherScoreOptions] = None,
+    ) -> np.ndarray:
+        """Return the whitened score of this mixture used as a component.
+
+        For a mixture nested inside another model (for example a composite
+        field), the score stacks the weight block ``(z_j - w_j) / sqrt(w_j)``
+        and the component blocks ``z_j s_j(x) / sqrt(w_j)``, then whitens the
+        result with its covariance over ``options.whitening_samples`` draws
+        from this mixture (seed ``options.whitening_seed``), so it depends only
+        on the model. The covariance is a projector of rank
+        ``fisher_dim(options) - 1``. A top-level mixture embedding uses the
+        posteriors and component scores directly instead.
+
+        Args:
+            x: Encoded sequence containing ``N`` observations.
+            options: Score options, also passed to the components.
+
+        Returns:
+            Array of shape ``(N, fisher_dim(options))``.
+
+        Raises:
+            TypeError: If ``x`` is not a MixtureEncodedDataSequence.
+            NotImplementedError: If a component has no score and
+                ``options.on_missing == "raise"``.
+        """
+        if not isinstance(x, MixtureEncodedDataSequence):
+            raise TypeError(
+                "MixtureDistribution.seq_fisher_score() requires "
+                "MixtureEncodedDataSequence."
+            )
+        return nested_mixture_score(
+            self, x, lambda encoded, _: encoded.data, resolve_fisher_options(options)
+        )
+
+    def seq_fisher_embedding(
+        self,
+        x: "MixtureEncodedDataSequence",
+        scale: Optional[float] = None,
+        top_m: Optional[int] = 3,
+        options: Optional[FisherScoreOptions] = None,
+        dtype: Any = np.float32,
+        whiteners: Optional[Sequence[Optional[EmpiricalFisherWhitener]]] = None,
+    ) -> FisherEmbedding:
+        """Return the Fisher-geometry embedding of an encoded sequence.
+
+        Row ``i`` is ``[sqrt(z_i), sqrt(scale * z_ik) s_ik for k in top_m(i)]``,
+        with ``z_i`` the posteriors and ``s_ik`` the whitened score of
+        component ``k``. Zero-weight components have no score block. Each
+        component's score is computed for all rows and kept only for rows
+        where the component is among the ``top_m`` most probable.
+
+        Args:
+            x: Encoded sequence containing ``N`` observations.
+            scale: Weight ``c`` of the score blocks. None uses ``1 / p_eff``
+                with ``p_eff = mean_i sum_k z_ik dim_k`` over ``x``; 0 gives
+                only the posterior block.
+            top_m: Score blocks kept per row; None keeps all.
+            options: Score options passed to every component.
+            dtype: dtype of the CSR output matrix.
+            whiteners: Optional fitted whitener per component (None entries
+                skip it), applied to the component's score before weighting;
+                see :func:`dmx.utils.fisher.fisher_embedding`.
+
+        Returns:
+            :class:`dmx.utils.fisher.FisherEmbedding` with ``N`` rows.
+
+        Raises:
+            TypeError: If ``x`` is not a MixtureEncodedDataSequence.
+            ValueError: If ``scale``, ``top_m`` or ``whiteners`` is invalid.
+            NotImplementedError: If a component has no score and
+                ``options.on_missing == "raise"``.
+        """
+        if not isinstance(x, MixtureEncodedDataSequence):
+            raise TypeError(
+                "MixtureDistribution.seq_fisher_embedding() requires "
+                "MixtureEncodedDataSequence."
+            )
+        return mixture_fisher_embedding(
+            self,
+            x,
+            lambda encoded, _: encoded.data,
+            scale=scale,
+            top_m=top_m,
+            options=options,
+            dtype=dtype,
+            whiteners=whiteners,
+        )
+
+    def fisher_dim(self, options: Optional[FisherScoreOptions] = None) -> int:
+        """Return ``J`` plus the components' score dimensions."""
+        return nested_mixture_dim(self, resolve_fisher_options(options))
+
+    def fisher_field_slices(
+        self, options: Optional[FisherScoreOptions] = None
+    ) -> Dict[str, slice]:
+        """Map ``"weights"`` and ``"component_<j>"`` to their score columns."""
+        return nested_mixture_slices(self, resolve_fisher_options(options))
 
     def sampler(self, seed: Optional[int] = None) -> "MixtureSampler":
         """Create a sampler for this mixture.

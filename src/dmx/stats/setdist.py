@@ -25,6 +25,12 @@ from dmx.stats.pdist import (
     SequenceEncodableStatisticAccumulator,
     StatisticAccumulatorFactory,
 )
+from dmx.utils._fisher_kernels import bernoulli_set_score
+from dmx.utils.fisher import (
+    FisherScoreArray,
+    FisherScoreOptions,
+    resolve_fisher_options,
+)
 
 
 class BernoulliSetDistribution(SequenceEncodableProbabilityDistribution):
@@ -156,6 +162,55 @@ class BernoulliSetDistribution(SequenceEncodableProbabilityDistribution):
             rv[req_cnt != self.num_required] = -np.inf
 
         return rv
+
+    def seq_fisher_score(
+        self,
+        x: "BernoulliSetEncodedDataSequence",
+        options: Optional[FisherScoreOptions] = None,
+    ) -> FisherScoreArray:
+        """Return ``(1[e in set] - p_e) / sqrt(p_e (1 - p_e))`` for each element.
+
+        Columns follow the order of ``pmap``; elements outside ``pmap`` are
+        ignored. ``p`` is clipped to ``[prob_floor, 1 - prob_floor]``, so
+        required elements (``p_e = 1``) stay finite. Above
+        ``options.dense_category_limit`` elements the offset-free form
+        ``1[e in set] / sqrt(p_e (1 - p_e))`` is returned as a CSR matrix; it
+        differs from the dense form by a constant.
+
+        Args:
+            x: Encoded sequence containing ``N`` sets.
+            options: Score options; ``prob_floor`` and
+                ``dense_category_limit`` are used.
+
+        Returns:
+            Array or CSR matrix of shape ``(N, len(pmap))``.
+
+        Raises:
+            TypeError: If ``x`` is not a BernoulliSetEncodedDataSequence.
+        """
+        if not isinstance(x, BernoulliSetEncodedDataSequence):
+            raise TypeError(
+                "BernoulliSetDistribution.seq_fisher_score() requires "
+                "BernoulliSetEncodedDataSequence."
+            )
+        opts = resolve_fisher_options(options)
+        size, idx, values, xs = x.data
+        position = {element: i for i, element in enumerate(self.pmap)}
+        value_column = np.asarray(
+            [position.get(value, -1) for value in values], dtype=np.intp
+        )
+        return bernoulli_set_score(
+            idx,
+            value_column[xs],
+            size,
+            list(self.pmap.values()),
+            opts.prob_floor,
+            opts.dense_category_limit,
+        )
+
+    def fisher_dim(self, options: Optional[FisherScoreOptions] = None) -> int:
+        """Return the number of elements in ``pmap``."""
+        return len(self.pmap)
 
     def sampler(self, seed: Optional[int] = None) -> "BernoulliSetSampler":
         """Create a sampler using independent inclusion draws."""

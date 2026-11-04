@@ -234,7 +234,7 @@ renders well as a heatmap.
 | Conditional queries ("given A and B, what's the distribution of C?"), imputation, what-if sampling | Layer 0 `conditional` |
 | Group and latent comparisons: how cluster mix differs by group | keyed mixtures, weight comparisons with bootstrap CIs |
 | Search depth and ranking (paired or retrieval tasks, both conditioning directions) | `metrics.ranking_depth`, `_references/variable-sequence-length-search-depth.md` |
-| Low-dimensional embeddings | `htsne`, `dpmsne`, `humap` (reuse the selected model, never refit) |
+| Low-dimensional embeddings | `htsne`, `dpmsne`, `humap` (reuse the selected model, never refit). `humap(representation="fisher")` also keeps within-cluster structure, and `humap_transform` places new records; tools should expose `representation`, `fisher_scale` and `top_m` (see `HUMAP_FISHER_ROADMAP.md` and `docs/utils/fisher_embedding.rst`) |
 | Model graph view | `to_graph()` |
 
 **Plots (D6):** every explore function returns tidy pandas DataFrames (core,

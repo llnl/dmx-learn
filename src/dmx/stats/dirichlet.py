@@ -20,6 +20,8 @@ from dmx.stats.pdist import (
     SequenceEncodableStatisticAccumulator,
     StatisticAccumulatorFactory,
 )
+from dmx.utils._fisher_kernels import dirichlet_score
+from dmx.utils.fisher import FisherScoreOptions
 from dmx.utils.special import digamma, digammainv, gammaln
 
 
@@ -248,6 +250,44 @@ class DirichletDistribution(SequenceEncodableProbabilityDistribution):
         rv = np.dot(x.data[0], self.alpha - 1.0)
         rv -= self.log_const
         return np.asarray(rv)
+
+    def seq_fisher_score(
+        self,
+        x: "DirichletEncodedDataSequence",
+        options: Optional[FisherScoreOptions] = None,
+    ) -> np.ndarray:
+        """Return the whitened score of ``log x`` for each observation.
+
+        The score is ``L^{-1} (log x - (digamma(alpha) - digamma(alpha_0)))``
+        for the lower Cholesky factor ``L`` of
+        ``diag(trigamma(alpha)) - trigamma(alpha_0)``, the covariance of
+        ``log x``. ``options`` has no effect.
+
+        Args:
+            x: Encoded sequence containing ``N`` simplex observations.
+            options: Score options, accepted for the shared interface.
+
+        Returns:
+            Array of shape ``(N, len(alpha))``.
+
+        Raises:
+            TypeError: If ``x`` is not a DirichletEncodedDataSequence.
+            ValueError: If any concentration parameter is not positive.
+        """
+        if not isinstance(x, DirichletEncodedDataSequence):
+            raise TypeError(
+                "DirichletDistribution.seq_fisher_score() requires "
+                "DirichletEncodedDataSequence."
+            )
+        if self.has_invalid:
+            raise ValueError(
+                "DirichletDistribution.seq_fisher_score() requires positive alpha."
+            )
+        return dirichlet_score(x.data[0], self.alpha)
+
+    def fisher_dim(self, options: Optional[FisherScoreOptions] = None) -> int:
+        """Return the number of simplex coordinates, ``len(alpha)``."""
+        return int(len(self.alpha))
 
     def sampler(self, seed: Optional[int] = None) -> "DirichletSampler":
         """Return a DirichletSampler for this distribution.

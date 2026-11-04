@@ -16,6 +16,11 @@ import numpy as np
 from numpy.random import RandomState
 
 from dmx.arithmetic import maxrandint
+from dmx.stats._fisher_lengths import (
+    length_score_dim,
+    part_slices,
+    variable_length_score,
+)
 from dmx.stats.null_dist import (
     NullAccumulator,
     NullAccumulatorFactory,
@@ -31,6 +36,11 @@ from dmx.stats.pdist import (
     SequenceEncodableProbabilityDistribution,
     SequenceEncodableStatisticAccumulator,
     StatisticAccumulatorFactory,
+)
+from dmx.utils.fisher import (
+    FisherScoreArray,
+    FisherScoreOptions,
+    resolve_fisher_options,
 )
 
 T = TypeVar("T")  # Data type of Sequence distribution dist.
@@ -188,6 +198,69 @@ class SequenceDistribution(SequenceEncodableProbabilityDistribution):
             ll_sum += nll
 
         return ll_sum
+
+    def seq_fisher_score(
+        self,
+        x: "SequenceEncodedDataSequence",
+        options: Optional[FisherScoreOptions] = None,
+    ) -> FisherScoreArray:
+        """Return ``[sum_t s_elem(x_t) / scale(n), s_len(n)]`` for each sequence.
+
+        ``options.sequence_scaling`` sets ``scale(n)``: ``"conditional"`` uses
+        ``sqrt(n)``, whitening the block given the observed length (a record with
+        ``n = 0`` gets a zero block); ``"marginal"`` uses ``sqrt(E[n])`` under
+        ``len_dist``, so longer records sit farther out. The length block is
+        ``len_dist``'s own score, omitted when ``len_dist`` is null.
+        ``len_normalized`` does not change the score.
+
+        Args:
+            x: Encoded sequence containing ``N`` sequences.
+            options: Score options, also passed to ``dist`` and ``len_dist``.
+
+        Returns:
+            Array, or CSR if the element score is sparse, of shape
+            ``(N, fisher_dim(options))``.
+
+        Raises:
+            TypeError: If ``x`` is not a SequenceEncodedDataSequence.
+            ValueError: If marginal scaling is requested and the mean of
+                ``len_dist`` is unknown.
+        """
+        if not isinstance(x, SequenceEncodedDataSequence):
+            raise TypeError(
+                "SequenceDistribution.seq_fisher_score() requires "
+                "SequenceEncodedDataSequence."
+            )
+        opts = resolve_fisher_options(options)
+        # The second field holds 1 / n, so count the elements of each sequence.
+        idx, inv_lengths, _, enc_seq, enc_nseq = x.data
+        lengths = np.bincount(idx, minlength=len(inv_lengths))
+        element_dim = self.dist.fisher_dim(opts)
+        if len(idx) > 0 and element_dim > 0:
+            element_scores = self.dist.seq_fisher_score(enc_seq, opts)
+        else:
+            element_scores = np.zeros((len(idx), element_dim))
+        return variable_length_score(
+            element_scores, idx, lengths, self.len_dist, enc_nseq, opts
+        )
+
+    def fisher_dim(self, options: Optional[FisherScoreOptions] = None) -> int:
+        """Return the element dimension plus the length dimension."""
+        return int(self.dist.fisher_dim(options)) + length_score_dim(
+            self.len_dist, options
+        )
+
+    def fisher_field_slices(
+        self, options: Optional[FisherScoreOptions] = None
+    ) -> Dict[str, slice]:
+        """Map ``"elements"`` and ``"length"`` to their score columns."""
+        return part_slices(
+            self,
+            [
+                ("elements", self.dist.fisher_dim(options)),
+                ("length", length_score_dim(self.len_dist, options)),
+            ],
+        )
 
     def sampler(self, seed: Optional[int] = None) -> "SequenceSampler":
         """Create a sampler, requiring a non-null length distribution."""

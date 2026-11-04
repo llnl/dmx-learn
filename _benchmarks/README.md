@@ -35,3 +35,10 @@ scoring guide across the full suite.
    search-space reduction
 
 Use these prompts as the canonical small benchmark set for testing.
+
+## Other Benchmarks
+
+- [fisher-humap.md](fisher-humap.md): numeric benchmark of Fisher-geometry
+  `humap` against posterior `humap` and raw-feature UMAP (quality, agreement
+  with the exact metric, scaling). Script and results in
+  [fisher_humap/](fisher_humap/).

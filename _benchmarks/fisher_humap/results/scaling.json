@@ -1,0 +1,116 @@
+{
+  "rows": [
+    {
+      "stage": "posterior",
+      "count": 10000,
+      "seconds": 0.002681082987692207,
+      "peak_rss_mb": 550.09375,
+      "stage_peak_increase_mb": 0.03125
+    },
+    {
+      "stage": "embed",
+      "count": 10000,
+      "seconds": 0.012375124992104247,
+      "peak_rss_mb": 574.171875,
+      "stage_peak_increase_mb": 21.421875,
+      "feature_dim": 36,
+      "nnz": 360000
+    },
+    {
+      "stage": "umap-posterior",
+      "count": 10000,
+      "error": "SpectralEmbedding does not accept missing values encoded as NaN natively. For supervised learning, you might want to consider sklearn.ensemble.HistGradientBoostingClassifier and Regressor which accept"
+    },
+    {
+      "stage": "umap-posterior-random-init",
+      "count": 10000,
+      "seconds": 10.47594616599963,
+      "peak_rss_mb": 759.703125,
+      "stage_peak_increase_mb": 208.71875
+    },
+    {
+      "stage": "umap-fisher",
+      "count": 10000,
+      "seconds": 8.576188708015252,
+      "peak_rss_mb": 746.96875,
+      "stage_peak_increase_mb": 171.4375
+    },
+    {
+      "stage": "posterior",
+      "count": 100000,
+      "seconds": 0.025486875005299225,
+      "peak_rss_mb": 564.859375,
+      "stage_peak_increase_mb": 2.515625
+    },
+    {
+      "stage": "embed",
+      "count": 100000,
+      "seconds": 0.12614762500743382,
+      "peak_rss_mb": 702.1875,
+      "stage_peak_increase_mb": 136.0625,
+      "feature_dim": 36,
+      "nnz": 3600000
+    },
+    {
+      "stage": "umap-posterior",
+      "count": 100000,
+      "error": "SpectralEmbedding does not accept missing values encoded as NaN natively. For supervised learning, you might want to consider sklearn.ensemble.HistGradientBoostingClassifier and Regressor which accept"
+    },
+    {
+      "stage": "umap-posterior-random-init",
+      "count": 100000,
+      "seconds": 21.261761416011723,
+      "peak_rss_mb": 1302.859375,
+      "stage_peak_increase_mb": 732.90625
+    },
+    {
+      "stage": "umap-fisher",
+      "count": 100000,
+      "seconds": 28.931225374981295,
+      "peak_rss_mb": 1192.8125,
+      "stage_peak_increase_mb": 494.453125
+    },
+    {
+      "stage": "posterior",
+      "count": 1000000,
+      "seconds": 0.2622541250020731,
+      "peak_rss_mb": 836.515625,
+      "stage_peak_increase_mb": 53.5625
+    },
+    {
+      "stage": "embed",
+      "count": 1000000,
+      "seconds": 1.2183669160003774,
+      "peak_rss_mb": 1410.984375,
+      "stage_peak_increase_mb": 631.390625,
+      "feature_dim": 36,
+      "nnz": 36000000
+    },
+    {
+      "stage": "umap-posterior",
+      "count": 1000000,
+      "error": "SpectralEmbedding does not accept missing values encoded as NaN natively. For supervised learning, you might want to consider sklearn.ensemble.HistGradientBoostingClassifier and Regressor which accept"
+    },
+    {
+      "stage": "umap-posterior-random-init",
+      "count": 1000000,
+      "seconds": 144.1621347500186,
+      "peak_rss_mb": 5550.296875,
+      "stage_peak_increase_mb": 4719.34375
+    },
+    {
+      "stage": "umap-fisher",
+      "count": 1000000,
+      "seconds": 391.0283774170093,
+      "peak_rss_mb": 6592.859375,
+      "stage_peak_increase_mb": 5170.0625
+    }
+  ],
+  "env": {
+    "python": "3.13.14",
+    "machine": "arm64",
+    "system": "Darwin",
+    "numpy": "2.3.5",
+    "umap": "0.5.11"
+  }
+}

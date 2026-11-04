@@ -1,0 +1,582 @@
+"""Closed-form Fisher score kernels shared by dmx.stats and dmx.bstats.
+
+This module is private: callers use ``seq_fisher_score`` on a distribution,
+and each distribution's docstring states its formula. The kernels live here
+rather than in the distribution modules because :mod:`dmx.stats` and
+:mod:`dmx.bstats` implement the same families and never import each other;
+one implementation keeps their scores identical.
+
+Kernels are pure functions of observations (NumPy arrays) and scalar
+parameters. They return the result of :func:`dmx.utils.fisher.as_score_array`
+and never import distribution classes. Add a family's kernel here when its
+issue implements the score.
+"""
+
+from __future__ import annotations
+
+from typing import Any, Optional, cast
+
+import numpy as np
+from scipy.linalg import solve_triangular
+from scipy.sparse import csr_matrix
+from scipy.sparse import hstack as sparse_hstack
+from scipy.sparse import issparse
+
+from dmx.utils.fisher import FisherScoreArray, as_score_array
+from dmx.utils.special import digamma, trigamma
+
+_SQRT_HALF = float(np.sqrt(0.5))
+
+# Shape above which trigamma(k) - 1/k is taken from its asymptotic series.
+_TRIGAMMA_SERIES_SHAPE = 50.0
+
+
+def gaussian_score(x: Any, mu: float, sigma2: float) -> np.ndarray:
+    """Return the whitened score of a univariate Gaussian.
+
+    With ``u = (x - mu) / sigma`` the score is ``[u, (u^2 - 1) / sqrt(2)]``:
+    the location and scale directions, each with unit variance and
+    uncorrelated under the Gaussian.
+
+    Args:
+        x: Observations, shape ``(N,)``.
+        mu: Mean.
+        sigma2: Positive variance.
+
+    Returns:
+        Array of shape ``(N, 2)``.
+    """
+    u = (np.asarray(x, dtype=np.float64) - mu) / np.sqrt(sigma2)
+    return as_score_array(np.column_stack((u, (u * u - 1.0) * _SQRT_HALF)), 2)
+
+
+def exponential_score(x: Any, beta: float) -> np.ndarray:
+    """Return the whitened score of an exponential distribution with mean ``beta``.
+
+    The score is ``x / beta - 1``.
+
+    Args:
+        x: Nonnegative observations, shape ``(N,)``.
+        beta: Positive mean (scale).
+
+    Returns:
+        Array of shape ``(N, 1)``.
+    """
+    return as_score_array(np.asarray(x, dtype=np.float64) / beta - 1.0, 1)
+
+
+def trigamma_minus_reciprocal(k: float) -> float:
+    """Return ``trigamma(k) - 1/k`` accurately for large ``k``.
+
+    The difference is positive for every ``k > 0`` and behaves like
+    ``1 / (2 k^2)`` for large ``k``, so subtracting the two terms directly
+    loses about ``log10(2 k)`` significant digits (relative error near
+    ``2e-10`` at ``k = 1e6``). For ``k >= 50`` the asymptotic series is used
+    instead, which stays accurate to rounding error.
+
+    Args:
+        k: Positive gamma shape.
+
+    Returns:
+        ``trigamma(k) - 1/k``.
+    """
+    if k < _TRIGAMMA_SERIES_SHAPE:
+        return float(trigamma(k)) - 1.0 / k
+    r = 1.0 / k
+    r2 = r * r
+    # 1/(2k^2) + 1/(6k^3) - 1/(30k^5) + 1/(42k^7) - 1/(30k^9), in Horner form.
+    series = 1.0 / 6.0 + r2 * (-1.0 / 30.0 + r2 * (1.0 / 42.0 - r2 / 30.0))
+    return float(r2 * (0.5 + r * series))
+
+
+def gamma_score(x: Any, log_x: Any, k: float, theta: float) -> np.ndarray:
+    """Return the whitened score of a gamma distribution with shape and scale.
+
+    The sufficient statistics ``[x, log x]`` have mean
+    ``[k theta, digamma(k) + log theta]`` and covariance
+    ``[[k theta^2, theta], [theta, trigamma(k)]]``. The score is
+    ``L^{-1} (T - mean)`` for the lower Cholesky factor ``L`` of that
+    covariance:
+
+    - ``s1 = (x - k theta) / (sqrt(k) theta)``
+    - ``s2 = (log x - digamma(k) - log theta - s1 / sqrt(k))
+      / sqrt(trigamma(k) - 1/k)``
+
+    Args:
+        x: Positive observations, shape ``(N,)``.
+        log_x: ``log(x)``, shape ``(N,)``, as stored by the gamma encoder.
+        k: Positive shape.
+        theta: Positive scale.
+
+    Returns:
+        Array of shape ``(N, 2)``.
+    """
+    sqrt_k = np.sqrt(k)
+    s1 = (np.asarray(x, dtype=np.float64) - k * theta) / (sqrt_k * theta)
+    centered_log = np.asarray(log_x, dtype=np.float64) - (digamma(k) + np.log(theta))
+    s2 = (centered_log - s1 / sqrt_k) / np.sqrt(trigamma_minus_reciprocal(k))
+    return as_score_array(np.column_stack((s1, s2)), 2)
+
+
+def clamp_probability(p: float, floor: float) -> float:
+    """Return ``p`` clipped to ``[floor, 1 - floor]``.
+
+    Count and binary scores divide by ``sqrt(p (1 - p))`` or similar, which
+    is zero at the ends of the parameter range; clipping keeps them finite.
+
+    Args:
+        p: Probability parameter.
+        floor: Lower bound, typically ``FisherScoreOptions.prob_floor``.
+
+    Returns:
+        The clipped probability.
+    """
+    return min(max(float(p), floor), 1.0 - floor)
+
+
+def bernoulli_score(x: Any, p: float, floor: float = 1.0e-6) -> np.ndarray:
+    """Return the whitened Bernoulli score ``(x - p) / sqrt(p (1 - p))``.
+
+    Args:
+        x: Observations in ``{0, 1}``, shape ``(N,)``.
+        p: Success probability, clipped with :func:`clamp_probability`.
+        floor: Probability floor used for clipping.
+
+    Returns:
+        Array of shape ``(N, 1)``.
+    """
+    p = clamp_probability(p, floor)
+    rv = (np.asarray(x, dtype=np.float64) - p) / np.sqrt(p * (1.0 - p))
+    return as_score_array(rv, 1)
+
+
+def poisson_score(x: Any, lam: float, floor: float = 1.0e-6) -> np.ndarray:
+    """Return the whitened Poisson score ``(x - lam) / sqrt(lam)``.
+
+    Args:
+        x: Nonnegative counts, shape ``(N,)``.
+        lam: Rate; values below ``floor`` are raised to ``floor``.
+        floor: Smallest rate used.
+
+    Returns:
+        Array of shape ``(N, 1)``.
+    """
+    lam = max(float(lam), floor)
+    return as_score_array((np.asarray(x, dtype=np.float64) - lam) / np.sqrt(lam), 1)
+
+
+def geometric_score(x: Any, p: float, floor: float = 1.0e-6) -> np.ndarray:
+    """Return the whitened score of a geometric distribution on ``1, 2, ...``.
+
+    The count ``x`` has mean ``1 / p`` and variance ``(1 - p) / p^2``, so the
+    score is ``(p x - 1) / sqrt(1 - p)``.
+
+    Args:
+        x: Counts of trials up to and including the first success, shape
+            ``(N,)``.
+        p: Success probability, clipped with :func:`clamp_probability`.
+        floor: Probability floor used for clipping.
+
+    Returns:
+        Array of shape ``(N, 1)``.
+    """
+    p = clamp_probability(p, floor)
+    rv = (p * np.asarray(x, dtype=np.float64) - 1.0) / np.sqrt(1.0 - p)
+    return as_score_array(rv, 1)
+
+
+def binomial_score(y: Any, n: int, p: float, floor: float = 1.0e-6) -> np.ndarray:
+    """Return the whitened binomial score ``(y - n p) / sqrt(n p (1 - p))``.
+
+    With ``n = 0`` every observation is the same and carries no information,
+    so the score is zero.
+
+    Args:
+        y: Success counts in ``0..n``, shape ``(N,)``.
+        n: Number of trials.
+        p: Success probability, clipped with :func:`clamp_probability`.
+        floor: Probability floor used for clipping.
+
+    Returns:
+        Array of shape ``(N, 1)``.
+    """
+    y = np.asarray(y, dtype=np.float64)
+    if n <= 0:
+        return as_score_array(np.zeros_like(y), 1)
+    p = clamp_probability(p, floor)
+    return as_score_array((y - n * p) / np.sqrt(n * p * (1.0 - p)), 1)
+
+
+def categorical_probabilities(weights: Any, floor: float) -> np.ndarray:
+    """Return level probabilities floored at ``floor`` and normalized.
+
+    Flooring keeps ``1 / sqrt(q)`` finite for rare or zero-weight levels;
+    normalizing afterwards keeps ``sqrt(q)`` a unit vector, so the dense score
+    still has a projector covariance.
+
+    Args:
+        weights: Nonnegative level weights, shape ``(C,)``.
+        floor: Smallest probability before normalizing.
+
+    Returns:
+        Probabilities of shape ``(C,)`` that sum to one.
+    """
+    q = np.maximum(np.asarray(weights, dtype=np.float64), floor)
+    return np.asarray(q / q.sum())
+
+
+def categorical_score(
+    index: Any, probs: Any, floor: float, dense_limit: int
+) -> FisherScoreArray:
+    """Return the whitened score of categorical observations.
+
+    With level probabilities ``q`` (from :func:`categorical_probabilities`),
+    the dense score is ``e_x / sqrt(q_x) - sqrt(q)``. Its covariance is the
+    projector ``I - sqrt(q) sqrt(q)^T`` and two different levels ``a`` and
+    ``b`` are ``1/q_a + 1/q_b`` apart in squared distance.
+
+    Above ``dense_limit`` levels the offset-free form ``e_x / sqrt(q_x)`` is
+    returned as a CSR matrix with one nonzero per row. It differs from the
+    dense form only by the constant ``sqrt(q)``, so distances between rows of
+    the same distribution are unchanged.
+
+    An observation with ``index == -1`` has zero probability under the
+    distribution (no level matches it). Its row is the "no level" row:
+    ``-sqrt(q)`` in the dense form, empty in the sparse form. Such records
+    get zero posterior weight for this component, so the row only needs to
+    be finite.
+
+    Args:
+        index: Level index of each observation in ``0..C-1``, or ``-1``,
+            shape ``(N,)``.
+        probs: Level weights, shape ``(C,)``.
+        floor: Probability floor.
+        dense_limit: Largest number of levels returned densely.
+
+    Returns:
+        Float64 array, or CSR matrix above ``dense_limit`` levels, of shape
+        ``(N, C)``.
+    """
+    q = categorical_probabilities(probs, floor)
+    index = np.asarray(index, dtype=np.intp)
+    n, num_levels = len(index), len(q)
+    rows = np.flatnonzero(index >= 0)
+    cols = index[rows]
+    values = 1.0 / np.sqrt(q[cols])
+    if num_levels > dense_limit:
+        return csr_matrix((values, (rows, cols)), shape=(n, num_levels))
+    scores = np.tile(-np.sqrt(q), (n, 1))
+    scores[rows, cols] += values
+    return as_score_array(scores, num_levels)
+
+
+def _gaussian_scale_block(u: np.ndarray) -> np.ndarray:
+    """Return the whitened covariance score of standardized Gaussian rows ``u``.
+
+    Columns run over the upper triangle ``i <= j`` in row-major order:
+    ``(u_i^2 - 1) / sqrt(2)`` on the diagonal and ``u_i u_j`` off it. For
+    ``u ~ N(0, I)`` these have unit variance and are uncorrelated with each
+    other and with ``u``.
+    """
+    rows, cols = np.triu_indices(u.shape[1])
+    block = u[:, rows] * u[:, cols]
+    diagonal = rows == cols
+    block[:, diagonal] = (block[:, diagonal] - 1.0) * _SQRT_HALF
+    return np.asarray(block)
+
+
+def mvn_score(
+    x: Any, mu: Any, chol_lower: Any, location_only: bool = False
+) -> np.ndarray:
+    """Return the whitened score of a multivariate Gaussian.
+
+    With ``u = L^{-1} (x - mu)`` for the lower Cholesky factor ``L`` of the
+    covariance, the score is ``u`` followed, unless ``location_only``, by the
+    scale block from :func:`_gaussian_scale_block`.
+
+    Args:
+        x: Observations, shape ``(N, d)``.
+        mu: Mean, shape ``(d,)``.
+        chol_lower: Lower Cholesky factor of the covariance, shape ``(d, d)``.
+        location_only: Return only the location block.
+
+    Returns:
+        Array of shape ``(N, d)`` with ``location_only``, else
+        ``(N, d + d (d + 1) / 2)``.
+    """
+    centered = np.asarray(x, dtype=np.float64) - np.asarray(mu, dtype=np.float64)
+    u = whiten_rows(centered, chol_lower)
+    dim = u.shape[1]
+    if location_only:
+        return as_score_array(u, dim)
+    return as_score_array(
+        np.hstack((u, _gaussian_scale_block(u))), dim + dim * (dim + 1) // 2
+    )
+
+
+def diagonal_gaussian_score(
+    x: Any, mu: Any, variances: Any, location_only: bool = False
+) -> np.ndarray:
+    """Return the whitened score of a Gaussian with diagonal covariance.
+
+    With ``u = (x - mu) / sigma`` per dimension, the score is ``u`` followed,
+    unless ``location_only``, by ``(u^2 - 1) / sqrt(2)``: the univariate
+    Gaussian score of each dimension, grouped as all location columns, then
+    all scale columns.
+
+    Args:
+        x: Observations, shape ``(N, d)``.
+        mu: Means, shape ``(d,)``.
+        variances: Positive variances, shape ``(d,)``.
+        location_only: Return only the location columns.
+
+    Returns:
+        Array of shape ``(N, d)`` with ``location_only``, else ``(N, 2 d)``.
+    """
+    u = (np.asarray(x, dtype=np.float64) - np.asarray(mu, dtype=np.float64)) / (
+        np.sqrt(np.asarray(variances, dtype=np.float64))
+    )
+    dim = u.shape[1]
+    if location_only:
+        return as_score_array(u, dim)
+    return as_score_array(np.hstack((u, (u * u - 1.0) * _SQRT_HALF)), 2 * dim)
+
+
+def dirichlet_score(log_x: Any, alpha: Any) -> np.ndarray:
+    """Return the whitened score of a Dirichlet distribution.
+
+    The sufficient statistics ``log x`` have mean
+    ``digamma(alpha) - digamma(alpha_0)`` and covariance
+    ``diag(trigamma(alpha)) - trigamma(alpha_0)``, with
+    ``alpha_0 = sum(alpha)``. The score is ``L^{-1} (log x - mean)`` for the
+    lower Cholesky factor ``L`` of that covariance.
+
+    Args:
+        log_x: ``log`` of the simplex observations, shape ``(N, d)``.
+        alpha: Positive concentration parameters, shape ``(d,)``.
+
+    Returns:
+        Array of shape ``(N, d)``.
+    """
+    alpha = np.asarray(alpha, dtype=np.float64)
+    alpha_0 = float(alpha.sum())
+    mean = digamma(alpha) - digamma(alpha_0)
+    covariance = np.diag(trigamma(alpha)) - trigamma(alpha_0)
+    chol_lower = np.linalg.cholesky(covariance)
+    centered = np.asarray(log_x, dtype=np.float64) - mean
+    u = whiten_rows(centered, chol_lower)
+    return as_score_array(u, len(alpha))
+
+
+def whiten_rows(centered: np.ndarray, chol_lower: np.ndarray) -> np.ndarray:
+    """Return ``L^{-1} c`` for each row ``c`` of ``centered``.
+
+    Multiplies by the precomputed inverse with :func:`numpy.einsum` rather
+    than a multi-right-hand-side triangular solve, whose LAPACK blocking makes
+    a row's rounding depend on how many rows are solved together. Each row is
+    then the same however records are chunked or split across processes.
+    """
+    inverse = solve_triangular(
+        chol_lower, np.eye(chol_lower.shape[0]), lower=True, check_finite=False
+    )
+    return np.asarray(np.einsum("ij,kj->ik", centered, inverse, optimize=False))
+
+
+# --- Combinator helpers ------------------------------------------------------
+
+
+def place_rows(scores: FisherScoreArray, rows: Any, n: int) -> FisherScoreArray:
+    """Scatter score rows into an ``n``-row matrix, leaving other rows zero.
+
+    Args:
+        scores: Scores of shape ``(len(rows), d)``, dense or CSR.
+        rows: Destination row of each score row.
+        n: Number of rows in the result.
+
+    Returns:
+        Scores of shape ``(n, d)``, CSR if ``scores`` is sparse.
+    """
+    rows = np.asarray(rows, dtype=np.intp)
+    if issparse(scores):
+        coo = cast(Any, scores).tocoo()
+        return csr_matrix((coo.data, (rows[coo.row], coo.col)), shape=(n, coo.shape[1]))
+    dense = np.asarray(scores, dtype=np.float64)
+    out = np.zeros((n, dense.shape[1]))
+    out[rows] = dense
+    return out
+
+
+def hstack_scores(blocks: list, n: int) -> FisherScoreArray:
+    """Concatenate score blocks column-wise; CSR if any block is sparse.
+
+    Args:
+        blocks: Score blocks, each with ``n`` rows, dense or CSR.
+        n: Number of rows, used when ``blocks`` is empty.
+
+    Returns:
+        Scores with ``n`` rows and the blocks' columns side by side.
+    """
+    if not blocks:
+        return np.zeros((n, 0))
+    if any(issparse(block) for block in blocks):
+        return csr_matrix(sparse_hstack(blocks, format="csr", dtype=np.float64))
+    return np.ascontiguousarray(np.hstack(blocks), dtype=np.float64)
+
+
+def scale_columns(scores: FisherScoreArray, weights: Any) -> FisherScoreArray:
+    """Multiply each score column by a weight, preserving dense or CSR form."""
+    weights = np.asarray(weights, dtype=np.float64)
+    if issparse(scores):
+        return csr_matrix(cast(Any, scores).multiply(weights[None, :]))
+    return np.asarray(scores) * weights
+
+
+def optional_score(
+    child_scores: FisherScoreArray,
+    missing: Any,
+    present: Any,
+    n: int,
+    missing_prob: Optional[float],
+    floor: float,
+) -> FisherScoreArray:
+    """Return the whitened score of a distribution with missing values.
+
+    With missing probability ``q`` and missing indicator ``m`` the score is
+    ``[(m - q) / sqrt(q (1 - q)), (1 - m) s_child / sqrt(1 - q)]``: the
+    child's score is scaled by ``1 / sqrt(1 - q)`` because it is observed
+    with probability ``1 - q``, and missing rows have a zero child block.
+    When ``q`` is None (missingness not modeled) or zero, the indicator
+    column is dropped and the child block is not rescaled.
+
+    Args:
+        child_scores: Child scores of the present rows, shape
+            ``(len(present), d)``, dense or CSR.
+        missing: Row indices of missing observations.
+        present: Row indices of present observations.
+        n: Total number of observations.
+        missing_prob: Missing probability ``q``, or None.
+        floor: Probability floor used to clip ``q``.
+
+    Returns:
+        Scores of shape ``(n, d)`` or ``(n, d + 1)``, CSR if the child's are.
+    """
+    child_block = place_rows(child_scores, present, n)
+    if missing_prob is None or missing_prob <= 0.0:
+        return child_block
+    q = clamp_probability(missing_prob, floor)
+    indicator = np.zeros(n)
+    indicator[np.asarray(missing, dtype=np.intp)] = 1.0
+    return hstack_scores(
+        [
+            bernoulli_score(indicator, q, floor),
+            scale_columns(
+                child_block, np.full(child_block.shape[1], 1.0 / np.sqrt(1.0 - q))
+            ),
+        ],
+        n,
+    )
+
+
+def sum_rows(
+    scores: FisherScoreArray, owner: Any, n: int, weights: Optional[Any] = None
+) -> FisherScoreArray:
+    """Sum score rows into ``n`` groups, optionally weighting each row.
+
+    Args:
+        scores: Element scores of shape ``(M, d)``, dense or CSR.
+        owner: Group (record) index of each element row, shape ``(M,)``.
+        n: Number of groups.
+        weights: Optional weight of each element row, such as a count.
+
+    Returns:
+        Group sums of shape ``(n, d)``, CSR if ``scores`` is sparse.
+    """
+    owner = np.asarray(owner, dtype=np.intp)
+    w = np.ones(len(owner)) if weights is None else np.asarray(weights, float)
+    aggregate = csr_matrix((w, (owner, np.arange(len(owner)))), shape=(n, len(owner)))
+    total = aggregate @ scores
+    if issparse(total):
+        return csr_matrix(total)
+    return np.ascontiguousarray(total, dtype=np.float64)
+
+
+def scale_rows(scores: FisherScoreArray, weights: Any) -> FisherScoreArray:
+    """Multiply each score row by a weight, preserving dense or CSR form."""
+    weights = np.asarray(weights, dtype=np.float64)
+    if issparse(scores):
+        return csr_matrix(cast(Any, scores).multiply(weights[:, None]))
+    return np.asarray(scores) * weights[:, None]
+
+
+def length_weights(
+    lengths: Any, scaling: str, mean_length: Optional[float] = None
+) -> np.ndarray:
+    """Return the per-record factor applied to a summed element score.
+
+    A sum of ``n`` independent whitened element scores has covariance
+    ``n I``. ``"conditional"`` divides it by ``sqrt(n)``, whitening it given
+    the observed length (records with ``n = 0`` get a zero block).
+    ``"marginal"`` divides by ``sqrt(E[n])``, whitening it on average, so
+    longer records are farther from the origin.
+
+    Args:
+        lengths: Length (or total count) of each record, shape ``(N,)``.
+        scaling: ``"conditional"`` or ``"marginal"``.
+        mean_length: ``E[n]`` under the length distribution; required for
+            ``"marginal"``.
+
+    Returns:
+        Factors of shape ``(N,)``.
+
+    Raises:
+        ValueError: If ``"marginal"`` is requested without a positive
+            ``mean_length``.
+    """
+    lengths = np.asarray(lengths, dtype=np.float64)
+    if scaling == "marginal":
+        if mean_length is None or mean_length <= 0.0:
+            raise ValueError(
+                "Marginal sequence scaling needs a positive mean length, "
+                f"got {mean_length!r}."
+            )
+        return np.full(len(lengths), 1.0 / np.sqrt(mean_length))
+    weights = np.zeros(len(lengths))
+    positive = lengths > 0
+    weights[positive] = 1.0 / np.sqrt(lengths[positive])
+    return weights
+
+
+def bernoulli_set_score(
+    owner: Any, member: Any, n: int, probs: Any, floor: float, dense_limit: int
+) -> FisherScoreArray:
+    """Return the whitened score of independent element inclusions.
+
+    Element ``e`` is in the set with probability ``p_e``; its score column is
+    ``(1[e in set] - p_e) / sqrt(p_e (1 - p_e))``. Above ``dense_limit``
+    elements the offset-free form ``1[e in set] / sqrt(p_e (1 - p_e))`` is
+    returned as CSR, which differs from the dense form by a constant.
+
+    Args:
+        owner: Record index of each observed (record, element) pair.
+        member: Element column of each pair, or ``-1`` for an element outside
+            the support (ignored).
+        n: Number of records.
+        probs: Inclusion probabilities, shape ``(C,)``, clipped to
+            ``[floor, 1 - floor]``.
+        floor: Probability floor.
+        dense_limit: Largest number of elements returned densely.
+
+    Returns:
+        Float64 array, or CSR above ``dense_limit``, of shape ``(n, C)``.
+    """
+    p = np.clip(np.asarray(probs, dtype=np.float64), floor, 1.0 - floor)
+    inv_sd = 1.0 / np.sqrt(p * (1.0 - p))
+    owner = np.asarray(owner, dtype=np.intp)
+    member = np.asarray(member, dtype=np.intp)
+    keep = member >= 0
+    rows, cols = owner[keep], member[keep]
+    if len(p) > dense_limit:
+        return csr_matrix((inv_sd[cols], (rows, cols)), shape=(n, len(p)))
+    scores = np.tile(-p * inv_sd, (n, 1))
+    scores[rows, cols] += inv_sd[cols]
+    return as_score_array(scores, len(p))

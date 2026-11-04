@@ -28,6 +28,12 @@ from dmx.bstats.pdist import (
     SequenceEncodableAccumulator,
     StatisticAccumulatorFactory,
 )
+from dmx.utils._fisher_kernels import categorical_score
+from dmx.utils.fisher import (
+    FisherScoreArray,
+    FisherScoreOptions,
+    resolve_fisher_options,
+)
 from dmx.utils.special import digamma
 
 # Legacy bstats implementations are intentionally concrete protocol classes.
@@ -169,6 +175,43 @@ class CategoricalDistribution(
             [self.expected_log_density(level) for level in levels], dtype=float
         )
         return mapped[indices]
+
+    def seq_fisher_score(
+        self,
+        x: CategoricalEncoded,
+        options: Optional[FisherScoreOptions] = None,
+    ) -> FisherScoreArray:
+        """Return the plug-in whitened categorical one-hot score.
+
+        Columns follow ``get_parameters()`` insertion order, with a trailing
+        unseen-level column when ``default_value > 0``. Unknown observations
+        use that column, or the kernel's finite absent-level row when the
+        escape mass is zero. Expected scores integrated over the parameter
+        posterior are future work.
+        """
+        opts = resolve_fisher_options(options)
+        indices, levels = x
+        parameters = self.get_parameters()
+        position = {level: index for index, level in enumerate(parameters)}
+        weights = list(parameters.values())
+        absent = -1
+        if self.default_value > 0.0:
+            absent = len(weights)
+            weights.append(self.default_value)
+        level_indices = np.asarray(
+            [position.get(level, absent) for level in levels], dtype=np.intp
+        )
+        return categorical_score(
+            level_indices[indices],
+            weights,
+            opts.prob_floor,
+            opts.dense_category_limit,
+        )
+
+    def fisher_dim(self, options: Optional[FisherScoreOptions] = None) -> int:
+        """Return explicit levels plus an optional unseen-level column."""
+        del options
+        return len(self.get_parameters()) + (1 if self.default_value > 0.0 else 0)
 
     def seq_encode(self, x: Iterable[Key]) -> CategoricalEncoded:
         """Encode values as inverse indices and unique levels.

@@ -42,6 +42,11 @@ from numpy.random import RandomState
 
 import dmx.utils.vector as vec
 from dmx.arithmetic import maxrandint
+from dmx.stats._fisher_latent import (
+    nested_mixture_dim,
+    nested_mixture_score,
+    nested_mixture_slices,
+)
 from dmx.stats.pdist import (
     DataSequenceEncoder,
     DistributionSampler,
@@ -51,6 +56,7 @@ from dmx.stats.pdist import (
     SequenceEncodableStatisticAccumulator,
     StatisticAccumulatorFactory,
 )
+from dmx.utils.fisher import FisherScoreOptions, resolve_fisher_options
 
 T = TypeVar("T")
 
@@ -306,6 +312,61 @@ class HeterogeneousMixtureDistribution(SequenceEncodableProbabilityDistribution)
         ll_mat /= ll_max
 
         return np.asarray(ll_mat, dtype=float)
+
+    def seq_fisher_score(
+        self,
+        x: "HeterogeneousMixtureEncodedDataSequence",
+        options: Optional[FisherScoreOptions] = None,
+    ) -> np.ndarray:
+        """Return the whitened score of this mixture used as a component.
+
+        For a mixture nested inside another model (for example a composite
+        field), the score stacks the weight block ``(z_j - w_j) / sqrt(w_j)``
+        and the component blocks ``z_j s_j(x) / sqrt(w_j)``, then whitens the
+        result with its covariance over ``options.whitening_samples`` draws
+        from this mixture (seed ``options.whitening_seed``), so it depends only
+        on the model. The covariance is a projector of rank
+        ``fisher_dim(options) - 1``. A top-level mixture embedding uses the
+        posteriors and component scores directly instead.
+
+        Args:
+            x: Encoded sequence containing ``N`` observations.
+            options: Score options, also passed to the components.
+
+        Returns:
+            Array of shape ``(N, fisher_dim(options))``.
+
+        Raises:
+            TypeError: If ``x`` is not a HeterogeneousMixtureEncodedDataSequence.
+            NotImplementedError: If a component has no score and
+                ``options.on_missing == "raise"``.
+        """
+        if not isinstance(x, HeterogeneousMixtureEncodedDataSequence):
+            raise TypeError(
+                "HeterogeneousMixtureDistribution.seq_fisher_score() requires "
+                "HeterogeneousMixtureEncodedDataSequence."
+            )
+
+        def component_data(encoded: Any, j: int) -> Any:
+            tag_list, enc_data = encoded.data
+            for tag, members in enumerate(tag_list):
+                if j in members:
+                    return enc_data[tag]
+            raise ValueError(f"Component {j} has no encoded data.")
+
+        return nested_mixture_score(
+            self, x, component_data, resolve_fisher_options(options)
+        )
+
+    def fisher_dim(self, options: Optional[FisherScoreOptions] = None) -> int:
+        """Return ``J`` plus the components' score dimensions."""
+        return nested_mixture_dim(self, resolve_fisher_options(options))
+
+    def fisher_field_slices(
+        self, options: Optional[FisherScoreOptions] = None
+    ) -> Dict[str, slice]:
+        """Map ``"weights"`` and ``"component_<j>"`` to their score columns."""
+        return nested_mixture_slices(self, resolve_fisher_options(options))
 
     def sampler(self, seed: Optional[int] = None) -> "HeterogeneousMixtureSampler":
         """Return a HeterogeneousMixtureSampler for this distribution.

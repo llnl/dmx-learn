@@ -29,6 +29,8 @@ from dmx.stats.pdist import (
     SequenceEncodableStatisticAccumulator,
     StatisticAccumulatorFactory,
 )
+from dmx.utils._fisher_kernels import diagonal_gaussian_score
+from dmx.utils.fisher import FisherScoreOptions, resolve_fisher_options
 
 
 class DiagonalGaussianDistribution(SequenceEncodableProbabilityDistribution):
@@ -131,6 +133,46 @@ class DiagonalGaussianDistribution(SequenceEncodableProbabilityDistribution):
         rv += np.dot(x.data, self.cb)
         rv += self.cc
         return np.asarray(rv)
+
+    def seq_fisher_score(
+        self,
+        x: "DiagonalGaussianEncodedDataSequence",
+        options: Optional[FisherScoreOptions] = None,
+    ) -> np.ndarray:
+        """Return the whitened per-dimension Gaussian score of each observation.
+
+        With ``u = (x - mu) / sqrt(covar)`` per dimension, the score is all
+        location columns ``u`` followed by all scale columns
+        ``(u^2 - 1) / sqrt(2)``. ``options.location_only`` keeps only ``u``,
+        which drops scale information; it is the recommended setting when
+        ``d`` is large.
+
+        Args:
+            x: Encoded sequence containing ``N`` observations of dimension ``d``.
+            options: Score options; ``location_only`` is used.
+
+        Returns:
+            Array of shape ``(N, fisher_dim(options))``.
+
+        Raises:
+            TypeError: If ``x`` is not a DiagonalGaussianEncodedDataSequence.
+        """
+        if not isinstance(x, DiagonalGaussianEncodedDataSequence):
+            raise TypeError(
+                "DiagonalGaussianDistribution.seq_fisher_score() requires "
+                "DiagonalGaussianEncodedDataSequence."
+            )
+        return diagonal_gaussian_score(
+            x.data,
+            self.mu,
+            self.covar,
+            location_only=resolve_fisher_options(options).location_only,
+        )
+
+    def fisher_dim(self, options: Optional[FisherScoreOptions] = None) -> int:
+        """Return ``d``, or ``2 d`` with the scale columns."""
+        location_only = resolve_fisher_options(options).location_only
+        return int(self.dim if location_only else 2 * self.dim)
 
     def sampler(self, seed: Optional[int] = None) -> "DiagonalGaussianSampler":
         """Return a DiagonalGaussianSampler for this distribution.

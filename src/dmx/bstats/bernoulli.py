@@ -27,6 +27,8 @@ from dmx.bstats.pdist import (
     StatisticAccumulator,
     StatisticAccumulatorFactory,
 )
+from dmx.utils._fisher_kernels import bernoulli_score
+from dmx.utils.fisher import FisherScoreOptions, resolve_fisher_options
 from dmx.utils.special import digamma
 
 # Legacy bstats implementations are intentionally concrete protocol classes.
@@ -145,6 +147,25 @@ class BernoulliDistribution(ProbabilityDistribution[bool, float, BernoulliEncode
         return np.where(
             x, expected_true - expected_total, expected_false - expected_total
         ).astype(float)
+
+    def seq_fisher_score(
+        self,
+        x: BernoulliEncoded,
+        options: Optional[FisherScoreOptions] = None,
+    ) -> np.ndarray[Any, np.dtype[np.float64]]:
+        """Return the plug-in standardized Bernoulli score.
+
+        The probability is clipped by ``options.prob_floor``. Expected scores
+        integrated over the parameter posterior are future work.
+        """
+        return bernoulli_score(
+            x, self.get_parameters(), resolve_fisher_options(options).prob_floor
+        )
+
+    def fisher_dim(self, options: Optional[FisherScoreOptions] = None) -> int:
+        """Return 1 for the plug-in success-probability score."""
+        del options
+        return 1
 
     def seq_encode(self, x: Iterable[bool]) -> BernoulliEncoded:
         """Encode ``n`` observations as a boolean array of shape ``(n,)``."""

@@ -36,7 +36,8 @@ class ProgressEvent:
     Attributes:
         source: Name of the reporting function, for example ``"optimize"``.
         event: ``"start"`` with the seed used, ``"iteration"`` for one update
-            step, ``"trial"`` for the end of a restart in ``best_of``, or
+            step, ``"trial"`` for the end of a restart in ``best_of``,
+            ``"embedding"`` when ``humap`` has built Fisher features, or
             ``"result"`` for a final summary.
         iteration: One-based iteration number, when applicable.
         log_likelihood: Training log-likelihood after the step, when

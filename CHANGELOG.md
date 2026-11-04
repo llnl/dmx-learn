@@ -30,6 +30,34 @@ All notable changes to dmx-learn are recorded here.
 
 ### Added
 
+- **Fisher-geometry `humap`.** `humap(..., representation="fisher")` embeds
+  each record by its posteriors plus its whitened Fisher score under its most
+  probable components, so records are spread out by where they sit inside a
+  cluster, not only by which cluster they belong to. The default stays
+  `representation="posterior"`, and existing calls are unchanged.
+  - New keyword-only options on `humap` and `humap_mpi`: `fisher_scale`
+    (default `1 / p_eff`), `top_m` (default 3), `fisher_options`, and
+    `return_embedding`. In Fisher mode the default UMAP metric is
+    `"euclidean"`, fields are balanced by their dimension
+    (`balance_fields=True`), and the fourth return value is the sparse feature
+    matrix.
+  - `humap_transform(fit, mix_model, new_data, embedding=None)` places new
+    records in a fitted embedding.
+  - `dmx.utils.fisher`: `FisherScoreOptions`, `has_fisher_score`,
+    `FisherEmbedding`, `fisher_embedding` (chunked, with optional
+    posterior-weighted whitening and `like=` for new records), and
+    `EmpiricalFisherWhitener`.
+  - Distributions gain `seq_fisher_score`, `fisher_dim`, and
+    `fisher_field_slices`. They are implemented for the `dmx.stats` leaves,
+    combinators, variable-length families, nested mixtures and HMMs, and for
+    the `dmx.bstats` families used by the automatic DPM. Mixtures gain
+    `seq_fisher_embedding`.
+  - Distributed computation: `dmx.mpi4py.utils.fisher.fisher_embedding_mpi`
+    and `dmx.utils.spark.fisher_embedding_rdd` reproduce the local rows bit
+    for bit (without `whiten`).
+  - Docs: user guide in `docs/utils/fisher_embedding.rst`, example
+    `examples/utils_examples/humap_fisher_example.py`, and the benchmark
+    `_benchmarks/fisher-humap.md`.
 - New optional extras for upcoming features:
   - `viz`: matplotlib, for plotting helpers
   - `agent`: the official MCP Python SDK (`mcp`) plus everything in `viz`,
@@ -103,6 +131,10 @@ All notable changes to dmx-learn are recorded here.
   `resolve_seed`, `resolve_sampler_seed`, and `resolve_rng`.
 
 ### Fixed
+
+- `humap` no longer shares the module-level `DEFAULT_UMAP` dictionary with
+  UMAP when `umap_kwargs` is None, so per-call changes do not leak into later
+  calls. The unused module-level `umap_model` was removed.
 
 - The pylint quality gate passes again. A late import in `dmx.bstats` (added
   when pyspark moved to the `spark` extra) failed `pylint src/dmx/bstats`, and

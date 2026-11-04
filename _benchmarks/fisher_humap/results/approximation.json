@@ -1,0 +1,168 @@
+{
+  "count": 1000,
+  "seed": 1,
+  "rows": [
+    {
+      "scale": 0.0001,
+      "is_default": false,
+      "top_m": "all",
+      "knn_agreement": 0.9325333333333334,
+      "ratio_median": 0.9749285710045685,
+      "ratio_q05": 0.9627962489890308,
+      "ratio_q95": 0.9976703306726336
+    },
+    {
+      "scale": 0.0001,
+      "is_default": false,
+      "top_m": 3,
+      "knn_agreement": 0.9325333333333334,
+      "ratio_median": 0.9749285710045685,
+      "ratio_q05": 0.9627962489890308,
+      "ratio_q95": 0.9976703306726336
+    },
+    {
+      "scale": 0.0001,
+      "is_default": false,
+      "top_m": 1,
+      "knn_agreement": 0.9325333333333334,
+      "ratio_median": 0.9749285710082598,
+      "ratio_q05": 0.9627962489939982,
+      "ratio_q95": 0.9976703306728932
+    },
+    {
+      "scale": 0.001,
+      "is_default": false,
+      "top_m": "all",
+      "knn_agreement": 0.9264000000000001,
+      "ratio_median": 0.927446311508317,
+      "ratio_q05": 0.8951941095719086,
+      "ratio_q95": 0.9934582214092059
+    },
+    {
+      "scale": 0.001,
+      "is_default": false,
+      "top_m": 3,
+      "knn_agreement": 0.9264000000000001,
+      "ratio_median": 0.927446311508317,
+      "ratio_q05": 0.8951941095719086,
+      "ratio_q95": 0.9934582214092059
+    },
+    {
+      "scale": 0.001,
+      "is_default": false,
+      "top_m": 1,
+      "knn_agreement": 0.9264000000000001,
+      "ratio_median": 0.9274463117941262,
+      "ratio_q05": 0.8951941095719088,
+      "ratio_q95": 0.9934582238511779
+    },
+    {
+      "scale": 0.01,
+      "is_default": false,
+      "top_m": "all",
+      "knn_agreement": 0.9018000000000002,
+      "ratio_median": 0.8119131456142834,
+      "ratio_q05": 0.749617920818363,
+      "ratio_q95": 0.9885001045562138
+    },
+    {
+      "scale": 0.01,
+      "is_default": false,
+      "top_m": 3,
+      "knn_agreement": 0.9018000000000002,
+      "ratio_median": 0.8119131456142834,
+      "ratio_q05": 0.749617920818363,
+      "ratio_q95": 0.9885001045562138
+    },
+    {
+      "scale": 0.01,
+      "is_default": false,
+      "top_m": 1,
+      "knn_agreement": 0.9018000000000002,
+      "ratio_median": 0.8119131459092621,
+      "ratio_q05": 0.749617924031266,
+      "ratio_q95": 0.9885001045562145
+    },
+    {
+      "scale": 0.05,
+      "is_default": false,
+      "top_m": "all",
+      "knn_agreement": 0.8640666666666669,
+      "ratio_median": 0.6670621811444521,
+      "ratio_q05": 0.5769092766873977,
+      "ratio_q95": 1.0201833423097284
+    },
+    {
+      "scale": 0.05,
+      "is_default": false,
+      "top_m": 3,
+      "knn_agreement": 0.8640666666666669,
+      "ratio_median": 0.6670621811444521,
+      "ratio_q05": 0.5769092766873977,
+      "ratio_q95": 1.0201833423097284
+    },
+    {
+      "scale": 0.05,
+      "is_default": false,
+      "top_m": 1,
+      "knn_agreement": 0.8640666666666669,
+      "ratio_median": 0.6670621811444523,
+      "ratio_q05": 0.5769092900339026,
+      "ratio_q95": 1.020183342444042
+    },
+    {
+      "scale": 0.09090909090909091,
+      "is_default": true,
+      "top_m": "all",
+      "knn_agreement": 0.8370000000000002,
+      "ratio_median": 0.6020395501527089,
+      "ratio_q05": 0.4619672453822276,
+      "ratio_q95": 1.0877650542921922
+    },
+    {
+      "scale": 0.09090909090909091,
+      "is_default": true,
+      "top_m": 3,
+      "knn_agreement": 0.8370000000000002,
+      "ratio_median": 0.6020395501527089,
+      "ratio_q05": 0.4619672453822276,
+      "ratio_q95": 1.0877650542921922
+    },
+    {
+      "scale": 0.09090909090909091,
+      "is_default": true,
+      "top_m": 1,
+      "knn_agreement": 0.8370000000000002,
+      "ratio_median": 0.602039550171338,
+      "ratio_q05": 0.4619672770471781,
+      "ratio_q95": 1.0877650684630857
+    },
+    {
+      "scale": 0.2,
+      "is_default": false,
+      "top_m": "all",
+      "knn_agreement": 0.7092,
+      "ratio_median": 0.4898916337471304,
+      "ratio_q05": 0.27080757569900693,
+      "ratio_q95": 1.7093768223747472
+    },
+    {
+      "scale": 0.2,
+      "is_default": false,
+      "top_m": 3,
+      "knn_agreement": 0.7092,
+      "ratio_median": 0.4898916337471304,
+      "ratio_q05": 0.27080757569900693,
+      "ratio_q95": 1.7093768223747472
+    },
+    {
+      "scale": 0.2,
+      "is_default": false,
+      "top_m": 1,
+      "knn_agreement": 0.7092,
+      "ratio_median": 0.4898916337471309,
+      "ratio_q05": 0.2708075757148399,
+      "ratio_q95": 1.7093768223748385
+    }
+  ]
+}

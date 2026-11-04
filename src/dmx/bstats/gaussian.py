@@ -25,6 +25,8 @@ from dmx.bstats.pdist import (
     StatisticAccumulator,
     StatisticAccumulatorFactory,
 )
+from dmx.utils._fisher_kernels import gaussian_score
+from dmx.utils.fisher import FisherScoreOptions
 from dmx.utils.special import digamma
 
 # Legacy bstats implementations are concrete protocol classes.
@@ -137,6 +139,24 @@ class GaussianDistribution(ProbabilityDistribution[float, GaussianParameters, Ar
         expected_const, base_const, linear, quadratic = self.expected_nparams
         result = x * (linear + x * quadratic) - expected_const + base_const
         return np.where(np.isfinite(x), result, -np.inf).astype(float)
+
+    def seq_fisher_score(
+        self, x: Array, options: Optional[FisherScoreOptions] = None
+    ) -> Array:
+        """Return the plug-in whitened Gaussian score.
+
+        With ``u = (x - mu) / sigma``, the score is
+        ``[u, (u**2 - 1) / sqrt(2)]``. Expected scores integrated over the
+        parameter posterior are future work.
+        """
+        del options
+        mu, sigma2 = self.get_parameters()
+        return gaussian_score(x, mu, sigma2)
+
+    def fisher_dim(self, options: Optional[FisherScoreOptions] = None) -> int:
+        """Return 2 for the plug-in location and scale score columns."""
+        del options
+        return 2
 
     def sampler(self, seed: Optional[int] = None) -> "GaussianSampler":
         """Create a repeatable Gaussian sampler."""

@@ -20,6 +20,8 @@ from dmx.stats.pdist import (
     SequenceEncodableStatisticAccumulator,
     StatisticAccumulatorFactory,
 )
+from dmx.utils._fisher_kernels import poisson_score
+from dmx.utils.fisher import FisherScoreOptions, resolve_fisher_options
 from dmx.utils.vector import gammaln
 
 
@@ -111,6 +113,38 @@ class PoissonDistribution(SequenceEncodableProbabilityDistribution):
         rv -= x.data[1]
         rv -= self.lam
         return np.asarray(rv)
+
+    def seq_fisher_score(
+        self,
+        x: "PoissonEncodedDataSequence",
+        options: Optional[FisherScoreOptions] = None,
+    ) -> np.ndarray:
+        """Return the whitened score ``(x - lam) / sqrt(lam)`` of each count.
+
+        Degenerate parameters are clipped with ``options.prob_floor`` so the
+        score stays finite.
+
+        Args:
+            x: Encoded sequence containing ``N`` observations.
+            options: Score options; only ``prob_floor`` is used.
+
+        Returns:
+            Array of shape ``(N, 1)``.
+
+        Raises:
+            TypeError: If ``x`` is not a PoissonEncodedDataSequence.
+        """
+        if not isinstance(x, PoissonEncodedDataSequence):
+            raise TypeError(
+                "PoissonDistribution.seq_fisher_score() requires "
+                "PoissonEncodedDataSequence."
+            )
+        floor = resolve_fisher_options(options).prob_floor
+        return poisson_score(x.data[0], self.lam, floor)
+
+    def fisher_dim(self, options: Optional[FisherScoreOptions] = None) -> int:
+        """Return 1: the Poisson has one parameter."""
+        return 1
 
     def sampler(self, seed: Optional[int] = None) -> "PoissonSampler":
         """Create a sampler, optionally initialized with ``seed``."""

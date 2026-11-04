@@ -21,6 +21,8 @@ from dmx.stats.pdist import (
     SequenceEncodableStatisticAccumulator,
     StatisticAccumulatorFactory,
 )
+from dmx.utils._fisher_kernels import geometric_score
+from dmx.utils.fisher import FisherScoreOptions, resolve_fisher_options
 
 
 class GeometricDistribution(SequenceEncodableProbabilityDistribution):
@@ -103,6 +105,38 @@ class GeometricDistribution(SequenceEncodableProbabilityDistribution):
         rv += self.log_p
 
         return np.asarray(rv)
+
+    def seq_fisher_score(
+        self,
+        x: "GeometricEncodedDataSequence",
+        options: Optional[FisherScoreOptions] = None,
+    ) -> np.ndarray:
+        """Return the whitened score ``(p x - 1) / sqrt(1 - p)`` of each count.
+
+        Degenerate parameters are clipped with ``options.prob_floor`` so the
+        score stays finite.
+
+        Args:
+            x: Encoded sequence containing ``N`` observations.
+            options: Score options; only ``prob_floor`` is used.
+
+        Returns:
+            Array of shape ``(N, 1)``.
+
+        Raises:
+            TypeError: If ``x`` is not a GeometricEncodedDataSequence.
+        """
+        if not isinstance(x, GeometricEncodedDataSequence):
+            raise TypeError(
+                "GeometricDistribution.seq_fisher_score() requires "
+                "GeometricEncodedDataSequence."
+            )
+        floor = resolve_fisher_options(options).prob_floor
+        return geometric_score(x.data, self.p, floor)
+
+    def fisher_dim(self, options: Optional[FisherScoreOptions] = None) -> int:
+        """Return 1: the geometric has one parameter."""
+        return 1
 
     def sampler(self, seed: Optional[int] = None) -> "GeometricSampler":
         """Return a GeometricSampler for this distribution.

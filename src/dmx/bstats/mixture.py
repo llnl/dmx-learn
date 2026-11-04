@@ -30,6 +30,18 @@ from dmx.bstats.pdist import (
     StatisticAccumulatorFactory,
 )
 from dmx.bstats.symdirichlet import SymmetricDirichletDistribution
+from dmx.utils._fisher_mixture import (
+    mixture_fisher_embedding,
+    nested_mixture_dim,
+    nested_mixture_score,
+    nested_mixture_slices,
+)
+from dmx.utils.fisher import (
+    EmpiricalFisherWhitener,
+    FisherEmbedding,
+    FisherScoreOptions,
+    resolve_fisher_options,
+)
 from dmx.utils.seeding import resolve_sampler_seed
 from dmx.utils.special import digamma
 
@@ -265,6 +277,80 @@ class MixtureDistribution(ProbabilityDistribution[Any, MixtureParameters, Any]):
     def seq_posterior(self, x: Any) -> Array:
         """Return posterior responsibilities shaped ``(N, K)``."""
         return self._responsibilities(self.seq_component_log_density(x))
+
+    def seq_fisher_score(
+        self, x: Any, options: Optional[FisherScoreOptions] = None
+    ) -> Array:
+        """Return the empirically whitened plug-in score of this mixture.
+
+        Component scores use plug-in parameters. Expected scores integrated
+        over Bayesian parameter posteriors are future work.
+        """
+        return nested_mixture_score(
+            self,
+            x,
+            lambda encoded, _index: _encoded_value(encoded),
+            resolve_fisher_options(options),
+        )
+
+    def seq_fisher_embedding(
+        self,
+        x: Any,
+        scale: Optional[float] = None,
+        top_m: Optional[int] = 3,
+        options: Optional[FisherScoreOptions] = None,
+        dtype: Any = np.float32,
+        whiteners: Optional[Sequence[Optional[EmpiricalFisherWhitener]]] = None,
+    ) -> FisherEmbedding:
+        """Return the Fisher-geometry embedding of an encoded sequence.
+
+        Row ``i`` is ``[sqrt(z_i), sqrt(scale * z_ik) s_ik for k in top_m(i)]``,
+        with ``z_i`` the posteriors and ``s_ik`` the whitened score of
+        component ``k``. Zero-weight components have no score block. Each
+        component's score is computed for all rows and kept only for rows
+        where the component is among the ``top_m`` most probable. Component
+        scores use plug-in parameters.
+
+        Args:
+            x: Encoded sequence containing ``N`` observations.
+            scale: Weight ``c`` of the score blocks. None uses ``1 / p_eff``
+                with ``p_eff = mean_i sum_k z_ik dim_k`` over ``x``; 0 gives
+                only the posterior block.
+            top_m: Score blocks kept per row; None keeps all.
+            options: Score options passed to every component.
+            dtype: dtype of the CSR output matrix.
+            whiteners: Optional fitted whitener per component (None entries
+                skip it), applied to the component's score before weighting;
+                see :func:`dmx.utils.fisher.fisher_embedding`.
+
+        Returns:
+            :class:`dmx.utils.fisher.FisherEmbedding` with ``N`` rows.
+
+        Raises:
+            ValueError: If ``scale``, ``top_m`` or ``whiteners`` is invalid.
+            NotImplementedError: If a component has no score and
+                ``options.on_missing == "raise"``.
+        """
+        return mixture_fisher_embedding(
+            self,
+            x,
+            lambda encoded, _index: _encoded_value(encoded),
+            scale=scale,
+            top_m=top_m,
+            options=options,
+            dtype=dtype,
+            whiteners=whiteners,
+        )
+
+    def fisher_dim(self, options: Optional[FisherScoreOptions] = None) -> int:
+        """Return weight columns plus the component score dimensions."""
+        return nested_mixture_dim(self, resolve_fisher_options(options))
+
+    def fisher_field_slices(
+        self, options: Optional[FisherScoreOptions] = None
+    ) -> dict[str, slice]:
+        """Map mixture weights and component blocks to score columns."""
+        return nested_mixture_slices(self, resolve_fisher_options(options))
 
     def seq_encode(self, x: Iterable[Any]) -> Any:
         """Encode observations with the first homogeneous component."""

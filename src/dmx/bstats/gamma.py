@@ -23,6 +23,8 @@ from dmx.bstats.pdist import (
     StatisticAccumulator,
     StatisticAccumulatorFactory,
 )
+from dmx.utils._fisher_kernels import gamma_score
+from dmx.utils.fisher import FisherScoreOptions
 from dmx.utils.special import digamma, gammaln, trigamma
 
 # Gamma retains the legacy tuple encoder rather than exposing a dedicated
@@ -165,6 +167,26 @@ class GammaDistribution(ProbabilityDistribution[float, GammaParameters, GammaEnc
     def seq_expected_log_density(self, x: GammaEncoded) -> np.ndarray[Any, Any]:
         """Return vectorized plug-in log-densities for encoded observations."""
         return self.seq_log_density(x)
+
+    def seq_fisher_score(
+        self,
+        x: GammaEncoded,
+        options: Optional[FisherScoreOptions] = None,
+    ) -> np.ndarray[Any, np.dtype[np.float64]]:
+        """Return the plug-in whitened score of ``[x, log(x)]``.
+
+        Expected scores integrated over the parameter posterior are future
+        work.
+        """
+        del options
+        values, log_values = x
+        shape, scale = self.get_parameters()
+        return gamma_score(values, log_values, shape, scale)
+
+    def fisher_dim(self, options: Optional[FisherScoreOptions] = None) -> int:
+        """Return 2 for the plug-in gamma shape and scale scores."""
+        del options
+        return 2
 
     def seq_encode(self, x: Iterable[float]) -> GammaEncoded:
         """Encode values as arrays of values and logarithms.
