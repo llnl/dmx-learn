@@ -1,25 +1,25 @@
 Fisher-Geometry Embeddings
 ==========================
 
-:func:`dmx.utils.humap.humap` embeds records with UMAP applied to the
-posterior probabilities of a fitted mixture. Posteriors say which component a
-record belongs to but not where it sits inside that component: with a
-well-fitted model most posteriors are close to one-hot, so every record in a
-component is at distance close to zero from every other one, and the shape of
-each cluster in the embedding is arbitrary.
+:func:`dmx.utils.humap.humap` embeds records with UMAP applied, by default,
+to the posterior probabilities of a fitted mixture. Posteriors say which
+component a record belongs to but not where it sits inside that component:
+with a well-fitted model most posteriors are close to one-hot, so every record
+in a component is at distance close to zero from every other one, and the
+shape of each cluster in the embedding is arbitrary.
 
 The Fisher-geometry representation keeps that information. It compares
 records through small, record-specific perturbations of the fitted model, and
 reduces exactly to the posterior representation when the perturbation is
 switched off. It is computed per record, so it scales and distributes the
-same way posteriors do.
+same way posteriors do. Select it with ``humap(data,
+representation="fisher")``; see `Using it with humap`_.
 
 .. note::
 
-   This page documents the design and the distribution API introduced for
-   it. Per-family scores, the mixture-level embedding, and the ``humap``
-   option are added incrementally; until a distribution implements its score,
-   calling it raises :class:`NotImplementedError`. The plan is tracked in
+   Distributions without a score yet raise :class:`NotImplementedError`;
+   pass ``FisherScoreOptions(on_missing="posterior_only")`` to keep only their
+   posterior information. The plan is tracked in
    ``HUMAP_FISHER_ROADMAP.md``.
 
 The metric
@@ -70,7 +70,7 @@ coefficient for small :math:`\varepsilon` gives
    \qquad c = \varepsilon^2 / 4.
 
 The first term is the Hellinger distance between posteriors, which is what
-``humap`` uses today.
+``humap`` uses by default.
 
 **Feature map.** The embedding uses the Euclidean feature vector
 
@@ -299,6 +299,40 @@ encoded sequence and returns a :class:`dmx.utils.fisher.FisherEmbedding`:
 - ``like=embedding`` reuses an embedding's scale, ``top_m``, options and
   whiteners, so new records are placed in the same feature space, as needed
   for ``UMAP.transform``.
+
+Using it with humap
+-------------------
+
+``humap`` and ``humap_mpi`` take keyword-only options for the Fisher
+representation; the default stays ``representation="posterior"``:
+
+.. code-block:: python
+
+   from dmx.utils.humap import humap, humap_transform
+
+   coords, model, fit, features, embedding = humap(
+       records,
+       representation="fisher",   # default "posterior"
+       fisher_scale=None,         # c; None means 1 / p_eff, 0 means posteriors
+       top_m=3,                   # score blocks kept per record
+       fisher_options=None,       # FisherScoreOptions for the scores
+       umap_kwargs={"random_state": 0},
+       return_embedding=True,     # append the FisherEmbedding
+   )
+   new_coords = humap_transform(fit, model, new_records, embedding)
+
+- The default UMAP metric becomes ``"euclidean"``; a ``metric`` set in
+  ``umap_kwargs`` is kept. The CSR feature matrix is passed to UMAP directly
+  and returned as the fourth value, where posterior mode returns the
+  posteriors.
+- ``progress_callback`` receives an ``"embedding"`` event with the scale,
+  ``p_eff``, ``top_m`` and feature dimension, which are also logged at DEBUG.
+- :func:`dmx.utils.humap.humap_transform` computes the representation the fit
+  used (pass ``embedding=None`` for a posterior fit) and calls
+  ``fit.transform``.
+- ``humap_mpi`` scatters the records from rank 0, computes the features with
+  :func:`dmx.mpi4py.utils.fisher.fisher_embedding_mpi`, and fits UMAP on
+  rank 0.
 
 Distributed computation
 -----------------------
