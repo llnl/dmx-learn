@@ -475,3 +475,36 @@ def test_component_without_posterior_mass_is_not_whitened() -> None:
     assert embedding.whiteners is not None
     assert embedding.whiteners[0] is not None
     assert embedding.whiteners[1] is None
+
+
+def test_rows_do_not_depend_on_chunking_with_reused_whiteners() -> None:
+    model = _heterogeneous_mixture()
+    data = _sample(model, 50)
+    reference = fisher_embedding(model, data, whiten="full", dtype=np.float64)
+
+    chunked = fisher_embedding(model, data, like=reference, chunk_size=3)
+
+    np.testing.assert_array_equal(chunked.matrix.toarray(), reference.matrix.toarray())
+
+
+def test_high_dimensional_gaussian_scores_do_not_depend_on_chunking() -> None:
+    # A multi-right-hand-side triangular solve rounds differently by batch
+    # size at this dimension; the scores must not.
+    rng = np.random.RandomState(4)
+    dim = 64
+    factor = rng.normal(size=(dim, dim))
+    dist = stats.MultivariateGaussianDistribution(
+        rng.normal(size=dim), factor @ factor.T + dim * np.eye(dim)
+    )
+    data = list(dist.sampler(1).sample(40))
+    encoder = dist.dist_to_encoder()
+
+    reference = dist.seq_fisher_score(encoder.seq_encode(data))
+    chunked = np.vstack(
+        [
+            dist.seq_fisher_score(encoder.seq_encode(data[start : start + 7]))
+            for start in range(0, len(data), 7)
+        ]
+    )
+
+    np.testing.assert_array_equal(chunked, reference)

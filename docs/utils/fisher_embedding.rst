@@ -300,6 +300,52 @@ encoded sequence and returns a :class:`dmx.utils.fisher.FisherEmbedding`:
   whiteners, so new records are placed in the same feature space, as needed
   for ``UMAP.transform``.
 
+Distributed computation
+-----------------------
+
+Rows are computed per record, so the embedding distributes like posteriors.
+Only two quantities need records from every process, and both are reduced
+as small sums:
+
+- the default scale needs :math:`\sum_i p_i` and the record count. The sum
+  is accumulated exactly, as an integer multiple of :math:`2^{-1126}`, so it
+  is the same however the records are split, and :math:`p_{\text{eff}}` is
+  its correctly rounded mean;
+- ``whiten`` needs each component's posterior-weighted score moments, one
+  float64 vector per process.
+
+:func:`dmx.mpi4py.utils.fisher.fisher_embedding_mpi` runs on every rank with
+that rank's records, reduces each quantity with one ``allreduce``, and
+gathers the rows to ``root`` (or leaves them on each rank with
+``gather=False``):
+
+.. code-block:: python
+
+   from mpi4py import MPI
+   from dmx.mpi4py.utils.fisher import fisher_embedding_mpi
+
+   embedding = fisher_embedding_mpi(model, local_records, MPI.COMM_WORLD)
+
+:func:`dmx.utils.spark.fisher_embedding_rdd` reduces the same quantities with
+Spark jobs and returns a lazy RDD of ``(index, row)`` pairs together with a
+row-less :class:`~dmx.utils.fisher.FisherEmbedding` that holds the scale,
+slices and whiteners:
+
+.. code-block:: python
+
+   from dmx.utils.spark import fisher_embedding_rdd
+
+   rows, layout = fisher_embedding_rdd(model, records_rdd)
+
+Without ``whiten``, both reproduce the rows of
+:func:`~dmx.utils.fisher.fisher_embedding` on all records bit for bit,
+provided each component evaluates a record the same way whatever batch it is
+in. Fisher scores and whitener transforms avoid BLAS for this reason. The log
+densities of high-dimensional multivariate Gaussians use a blocked LAPACK
+solve and can differ in the last bit between batch sizes, which carries over
+to the posteriors. With ``whiten`` the moments are summed in floating point,
+so rows agree only up to summation order.
+
 API reference
 -------------
 
