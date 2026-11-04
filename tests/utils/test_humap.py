@@ -1,5 +1,9 @@
 """Test integration with UMAP."""
 
+# humap's overloads return four values unless return_embedding=True; pylint
+# only sees the five-value branch of the implementation.
+# pylint: disable=unbalanced-tuple-unpacking
+
 import os
 import pickle
 from typing import Any, Dict, List, Tuple
@@ -12,8 +16,14 @@ from umap.distances import hellinger  # type: ignore[import-untyped]
 
 from dmx import stats
 from dmx.utils import humap as humap_module
-from dmx.utils.fisher import FisherEmbedding
-from dmx.utils.humap import DEFAULT_UMAP, Representation, humap, humap_transform
+from dmx.utils.fisher import FisherEmbedding, FisherScoreOptions, fisher_embedding
+from dmx.utils.humap import (
+    DEFAULT_UMAP,
+    HUMAP_FISHER_OPTIONS,
+    Representation,
+    humap,
+    humap_transform,
+)
 from dmx.utils.progress import ProgressEvent
 
 DATA_DIR = "tests/data"
@@ -106,6 +116,7 @@ def test_fisher_mode_on_default_bstats_dpm_path() -> None:
     assert event.metrics["scale"] == embedding.scale
     assert event.metrics["p_eff"] == pytest.approx(1.0 / embedding.scale, rel=1e-5)
     assert event.metrics["top_m"] == 3
+    assert event.metrics["balance_fields"] is True
     assert event.metrics["feature_dim"] == features.shape[1]
 
 
@@ -213,3 +224,43 @@ def test_caller_metric_is_kept_and_defaults_filled(fitted: Any) -> None:
 def test_unknown_representation_raises() -> None:
     with pytest.raises(ValueError, match="representation"):
         humap(_data(), representation="raw")  # type: ignore[call-overload]
+
+
+def test_fisher_mode_balances_fields_by_default(fitted: Any) -> None:
+    data, model = fitted
+
+    _, _, _, features, embedding = humap(
+        data,
+        mix_model=model,
+        verbose=False,
+        representation="fisher",
+        return_embedding=True,
+    )
+
+    assert embedding is not None
+    assert embedding.options == HUMAP_FISHER_OPTIONS
+    assert embedding.options.balance_fields
+    expected = fisher_embedding(model, data, options=HUMAP_FISHER_OPTIONS)
+    np.testing.assert_array_equal(
+        csr_matrix(features).toarray(), expected.matrix.toarray()
+    )
+
+
+def test_explicit_options_keep_pure_fisher_weighting(fitted: Any) -> None:
+    data, model = fitted
+    pure = FisherScoreOptions()
+
+    _, _, _, features, embedding = humap(
+        data,
+        mix_model=model,
+        verbose=False,
+        representation="fisher",
+        fisher_options=pure,
+        return_embedding=True,
+    )
+
+    assert embedding is not None and not embedding.options.balance_fields
+    expected = fisher_embedding(model, data, options=pure)
+    np.testing.assert_array_equal(
+        csr_matrix(features).toarray(), expected.matrix.toarray()
+    )

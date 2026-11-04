@@ -97,8 +97,9 @@ class FisherScoreOptions:
             distribution, so longer records end up farther apart.
         balance_fields: Divide each composite field's block by the square
             root of its dimension, so fields with many parameters do not
-            dominate distances. Off by default, which keeps the pure Fisher
-            weighting.
+            dominate distances. Off by default here, which keeps the pure
+            Fisher weighting; :func:`dmx.utils.humap.humap` turns it on
+            when no options are given (see ``_benchmarks/fisher-humap.md``).
         on_missing: What a mixture does with a component whose distribution
             tree has no Fisher score. ``"raise"`` fails; ``"posterior_only"``
             keeps only that component's posterior information and warns once

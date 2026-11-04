@@ -16,8 +16,8 @@ regression checks, and a recommendation.
   the true ring position rises from 0.41–0.43 (posterior humap) to 0.61–0.68,
   and trustworthiness and continuity reach 0.975–0.984. This holds with an
   oracle model and with the DPM that `humap` fits by default.
-- **Pure Fisher weighting (the current default, F9) is not enough on
-  heterogeneous records.** A 6-level categorical field contributes up to
+- **Pure Fisher weighting (the `humap` default before this benchmark) is not
+  enough on heterogeneous records.** A 6-level categorical field contributes up to
   `1/q_a + 1/q_b ≈ 12` to a squared distance, which swamps the two Gaussian
   fields. Each ring then breaks into one blob per level. Pure Fisher improves
   local neighbourhoods with the oracle model, but it loses to posterior humap
@@ -40,9 +40,10 @@ regression checks, and a recommendation.
   the cost: 391 s and a 6.6 GB peak at 10⁶.
 
 **Recommended defaults:** `fisher_scale=None` (`1 / p_eff`) and `top_m=3` are
-confirmed. **`balance_fields=True` is recommended** for `humap` on
-heterogeneous records; the library default is unchanged pending a decision
-(roadmap F9).
+confirmed. **`balance_fields=True` is now the default** for `humap` and
+`humap_mpi` when `fisher_options` is None (roadmap F9); pass
+`FisherScoreOptions()` for pure Fisher weighting. The results below were
+produced with explicit options, so they do not depend on that default.
 
 ## Setup
 
@@ -69,8 +70,9 @@ The ground truth is each record's cluster and its angle on the ring.
 
 **Methods.**
 
-- posterior humap (the current default);
-- Fisher humap with pure Fisher weighting, at `c = 1/p_eff`, 0.02 and 1.0;
+- posterior humap (the default representation);
+- Fisher humap with pure Fisher weighting (`FisherScoreOptions()`), at
+  `c = 1/p_eff`, 0.02 and 1.0;
 - Fisher humap with `balance_fields=True`, at the same scales;
 - UMAP on standardized `x`, `y`, `count` plus a one-hot `level`.
 

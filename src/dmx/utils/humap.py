@@ -47,6 +47,23 @@ DEFAULT_UMAP = {
 
 _REPRESENTATIONS = ("posterior", "fisher")
 
+HUMAP_FISHER_OPTIONS = FisherScoreOptions(balance_fields=True)
+"""Fisher score options :func:`humap` uses when ``fisher_options`` is None.
+
+``balance_fields=True`` divides each field's score block by the square root
+of its dimension, so a many-level categorical field does not swamp numeric
+fields. It recovered within-cluster structure best in
+``_benchmarks/fisher-humap.md``. Pass ``FisherScoreOptions()`` for the pure
+Fisher weighting.
+"""
+
+
+def resolve_humap_fisher_options(
+    options: Optional[FisherScoreOptions],
+) -> FisherScoreOptions:
+    """Return ``options``, or :data:`HUMAP_FISHER_OPTIONS` when it is None."""
+    return HUMAP_FISHER_OPTIONS if options is None else options
+
 
 def umap_options(
     umap_kwargs: Optional[Dict[str, Any]], representation: Representation
@@ -94,6 +111,7 @@ def report_embedding(reporter: ProgressReporter, embedding: FisherEmbedding) -> 
         "scale": embedding.scale,
         "p_eff": p_eff,
         "top_m": embedding.top_m,
+        "balance_fields": embedding.options.balance_fields,
         "feature_dim": int(matrix.shape[1]),
         "nnz": int(matrix.nnz),
     }
@@ -193,8 +211,10 @@ def humap(
     ``[sqrt(z_i), sqrt(c z_ik) s_ik for its top_m components]``, its
     posteriors plus whitened Fisher scores under its most probable
     components, so records of one component are no longer all at distance
-    zero. The features are a sparse matrix, compared with the Euclidean
-    metric by default. ``fisher_scale=0`` gives the posterior geometry. See
+    zero. Each field's score block is divided by the square root of its
+    dimension by default (``balance_fields=True``), so no field dominates.
+    The features are a sparse matrix, compared with the Euclidean metric by
+    default. ``fisher_scale=0`` gives the posterior geometry. See
     ``docs/utils/fisher_embedding.rst`` and
     :func:`dmx.utils.fisher.fisher_embedding`.
 
@@ -228,8 +248,10 @@ def humap(
             dimension. Ignored for posteriors.
         top_m: Score blocks kept per record, for its most probable components;
             None keeps all. Ignored for posteriors.
-        fisher_options: Options for the components' Fisher scores. Ignored for
-            posteriors.
+        fisher_options: Options for the components' Fisher scores. None uses
+            :data:`HUMAP_FISHER_OPTIONS`, which sets ``balance_fields=True``;
+            pass ``FisherScoreOptions()`` for pure Fisher weighting. Ignored
+            for posteriors.
         return_embedding: Also return the
             :class:`~dmx.utils.fisher.FisherEmbedding` (None for posteriors),
             for use with :func:`humap_transform`.
@@ -277,7 +299,7 @@ def humap(
             data,
             scale=fisher_scale,
             top_m=top_m,
-            options=fisher_options,
+            options=resolve_humap_fisher_options(fisher_options),
         )
         report_embedding(reporter, embedding)
         features = embedding.matrix

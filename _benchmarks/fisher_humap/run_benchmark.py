@@ -64,10 +64,16 @@ def _environment() -> Dict[str, Any]:
 def _methods() -> Dict[str, Dict[str, Any]]:
     from dmx.utils.fisher import FisherScoreOptions
 
+    # Explicit options, so results do not depend on humap's default.
+    pure = FisherScoreOptions(balance_fields=False)
     balanced = FisherScoreOptions(balance_fields=True)
     rv: Dict[str, Dict[str, Any]] = {"posterior": {}}
     for label, scale in (("default", None), ("0.02", 0.02), ("1.0", 1.0)):
-        rv[f"fisher c={label}"] = {"representation": "fisher", "fisher_scale": scale}
+        rv[f"fisher c={label}"] = {
+            "representation": "fisher",
+            "fisher_scale": scale,
+            "fisher_options": pure,
+        }
     for label, scale in (("default", None), ("0.02", 0.02), ("1.0", 1.0)):
         rv[f"fisher balanced c={label}"] = {
             "representation": "fisher",

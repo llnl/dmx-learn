@@ -140,7 +140,7 @@ def fisher_field_slices(self, options=None) -> Dict[str, slice]: ...  # optional
 
 `FisherScoreOptions` (frozen dataclass, passed down recursively):
 `prob_floor`, `location_only` (MVN/DMVN), `sequence_scaling`
-(`"conditional"` | `"marginal"`), `balance_fields` (opt-in, see F9),
+(`"conditional"` | `"marginal"`), `balance_fields` (on by default in `humap`, see F9),
 `on_missing` (`"raise"` | `"posterior_only"`).
 
 Closed-form kernels live as pure functions of parameters in the private
@@ -191,7 +191,7 @@ same rows; only the final UMAP fit is centralised.
 | F6 | `dmx.bstats` uses plug-in (posterior mean) parameters | The default `humap` path fits a bstats DPM; expected scores under the parameter posterior are a later refinement |
 | F7 | Categorical: probability floor from `default_value` / `prob_floor`; dense `e_x/sqrt(p_x) - sqrt(p)` up to 256 levels, sparse offset-free `e_x/sqrt(p_x)` above (exact for same-component pairs) | Avoids `1/p` blow-ups for unseen or rare levels and dense blow-up for high cardinality |
 | F8 | Sequences: `sequence_scaling="conditional"` divides the summed element score by `sqrt(n)`; length information comes from the length distribution's own score block | Whitened conditional on the observed length; consistent with `Sequence(len_normalized=...)` and htsne's `vlen` |
-| F9 | Pure Fisher weighting by default; `balance_fields=True` (each field block divided by `sqrt(dim_field)`) is opt-in and benchmarked | Under the Fisher metric a field contributes in proportion to its parameter count; high-cardinality categoricals can dominate. **Benchmark outcome: recommend `balance_fields=True` for `humap`.** On heterogeneous records it beats posterior humap, pure Fisher and raw-feature UMAP on every ground-truth metric for both an oracle and a fitted DPM model; pure Fisher lets a 6-level categorical swamp the numeric fields and does not beat posteriors with a fitted DPM. The library default is unchanged pending a decision |
+| F9 | `humap` and `humap_mpi` default to `balance_fields=True` (each field block divided by `sqrt(dim_field)`) when `fisher_options` is None; `FisherScoreOptions` itself keeps `balance_fields=False`, so scores and `fisher_embedding` stay pure Fisher unless asked | Under the Fisher metric a field contributes in proportion to its parameter count, so high-cardinality categoricals can dominate. Revised after the benchmark (`_benchmarks/fisher-humap.md`): balanced fields beat posterior humap, pure Fisher and raw-feature UMAP on every ground-truth metric, for both an oracle and a fitted DPM model. Pure Fisher lets a 6-level categorical swamp the numeric fields, and with a fitted DPM it does not beat posteriors. Pass `FisherScoreOptions()` to `humap` for pure Fisher weighting |
 | F10 | Components without a score raise by default; `on_missing="posterior_only"` contributes only the `sqrt(z)` block for them, with a warning | Never silently mix geometries |
 | F11 | `representation="posterior"` stays the `humap` default in 1.x; `"fisher"` is opt-in | Additive change policy (D3 in `DMX_EXPERT_AGENT_ROADMAP.md`) |
 | F12 | Shared (keyed) parameters do not change the score definition; scores are computed per occurrence with the occurrence's parameters | Keeps the primitive local; documented in the API page |
@@ -214,7 +214,7 @@ Critical path to a usable feature: 1 → 2 → 3, 4, 5 → 7 → 11 → 12 → 1
 | Risk | Mitigation |
 |---|---|
 | Second-order distances unbounded (rare categories, heavy tails) | `prob_floor`; exact per-field BC for Categorical available in the reference metric; benchmark clipping |
-| High-cardinality fields dominate | F7 sparse form; F9 opt-in balancing; report per-field contribution via `fisher_field_slices` |
+| High-cardinality fields dominate | F7 sparse form; F9 balancing (default in `humap`); report per-field contribution via `fisher_field_slices` |
 | Model misspecification yields misleading geometry | Document; validation issue compares against raw-feature baselines |
 | Latent-variable components lack closed-form Fisher information | Empirical whitening fallback (issue 9) |
 | Memory of `phi` for large N | CSR, float32, top-`m`; optional PCA / random projection before UMAP |
