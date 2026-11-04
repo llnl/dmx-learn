@@ -46,7 +46,6 @@ from typing import Any, Dict, List, Literal, Optional, Sequence, Tuple, Union
 
 import numpy as np
 from scipy.sparse import csr_matrix
-from scipy.sparse import vstack as sparse_vstack
 
 __all__ = [
     "EmpiricalFisherWhitener",
@@ -425,7 +424,11 @@ class EmpiricalFisherWhitener:
             raise ValueError(
                 f"Expected scores with {self.matrix_.shape[0]} columns, got {x.shape}."
             )
-        return np.ascontiguousarray((x - self.mean_) @ self.matrix_)
+        # einsum (no BLAS) rounds each row the same whatever the batch size,
+        # so chunked, MPI and Spark transforms reproduce each other exactly.
+        return np.asarray(
+            np.einsum("ij,jk->ik", x - self.mean_, self.matrix_, optimize=False)
+        )
 
 
 def _dense(scores: Any) -> np.ndarray:
@@ -546,115 +549,37 @@ def fisher_embedding(
     """
     # Imported here because the helpers import this module.
     # pylint: disable-next=import-outside-toplevel,cyclic-import
-    from dmx.utils._fisher_mixture import (
-        add_score_moments,
-        check_embedding_args,
-        default_scale,
-        embedding_layout,
-        fit_component_whiteners,
-        mixture_component_data,
-    )
+    from dmx.utils import _fisher_passes as passes
 
-    if not hasattr(model, "seq_fisher_embedding"):
-        raise TypeError(
-            f"{type(model).__name__} has no seq_fisher_embedding(); use a "
-            "dmx.stats or dmx.bstats MixtureDistribution."
-        )
-    whiteners: Optional[List[Optional[EmpiricalFisherWhitener]]] = None
-    if like is not None:
-        if scale is not None or options is not None or whiten is not None:
-            raise ValueError("scale, options and whiten come from like; omit them.")
-        scale, top_m, options = like.scale, like.top_m, like.options
-        whiteners, dtype = like.whiteners, like.matrix.dtype
-    options = resolve_fisher_options(options)
-    dtype = np.float32 if dtype is None else dtype
-    check_embedding_args(scale, top_m)
-    if chunk_size is not None and (
-        isinstance(chunk_size, bool)
-        or not isinstance(chunk_size, int)
-        or chunk_size < 1
-    ):
-        raise ValueError(f"chunk_size must be a positive integer, got {chunk_size!r}.")
-    count = len(data)
-    if count == 0:
-        raise ValueError("fisher_embedding() needs at least one record.")
-    step = count if chunk_size is None else chunk_size
-    starts = range(0, count, step)
-    encoder = model.dist_to_encoder()
-
-    def encode(start: int) -> Any:
-        return encoder.seq_encode(data[start : start + step])
-
-    with warnings.catch_warnings(record=True) as caught:
-        warnings.simplefilter("always")
-        if whiten is not None:
-            template = (
-                whiten
-                if isinstance(whiten, EmpiricalFisherWhitener)
-                else EmpiricalFisherWhitener(whiten)
-            )
-            dims = embedding_layout(model, options, None).dims
-            posteriors = []
-            moments = None
-            for start in starts:
-                encoded = encode(start)
-                chunk = np.asarray(model.seq_posterior(encoded), dtype=np.float64)
-                posteriors.append(chunk)
-                moments = add_score_moments(
-                    model,
-                    mixture_component_data(encoded),
-                    chunk,
-                    dims,
-                    options,
-                    moments,
-                )
-            whiteners = fit_component_whiteners(template, moments)
-        elif scale is None and len(starts) > 1:
-            posteriors = [
-                np.asarray(model.seq_posterior(encode(start)), dtype=np.float64)
-                for start in starts
-            ]
-        else:
-            posteriors = None
-        if scale is None and posteriors is not None:
-            scale = default_scale(
-                posteriors, embedding_layout(model, options, whiteners).dims
-            )
-        pieces = [
-            model.seq_fisher_embedding(
-                encode(start),
-                scale=scale,
-                top_m=top_m,
-                options=options,
-                dtype=dtype,
-                whiteners=whiteners,
-            )
-            for start in starts
-        ]
-    for category, message in dict.fromkeys(
-        (item.category, str(item.message)) for item in caught
-    ):
-        warnings.warn(message, category, stacklevel=2)
-
-    first = pieces[0]
-    matrix = (
-        first.matrix
-        if len(pieces) == 1
-        else sparse_vstack([piece.matrix for piece in pieces], format="csr")
-    )
-    result = FisherEmbedding(
-        matrix=matrix,
-        scale=first.scale,
+    setup = passes.resolve_setup(
+        model,
+        scale=scale,
         top_m=top_m,
-        posterior_slice=first.posterior_slice,
-        component_slices=first.component_slices,
-        field_slices=first.field_slices,
         options=options,
-        whiteners=whiteners,
+        chunk_size=chunk_size,
+        whiten=whiten,
+        like=like,
+        dtype=dtype,
     )
-    if like is not None and (
-        result.matrix.shape[1] != like.matrix.shape[1]
-        or result.component_slices != like.component_slices
-    ):
-        raise ValueError("like was computed with a different model layout.")
-    return result
+    if len(data) == 0:
+        raise ValueError("fisher_embedding() needs at least one record.")
+    single_chunk = chunk_size is None or chunk_size >= len(data)
+    with passes.deduplicated_warnings():
+        whiteners = setup.whiteners
+        posteriors = None
+        if setup.template is not None:
+            vector, posteriors = passes.whitening_pass(
+                model, data, chunk_size, setup.options
+            )
+            whiteners = passes.fit_whiteners(model, setup, vector)
+        scale = setup.scale
+        if scale is None and (posteriors is not None or not single_chunk):
+            if posteriors is None:
+                posteriors = passes.posterior_pass(model, data, chunk_size)
+            dims = passes.scale_dims(model, setup.options, whiteners)
+            scale = passes.scale_from_terms(passes.scale_terms(posteriors, dims))
+        matrix, used_scale = passes.rows_pass(
+            model, data, chunk_size, scale=scale, setup=setup, whiteners=whiteners
+        )
+        assert used_scale is not None
+        return passes.make_embedding(model, matrix, used_scale, setup, whiteners, like)

@@ -209,18 +209,87 @@ def embedding_layout(
     return EmbeddingLayout(dims, component_slices, field_slices, offset)
 
 
+# Every finite float64 is an integer multiple of 2**-1126 when written as
+# mantissa (53-bit integer) times a power of two, see exact_sum.
+_EXACT_SHIFT = 1126
+_HALF_MANTISSA = 26
+
+
+def exact_sum(values: np.ndarray) -> int:
+    """Return ``sum(values) * 2**1126`` exactly, as a Python integer.
+
+    Every finite double is ``m * 2**(e - 53)`` with an integer mantissa
+    ``|m| < 2**53``, so the scaled sum is an integer. It is accumulated per
+    exponent in int64 halves of the mantissa, so the result is exact and does
+    not depend on the order or grouping of the values. Partial results from
+    chunks, MPI ranks or Spark partitions can therefore be added as integers
+    and reproduce the sum over all values bit for bit.
+
+    Args:
+        values: Finite float64 values.
+
+    Returns:
+        The scaled exact sum.
+
+    Raises:
+        ValueError: If a value is not finite.
+    """
+    values = np.asarray(values, dtype=np.float64).ravel()
+    if not np.all(np.isfinite(values)):
+        raise ValueError("exact_sum() needs finite values.")
+    fractions, exponents = np.frexp(values)
+    mantissas = np.ldexp(fractions, 53).astype(np.int64)
+    high = mantissas >> _HALF_MANTISSA
+    low = mantissas & ((1 << _HALF_MANTISSA) - 1)
+    total = 0
+    for exponent in np.unique(exponents):
+        group = exponents == exponent
+        part = (int(high[group].sum()) << _HALF_MANTISSA) + int(low[group].sum())
+        total += part << (int(exponent) - 53 + _EXACT_SHIFT)
+    return total
+
+
+ScaleTerms = Tuple[int, int]
+"""``(exact_sum of p_i, number of records)`` for the default scale."""
+
+
+def scale_terms(
+    posteriors: Sequence[np.ndarray], dims: Sequence[Optional[int]]
+) -> ScaleTerms:
+    """Return the exact sum of ``p_i = sum_k z_ik dim_k`` and the row count.
+
+    Terms of disjoint row blocks add elementwise to the terms of their union.
+    """
+    widths = np.asarray([dim or 0 for dim in dims], dtype=np.float64)
+    total, count = 0, 0
+    for block in posteriors:
+        total += exact_sum((block * widths).sum(axis=1))
+        count += int(block.shape[0])
+    return total, count
+
+
+def scale_from_terms(terms: ScaleTerms) -> float:
+    """Return ``1 / p_eff`` from reduced scale terms, or 0 if ``p_eff`` is 0.
+
+    ``p_eff`` is the correctly rounded mean, so it is the same however the
+    terms were split before being added.
+    """
+    total, count = terms
+    if count <= 0 or total <= 0:
+        return 0.0
+    return 1.0 / (total / (count << _EXACT_SHIFT))
+
+
 def default_scale(
     posteriors: Sequence[np.ndarray], dims: Sequence[Optional[int]]
 ) -> float:
     """Return ``1 / p_eff`` with ``p_eff = mean_i sum_k z_ik dim_k``.
 
-    ``posteriors`` is a list of row blocks; the result does not depend on how
-    the rows are split. Returns 0 when no record has a score block.
+    ``posteriors`` is a list of row blocks. The mean is computed exactly, so
+    the result does not depend on how the rows are split, including across
+    processes. Returns 0 when no record has a score block.
     """
-    widths = np.asarray([dim or 0 for dim in dims], dtype=np.float64)
-    per_row = np.concatenate([(block * widths).sum(axis=1) for block in posteriors])
-    effective = float(per_row.mean()) if per_row.size else 0.0
-    return 1.0 / effective if effective > 0.0 else 0.0
+    return scale_from_terms(scale_terms(posteriors, dims))
 
 
 def top_components(posteriors: np.ndarray, top_m: Optional[int]) -> np.ndarray:

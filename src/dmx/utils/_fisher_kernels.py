@@ -305,7 +305,7 @@ def mvn_score(
         ``(N, d + d (d + 1) / 2)``.
     """
     centered = np.asarray(x, dtype=np.float64) - np.asarray(mu, dtype=np.float64)
-    u = solve_triangular(chol_lower, centered.T, lower=True).T
+    u = whiten_rows(centered, chol_lower)
     dim = u.shape[1]
     if location_only:
         return as_score_array(u, dim)
@@ -364,8 +364,22 @@ def dirichlet_score(log_x: Any, alpha: Any) -> np.ndarray:
     covariance = np.diag(trigamma(alpha)) - trigamma(alpha_0)
     chol_lower = np.linalg.cholesky(covariance)
     centered = np.asarray(log_x, dtype=np.float64) - mean
-    u = solve_triangular(chol_lower, centered.T, lower=True).T
+    u = whiten_rows(centered, chol_lower)
     return as_score_array(u, len(alpha))
+
+
+def whiten_rows(centered: np.ndarray, chol_lower: np.ndarray) -> np.ndarray:
+    """Return ``L^{-1} c`` for each row ``c`` of ``centered``.
+
+    Multiplies by the precomputed inverse with :func:`numpy.einsum` rather
+    than a multi-right-hand-side triangular solve, whose LAPACK blocking makes
+    a row's rounding depend on how many rows are solved together. Each row is
+    then the same however records are chunked or split across processes.
+    """
+    inverse = solve_triangular(
+        chol_lower, np.eye(chol_lower.shape[0]), lower=True, check_finite=False
+    )
+    return np.asarray(np.einsum("ij,kj->ik", centered, inverse, optimize=False))
 
 
 # --- Combinator helpers ------------------------------------------------------
