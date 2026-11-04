@@ -10,9 +10,10 @@ Heterogeneous t-SNE
 Heterogeneous UMAP
 ------------------
 
-``humap`` currently embeds mixture posteriors. :doc:`fisher_embedding`
-describes the Fisher-geometry representation being added alongside it, which
-also keeps each record's position inside its component.
+``humap`` embeds mixture posteriors by default. With
+``representation="fisher"`` it embeds the Fisher-geometry features described
+in :doc:`fisher_embedding`, which also keep each record's position inside its
+component.
 
 .. automodule:: dmx.utils.humap
    :members:
